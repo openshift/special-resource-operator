@@ -1,9 +1,12 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: nvidia-driver-daemonset
   namespace: openshift-sro-operator
 spec:
+  selector:
+    matchLabels:
+      name: nvidia-driver-ds
   template:
     metadata:
       # Mark this pod as a critical add-on; when enabled, the critical add-on scheduler
@@ -25,11 +28,11 @@ spec:
       serviceAccount: nvidia-driver
       hostPID: true
       containers:
-      - image: quay.io/zvonkok/nvidia-driver
+      - image: quay.io/zvonkok/nvidia-driver:v410.79
+        imagePullPolicy: Always
         name: nvidia-driver-ctr
-        command: ["/bin/bash", "-c", "sleep infinity"]
-        #command: ["nvidia-driver"]
-        #args: ["init"]
+        command: ["nvidia-driver"]
+        args: ["init"]
         securityContext:
           privileged: true
           seLinuxOptions:
@@ -56,5 +59,4 @@ spec:
               - key: oci-nvidia-hook-json
                 path: oci-nvidia-hook.json
       nodeSelector:
-        node.alpha.kubernetes-incubator.io/nfd-pci-0300_10de.present: "true" 
-
+        feature.node.kubernetes.io/pci-0300_10de.present: "true"
