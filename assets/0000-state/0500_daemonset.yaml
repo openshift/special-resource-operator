@@ -23,6 +23,7 @@ spec:
         operator: Exists
         effect: NoSchedule
       serviceAccount: nvidia-driver
+      hostPID: true
       containers:
       - image: quay.io/zvonkok/nvidia-driver
         name: nvidia-driver-ctr
