@@ -20,34 +20,29 @@ func FilePathWalkDir(root string) ([]string, error) {
     return files, err
 }
 
-type StageDriverManifest struct {
+type StageDriverManifests struct {
 	serviceAccount []byte
 	role           []byte
-        rolebinding    []byte
+        roleBinding    []byte
         configMap      []byte
         daemonSet      []byte 
 }
-type StageDevicePluginManifest struct {
+type StageDevicePluginManifests struct {
 	serviceAccount []byte
 	role           []byte
-        rolebinding    []byte
+        roleBinding    []byte
         daemonSet      []byte
 }
-type StageMonitoringManifest struct {
+type StageMonitoringManifests struct {
 	serviceAccount []byte
 }
 
+var stageDriverManifests       StageDriverManifests
+var stageDevicePluginManifests StageDevicePluginManifests
+var stageMonitoringManifests   StageMonitoringManifests
 
-
-var nfdserviceaccount            []byte
-var nfdclusterrole               []byte
-var nfdclusterrolebinding        []byte
-var nfdsecuritycontextconstraint []byte
-var nfdconfigmap                 []byte
-var nfddaemonset                 []byte
-
-func GenerateManifests() {
-	assets := "/opt/lib/cluster-nfd-operator/assets/node-feature-discovery"
+func GetAssetsFromPath(path string) []assetsFromFile {
+	assets := path
 	files, err := FilePathWalkDir(assets)
 	if err != nil {
 		panic(err)
@@ -60,12 +55,28 @@ func GenerateManifests() {
 		}
 		manifests = append(manifests, buffer)
 	}
-	
-	nfdserviceaccount            = manifests[0]
-	nfdclusterrole               = manifests[1]
-	nfdclusterrolebinding        = manifests[2]
-	nfdsecuritycontextconstraint = manifests[3]
-	nfdconfigmap                 = manifests[4]
-	nfddaemonset                 = manifests[5]
+	return manifests
+}
+
+func GenerateStageDriverManifests() {
+	manifests := GetAssetsFromPath("/opt/special-resource-operator/assets/stage-driver")
+	stageDriverManifests.serviceAccount = manifests[0]
+	stageDriverManifests.role           = manifests[1]
+	stageDriverManifests.roleBinding    = manifests[2]
+	stageDriverManifests.configMap      = manifests[3]
+	stageDriverManifests.daemonSet      = manifests[4]
+}
+
+func GenerateStageDevicePluginManifests() {
+	manifests := GetAssetsFromPath("/opt/special-resource-operator/assets/stage-device-plugin")
+	stageDriverManifests.serviceAccount = manifests[0]
+	stageDriverManifests.role           = manifests[1]
+	stageDriverManifests.roleBinding    = manifests[2]
+	stageDriverManifests.daemonSet      = manifests[3]
+}
+
+func GenerateStageMonitoringManifests() {
+	manifests := GetAssetsFromPath("/opt/special-resource-operator/assets/stage-monitoring")
+	stageDriverManifests.serviceAccount = manifests[0]
 }
 

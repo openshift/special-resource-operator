@@ -24,29 +24,62 @@ import (
 )
 
 
-type StageDriverDecode struct {
+type StageDriverDecoded struct {
 	serviceAccount corev1.ServiceAccount
 	role           rbacv1.Role
-	rolebinding    rbacv1.RoleBinding
+	roleBinding    rbacv1.RoleBinding
 	configMap      corev1.ConfigMap
 	daemonSet      kappsv1.DaemonSet
 }
 
-type StageDevicePluginDecode struct {
+type StageDevicePluginDecoded struct {
 	serviceAccount corev1.ServiceAccount
 	role           rbacv1.Role
-	rolebinding    rbacv1.RoleBinding
+	roleBinding    rbacv1.RoleBinding
 	daemonSet      kappsv1.DaemonSet
 }
 
-type StageMonitoringDecode struct {
+type StageMonitoringDecoded struct {
 	serviceAccount corev1.ServiceAccount
 }
 
-var stageDriverDecode       StageDriverDecode
-var stageDeivcePluginDecode StageDevicePluginDecode
-var stageMonitoringDecode   StageMonitoringDecode
+var stageDriverDecoded       StageDriverDecoded
+var stageDevicePluginDecoded StageDevicePluginDecoded
+var stageMonitoringDecoded   StageMonitoringDecoded
 
+func DecodeStageDriver() {
+
+	s := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme,
+                scheme.Scheme)
+	_, _, err := s.Decode(stageDriverManifests.serviceAccount, nil, &stageDriverDecoded.serviceAccount)                      
+	if err != nil { panic(err) }
+	_, _, err  = s.Decode(stageDriverManifests.role, nil, &stageDriverDecoded.role) 
+	if err != nil { panic(err) }
+ 	_, _, err  = s.Decode(stageDriverManifests.roleBinding, nil, &stageDriverDecoded.roleBinding)
+	if err != nil { panic(err) }
+	_, _, err  = s.Decode(stageDriverManifests.configMap, nil, &stageDriverDecoded.configMap)
+	if err != nil { panic(err) }
+	_, _, err  = s.Decode(stageDriverManifests.daemonSet, nil, &stageDriverDecoded.daemonSet)
+	if err != nil { panic(err) }
+
+}
+
+func DecodeStageDevicePlugin() {
+	s := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme,
+                scheme.Scheme)
+	_, _, err := s.Decode(stageDevicePluginManifests.serviceAccount, nil, &stageDevicePluginDecoded.serviceAccount)                      
+	if err != nil { panic(err) }
+	_, _, err  = s.Decode(stageDevicePluginManifests.role, nil, &stageDevicePluginDecoded.role) 
+	if err != nil { panic(err) }
+ 	_, _, err  = s.Decode(stageDevicePluginManifests.roleBinding, nil, &stageDevicePluginDecoded.roleBinding)
+	if err != nil { panic(err) }
+	_, _, err  = s.Decode(stageDevicePluginManifests.daemonSet, nil, &stageDevicePluginDecoded.daemonSet)
+	if err != nil { panic(err) }
+}
+
+func DecodeStageMonitoring() {
+	return
+}
 
 func init() {
 	// The Kubernetes Go client (nested within the OpenShift Go client)
@@ -66,27 +99,11 @@ func init() {
         templatev1.AddToScheme(scheme.Scheme)
         userv1.AddToScheme(scheme.Scheme)
 
-	GenerateManifests()
+	GenerateStageDriverManifests()
+	GenerateStageDevicePluginManifests()
+	GenerateStageMonitoringManifests()
 
-	s := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme,
-                scheme.Scheme)
-
-	_, _, err := s.Decode(nfdserviceaccount, nil, &nfdServiceAccount)
-	if err != nil { panic(err) }
-
-	_, _, err = s.Decode(nfdclusterrole, nil, &nfdClusterRole)
-	if err != nil { panic(err) }
-
- 	_, _, err = s.Decode(nfdclusterrolebinding, nil, &nfdClusterRoleBinding)
-	if err != nil { panic(err) }
-
-	_, _, err = s.Decode(nfdsecuritycontextconstraint, nil, &nfdSecurityContextConstraint)
-	if err != nil { panic(err) }
-
-	_, _, err = s.Decode(nfdconfigmap, nil, &nfdConfigMap)
-	if err != nil { panic(err) }
-	
-	_, _, err = s.Decode(nfddaemonset, nil, &nfdDaemonSet)
-	if err != nil { panic(err) }
-
+	DecodeStageDriver()
+	DecodeStageDevicePlugin()
+	DecodeStageMonitoring()
 }

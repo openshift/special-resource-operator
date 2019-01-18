@@ -99,12 +99,12 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-       for _, sro := range sroControl {
-                err = sro(r, ins)
-                if err != nil {
-                        return reconcile.Result{}, err
-                 }
-        }
+       // for _, sro := range sroControl {
+       //          err = sro(r, ins)
+       //          if err != nil {
+       //                  return reconcile.Result{}, err
+       //           }
+       //  }
 
 	return reconcile.Result{}, nil
 }
