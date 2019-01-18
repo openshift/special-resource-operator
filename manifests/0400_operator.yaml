@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: special-resource-operator
+  namespace: openshift-sro-operator
 spec:
   replicas: 1
   selector:
@@ -15,8 +16,7 @@ spec:
       serviceAccountName: special-resource-operator
       containers:
         - name: special-resource-operator
-          # Replace this with the built image name
-          image: REPLACE_IMAGE
+          image: quay.io/zvonkok/special-resource-operator
           ports:
           - containerPort: 60000
             name: metrics
