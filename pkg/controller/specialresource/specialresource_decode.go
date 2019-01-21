@@ -1,7 +1,7 @@
 package specialresource
 
 import (
-	"log"
+	"fmt"
 	kappsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -24,7 +24,7 @@ import (
 )
 
 
-type StageDriverDecoded struct {
+type StateDriverDecoded struct {
 	serviceAccount corev1.ServiceAccount
 	role           rbacv1.Role
 	roleBinding    rbacv1.RoleBinding
@@ -32,52 +32,51 @@ type StageDriverDecoded struct {
 	daemonSet      kappsv1.DaemonSet
 }
 
-type StageDevicePluginDecoded struct {
+type StateDevicePluginDecoded struct {
 	serviceAccount corev1.ServiceAccount
 	role           rbacv1.Role
 	roleBinding    rbacv1.RoleBinding
 	daemonSet      kappsv1.DaemonSet
 }
 
-type StageMonitoringDecoded struct {
+type StateMonitoringDecoded struct {
 	serviceAccount corev1.ServiceAccount
 }
 
-var stageDriverDecoded       StageDriverDecoded
-var stageDevicePluginDecoded StageDevicePluginDecoded
-var stageMonitoringDecoded   StageMonitoringDecoded
+var stateDriverDecoded       StateDriverDecoded
+var stateDevicePluginDecoded StateDevicePluginDecoded
+var stateMonitoringDecoded   StateMonitoringDecoded
 
-func DecodeStageDriver() {
+func DecodeStateDriver() {
 
 	s := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme,
                 scheme.Scheme)
-	_, _, err := s.Decode(stageDriverManifests.serviceAccount, nil, &stageDriverDecoded.serviceAccount)                      
+	_, _, err := s.Decode(stateDriverManifests.serviceAccount, nil, &stateDriverDecoded.serviceAccount)                      
 	if err != nil { panic(err) }
-	_, _, err  = s.Decode(stageDriverManifests.role, nil, &stageDriverDecoded.role) 
+	_, _, err  = s.Decode(stateDriverManifests.role, nil, &stateDriverDecoded.role) 
 	if err != nil { panic(err) }
- 	_, _, err  = s.Decode(stageDriverManifests.roleBinding, nil, &stageDriverDecoded.roleBinding)
+ 	_, _, err  = s.Decode(stateDriverManifests.roleBinding, nil, &stateDriverDecoded.roleBinding)
 	if err != nil { panic(err) }
-	_, _, err  = s.Decode(stageDriverManifests.configMap, nil, &stageDriverDecoded.configMap)
+	_, _, err  = s.Decode(stateDriverManifests.configMap, nil, &stateDriverDecoded.configMap)
 	if err != nil { panic(err) }
-	_, _, err  = s.Decode(stageDriverManifests.daemonSet, nil, &stageDriverDecoded.daemonSet)
+	_, _, err  = s.Decode(stateDriverManifests.daemonSet, nil, &stateDriverDecoded.daemonSet)
 	if err != nil { panic(err) }
-
 }
 
-func DecodeStageDevicePlugin() {
+func DecodeStateDevicePlugin() {
 	s := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme,
                 scheme.Scheme)
-	_, _, err := s.Decode(stageDevicePluginManifests.serviceAccount, nil, &stageDevicePluginDecoded.serviceAccount)                      
+	_, _, err := s.Decode(stateDevicePluginManifests.serviceAccount, nil, &stateDevicePluginDecoded.serviceAccount)                      
 	if err != nil { panic(err) }
-	_, _, err  = s.Decode(stageDevicePluginManifests.role, nil, &stageDevicePluginDecoded.role) 
+	_, _, err  = s.Decode(stateDevicePluginManifests.role, nil, &stateDevicePluginDecoded.role) 
 	if err != nil { panic(err) }
- 	_, _, err  = s.Decode(stageDevicePluginManifests.roleBinding, nil, &stageDevicePluginDecoded.roleBinding)
+ 	_, _, err  = s.Decode(stateDevicePluginManifests.roleBinding, nil, &stateDevicePluginDecoded.roleBinding)
 	if err != nil { panic(err) }
-	_, _, err  = s.Decode(stageDevicePluginManifests.daemonSet, nil, &stageDevicePluginDecoded.daemonSet)
+	_, _, err  = s.Decode(stateDevicePluginManifests.daemonSet, nil, &stateDevicePluginDecoded.daemonSet)
 	if err != nil { panic(err) }
 }
 
-func DecodeStageMonitoring() {
+func DecodeStateMonitoring() {
 	return
 }
 
@@ -99,11 +98,11 @@ func init() {
         templatev1.AddToScheme(scheme.Scheme)
         userv1.AddToScheme(scheme.Scheme)
 
-	GenerateStageDriverManifests()
-	GenerateStageDevicePluginManifests()
-	GenerateStageMonitoringManifests()
+	GenerateStateDriverManifests()
+	GenerateStateDevicePluginManifests()
+	GenerateStateMonitoringManifests()
 
-	DecodeStageDriver()
-	DecodeStageDevicePlugin()
-	DecodeStageMonitoring()
+	DecodeStateDriver()
+	DecodeStateDevicePlugin()
+	DecodeStateMonitoring()
 }

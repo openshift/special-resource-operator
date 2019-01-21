@@ -7,7 +7,7 @@ import (
 )
 
 type assetsFromFile []byte
-var manifests []assetsFromFile
+//var manifests []assetsFromFile
 
 func FilePathWalkDir(root string) ([]string, error) {
     var files []string
@@ -20,34 +20,35 @@ func FilePathWalkDir(root string) ([]string, error) {
     return files, err
 }
 
-type StageDriverManifests struct {
+type StateDriverManifests struct {
 	serviceAccount []byte
 	role           []byte
         roleBinding    []byte
         configMap      []byte
         daemonSet      []byte 
 }
-type StageDevicePluginManifests struct {
+type StateDevicePluginManifests struct {
 	serviceAccount []byte
 	role           []byte
         roleBinding    []byte
         daemonSet      []byte
 }
-type StageMonitoringManifests struct {
+type StateMonitoringManifests struct {
 	serviceAccount []byte
 }
 
-var stageDriverManifests       StageDriverManifests
-var stageDevicePluginManifests StageDevicePluginManifests
-var stageMonitoringManifests   StageMonitoringManifests
+var stateDriverManifests       StateDriverManifests
+var stateDevicePluginManifests StateDevicePluginManifests
+var stateMonitoringManifests   StateMonitoringManifests
 
 func GetAssetsFromPath(path string) []assetsFromFile {
+
+	manifests := []assetsFromFile{}
 	assets := path
 	files, err := FilePathWalkDir(assets)
 	if err != nil {
 		panic(err)
 	}
-
 	for _, file := range files {
 		buffer, err := ioutil.ReadFile(file)
 		if err != nil {
@@ -58,25 +59,25 @@ func GetAssetsFromPath(path string) []assetsFromFile {
 	return manifests
 }
 
-func GenerateStageDriverManifests() {
-	manifests := GetAssetsFromPath("/opt/special-resource-operator/assets/stage-driver")
-	stageDriverManifests.serviceAccount = manifests[0]
-	stageDriverManifests.role           = manifests[1]
-	stageDriverManifests.roleBinding    = manifests[2]
-	stageDriverManifests.configMap      = manifests[3]
-	stageDriverManifests.daemonSet      = manifests[4]
+func GenerateStateDriverManifests() {
+	manifests := GetAssetsFromPath("/opt/special-resource-operator/assets/state-driver")
+	stateDriverManifests.serviceAccount = manifests[0]
+	stateDriverManifests.role           = manifests[1]
+	stateDriverManifests.roleBinding    = manifests[2]
+	stateDriverManifests.configMap      = manifests[3]
+	stateDriverManifests.daemonSet      = manifests[4]
 }
 
-func GenerateStageDevicePluginManifests() {
-	manifests := GetAssetsFromPath("/opt/special-resource-operator/assets/stage-device-plugin")
-	stageDriverManifests.serviceAccount = manifests[0]
-	stageDriverManifests.role           = manifests[1]
-	stageDriverManifests.roleBinding    = manifests[2]
-	stageDriverManifests.daemonSet      = manifests[3]
+func GenerateStateDevicePluginManifests() {
+	manifests := GetAssetsFromPath("/opt/special-resource-operator/assets/state-device-plugin")
+	stateDevicePluginManifests.serviceAccount = manifests[0]
+	stateDevicePluginManifests.role           = manifests[1]
+	stateDevicePluginManifests.roleBinding    = manifests[2]
+	stateDevicePluginManifests.daemonSet      = manifests[3]
 }
 
-func GenerateStageMonitoringManifests() {
-	manifests := GetAssetsFromPath("/opt/special-resource-operator/assets/stage-monitoring")
-	stageDriverManifests.serviceAccount = manifests[0]
+func GenerateStateMonitoringManifests() {
+	manifests := GetAssetsFromPath("/opt/special-resource-operator/assets/state-monitoring")
+	stateMonitoringManifests.serviceAccount = manifests[0]
 }
 

@@ -6,12 +6,12 @@ import (
 	srov1alpha1 "github.com/zvonkok/special-resource-operator/pkg/apis/sro/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+//	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+//	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+//	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -99,12 +99,24 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-       // for _, sro := range sroControl {
-       //          err = sro(r, ins)
-       //          if err != nil {
-       //                  return reconcile.Result{}, err
-       //           }
-       //  }
+	// First state is driver deploy, after that check if the driver 
+        // is working and go to next state to deploy the DevicePlugin
+	err = stateControl(stateDriverControlFunc, r, instance) 
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// TODO: check if previous state is working correctly
+
+	// Second state is deviceplugin deploy, after that check if 
+	// the DevicePlugin works and deploy monitoring
+	err = stateControl(stateDevicePluginControlFunc, r, instance) 
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+
+
 
 	return reconcile.Result{}, nil
 }

@@ -6,8 +6,8 @@ RUN make build
 FROM registry.svc.ci.openshift.org/openshift/origin-v4.0:base
 COPY --from=builder /go/src/github.com/zvonkok/special-resource-operator/special-resource-operator /usr/bin/
 
-RUN mkdir -p /opt/lib/special-resource-operator/assets
-COPY assets /opt/lib/special-resource-operator/assets
+RUN mkdir -p /opt/special-resource-operator/assets
+COPY assets  /opt/special-resource-operator/assets
 
 RUN useradd special-resource-operator
 USER special-resource-operator
