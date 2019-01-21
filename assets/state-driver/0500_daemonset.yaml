@@ -60,3 +60,4 @@ spec:
                 path: oci-nvidia-hook.json
       nodeSelector:
         feature.node.kubernetes.io/pci-0300_10de.present: "true"
+#        feature.node.kubernetes.io/kernel-version.full: "##KERNEL_REPLACE##"
