@@ -2,12 +2,10 @@ kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: special-resource-operator
-  namespace: openshift-sro-operator
 subjects:
 - kind: ServiceAccount
   name: special-resource-operator
-  # Replace this with the namespace the operator is deployed in.
-  namespace: REPLACE_NAMESPACE
+  namespace: openshift-sro-operator
 roleRef:
   kind: ClusterRole
   name: special-resource-operator

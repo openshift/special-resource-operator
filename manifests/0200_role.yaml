@@ -3,8 +3,14 @@ kind: ClusterRole
 metadata:
   creationTimestamp: null
   name: special-resource-operator
-  namespace: openshift-sro-operator
 rules:
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  - rolebindings
+  verbs:
+  - '*'
 - apiGroups:
   - ""
   resources:
@@ -15,6 +21,7 @@ rules:
   - events
   - configmaps
   - secrets
+  - serviceaccounts
   verbs:
   - '*'
 - apiGroups:
