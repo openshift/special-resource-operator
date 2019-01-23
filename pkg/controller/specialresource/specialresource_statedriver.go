@@ -235,10 +235,7 @@ var kernelFullVersion string
 func stateDriverKernelVersionCtrl(r *ReconcileSpecialResource,
 	ins *srov1alpha1.SpecialResource) error {
 
-	name := "Node"
-	namespace := "Namespace"
-
-	logger := log.WithValues("Request.Namespace", namespace, "Request.Name", name)
+	logger := log.WithValues("Request.Namespace", "default", "Request.Name", "Node")
 	// We need the node labels to fetch the correct container
 	opts := &client.ListOptions{}
 	opts.SetLabelSelector("feature.node.kubernetes.io/pci-0300_10de.present=true")
@@ -254,7 +251,7 @@ func stateDriverKernelVersionCtrl(r *ReconcileSpecialResource,
 	var ok bool
 	kernelFullVersion, ok = labels["feature.node.kubernetes.io/kernel-version.full"]
 	if ok {
-		logger.Info("Using kernel-full-version: ", kernelFullVersion)
+		logger.Info(kernelFullVersion)
 	} else {
 		logger.Info("Couldn't get kernelVersion")
 		err := errors.NewNotFound(schema.GroupResource{Group: "Node", Resource: "Label"},

@@ -105,6 +105,12 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
+	// Validate that the driver works
+	err = stateControl(stateDriverValidationFunc, r, instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Second state is deviceplugin deploy, after that check if
 	// the DevicePlugin works and deploy monitoring
 	err = stateControl(stateDevicePluginControlFunc, r, instance)
