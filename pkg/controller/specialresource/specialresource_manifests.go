@@ -1,45 +1,53 @@
 package specialresource
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
-	"io/ioutil"
 )
 
 type assetsFromFile []byte
+
 //var manifests []assetsFromFile
 
 func FilePathWalkDir(root string) ([]string, error) {
-    var files []string
-    err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-        if !info.IsDir() {
-            files = append(files, path)
-        }
-        return nil
-    })
-    return files, err
+	var files []string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if !info.IsDir() {
+			files = append(files, path)
+		}
+		return nil
+	})
+	return files, err
 }
 
 type StateDriverManifests struct {
 	serviceAccount []byte
 	role           []byte
-        roleBinding    []byte
-        configMap      []byte
-        daemonSet      []byte 
+	roleBinding    []byte
+	configMap      []byte
+	daemonSet      []byte
 }
 type StateDevicePluginManifests struct {
 	serviceAccount []byte
 	role           []byte
-        roleBinding    []byte
-        daemonSet      []byte
+	roleBinding    []byte
+	daemonSet      []byte
 }
 type StateMonitoringManifests struct {
 	serviceAccount []byte
 }
 
-var stateDriverManifests       StateDriverManifests
+type StateDriverValidationManifests struct {
+	pod []byte
+}
+
+var stateDriverManifests StateDriverManifests
+var stateDriverValidationManifests StateDriverValidationManifests
+
 var stateDevicePluginManifests StateDevicePluginManifests
-var stateMonitoringManifests   StateMonitoringManifests
+
+var stateMonitoringManifests StateMonitoringManifests
 
 func GetAssetsFromPath(path string) []assetsFromFile {
 
@@ -62,18 +70,18 @@ func GetAssetsFromPath(path string) []assetsFromFile {
 func GenerateStateDriverManifests() {
 	manifests := GetAssetsFromPath("/opt/special-resource-operator/assets/state-driver")
 	stateDriverManifests.serviceAccount = manifests[0]
-	stateDriverManifests.role           = manifests[1]
-	stateDriverManifests.roleBinding    = manifests[2]
-	stateDriverManifests.configMap      = manifests[3]
-	stateDriverManifests.daemonSet      = manifests[4]
+	stateDriverManifests.role = manifests[1]
+	stateDriverManifests.roleBinding = manifests[2]
+	stateDriverManifests.configMap = manifests[3]
+	stateDriverManifests.daemonSet = manifests[4]
 }
 
 func GenerateStateDevicePluginManifests() {
 	manifests := GetAssetsFromPath("/opt/special-resource-operator/assets/state-device-plugin")
 	stateDevicePluginManifests.serviceAccount = manifests[0]
-	stateDevicePluginManifests.role           = manifests[1]
-	stateDevicePluginManifests.roleBinding    = manifests[2]
-	stateDevicePluginManifests.daemonSet      = manifests[3]
+	stateDevicePluginManifests.role = manifests[1]
+	stateDevicePluginManifests.roleBinding = manifests[2]
+	stateDevicePluginManifests.daemonSet = manifests[3]
 }
 
 func GenerateStateMonitoringManifests() {
@@ -81,3 +89,8 @@ func GenerateStateMonitoringManifests() {
 	stateMonitoringManifests.serviceAccount = manifests[0]
 }
 
+func GenerateStateDriverValidationManifests() {
+	manifests := GetAssetsFromPath("/opt/special-resource-operator/assets/state-driver-validation")
+	stateDriverValidationManifests.pod = manifests[0]
+
+}

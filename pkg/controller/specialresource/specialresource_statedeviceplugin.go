@@ -9,11 +9,11 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-var stateDevicePluginControlFunc       []controlFunc
+var stateDevicePluginControlFunc []controlFunc
 
 func CreateStateDevicePluginControl() {
 	stateDevicePluginControlFunc = append(stateDevicePluginControlFunc, stateDevicePluginCtrlReference)
@@ -27,7 +27,6 @@ func init() {
 	CreateStateDevicePluginControl()
 }
 
-
 func stateDevicePluginCtrlReference(r *ReconcileSpecialResource,
 	ins *srov1alpha1.SpecialResource) error {
 
@@ -38,36 +37,34 @@ func stateDevicePluginCtrlReference(r *ReconcileSpecialResource,
 	}
 	err = controllerutil.SetControllerReference(ins, &stateDevicePluginDecoded.role, r.scheme)
 	if err != nil {
-	 	log.Info("Couldn't set owner references for Role:", err)
-	 	return err
+		log.Info("Couldn't set owner references for Role:", err)
+		return err
 	}
 	err = controllerutil.SetControllerReference(ins, &stateDevicePluginDecoded.roleBinding, r.scheme)
 	if err != nil {
-	 	log.Info("Couldn't set owner references for RoleBinding:", err)
-	 	return err
+		log.Info("Couldn't set owner references for RoleBinding:", err)
+		return err
 	}
 	err = controllerutil.SetControllerReference(ins, &stateDevicePluginDecoded.daemonSet, r.scheme)
 	if err != nil {
-	 	log.Info("Couldn't set owner references for DaemonSet:", err)
-	 	return err
+		log.Info("Couldn't set owner references for DaemonSet:", err)
+		return err
 	}
-	
+
 	return nil
 }
-
-
 
 func stateDevicePluginServiceAccountCtrl(r *ReconcileSpecialResource,
 	ins *srov1alpha1.SpecialResource) error {
 
 	obj := &stateDevicePluginDecoded.serviceAccount
 	found := &corev1.ServiceAccount{}
-	logger := log.WithValues("Request.Namespace", obj.Namespace, "Request.Name", obj.Name)	
-	
+	logger := log.WithValues("Request.Namespace", obj.Namespace, "Request.Name", obj.Name)
+
 	logger.Info("Looking for ServiceAccount")
 	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name}, found)
 	if err != nil && errors.IsNotFound(err) {
-		logger.Info("Not found, creating ServiceAccount") 
+		logger.Info("Not found, creating ServiceAccount")
 		err = r.client.Create(context.TODO(), obj)
 		if err != nil {
 			logger.Info("Couldn't create ServiceAccount")
@@ -77,9 +74,9 @@ func stateDevicePluginServiceAccountCtrl(r *ReconcileSpecialResource,
 	} else if err != nil {
 		return err
 	}
-  
+
 	logger.Info("Found ServiceAccount")
-		
+
 	return nil
 }
 
@@ -88,8 +85,8 @@ func stateDevicePluginRoleCtrl(r *ReconcileSpecialResource,
 
 	obj := &stateDevicePluginDecoded.role
 	found := &rbacv1.Role{}
-	logger := log.WithValues("Request.Namespace", obj.Namespace, "Request.Name", obj.Name)	
-	
+	logger := log.WithValues("Request.Namespace", obj.Namespace, "Request.Name", obj.Name)
+
 	logger.Info("Looking for Role")
 	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name}, found)
 	if err != nil && errors.IsNotFound(err) {
@@ -106,7 +103,7 @@ func stateDevicePluginRoleCtrl(r *ReconcileSpecialResource,
 	}
 
 	logger.Info("Found Role")
-	
+
 	return nil
 }
 
@@ -115,8 +112,8 @@ func stateDevicePluginRoleBindingCtrl(r *ReconcileSpecialResource,
 
 	obj := &stateDevicePluginDecoded.roleBinding
 	found := &rbacv1.RoleBinding{}
-	logger := log.WithValues("Request.Namespace", obj.Namespace, "Request.Name", obj.Name)	
-	
+	logger := log.WithValues("Request.Namespace", obj.Namespace, "Request.Name", obj.Name)
+
 	logger.Info("Looking for RoleBinding")
 	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name}, found)
 	if err != nil && errors.IsNotFound(err) {
@@ -133,7 +130,7 @@ func stateDevicePluginRoleBindingCtrl(r *ReconcileSpecialResource,
 	}
 
 	logger.Info("Found RoleBinding")
-	
+
 	return nil
 }
 
@@ -142,10 +139,9 @@ func stateDevicePluginDaemonSetCtrl(r *ReconcileSpecialResource,
 
 	obj := &stateDevicePluginDecoded.daemonSet
 	found := &appsv1.DaemonSet{}
-	logger := log.WithValues("Request.Namespace", obj.Namespace, "Request.Name", obj.Name)	
+	logger := log.WithValues("Request.Namespace", obj.Namespace, "Request.Name", obj.Name)
 
 	logger.Info("Looking for DaemonSet")
-	logger.Info(string(stateDevicePluginManifests.daemonSet))
 
 	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name}, found)
 	if err != nil && errors.IsNotFound(err) {

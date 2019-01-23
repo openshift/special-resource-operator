@@ -4,14 +4,13 @@ import (
 	"context"
 
 	srov1alpha1 "github.com/zvonkok/special-resource-operator/pkg/apis/sro/v1alpha1"
-	corev1 "k8s.io/api/core/v1"
+	kappsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-//	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/runtime"
-//	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-//	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -53,7 +52,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner SpecialResource
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+	err = c.Watch(&source.Kind{Type: &kappsv1.DaemonSet{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &srov1alpha1.SpecialResource{},
 	})
@@ -99,24 +98,19 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	// First state is driver deploy, after that check if the driver 
-        // is working and go to next state to deploy the DevicePlugin
-	err = stateControl(stateDriverControlFunc, r, instance) 
+	// First state is driver deploy, after that check if the driver
+	// is working and go to next state to deploy the DevicePlugin
+	err = stateControl(stateDriverControlFunc, r, instance)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// TODO: check if previous state is working correctly
-
-	// Second state is deviceplugin deploy, after that check if 
+	// Second state is deviceplugin deploy, after that check if
 	// the DevicePlugin works and deploy monitoring
-	err = stateControl(stateDevicePluginControlFunc, r, instance) 
+	err = stateControl(stateDevicePluginControlFunc, r, instance)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
-
-
 
 	return reconcile.Result{}, nil
 }
