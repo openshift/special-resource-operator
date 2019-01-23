@@ -5,6 +5,14 @@ metadata:
   name: special-resource-operator
 rules:
 - apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - '*'
+  resourceNames:
+  - privileged
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - roles
