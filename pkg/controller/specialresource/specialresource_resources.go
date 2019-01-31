@@ -88,7 +88,6 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 			_, _, err := s.Decode(m, nil, &res.RoleBinding)
 			panicIfError(err)
 			ctrl = append(ctrl, RoleBinding)
-
 		case "ClusterRole":
 			_, _, err := s.Decode(m, nil, &res.ClusterRole)
 			panicIfError(err)
