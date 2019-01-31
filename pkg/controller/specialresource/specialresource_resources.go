@@ -45,8 +45,7 @@ func filePathWalkDir(root string) ([]string, error) {
 func getAssetsFrom(path string) []assetsFromFile {
 
 	manifests := []assetsFromFile{}
-	assets := path
-	files, err := filePathWalkDir(assets)
+	files, err := filePathWalkDir(path)
 	if err != nil {
 		panic(err)
 	}
@@ -61,6 +60,7 @@ func getAssetsFrom(path string) []assetsFromFile {
 }
 
 func addResourcesControls(path string) (Resources, controlFunc) {
+
 	res := Resources{}
 	ctrl := controlFunc{}
 
