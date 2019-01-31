@@ -65,6 +65,33 @@ func ClusterRole(n SRO) error {
 	return nil
 }
 
+func Role(n SRO) error {
+
+	state := n.idx
+	obj := &n.resources[state].Role
+
+	found := &rbacv1.Role{}
+	logger := log.WithValues("Role", obj.Namespace, "Namespace", obj.Name)
+
+	logger.Info("Looking for")
+	err := n.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: "", Name: obj.Name}, found)
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Not found, creating")
+		err = n.rec.client.Create(context.TODO(), obj)
+		if err != nil {
+			logger.Info("Couldn't create")
+			return err
+		}
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	logger.Info("Found")
+
+	return nil
+}
+
 func ClusterRoleBinding(n SRO) error {
 
 	state := n.idx
@@ -72,6 +99,33 @@ func ClusterRoleBinding(n SRO) error {
 
 	found := &rbacv1.ClusterRoleBinding{}
 	logger := log.WithValues("ClusterRoleBinding", obj.Namespace, "Namespace", obj.Name)
+
+	logger.Info("Looking for")
+	err := n.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: "", Name: obj.Name}, found)
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Not found, creating")
+		err = n.rec.client.Create(context.TODO(), obj)
+		if err != nil {
+			logger.Info("Couldn't create")
+			return err
+		}
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	logger.Info("Found")
+
+	return nil
+}
+
+func RoleBinding(n SRO) error {
+
+	state := n.idx
+	obj := &n.resources[state].RoleBinding
+
+	found := &rbacv1.RoleBinding{}
+	logger := log.WithValues("RoleBinding", obj.Namespace, "Namespace", obj.Name)
 
 	logger.Info("Looking for")
 	err := n.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: "", Name: obj.Name}, found)

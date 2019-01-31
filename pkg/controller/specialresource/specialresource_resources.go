@@ -80,6 +80,15 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 			_, _, err := s.Decode(m, nil, &res.ServiceAccount)
 			panicIfError(err)
 			ctrl = append(ctrl, ServiceAccount)
+		case "Role":
+			_, _, err := s.Decode(m, nil, &res.Role)
+			panicIfError(err)
+			ctrl = append(ctrl, Role)
+		case "RoleBinding":
+			_, _, err := s.Decode(m, nil, &res.RoleBinding)
+			panicIfError(err)
+			ctrl = append(ctrl, RoleBinding)
+
 		case "ClusterRole":
 			_, _, err := s.Decode(m, nil, &res.ClusterRole)
 			panicIfError(err)
