@@ -7,7 +7,7 @@ FROM registry.svc.ci.openshift.org/openshift/origin-v4.0:base
 COPY --from=builder /go/src/github.com/zvonkok/special-resource-operator/special-resource-operator /usr/bin/
 
 RUN mkdir -p /opt/sro
-COPY assets/* /opt/sro/.
+COPY assets/ /opt/sro
 
 RUN useradd special-resource-operator
 USER special-resource-operator
