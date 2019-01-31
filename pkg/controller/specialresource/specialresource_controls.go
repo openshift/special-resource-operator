@@ -186,7 +186,8 @@ func kernelFullVersion(n SRO) string {
 	if err != nil {
 		logger.Info("Could not get NodeList", err)
 	}
-
+	// Assuming all nodes are running the same kernel version,
+	// One could easily add driver-kernel-versions for each node.
 	node := nodelist.Items[0]
 	labels := node.GetLabels()
 
@@ -270,13 +271,24 @@ func Service(n SRO) error {
 	return nil
 }
 
+func postProcessPod(obj *corev1.Pod, n SRO) {
+}
+
+func preProcessPod(obj *corev1.Pod, n SRO) {
+	if obj.Name == "nvidia-driver-validation" {
+
+	}
+}
+
 func Pod(n SRO) error {
 
 	state := n.idx
 	obj := &n.resources[state].Pod
 
+	preProcessPod(obj, n)
+
 	found := &corev1.Pod{}
-	logger := log.WithValues("DaemonSet", obj.Name, "Namespace", obj.Namespace)
+	logger := log.WithValues("Pod", obj.Name, "Namespace", obj.Namespace)
 
 	logger.Info("Looking for")
 	err := n.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name}, found)
@@ -293,6 +305,8 @@ func Pod(n SRO) error {
 	}
 
 	logger.Info("Found")
+
+	postProcessPod(obj, n)
 
 	return nil
 }
