@@ -19,6 +19,8 @@ type SRO struct {
 
 func addState(n *SRO, path string) error {
 
+	// TODO check for path
+
 	res, ctrl := addResourcesControls(path)
 
 	n.controls = append(n.controls, ctrl)

@@ -108,8 +108,13 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 			_, _, err := s.Decode(m, nil, &res.Service)
 			panicIfError(err)
 			ctrl = append(ctrl, Service)
+		case "Pod":
+			_, _, err := s.Decode(m, nil, &res.Pod)
+			panicIfError(err)
+			ctrl = append(ctrl, Pod)
+
 		default:
-			log.Info("Unknown Resource: ", kind)
+			log.Info("Unknown Resource", "Manifest", m, "Kind", kind)
 		}
 
 	}

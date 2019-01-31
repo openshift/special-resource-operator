@@ -269,3 +269,30 @@ func Service(n SRO) error {
 
 	return nil
 }
+
+func Pod(n SRO) error {
+
+	state := n.idx
+	obj := &n.resources[state].Pod
+
+	found := &corev1.Pod{}
+	logger := log.WithValues("DaemonSet", obj.Name, "Namespace", obj.Namespace)
+
+	logger.Info("Looking for")
+	err := n.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name}, found)
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Not found, creating")
+		err = n.rec.client.Create(context.TODO(), obj)
+		if err != nil {
+			logger.Info("Couldn't create")
+			return err
+		}
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	logger.Info("Found")
+
+	return nil
+}
