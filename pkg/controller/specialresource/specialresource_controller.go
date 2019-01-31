@@ -64,6 +64,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 }
 
 var _ reconcile.Reconciler = &ReconcileSpecialResource{}
+var sro SRO
 
 // ReconcileSpecialResource reconciles a SpecialResource object
 type ReconcileSpecialResource struct {
@@ -98,24 +99,16 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	// First state is driver deploy, after that check if the driver
-	// is working and go to next state to deploy the DevicePlugin
-	err = stateControl(stateDriverControlFunc, r, instance)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+	sro.init(r, instance)
 
-	// Validate that the driver works
-	err = stateControl(stateDriverValidationFunc, r, instance)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Second state is deviceplugin deploy, after that check if
-	// the DevicePlugin works and deploy monitoring
-	err = stateControl(stateDevicePluginControlFunc, r, instance)
-	if err != nil {
-		return reconcile.Result{}, err
+	for {
+		err = sro.step()
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if sro.last() {
+			break
+		}
 	}
 
 	return reconcile.Result{}, nil
