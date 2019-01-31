@@ -34,6 +34,7 @@ func (n *SRO) init(r *ReconcileSpecialResource,
 	n.idx = 0
 
 	addState(n, "/opt/sro/state-driver")
+	addState(n, "/opt/sro/state-driver-validation ")
 	addState(n, "/opt/sro/state-device-plugin")
 
 	return nil

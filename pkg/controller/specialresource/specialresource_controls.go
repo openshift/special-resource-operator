@@ -77,7 +77,7 @@ func Role(n SRO) error {
 	logger := log.WithValues("Role", obj.Name, "Namespace", obj.Namespace)
 
 	logger.Info("Looking for")
-	err := n.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: "", Name: obj.Name}, found)
+	err := n.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name}, found)
 	if err != nil && errors.IsNotFound(err) {
 		logger.Info("Not found, creating")
 		err = n.rec.client.Create(context.TODO(), obj)
@@ -131,7 +131,7 @@ func RoleBinding(n SRO) error {
 	logger := log.WithValues("RoleBinding", obj.Name, "Namespace", obj.Namespace)
 
 	logger.Info("Looking for")
-	err := n.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: "", Name: obj.Name}, found)
+	err := n.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name}, found)
 	if err != nil && errors.IsNotFound(err) {
 		logger.Info("Not found, creating")
 		err = n.rec.client.Create(context.TODO(), obj)
