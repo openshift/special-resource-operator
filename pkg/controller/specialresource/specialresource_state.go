@@ -1,6 +1,10 @@
 package specialresource
 
-import srov1alpha1 "github.com/zvonkok/special-resource-operator/pkg/apis/sro/v1alpha1"
+import (
+	"errors"
+
+	srov1alpha1 "github.com/zvonkok/special-resource-operator/pkg/apis/sro/v1alpha1"
+)
 
 type state interface {
 	init(*ReconcileSpecialResource, *srov1alpha1.SpecialResource)
@@ -46,9 +50,13 @@ func (n *SRO) step() error {
 
 	for _, fs := range n.controls[n.idx] {
 
-		err := fs(*n)
+		stat, err := fs(*n)
 		if err != nil {
 			return err
+		}
+		if stat != Ready {
+			log.Info("SRO", "ResourceStatus", stat)
+			return errors.New("ResourceNotReady")
 		}
 	}
 
