@@ -265,6 +265,7 @@ func isDaemonSetReady(d *appsv1.DaemonSet, n SRO) ResourceStatus {
 
 	opts := &client.ListOptions{}
 	opts.SetLabelSelector(fmt.Sprintf("app=%s", d.Name))
+	log.Info("#### DaemonSet", "LabelSelector", fmt.Sprintf("app=%s", d.Name))
 	list := &appsv1.DaemonSetList{}
 	err := n.rec.client.List(context.TODO(), opts, list)
 	if err != nil {
