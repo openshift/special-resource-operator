@@ -271,6 +271,10 @@ func isDaemonSetReady(d *appsv1.DaemonSet, n SRO) ResourceStatus {
 		log.Info("Could not get DaemonSetList", err)
 	}
 	log.Info("#### DaemonSet", "NumberOfDaemonSets", len(list.Items))
+	if len(list.Items) == 0 {
+		return NotReady
+	}
+
 	ds := list.Items[0]
 	log.Info("#### DaemonSet", "NumberUnavailable", ds.Status.NumberUnavailable)
 
