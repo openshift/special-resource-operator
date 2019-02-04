@@ -265,25 +265,25 @@ func isDaemonSetReady(name string, n SRO) ResourceStatus {
 
 	opts := &client.ListOptions{}
 	opts.SetLabelSelector(fmt.Sprintf("app=%s", name))
-	log.Info("#### DaemonSet", "LabelSelector", fmt.Sprintf("app=%s", name))
+	log.Info("DEBUG: DaemonSet", "LabelSelector", fmt.Sprintf("app=%s", name))
 	list := &appsv1.DaemonSetList{}
 	err := n.rec.client.List(context.TODO(), opts, list)
 	if err != nil {
 		log.Info("Could not get DaemonSetList", err)
 	}
-	log.Info("#### DaemonSet", "NumberOfDaemonSets", len(list.Items))
+	log.Info("DEBUG: DaemonSet", "NumberOfDaemonSets", len(list.Items))
 	if len(list.Items) == 0 {
 		return NotReady
 	}
 
 	ds := list.Items[0]
-	log.Info("#### DaemonSet", "NumberUnavailable", ds.Status.NumberUnavailable)
+	log.Info("DEBUG: DaemonSet", "NumberUnavailable", ds.Status.NumberUnavailable)
 
 	if ds.Status.NumberUnavailable != 0 {
 		return NotReady
 	}
 
-	return isPodReady(name, n)
+	return isPodReady(name, n, "Running")
 }
 
 func DaemonSet(n SRO) (ResourceStatus, error) {
@@ -323,26 +323,27 @@ func DaemonSet(n SRO) (ResourceStatus, error) {
 // the correct working of the DaemonSets (driver and dp). Therefore
 // the operator waits until the Pod completes and checks the error status
 // to advance to the next state.
-func isPodReady(name string, n SRO) ResourceStatus {
+func isPodReady(name string, n SRO, phase corev1.PodPhase) ResourceStatus {
 	opts := &client.ListOptions{}
 	opts.SetLabelSelector(fmt.Sprintf("app=%s", name))
-	log.Info("#### Pod", "LabelSelector", fmt.Sprintf("app=%s", name))
+	log.Info("DEBUG: Pod", "LabelSelector", fmt.Sprintf("app=%s", name))
 	list := &corev1.PodList{}
 	err := n.rec.client.List(context.TODO(), opts, list)
 	if err != nil {
 		log.Info("Could not get PodList", err)
 	}
-	log.Info("#### Pod", "NumberOfPods", len(list.Items))
+	log.Info("DEBUG: Pod", "NumberOfPods", len(list.Items))
 	if len(list.Items) == 0 {
 		return NotReady
 	}
 
 	pd := list.Items[0]
-	log.Info("#### Pod", "Phase", pd.Status.Phase)
 
-	if pd.Status.Phase != "Succeeded" {
+	if pd.Status.Phase != phase {
+		log.Info("DEBUG: Pod", "Phase", pd.Status.Phase, "!=", phase)
 		return NotReady
 	}
+	log.Info("DEBUG: Pod", "Phase", pd.Status.Phase, "==", phase)
 	return Ready
 }
 
@@ -367,14 +368,14 @@ func Pod(n SRO) (ResourceStatus, error) {
 			logger.Info("Couldn't create")
 			return NotReady, err
 		}
-		return isPodReady(obj.Name, n), nil
+		return isPodReady(obj.Name, n, "Succeeded"), nil
 	} else if err != nil {
 		return NotReady, err
 	}
 
 	logger.Info("Found")
 
-	return isPodReady(obj.Name, n), nil
+	return isPodReady(obj.Name, n, "Succeeded"), nil
 }
 
 func Service(n SRO) (ResourceStatus, error) {
