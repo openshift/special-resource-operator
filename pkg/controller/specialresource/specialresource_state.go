@@ -1,8 +1,6 @@
 package specialresource
 
 import (
-	"errors"
-
 	srov1alpha1 "github.com/zvonkok/special-resource-operator/pkg/apis/sro/v1alpha1"
 )
 
@@ -56,7 +54,7 @@ func (n *SRO) step() error {
 		}
 		if stat != Ready {
 			log.Info("SRO", "ResourceStatus", stat)
-			return errors.New("ResourceNotReady")
+			return nil
 		}
 	}
 
