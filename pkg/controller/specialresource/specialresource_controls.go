@@ -261,11 +261,11 @@ func preProcessDaemonSet(obj *appsv1.DaemonSet, n SRO) {
 	}
 }
 
-func isDaemonSetReady(d *appsv1.DaemonSet, n SRO) ResourceStatus {
+func isDaemonSetReady(name string, n SRO) ResourceStatus {
 
 	opts := &client.ListOptions{}
-	opts.SetLabelSelector(fmt.Sprintf("app=%s", d.Name))
-	log.Info("#### DaemonSet", "LabelSelector", fmt.Sprintf("app=%s", d.Name))
+	opts.SetLabelSelector(fmt.Sprintf("app=%s", name))
+	log.Info("#### DaemonSet", "LabelSelector", fmt.Sprintf("app=%s", name))
 	list := &appsv1.DaemonSetList{}
 	err := n.rec.client.List(context.TODO(), opts, list)
 	if err != nil {
@@ -282,6 +282,9 @@ func isDaemonSetReady(d *appsv1.DaemonSet, n SRO) ResourceStatus {
 	if ds.Status.NumberUnavailable != 0 {
 		return NotReady
 	}
+
+	isPodReady(name, n)
+
 	return Ready
 }
 
@@ -308,24 +311,24 @@ func DaemonSet(n SRO) (ResourceStatus, error) {
 			logger.Info("Couldn't create")
 			return NotReady, err
 		}
-		return isDaemonSetReady(obj, n), nil
+		return isDaemonSetReady(obj.Name, n), nil
 	} else if err != nil {
 		return NotReady, err
 	}
 
 	logger.Info("Found")
 
-	return isDaemonSetReady(obj, n), nil
+	return isDaemonSetReady(obj.Name, n), nil
 }
 
 // The operator starts two pods in different stages to validate
 // the correct working of the DaemonSets (driver and dp). Therefore
 // the operator waits until the Pod completes and checks the error status
 // to advance to the next state.
-func isPodReady(d *corev1.Pod, n SRO) ResourceStatus {
+func isPodReady(name string, n SRO) ResourceStatus {
 	opts := &client.ListOptions{}
-	opts.SetLabelSelector(fmt.Sprintf("app=%s", d.Name))
-	log.Info("#### Pod", "LabelSelector", fmt.Sprintf("app=%s", d.Name))
+	opts.SetLabelSelector(fmt.Sprintf("app=%s", name))
+	log.Info("#### Pod", "LabelSelector", fmt.Sprintf("app=%s", name))
 	list := &corev1.PodList{}
 	err := n.rec.client.List(context.TODO(), opts, list)
 	if err != nil {
@@ -366,14 +369,14 @@ func Pod(n SRO) (ResourceStatus, error) {
 			logger.Info("Couldn't create")
 			return NotReady, err
 		}
-		return isPodReady(obj, n), nil
+		return isPodReady(obj.Name, n), nil
 	} else if err != nil {
 		return NotReady, err
 	}
 
 	logger.Info("Found")
 
-	return isPodReady(obj, n), nil
+	return isPodReady(obj.Name, n), nil
 }
 
 func Service(n SRO) (ResourceStatus, error) {
