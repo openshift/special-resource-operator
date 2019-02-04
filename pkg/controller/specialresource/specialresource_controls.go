@@ -331,7 +331,7 @@ func isPodReady(d *corev1.Pod, n SRO) ResourceStatus {
 	if err != nil {
 		log.Info("Could not get PodList", err)
 	}
-	log.Info("#### DaemonSet", "NumberOfPods", len(list.Items))
+	log.Info("#### Pod", "NumberOfPods", len(list.Items))
 	if len(list.Items) == 0 {
 		return NotReady
 	}
