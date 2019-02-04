@@ -318,6 +318,33 @@ func DaemonSet(n SRO) (ResourceStatus, error) {
 	return isDaemonSetReady(obj, n), nil
 }
 
+// The operator starts two pods in different stages to validate
+// the correct working of the DaemonSets (driver and dp). Therefore
+// the operator waits until the Pod completes and checks the error status
+// to advance to the next state.
+func isPodReady(d *corev1.Pod, n SRO) ResourceStatus {
+	opts := &client.ListOptions{}
+	opts.SetLabelSelector(fmt.Sprintf("app=%s", d.Name))
+	log.Info("#### Pod", "LabelSelector", fmt.Sprintf("app=%s", d.Name))
+	list := &corev1.PodList{}
+	err := n.rec.client.List(context.TODO(), opts, list)
+	if err != nil {
+		log.Info("Could not get PodList", err)
+	}
+	log.Info("#### DaemonSet", "NumberOfPods", len(list.Items))
+	if len(list.Items) == 0 {
+		return NotReady
+	}
+
+	pd := list.Items[0]
+	log.Info("#### Pod", "Phase", pd.Status.Phase)
+
+	// if ds.Status.NumberUnavailable != 0 {
+	// 	return NotReady
+	// }
+	return Ready
+}
+
 func Pod(n SRO) (ResourceStatus, error) {
 
 	state := n.idx
@@ -346,7 +373,7 @@ func Pod(n SRO) (ResourceStatus, error) {
 
 	logger.Info("Found")
 
-	return Ready, nil
+	return isPodReady(obj, n), nil
 }
 
 func Service(n SRO) (ResourceStatus, error) {
