@@ -339,9 +339,9 @@ func isPodReady(d *corev1.Pod, n SRO) ResourceStatus {
 	pd := list.Items[0]
 	log.Info("#### Pod", "Phase", pd.Status.Phase)
 
-	// if ds.Status.NumberUnavailable != 0 {
-	// 	return NotReady
-	// }
+	if pd.Status.Phase != "Succeeded" {
+		return NotReady
+	}
 	return Ready
 }
 
