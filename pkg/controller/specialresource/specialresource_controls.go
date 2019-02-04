@@ -366,7 +366,7 @@ func Pod(n SRO) (ResourceStatus, error) {
 			logger.Info("Couldn't create")
 			return NotReady, err
 		}
-		return Ready, nil
+		return isPodReady(obj, n), nil
 	} else if err != nil {
 		return NotReady, err
 	}
