@@ -283,9 +283,7 @@ func isDaemonSetReady(name string, n SRO) ResourceStatus {
 		return NotReady
 	}
 
-	isPodReady(name, n)
-
-	return Ready
+	return isPodReady(name, n)
 }
 
 func DaemonSet(n SRO) (ResourceStatus, error) {
