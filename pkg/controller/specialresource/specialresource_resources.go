@@ -78,6 +78,8 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 		slce := strings.Split(kind, ":")
 		kind = strings.TrimSpace(slce[1])
 
+		log.Info("DEBUG: Looking for ", "Kind", kind)
+
 		switch kind {
 		case "ServiceAccount":
 			_, _, err := s.Decode(m, nil, &res.ServiceAccount)

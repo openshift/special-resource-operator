@@ -409,6 +409,7 @@ func Service(n SRO) (ResourceStatus, error) {
 
 	return Ready, nil
 }
+
 func ServiceMonitor(n SRO) (ResourceStatus, error) {
 
 	state := n.idx
