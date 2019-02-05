@@ -3,6 +3,7 @@ package specialresource
 import (
 	"errors"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	srov1alpha1 "github.com/zvonkok/special-resource-operator/pkg/apis/sro/v1alpha1"
 )
 
@@ -38,6 +39,8 @@ func (n *SRO) init(r *ReconcileSpecialResource,
 	n.rec = r
 	n.ins = i
 	n.idx = 0
+
+	promv1.AddToScheme(r.scheme)
 
 	addState(n, "/opt/sro/state-driver")
 	addState(n, "/opt/sro/state-driver-validation")
