@@ -1,0 +1,17 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  namespace: openshift-monitoring
+  name: nvidia-dcgm-exporter
+  labels:
+    team: frontend
+spec:
+  endpoints:
+  - port: dcgm
+#  namespaceSelector:
+#    matchNames:
+#    - openshift-sro-operator
+  selector:
+    matchLabels:
+      app: nvidia-dcgm-exporter
+
