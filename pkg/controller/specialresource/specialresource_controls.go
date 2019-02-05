@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -384,6 +385,36 @@ func Service(n SRO) (ResourceStatus, error) {
 	obj := &n.resources[state].Service
 
 	found := &corev1.Service{}
+	logger := log.WithValues("Service", obj.Name, "Namespace", obj.Namespace)
+
+	if err := controllerutil.SetControllerReference(n.ins, obj, n.rec.scheme); err != nil {
+		return NotReady, err
+	}
+
+	logger.Info("Looking for")
+	err := n.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name}, found)
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Not found, creating")
+		err = n.rec.client.Create(context.TODO(), obj)
+		if err != nil {
+			logger.Info("Couldn't create")
+			return NotReady, err
+		}
+		return Ready, nil
+	} else if err != nil {
+		return NotReady, err
+	}
+
+	logger.Info("Found")
+
+	return Ready, nil
+}
+func ServiceMonitor(n SRO) (ResourceStatus, error) {
+
+	state := n.idx
+	obj := &n.resources[state].ServiceMonitor
+
+	found := &promv1.ServiceMonitor{}
 	logger := log.WithValues("Service", obj.Name, "Namespace", obj.Namespace)
 
 	if err := controllerutil.SetControllerReference(n.ins, obj, n.rec.scheme); err != nil {

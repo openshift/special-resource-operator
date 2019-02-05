@@ -11,6 +11,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes/scheme"
 )
@@ -29,6 +31,7 @@ type Resources struct {
 	DaemonSet          appsv1.DaemonSet
 	Pod                corev1.Pod
 	Service            corev1.Service
+	ServiceMonitor     promv1.ServiceMonitor
 }
 
 func filePathWalkDir(root string) ([]string, error) {
@@ -112,6 +115,10 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 			_, _, err := s.Decode(m, nil, &res.Pod)
 			panicIfError(err)
 			ctrl = append(ctrl, Pod)
+		case "ServiceMonitor":
+			_, _, err := s.Decode(m, nil, &res.ServiceMonitor)
+			panicIfError(err)
+			ctrl = append(ctrl, ServiceMonitor)
 
 		default:
 			log.Info("Unknown Resource", "Manifest", m, "Kind", kind)
