@@ -416,7 +416,7 @@ func ServiceMonitor(n SRO) (ResourceStatus, error) {
 	obj := &n.resources[state].ServiceMonitor
 
 	found := &promv1.ServiceMonitor{}
-	logger := log.WithValues("Service", obj.Name, "Namespace", obj.Namespace)
+	logger := log.WithValues("ServiceMonitor", obj.Name, "Namespace", obj.Namespace)
 
 	if err := controllerutil.SetControllerReference(n.ins, obj, n.rec.scheme); err != nil {
 		return NotReady, err
