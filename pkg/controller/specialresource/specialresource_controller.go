@@ -101,6 +101,7 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 	}
 
 	log.Info("SpecialResource", "SchedulingType", res.Spec.Scheduling)
+	log.Info("SpecialResource", "PriorityClass", res.Spec.PriorityClassItems[0].Value)
 
 	sro.init(r, res)
 
