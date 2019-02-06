@@ -21,6 +21,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/scheduling/v1beta1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -92,6 +93,13 @@ func (in *SpecialResourceSpec) DeepCopyInto(out *SpecialResourceSpec) {
 	if in.PriorityClassItems != nil {
 		in, out := &in.PriorityClassItems, &out.PriorityClassItems
 		*out = make([]v1beta1.PriorityClass, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.Taints != nil {
+		in, out := &in.Taints, &out.Taints
+		*out = make([]v1.Taint, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

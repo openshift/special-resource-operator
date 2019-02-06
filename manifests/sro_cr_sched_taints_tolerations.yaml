@@ -5,4 +5,7 @@ metadata:
   namespace: openshift-sro-operator
 spec:
   schedulingType: "TaintsTolerations"
-  taint: 
+  taints: 
+  - key: nvidia.com/gpu
+    value: NA
+    effect: NoSchedule
