@@ -40,8 +40,8 @@ func ServiceAccount(n SRO) (ResourceStatus, error) {
 
 	state := n.idx
 	obj := &n.resources[state].ServiceAccount
-
 	found := &corev1.ServiceAccount{}
+
 	logger := log.WithValues("ServiceAccount", obj.Name, "Namespace", obj.Namespace)
 
 	if err := controllerutil.SetControllerReference(n.ins, obj, n.rec.scheme); err != nil {

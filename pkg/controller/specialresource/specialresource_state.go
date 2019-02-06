@@ -59,7 +59,6 @@ func (n *SRO) step() error {
 			return err
 		}
 		if stat != Ready {
-			log.Info("SRO", "ResourceStatus", stat)
 			return errors.New("ResourceNotReady")
 		}
 	}

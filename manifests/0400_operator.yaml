@@ -40,3 +40,10 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "special-resource-operator"
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      tolerations:
+        - key: "node-role.kubernetes.io/master"
+          operator: "Equal"
+          value: ""
+          effect: "NoSchedule"

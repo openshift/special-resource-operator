@@ -2,6 +2,7 @@ package specialresource
 
 import (
 	"context"
+	"time"
 
 	srov1alpha1 "github.com/zvonkok/special-resource-operator/pkg/apis/sro/v1alpha1"
 	kappsv1 "k8s.io/api/apps/v1"
@@ -103,6 +104,10 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 
 	for {
 		err = sro.step()
+		if err.Error() == "ResourceNotReady" {
+			log.Info("SRO", "ResourceStatus", err.Error())
+			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
+		}
 		if err != nil {
 			return reconcile.Result{}, err
 		}

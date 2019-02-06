@@ -4,5 +4,4 @@ metadata:
   name: gpu
   namespace: openshift-sro-operator
 spec:
-  # Add fields here
-  size: 1 
+  schedulingType: "None"
