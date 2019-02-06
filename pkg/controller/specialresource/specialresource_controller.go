@@ -83,12 +83,12 @@ type ReconcileSpecialResource struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling SpecialResource")
+	logger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	logger.Info("Reconciling SpecialResource")
 
 	// Fetch the SpecialResource instance
-	instance := &srov1alpha1.SpecialResource{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	res := &srov1alpha1.SpecialResource{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, res)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -100,14 +100,14 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	log.Info("SRO", "SchedulingType", instance.Spec.Scheduling)
+	log.Info("SpecialResource", "SchedulingType", res.Spec.Scheduling)
 
-	sro.init(r, instance)
+	sro.init(r, res)
 
 	for {
-		err = sro.step()
-		if err.Error() == "ResourceNotReady" {
-			log.Info("SRO", "ResourceStatus", err.Error())
+		stat, err := sro.step()
+		if stat == "NotReady" {
+			log.Info("SpecialResource", "ResourceStatus", stat)
 			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 		}
 		if err != nil {

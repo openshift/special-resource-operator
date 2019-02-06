@@ -1,8 +1,6 @@
 package specialresource
 
 import (
-	"errors"
-
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	srov1alpha1 "github.com/zvonkok/special-resource-operator/pkg/apis/sro/v1alpha1"
 )
@@ -50,22 +48,22 @@ func (n *SRO) init(r *ReconcileSpecialResource,
 	return nil
 }
 
-func (n *SRO) step() error {
+func (n *SRO) step() (ResourceStatus, error) {
 
 	for _, fs := range n.controls[n.idx] {
 
 		stat, err := fs(*n)
 		if err != nil {
-			return err
+			return stat, err
 		}
 		if stat != Ready {
-			return errors.New("ResourceNotReady")
+			return stat, nil
 		}
 	}
 
 	n.idx = n.idx + 1
 
-	return nil
+	return Ready, nil
 }
 
 func (n SRO) validate() {

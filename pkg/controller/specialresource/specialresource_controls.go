@@ -18,23 +18,12 @@ import (
 
 type controlFunc []func(n SRO) (ResourceStatus, error)
 
-type ResourceStatus int
+type ResourceStatus string
 
 const (
-	Ready    ResourceStatus = 0
-	NotReady ResourceStatus = 1
+	Ready    ResourceStatus = "Ready"
+	NotReady ResourceStatus = "NotReady"
 )
-
-func (s ResourceStatus) String() string {
-	names := [...]string{
-		"Ready",
-		"NotReady"}
-
-	if s < Ready || s > NotReady {
-		return "Unkown Resources Status"
-	}
-	return names[s]
-}
 
 func ServiceAccount(n SRO) (ResourceStatus, error) {
 

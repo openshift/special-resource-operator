@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	schedv1 "k8s.io/api/scheduling/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -15,7 +16,8 @@ const (
 // SpecialResourceSpec defines the desired state of SpecialResource
 type SpecialResourceSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	Scheduling SchedulingType `json:"schedulingType"`
+	Scheduling         SchedulingType          `json:"schedulingType"`
+	PriorityClassItems []schedv1.PriorityClass `json:"priorityClasses" protobuf:"bytes,2,rep,name=priorityClasses"`
 }
 
 // SpecialResourceStatus defines the observed state of SpecialResource
