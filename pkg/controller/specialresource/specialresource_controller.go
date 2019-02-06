@@ -100,6 +100,8 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
+	log.Info("SRO", "SchedulingType", instance.Spec.Scheduling)
+
 	sro.init(r, instance)
 
 	for {
