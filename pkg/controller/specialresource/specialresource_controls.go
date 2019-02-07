@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	cmp "github.com/google/go-cmp/cmp"
-
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -481,7 +479,7 @@ func Taint(n SRO) (ResourceStatus, error) {
 	}
 
 	for _, node := range list.Items {
-		if getTaint(n, obj, node) {
+		if gotTaint(n, obj, node) {
 			logger.Info("Found")
 			return Ready, nil
 		}
@@ -495,20 +493,19 @@ func Taint(n SRO) (ResourceStatus, error) {
 	return Ready, nil
 }
 
-func getTaint(s SRO, t *corev1.Taint, n corev1.Node) bool {
-	for _, taint := range n.Spec.Taints {
-		if cmp.Equal(t, taint) {
+func gotTaint(n SRO, taint *corev1.Taint, node corev1.Node) bool {
+	for _, existing := range node.Spec.Taints {
+		if existing.Key == taint.Key {
 			return true
 		}
 	}
 	return false
 }
 
-func setTaint(s SRO, t corev1.Taint, n corev1.Node) error {
-	n.Spec.Taints = append(n.Spec.Taints, t)
-	update, err := s.clientset.CoreV1().Nodes().Update(&n)
+func setTaint(n SRO, t corev1.Taint, node corev1.Node) error {
+	node.Spec.Taints = append(node.Spec.Taints, t)
+	update, err := n.clientset.CoreV1().Nodes().Update(&node)
 	if err != nil || update == nil {
-		log.Info("ERROR updating node")
 		return err
 	}
 	return nil
