@@ -3,6 +3,11 @@ package specialresource
 import (
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	srov1alpha1 "github.com/zvonkok/special-resource-operator/pkg/apis/sro/v1alpha1"
+
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type state interface {
@@ -18,6 +23,30 @@ type SRO struct {
 	rec       *ReconcileSpecialResource
 	ins       *srov1alpha1.SpecialResource
 	idx       int
+	clientset *kubernetes.Clientset
+}
+
+func addClient(n *SRO) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		panic(err.Error())
+	}
+	// creates the clientset
+	n.clientset, err = kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err.Error())
+	}
+	opts := &metav1.ListOptions{}
+
+	list, err := n.clientset.CoreV1().Nodes().List(*opts)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	for _, n := range list.Items {
+		log.Info("List of Nodes in Cluster", n.ClusterName)
+	}
+
 }
 
 func addState(n *SRO, path string) error {
@@ -58,6 +87,8 @@ func (n *SRO) init(r *ReconcileSpecialResource,
 	n.idx = 0
 
 	promv1.AddToScheme(r.scheme)
+
+	addClient(n)
 
 	addState(n, "/opt/sro/state-driver")
 	addState(n, "/opt/sro/state-driver-validation")
