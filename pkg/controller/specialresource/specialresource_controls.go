@@ -44,7 +44,7 @@ func ServiceAccount(n SRO) (ResourceStatus, error) {
 		logger.Info("Not found, creating")
 		err = n.rec.client.Create(context.TODO(), obj)
 		if err != nil {
-			logger.Info("Couldn't create")
+			logger.Info("Couldn't create", "Error", err)
 			return NotReady, err
 		}
 		return Ready, nil
@@ -75,7 +75,7 @@ func Role(n SRO) (ResourceStatus, error) {
 		logger.Info("Not found, creating")
 		err = n.rec.client.Create(context.TODO(), obj)
 		if err != nil {
-			logger.Info("Couldn't create")
+			logger.Info("Couldn't create", "Error", err)
 			return NotReady, err
 		}
 		return Ready, nil
@@ -106,7 +106,7 @@ func RoleBinding(n SRO) (ResourceStatus, error) {
 		logger.Info("Not found, creating")
 		err = n.rec.client.Create(context.TODO(), obj)
 		if err != nil {
-			logger.Info("Couldn't create")
+			logger.Info("Couldn't create", "Error", err)
 			return NotReady, err
 		}
 		return Ready, nil
@@ -137,7 +137,7 @@ func ClusterRole(n SRO) (ResourceStatus, error) {
 		logger.Info("Not found, creating")
 		err = n.rec.client.Create(context.TODO(), obj)
 		if err != nil {
-			logger.Info("Couldn't create")
+			logger.Info("Couldn't create", "Error", err)
 			return NotReady, err
 		}
 		return Ready, nil
@@ -168,7 +168,7 @@ func ClusterRoleBinding(n SRO) (ResourceStatus, error) {
 		logger.Info("Not found, creating")
 		err = n.rec.client.Create(context.TODO(), obj)
 		if err != nil {
-			logger.Info("Couldn't create")
+			logger.Info("Couldn't create", "Error", err)
 			return NotReady, err
 		}
 		return Ready, nil
@@ -199,7 +199,7 @@ func ConfigMap(n SRO) (ResourceStatus, error) {
 		logger.Info("Not found, creating")
 		err = n.rec.client.Create(context.TODO(), obj)
 		if err != nil {
-			logger.Info("Couldn't create")
+			logger.Info("Couldn't create", "Error", err)
 			return NotReady, err
 		}
 		return Ready, nil
@@ -297,7 +297,7 @@ func DaemonSet(n SRO) (ResourceStatus, error) {
 		logger.Info("Not found, creating")
 		err = n.rec.client.Create(context.TODO(), obj)
 		if err != nil {
-			logger.Info("Couldn't create")
+			logger.Info("Couldn't create", "Error", err)
 			return NotReady, err
 		}
 		return isDaemonSetReady(obj.Name, n), nil
@@ -356,7 +356,7 @@ func Pod(n SRO) (ResourceStatus, error) {
 		logger.Info("Not found, creating")
 		err = n.rec.client.Create(context.TODO(), obj)
 		if err != nil {
-			logger.Info("Couldn't create")
+			logger.Info("Couldn't create", "Error", err)
 			return NotReady, err
 		}
 		return isPodReady(obj.Name, n, "Succeeded"), nil
@@ -387,7 +387,7 @@ func Service(n SRO) (ResourceStatus, error) {
 		logger.Info("Not found, creating")
 		err = n.rec.client.Create(context.TODO(), obj)
 		if err != nil {
-			logger.Info("Couldn't create")
+			logger.Info("Couldn't create", "Error", err)
 			return NotReady, err
 		}
 		return Ready, nil
@@ -418,7 +418,7 @@ func ServiceMonitor(n SRO) (ResourceStatus, error) {
 		logger.Info("Not found, creating")
 		err = n.rec.client.Create(context.TODO(), obj)
 		if err != nil {
-			logger.Info("Couldn't create")
+			logger.Info("Couldn't create", "Error", err)
 			return NotReady, err
 		}
 		return Ready, nil
@@ -449,7 +449,7 @@ func PriorityClass(n SRO) (ResourceStatus, error) {
 		logger.Info("Not found, creating")
 		err = n.rec.client.Create(context.TODO(), obj)
 		if err != nil {
-			logger.Info("Couldn't create")
+			logger.Info("Couldn't create", "Error", err)
 			return NotReady, err
 		}
 		return Ready, nil

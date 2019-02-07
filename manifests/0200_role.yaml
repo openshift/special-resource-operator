@@ -54,13 +54,21 @@ rules:
   - servicemonitors
   verbs:
   - get
+  - list
   - create
+  - watch
 - apiGroups:
   - sro.openshift.io
   resources:
   - '*'
   verbs:
   - '*'
-- apiGroups: ["monitoring.coreos.com"]
-  resources: ["alertmanagers", "prometheuses", "prometheusrules", "servicemonitors"]
-  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups:
+  - scheduling.k8s.io
+  resources:
+  - priorityclasses
+  verbs:
+  - get
+  - list
+  - watch
+  - create
