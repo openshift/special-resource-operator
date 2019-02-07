@@ -1,6 +1,7 @@
 package specialresource
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"strings"
@@ -467,9 +468,46 @@ func Taint(n SRO) (ResourceStatus, error) {
 	state := n.idx
 	obj := &n.resources[state].Taint
 
-	//found := &corev1.Taint{}
 	logger := log.WithValues("Taint", obj.Key, "Namespace", "default")
 
 	logger.Info("Looking for")
+	opts := &client.ListOptions{}
+	opts.SetLabelSelector("feature.node.kubernetes.io/pci-0300_10de.present=true")
+	list := &corev1.NodeList{}
+	err := n.rec.client.List(context.TODO(), opts, list)
+	if err != nil {
+		logger.Info("Could not get NodeList", "ERROR", err)
+	}
+
+	for _, node := range list.Items {
+		if getTaint(n, obj, node) {
+			logger.Info("Found")
+			return Ready, nil
+		}
+		logger.Info("Not found, creating")
+		err := setTaint(n, obj, Node)
+		if err != nil {
+			return NotReady, nil
+		}
+	}
 	return Ready, nil
+}
+
+func getTaint(s SRO, t *corev1.Taint, n corev1.Node) bool {
+	for _, taint := range n.Spec.Taints {
+		if cmp.Equal(obj, taint) {
+			return true
+		}
+	}
+	return false
+}
+
+func setTaint(s SRO, t *corev1.Taint, n corev1.Node) error {
+	n.Spec.Taints = append(n.Spec.Taints, obj)
+	err := n.rec.client.Update(context.TODO, n)
+	if err != nil {
+		logger.Info("Could not set Taint", "ERROR", err)
+		return err
+	}
+	return nil
 }
