@@ -1,10 +1,11 @@
 package specialresource
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"strings"
+
+	cmp "github.com/google/go-cmp/cmp"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
