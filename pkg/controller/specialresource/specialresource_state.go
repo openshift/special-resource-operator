@@ -6,8 +6,6 @@ import (
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type state interface {
@@ -36,17 +34,6 @@ func addClient(n *SRO) {
 	if err != nil {
 		panic(err.Error())
 	}
-	opts := &metav1.ListOptions{}
-
-	list, err := n.clientset.CoreV1().Nodes().List(*opts)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	for _, n := range list.Items {
-		log.Info("List of Nodes in Cluster", n.ClusterName)
-	}
-
 }
 
 func addState(n *SRO, path string) error {

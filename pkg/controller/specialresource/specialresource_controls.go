@@ -505,10 +505,11 @@ func getTaint(s SRO, t *corev1.Taint, n corev1.Node) bool {
 }
 
 func setTaint(s SRO, t corev1.Taint, n corev1.Node) error {
-	//	n.Spec.Taints = append(n.Spec.Taints, t)
-	// err := s.rec.client.Update(context.TODO(), n)
-	// if err != nil {
-	// 	return err
-	// }
+	n.Spec.Taints = append(n.Spec.Taints, t)
+	update, err := s.clientset.CoreV1().Nodes().Update(&n)
+	if err != nil || update == nil {
+		log.Info("ERROR updating node")
+		return err
+	}
 	return nil
 }
