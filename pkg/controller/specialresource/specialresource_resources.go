@@ -7,11 +7,11 @@ import (
 	"regexp"
 	"strings"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-
-	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	schedv1 "k8s.io/api/scheduling/v1beta1"
 
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -32,6 +32,8 @@ type Resources struct {
 	Pod                corev1.Pod
 	Service            corev1.Service
 	ServiceMonitor     promv1.ServiceMonitor
+	PriorityClass      schedv1.PriorityClass
+	Taint              corev1.Taint
 }
 
 func filePathWalkDir(root string) ([]string, error) {

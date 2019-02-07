@@ -32,6 +32,25 @@ func addState(n *SRO, path string) error {
 	return nil
 }
 
+func addSchedulingType(n *SRO) error {
+
+	if n.ins.Spec.Scheduling == "PriorityPreemption" {
+		err := addPriorityPreemptionControls(n)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	if n.ins.Spec.Scheduling == "TaintsTolerations" {
+		err := addTaintsTolerationsControls(n)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	return nil
+}
+
 func (n *SRO) init(r *ReconcileSpecialResource,
 	i *srov1alpha1.SpecialResource) error {
 	n.rec = r
@@ -45,6 +64,9 @@ func (n *SRO) init(r *ReconcileSpecialResource,
 	addState(n, "/opt/sro/state-device-plugin")
 	addState(n, "/opt/sro/state-device-plugin-validation")
 	addState(n, "/opt/sro/state-monitoring")
+
+	addSchedulingType(n)
+
 	return nil
 }
 

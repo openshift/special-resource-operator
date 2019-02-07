@@ -9,6 +9,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	schedv1 "k8s.io/api/scheduling/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -427,5 +428,48 @@ func ServiceMonitor(n SRO) (ResourceStatus, error) {
 
 	logger.Info("Found")
 
+	return Ready, nil
+}
+
+func PriorityClass(n SRO) (ResourceStatus, error) {
+
+	state := n.idx
+	obj := &n.resources[state].PriorityClass
+
+	found := &schedv1.PriorityClass{}
+	logger := log.WithValues("PriorityClass", obj.Name, "Namespace", obj.Namespace)
+
+	if err := controllerutil.SetControllerReference(n.ins, obj, n.rec.scheme); err != nil {
+		return NotReady, err
+	}
+
+	logger.Info("Looking for")
+	err := n.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name}, found)
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Not found, creating")
+		err = n.rec.client.Create(context.TODO(), obj)
+		if err != nil {
+			logger.Info("Couldn't create")
+			return NotReady, err
+		}
+		return Ready, nil
+	} else if err != nil {
+		return NotReady, err
+	}
+
+	logger.Info("Found")
+
+	return Ready, nil
+}
+
+func Taint(n SRO) (ResourceStatus, error) {
+
+	state := n.idx
+	obj := &n.resources[state].Taint
+
+	//found := &corev1.Taint{}
+	logger := log.WithValues("Taint", obj.Key, "Namespace", "default")
+
+	logger.Info("Looking for")
 	return Ready, nil
 }
