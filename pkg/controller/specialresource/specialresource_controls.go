@@ -486,8 +486,9 @@ func Taint(n SRO) (ResourceStatus, error) {
 			return Ready, nil
 		}
 		logger.Info("Not found, creating")
-		err := setTaint(n, obj, Node)
+		err := setTaint(n, *obj, node)
 		if err != nil {
+			logger.Info("Could not set Taint", "ERROR", err)
 			return NotReady, nil
 		}
 	}
@@ -496,19 +497,18 @@ func Taint(n SRO) (ResourceStatus, error) {
 
 func getTaint(s SRO, t *corev1.Taint, n corev1.Node) bool {
 	for _, taint := range n.Spec.Taints {
-		if cmp.Equal(obj, taint) {
+		if cmp.Equal(t, taint) {
 			return true
 		}
 	}
 	return false
 }
 
-func setTaint(s SRO, t *corev1.Taint, n corev1.Node) error {
-	n.Spec.Taints = append(n.Spec.Taints, obj)
-	err := n.rec.client.Update(context.TODO, n)
-	if err != nil {
-		logger.Info("Could not set Taint", "ERROR", err)
-		return err
-	}
+func setTaint(s SRO, t corev1.Taint, n corev1.Node) error {
+	//	n.Spec.Taints = append(n.Spec.Taints, t)
+	// err := s.rec.client.Update(context.TODO(), n)
+	// if err != nil {
+	// 	return err
+	// }
 	return nil
 }

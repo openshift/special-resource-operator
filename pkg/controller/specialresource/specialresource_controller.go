@@ -7,11 +7,13 @@ import (
 	srov1alpha1 "github.com/zvonkok/special-resource-operator/pkg/apis/sro/v1alpha1"
 	kappsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -71,6 +73,7 @@ var sro SRO
 type ReconcileSpecialResource struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
+
 	client client.Client
 	scheme *runtime.Scheme
 }
@@ -99,9 +102,25 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		panic(err.Error())
+	}
+	// creates the clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err.Error())
+	}
+	opts := &metav1.ListOptions{}
 
-	log.Info("SpecialResource", "SchedulingType", res.Spec.Scheduling)
-	log.Info("SpecialResource", "PriorityClass", res.Spec.PriorityClassItems[0].Value)
+	list, err := clientset.CoreV1().Nodes().List(*opts)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	for _, n := range list.Items {
+		log.Info("List of", "Nodes", n.Kind)
+	}
 
 	sro.init(r, res)
 
