@@ -29,7 +29,6 @@ func addClient(n *SRO) {
 	if err != nil {
 		panic(err.Error())
 	}
-	// creates the clientset
 	n.clientset, err = kubernetes.NewForConfig(config)
 	if err != nil {
 		panic(err.Error())

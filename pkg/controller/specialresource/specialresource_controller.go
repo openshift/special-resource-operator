@@ -105,6 +105,7 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 	for {
 		stat, err := sro.step()
 		if stat == "NotReady" {
+			// If the resource is not ready, wait 5 secs and reconcile
 			log.Info("SpecialResource", "ResourceStatus", stat)
 			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
 		}
