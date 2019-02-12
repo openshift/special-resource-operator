@@ -4,76 +4,32 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
+  labels: 
+    app: nvidia-dcgm-exporter
   name: nvidia-dcgm-exporter
   namespace: openshift-monitoring
 spec:
+  selector:
+    matchLabels:
+      app: nvidia-dcgm-exporter
   template:
     metadata:
       labels:
         app: nvidia-dcgm-exporter
       name: nvidia-dcgm-exporter
     spec:
+      tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
       serviceAccount: nvidia-device-plugin
       containers:
-      - image: quay.io/prometheus/node-exporter:v0.16.0
-        name: node-exporter
-        args:
-        - "--web.listen-address=:9101"
-        - "--path.procfs=/host/proc"
-        - "--path.sysfs=/host/sys"
-        - "--collector.textfile.directory=/run/prometheus"
-        - "--no-collector.arp"
-        - "--no-collector.bcache"
-        - "--no-collector.bonding"
-        - "--no-collector.conntrack"
-        - "--no-collector.cpu"
-        - "--no-collector.diskstats"
-        - "--no-collector.edac"
-        - "--no-collector.entropy"
-        - "--no-collector.filefd"
-        - "--no-collector.filesystem"
-        - "--no-collector.hwmon"
-        - "--no-collector.infiniband"
-        - "--no-collector.ipvs"
-        - "--no-collector.loadavg"
-        - "--no-collector.mdadm"
-        - "--no-collector.meminfo"
-        - "--no-collector.netdev"
-        - "--no-collector.netstat"
-        - "--no-collector.nfs"
-        - "--no-collector.nfsd"
-        - "--no-collector.sockstat"
-        - "--no-collector.stat"
-        - "--no-collector.time"
-        - "--no-collector.timex"
-        - "--no-collector.uname"
-        - "--no-collector.vmstat"
-        - "--no-collector.wifi"
-        - "--no-collector.xfs"
-        - "--no-collector.zfs"
-        ports:
-        - name: dcgm
-          containerPort: 9101
-          hostPort: 9101
-        resources:
-          requests:
-            memory: 30Mi
-            cpu: 100m
-          limits:
-            memory: 50Mi
-            cpu: 200m
-        volumeMounts:
-        - name: proc
-          readOnly:  true
-          mountPath: /host/proc
-        - name: sys
-          readOnly: true
-          mountPath: /host/sys
-        - name: collector-textfiles
-          readOnly: true
-          mountPath: /run/prometheus
-      - image: nvidia/dcgm-exporter:1.4.6
+      - image: quay.io/zvonkok/dcgm #nvidia/dcgm-exporter:1.4.6
         name: nvidia-dcgm-exporter
+        env:
+        - name: PYTHONPATH
+          value: "/usr/src/dcgm/bindings"
+        command: ["python", "/usr/src/dcgm/samples/scripts/dcgm_prometheus.py", "-e"]
         securityContext:
           runAsNonRoot: false
           runAsUser: 0
