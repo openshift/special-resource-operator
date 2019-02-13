@@ -36,11 +36,16 @@ This way one can be sure that only the correct driver version is scheduled on th
 
 
 #### State Driver Validation
-To check if the driver and the hook is correctly deployed, the operator will schedule a simple GPU workload and check if the Pod statu is `Success`, which means the application returned succesfully without an error. The GPU workload will not work, it the driver or the userspace part are not working correctly. 
+To check if the driver and the hook is correctly deployed, the operator will schedule a simple GPU workload and check if the Pod statu is `Success`, which means the application returned succesfully without an error. The GPU workload will not work, it the driver or the userspace part are not working correctly. This Pod will not allocate a extended resource, only checking if the GPU is working. 
 
 #### State Device Plugin
+As the name already suggests, this state will deploy a special resource DevicePlugin with all its dependencies, see [state-device-plugin](https://github.com/zvonkok/special-resource-operator/tree/master/assets/state-device-plugin) for a complete list. 
 
+#### State Device Plugin Validation
+One will use the same GPU workload as before for validation but this time the Pod will request a extended resource (1) to check if the DevicePlugin has correctly advertised the GPUs to the cluster and (2) to check if userspace and kernelspace are working correclty. 
 
+#### State Monitoring
+This state uses a custom metrics exporter DaemoSnet to export metrics for Prometheus. A ServiceMonitor adds this exporter as a new scrape target. 
 
 
 ## Hard and Soft Partitioning
