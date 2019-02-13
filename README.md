@@ -1,5 +1,9 @@
 # Special Resource Operator (SRO)
 
+The special resource operator is an orchestrator for resources in a cluster specifically designed for resources that need extra management. This reference implementation shows how GPUs can be deployed on a Kubernetes/OpenShift cluster. 
+
+There is a general problem when trying to configure a cluster with a special resource. One does not know which node has a special resource or not. To circumvent this bootstrap problem, the SRO relies on the NFD operator [nfd-operator](https://github.com/openshift/cluster-nfd-operator) and its node feature discovery capabilities. NFD will label the host with node specific attributes, like PCI cards, kernel or OS version and many more, see ([upstream NFD](https://github.com/kubernetes-sigs/node-feature-discovery)) fore more info. 
+
 
 ## Operation Breakdown
 The special resource operator implements a simple state machine, where each state has a validation step. The validation step for each state is different and relies on the functionality to be tested of the previous state.  
