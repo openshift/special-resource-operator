@@ -2,7 +2,7 @@
 
 
 ## Operation Breakdown
-The special resource operator implements a simple state machine, where each state has a validation step. The validation step for each state is different and relies on the functionality to be tested. 
+The special resource operator implements a simple state machine, where each state has a validation step. The validation step for each state is different and relies on the functionality to be tested of the previous state.  
 
 The following descriptions of the states will describe how e.g. the SRO handles GPUs in a cluster. 
 
@@ -13,8 +13,26 @@ After the assests were decoded preprocessed and transformed into API runtime obj
 
 The SRO is easily extended just by creating another directory under `/opt/sro/state-new` and adding this new state to the operator [addState(...)](https://github.com/zvonkok/special-resource-operator/blob/012020bb04922737d1f9eb5e703d3b931a053bd4/pkg/controller/specialresource/specialresource_state.go#L79). 
 
+#### State Driver
+This state will deploy a DaemonSet with a driver container. The driver container holds all userspace and kernelspace parts to make the special resource (GPU) work. It will configure the host and tell cri-o where to look for the GPU hook ([upstream nvidia-driver-container](https://gitlab.com/nvidia/driver/tree/centos7)). 
+
+To schedule the correct version of the compiled kernel modules, the operator will fetch the kernel-version label from the special resource nodes and preprocess the driver container DaemonSet in such a way that the `nodeSelector` and the pulled image have the kernel-version in their name: 
+```
+      nodeSelector:
+        feature.node.kubernetes.io/pci-0300_10de.present: "true"
+        feature.node.kubernetes.io/kernel-version.full: "KERNEL_FULL_VERSION"
+```
+```
+      - image: quay.io/zvonkok/nvidia-driver:v410.79-KERNEL_FULL_VERSION
+```
+
+This way one can be sure that only the correct driver version is scheduled on the node with that specific kernel-version. 
 
 
+#### State Driver Validation
+To check if the driver and the hook is correctly deployed, the operator will schedule a simple GPU workload and check if the Pod statu is `Success`, which means the application returned succesfully without an error. The GPU workload will not work, it the driver or the userspace part are not working correctly. 
+
+#### State Device Plugin
 
 
 
