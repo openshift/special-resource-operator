@@ -1,4 +1,23 @@
-# Special Resource Operator
+# Special Resource Operator (SRO)
+
+
+## Operation Breakdown
+The special resource operator implements a simple state machine, where each state has a validation step. The validation step for each state is different and relies on the functionality to be tested. 
+
+The following descriptions of the states will describe how e.g. the SRO handles GPUs in a cluster. 
+
+### General State Breakdown
+Assets like ServiceAccount, RBAC, DaemonSet, ConfigMap yaml files for each state are saved in the container under `/opt/sro/state-{driver,device-plugin,monitoring}`. The SRO will take each of these assest and assign a control function to each of them. Those control functions have hooks for preprocessing the yaml files or hooks to preprocess the decoded API runtime objects. Those hooks are used to add runtime information from the cluster like kernel-version, nodeselectors based on the discovered hardware etc. 
+
+After the assests were decoded preprocessed and transformed into API runtime objects, the control funcs take care of CRUD operations on those. 
+
+The SRO is easily extended just by creating another directory under `/opt/sro/state-new` and adding this new state to the operator [addState(...)](https://github.com/zvonkok/special-resource-operator/blob/012020bb04922737d1f9eb5e703d3b931a053bd4/pkg/controller/specialresource/specialresource_state.go#L79). 
+
+
+
+
+
+
 
 ## Hard and Soft Partitioning
 The operator has example CR's how to create a hard or soft partitioning scheme for the worker nodes where on has special resources. Hard partitioning is realized with taints and tolerations where soft partitioning is priority and preemption. 
