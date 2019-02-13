@@ -16,6 +16,12 @@ The SRO is easily extended just by creating another directory under `/opt/sro/st
 #### State Driver
 This state will deploy a DaemonSet with a driver container. The driver container holds all userspace and kernelspace parts to make the special resource (GPU) work. It will configure the host and tell cri-o where to look for the GPU hook ([upstream nvidia-driver-container](https://gitlab.com/nvidia/driver/tree/centos7)). 
 
+The DaemonSet will use the PCI label from NFD to schedule the DaemonSet only on nodes that have a special resource (0x0300 is a display class and 0x10DE is the vendor id for NVIDIA). 
+```
+      nodeSelector:
+        feature.node.kubernetes.io/pci-0300_10de.present: "true"
+```
+
 To schedule the correct version of the compiled kernel modules, the operator will fetch the kernel-version label from the special resource nodes and preprocess the driver container DaemonSet in such a way that the `nodeSelector` and the pulled image have the kernel-version in their name: 
 ```
       nodeSelector:
