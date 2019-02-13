@@ -2,7 +2,25 @@
 
 The special resource operator is an orchestrator for resources in a cluster specifically designed for resources that need extra management. This reference implementation shows how GPUs can be deployed on a Kubernetes/OpenShift cluster. 
 
-There is a general problem when trying to configure a cluster with a special resource. One does not know which node has a special resource or not. To circumvent this bootstrap problem, the SRO relies on the NFD operator [nfd-operator](https://github.com/openshift/cluster-nfd-operator) and its node feature discovery capabilities. NFD will label the host with node specific attributes, like PCI cards, kernel or OS version and many more, see ([upstream NFD](https://github.com/kubernetes-sigs/node-feature-discovery)) fore more info. 
+There is a general problem when trying to configure a cluster with a special resource. One does not know which node has a special resource or not. To circumvent this bootstrap problem, the SRO relies on the [NFD operator](https://github.com/openshift/cluster-nfd-operator) and its node feature discovery capabilities. NFD will label the host with node specific attributes, like PCI cards, kernel or OS version and many more, see ([Upstream NFD](https://github.com/kubernetes-sigs/node-feature-discovery)) fore more info. 
+
+Here is a sample excerpt of NFD labels that are applied to the node. 
+```
+Name:               ip-xx-x-xxx-xx
+Roles:              worker
+Labels:             beta.kubernetes.io/arch=amd64
+                    beta.kubernetes.io/instance-type=g3.4xlarge
+                    beta.kubernetes.io/os=linux
+                                ... 
+                    feature.node.kubernetes.io/cpuid-AVX=true
+                    feature.node.kubernetes.io/cpuid-AVX2=true
+                    feature.node.kubernetes.io/kernel-version.full=3.10.0-957.1.3.el7.x86_64
+                                ...
+                    feature.node.kubernetes.io/pci-0300_10de.present=true
+                    feature.node.kubernetes.io/system-os_release.VERSION_ID=4.0
+                    feature.node.kubernetes.io/system-os_release.VERSION_ID.major=4
+                    feature.node.kubernetes.io/system-os_release.VERSION_ID.minor=0
+```
 
 
 ## Operation Breakdown
@@ -11,11 +29,11 @@ The special resource operator implements a simple state machine, where each stat
 The following descriptions of the states will describe how e.g. the SRO handles GPUs in a cluster. 
 
 ### General State Breakdown
-Assets like ServiceAccount, RBAC, DaemonSet, ConfigMap yaml files for each state are saved in the container under `/opt/sro/state-{driver,device-plugin,monitoring}`. The SRO will take each of these assest and assign a control function to each of them. Those control functions have hooks for preprocessing the yaml files or hooks to preprocess the decoded API runtime objects. Those hooks are used to add runtime information from the cluster like kernel-version, nodeselectors based on the discovered hardware etc. 
+Assets like ServiceAccount, RBAC, DaemonSet, ConfigMap yaml files for each state are saved in the container under `/opt/sro/state-{driver,device-plugin,monitoring}`. The SRO will take each of these assets and assign a control function to each of them. Those control functions have hooks for preprocessing the yaml files or hooks to preprocess the decoded API runtime objects. Those hooks are used to add runtime information from the cluster like kernel-version, and nodeSelectors based on the discovered hardware etc. 
 
 After the assests were decoded preprocessed and transformed into API runtime objects, the control funcs take care of CRUD operations on those. 
 
-The SRO is easily extended just by creating another directory under `/opt/sro/state-new` and adding this new state to the operator [addState(...)](https://github.com/zvonkok/special-resource-operator/blob/012020bb04922737d1f9eb5e703d3b931a053bd4/pkg/controller/specialresource/specialresource_state.go#L79). 
+The SRO is easily extended just by creating another directory under `/opt/sro/state-new` and adding this new state to the operator [addState(...)](https://github.com/zvonkok/special-resource-operator/blob/012020bb04922737d1f9eb5e703d3b931a053bd4/pkg/controller/specialresource/specialresource_state.go#L79). The SRO operator will scan this new directory and automatically assign the corresponding control functions. 
 
 #### State Driver
 This state will deploy a DaemonSet with a driver container. The driver container holds all userspace and kernelspace parts to make the special resource (GPU) work. It will configure the host and tell cri-o where to look for the GPU hook ([upstream nvidia-driver-container](https://gitlab.com/nvidia/driver/tree/centos7)). 
@@ -40,7 +58,7 @@ This way one can be sure that only the correct driver version is scheduled on th
 
 
 #### State Driver Validation
-To check if the driver and the hook is correctly deployed, the operator will schedule a simple GPU workload and check if the Pod statu is `Success`, which means the application returned succesfully without an error. The GPU workload will not work, it the driver or the userspace part are not working correctly. This Pod will not allocate a extended resource, only checking if the GPU is working. 
+To check if the driver and the hook are correctly deployed, the operator will schedule a simple GPU workload and check if the Pod status is `Success`, which means the application returned succesfully without an error. The GPU workload will exit with an error, it the driver or the userspace part are not working correctly. This Pod will not allocate an extended resource, only checking if the GPU is working. 
 
 #### State Device Plugin
 As the name already suggests, this state will deploy a special resource DevicePlugin with all its dependencies, see [state-device-plugin](https://github.com/zvonkok/special-resource-operator/tree/master/assets/state-device-plugin) for a complete list. 
@@ -49,11 +67,11 @@ As the name already suggests, this state will deploy a special resource DevicePl
 One will use the same GPU workload as before for validation but this time the Pod will request a extended resource (1) to check if the DevicePlugin has correctly advertised the GPUs to the cluster and (2) to check if userspace and kernelspace are working correclty. 
 
 #### State Monitoring
-This state uses a custom metrics exporter DaemoSnet to export metrics for Prometheus. A ServiceMonitor adds this exporter as a new scrape target. 
+This state uses a custom metrics exporter DaemonSet to export metrics for Prometheus. A ServiceMonitor adds this exporter as a new scrape target. 
 
 
 ## Hard and Soft Partitioning
-The operator has example CR's how to create a hard or soft partitioning scheme for the worker nodes where on has special resources. Hard partitioning is realized with taints and tolerations where soft partitioning is priority and preemption. 
+The operator has example CR's how to create a hard or soft partitioning scheme for the worker nodes where one has special resources. Hard partitioning is realized with taints and tolerations where soft partitioning is priority and preemption. 
 
 ### Hard Partitioning
 If one wants to repel Pods from nodes that have special resources without the corresponding toleration, the following CR can be used to instantiate the operator with taints for the nodes: [sro_cr_sched_taints_tolerations.yaml](https://github.com/zvonkok/special-resource-operator/blob/5973d6fea1985c425f5c36733fbc8e693e2c3821/manifests/sro_cr_sched_taints_tolerations.yaml#L1). The CR accepts an array of taints. 
