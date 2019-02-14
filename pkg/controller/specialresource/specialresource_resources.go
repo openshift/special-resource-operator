@@ -13,6 +13,8 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	schedv1 "k8s.io/api/scheduling/v1beta1"
 
+	secv1 "github.com/openshift/api/security/v1"
+
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes/scheme"
 )
@@ -22,18 +24,19 @@ type assetsFromFile []byte
 var manifests []assetsFromFile
 
 type Resources struct {
-	ServiceAccount     corev1.ServiceAccount
-	Role               rbacv1.Role
-	RoleBinding        rbacv1.RoleBinding
-	ClusterRole        rbacv1.ClusterRole
-	ClusterRoleBinding rbacv1.ClusterRoleBinding
-	ConfigMap          corev1.ConfigMap
-	DaemonSet          appsv1.DaemonSet
-	Pod                corev1.Pod
-	Service            corev1.Service
-	ServiceMonitor     promv1.ServiceMonitor
-	PriorityClass      schedv1.PriorityClass
-	Taint              corev1.Taint
+	ServiceAccount             corev1.ServiceAccount
+	Role                       rbacv1.Role
+	RoleBinding                rbacv1.RoleBinding
+	ClusterRole                rbacv1.ClusterRole
+	ClusterRoleBinding         rbacv1.ClusterRoleBinding
+	ConfigMap                  corev1.ConfigMap
+	DaemonSet                  appsv1.DaemonSet
+	Pod                        corev1.Pod
+	Service                    corev1.Service
+	ServiceMonitor             promv1.ServiceMonitor
+	PriorityClass              schedv1.PriorityClass
+	Taint                      corev1.Taint
+	SecurityContextConstraints secv1.SecurityContextConstraints
 }
 
 func filePathWalkDir(root string) ([]string, error) {
@@ -123,7 +126,10 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 			_, _, err := s.Decode(m, nil, &res.ServiceMonitor)
 			panicIfError(err)
 			ctrl = append(ctrl, ServiceMonitor)
-
+		case "SecurityContextConstraints":
+			_, _, err := s.Decode(m, nil, &res.SecurityContextConstraints)
+			panicIfError(err)
+			ctrl = append(ctrl, SecurityContextConstraints)
 		default:
 			log.Info("Unknown Resource", "Manifest", m, "Kind", kind)
 		}
