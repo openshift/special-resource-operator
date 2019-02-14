@@ -4,7 +4,7 @@ metadata:
   labels:
     app: nvidia-driver-validation
   name: nvidia-driver-validation
-  namespace: openshift-sro-operator
+  namespace: openshift-sro
 spec:
   restartPolicy: Never
   containers:

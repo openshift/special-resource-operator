@@ -4,7 +4,7 @@ metadata:
   labels:
     app: nvidia-driver-daemonset
   name: nvidia-driver-daemonset
-  namespace: openshift-sro-operator
+  namespace: openshift-sro
 spec:
   selector:
     matchLabels:
@@ -20,10 +20,6 @@ spec:
         app: nvidia-driver-daemonset
     spec:
       tolerations:
-      # Allow this pod to be rescheduled while the node is in "critical add-ons only" mode.
-      # This, along with the annotation above marks this pod as a critical add-on.
-      - key: CriticalAddonsOnly
-        operator: Exists
       - key: nvidia.com/gpu
         operator: Exists
         effect: NoSchedule

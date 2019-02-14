@@ -4,7 +4,7 @@ metadata:
   labels:
     app: nvidia-device-plugin-daemonset
   name: nvidia-device-plugin-daemonset
-  namespace: openshift-sro-operator
+  namespace: openshift-sro
 spec:
   selector:
     matchLabels:
@@ -34,8 +34,8 @@ spec:
         env:
           - name: NVIDIA_VISIBLE_DEVICES
             value: all
-        securityContext:
-          privileged: true 
+#        securityContext:
+#          privileged: true 
         volumeMounts:
           - name: device-plugin
             mountPath: /var/lib/kubelet/device-plugins

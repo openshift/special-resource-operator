@@ -4,7 +4,7 @@ metadata:
   labels:
     app: nvidia-device-plugin-validation
   name: nvidia-device-plugin-validation
-  namespace: openshift-sro-operator
+  namespace: openshift-sro
 spec:
   restartPolicy: OnFailure
   containers:
