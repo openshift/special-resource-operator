@@ -24,9 +24,13 @@ Labels:             beta.kubernetes.io/arch=amd64
 
 
 ## Operation Breakdown
-The special resource operator implements a simple state machine, where each state has a validation step. The validation step for each state is different and relies on the functionality to be tested of the previous state.  
+The special resource operator implements a simple state machine, where each state has a validation step. The validation step for each state is different and relies on the functionality to be tested of the previous state. 
 
 The following descriptions of the states will describe how e.g. the SRO handles GPUs in a cluster. 
+
+### Namespace Separation
+The operator will run in its own namespace (`openshift-sro-operator`) and the operands that the operator orchestrates in another (`openshift-sro`). The operator will watch the operands namespace for changes and act up on accordingly. 
+
 
 ### General State Breakdown
 Assets like ServiceAccount, RBAC, DaemonSet, ConfigMap yaml files for each state are saved in the container under `/opt/sro/state-{driver,device-plugin,monitoring}`. The SRO will take each of these assets and assign a control function to each of them. Those control functions have hooks for preprocessing the yaml files or hooks to preprocess the decoded API runtime objects. Those hooks are used to add runtime information from the cluster like kernel-version, and nodeSelectors based on the discovered hardware etc. 
