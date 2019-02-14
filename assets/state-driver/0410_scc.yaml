@@ -26,7 +26,6 @@ metadata:
 priority: null
 readOnlyRootFilesystem: false
 requiredDropCapabilities:
-- MKNOD
 runAsUser:
   type: RunAsAny
 seLinuxContext:
