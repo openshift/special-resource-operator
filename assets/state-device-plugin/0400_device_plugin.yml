@@ -34,8 +34,6 @@ spec:
         env:
           - name: NVIDIA_VISIBLE_DEVICES
             value: all
-#        securityContext:
-#          privileged: true 
         volumeMounts:
           - name: device-plugin
             mountPath: /var/lib/kubelet/device-plugins

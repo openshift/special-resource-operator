@@ -6,6 +6,10 @@ metadata:
   name: nvidia-driver-validation
   namespace: openshift-sro
 spec:
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
   restartPolicy: Never
   containers:
     - name: cuda-vector-add
