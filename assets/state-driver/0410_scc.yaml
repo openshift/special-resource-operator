@@ -22,7 +22,6 @@ metadata:
       restricted SCC but allows host mounts and any UID by a pod.  This is primarily
       used by the persistent volume recycler. WARNING: this SCC allows host file system
       access as any UID, including UID 0.  Grant with caution.'
-  creationTimestamp: 2019-02-01T08:06:43Z
   name: nvidia-driver
 priority: null
 readOnlyRootFilesystem: false

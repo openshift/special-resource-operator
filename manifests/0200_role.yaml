@@ -10,8 +10,6 @@ rules:
   - securitycontextconstraints
   verbs:
   - '*'
-  resourceNames:
-  - privileged
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
