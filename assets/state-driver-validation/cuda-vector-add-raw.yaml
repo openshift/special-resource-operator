@@ -6,8 +6,8 @@ metadata:
   name: nvidia-driver-validation
   namespace: openshift-sro
 spec:
-  serviceAccount: nvidia-readonly
-  serviceAccountName: nvidia-readonly
+#  serviceAccount: nvidia-readonly
+#  serviceAccountName: nvidia-readonly
   tolerations:
     - key: nvidia.com/gpu
       operator: Exists
