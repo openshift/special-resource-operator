@@ -3,43 +3,45 @@
 # reopened with the relevant failures.
 #
 allowHostDirVolumePlugin: true
-allowHostIPC: true
+allowHostIPC: false
 allowHostNetwork: false
-allowHostPID: false
+allowHostPID: true
 allowHostPorts: false
 allowPrivilegeEscalation: true
-allowPrivilegedContainer: false
-allowedCapabilities: null
+allowPrivilegedContainer: true
+allowedCapabilities:
+- '*'
+allowedUnsafeSysctls:
+- '*'
 apiVersion: security.openshift.io/v1
 defaultAddCapabilities: null
 fsGroup:
   type: RunAsAny
-groups: []
+groups:
+- system:cluster-admins
+- system:nodes
+- system:masters
 kind: SecurityContextConstraints
 metadata:
   annotations:
-    kubernetes.io/description: 'nvidia-driver provides all the features of the
-      restricted SCC but allows host mounts and any UID by a pod.  This is primarily
-      used by the persistent volume recycler. WARNING: this SCC allows host file system
-      access as any UID, including UID 0.  Grant with caution.'
+    kubernetes.io/description: 'privileged allows access to all privileged and host
+      features and the ability to run as any user, any group, any fsGroup, and with
+      any SELinux context.  WARNING: this is the most relaxed SCC and should be used
+      only for cluster administration. Grant with caution.'
+
   name: nvidia-driver
 priority: null
 readOnlyRootFilesystem: false
-requiredDropCapabilities:
+requiredDropCapabilities: null
 runAsUser:
   type: RunAsAny
 seLinuxContext:
-  type: MustRunAs
+  type: RunAsAny
+seccompProfiles:
+- '*'
 supplementalGroups:
   type: RunAsAny
 users:
 - system:serviceaccount:openshift-sro:nvidia-driver
 volumes:
-- configMap
-- downwardAPI
-- emptyDir
-- hostPath
-- nfs
-- persistentVolumeClaim
-- projected
-- secret
+- '*'

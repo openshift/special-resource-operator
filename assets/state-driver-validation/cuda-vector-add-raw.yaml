@@ -6,6 +6,8 @@ metadata:
   name: nvidia-driver-validation
   namespace: openshift-sro
 spec:
+  serviceAccount: nvidia-readonly
+  serviceAccountName: nvidia-readonly
   tolerations:
     - key: nvidia.com/gpu
       operator: Exists
@@ -22,6 +24,7 @@ spec:
         - name: NVIDIA_REQUIRE_CUDA  
           value: "cuda>=5.0"
       securityContext:
+        readOnlyRootFilesystem: true
         allowPrivilegeEscalation: false
         capabilities:
           drop: ["ALL"]

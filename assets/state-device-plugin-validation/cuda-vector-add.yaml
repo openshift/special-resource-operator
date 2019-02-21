@@ -6,6 +6,9 @@ metadata:
   name: nvidia-device-plugin-validation
   namespace: openshift-sro
 spec:
+  serviceAccount: nvidia-device-plugin
+  serviceAccountName: nvidia-device-plugin
+  readOnlyRootFilesystem: true
   restartPolicy: OnFailure
   containers:
     - name: cuda-vector-add
@@ -24,4 +27,3 @@ spec:
       resources:
         limits:
           nvidia.com/gpu: 1 # requesting 1 GPU
-

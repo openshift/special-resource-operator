@@ -5,6 +5,8 @@ metadata:
     app: nvidia-device-plugin-daemonset
   name: nvidia-device-plugin-daemonset
   namespace: openshift-sro
+  annotations:
+    openshift.io/scc: hostmount-anyuid
 spec:
   selector:
     matchLabels:

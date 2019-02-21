@@ -12,8 +12,12 @@ spec:
     metadata:
       labels:
         name: special-resource-operator
+      annotations:
+        openshift.io/scc: restricted-readonly
     spec:
+      serviceAccount: special-resource-operator
       serviceAccountName: special-resource-operator
+      readOnlyRootFilesystem: true
       containers:
         - name: special-resource-operator
           image: quay.io/zvonkok/special-resource-operator

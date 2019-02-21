@@ -5,6 +5,8 @@ metadata:
     app: nvidia-driver-daemonset
   name: nvidia-driver-daemonset
   namespace: openshift-sro
+  annotations:
+    openshift.io/scc: nvidia-driver
 spec:
   selector:
     matchLabels:
@@ -24,6 +26,7 @@ spec:
         operator: Exists
         effect: NoSchedule
       serviceAccount: nvidia-driver
+      serviceAccountName: nvidia-driver
       hostPID: true
       containers:
       - image: quay.io/zvonkok/nvidia-driver:v410.79-KERNEL_FULL_VERSION
