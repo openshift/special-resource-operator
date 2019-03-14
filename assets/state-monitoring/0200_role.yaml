@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: nvidia-dgcm-exporter
+  name: nvidia-dcgm-exporter
   namespace: openshift-monitoring
 rules:
 - apiGroups:

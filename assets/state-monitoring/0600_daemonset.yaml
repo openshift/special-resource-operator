@@ -23,6 +23,7 @@ spec:
         operator: Exists
         effect: NoSchedule
       serviceAccount: nvidia-dcgm-exporter
+      serviceAccountName: nvidia-dcgm-exporter
       containers:
       - image: quay.io/zvonkok/dcgm #nvidia/dcgm-exporter:1.4.6
         name: nvidia-dcgm-exporter
@@ -31,6 +32,7 @@ spec:
           value: "/usr/src/dcgm/bindings"
         command: ["python", "/usr/src/dcgm/samples/scripts/dcgm_prometheus.py", "-e"]
         securityContext:
+          privileged: true
           runAsNonRoot: false
           runAsUser: 0
         volumeMounts:
