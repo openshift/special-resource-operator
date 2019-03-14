@@ -22,7 +22,7 @@ spec:
       - key: nvidia.com/gpu
         operator: Exists
         effect: NoSchedule
-      serviceAccount: nvidia-device-plugin
+      serviceAccount: nvidia-dcgm-exporter
       containers:
       - image: quay.io/zvonkok/dcgm #nvidia/dcgm-exporter:1.4.6
         name: nvidia-dcgm-exporter

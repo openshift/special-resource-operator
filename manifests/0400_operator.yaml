@@ -37,7 +37,7 @@ spec:
             failureThreshold: 1
           env:
             - name: WATCH_NAMESPACE
-              value: "openshift-sro"
+              value: ""
             - name: POD_NAME
               valueFrom:
                 fieldRef:
