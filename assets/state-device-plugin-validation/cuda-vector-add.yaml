@@ -6,6 +6,10 @@ metadata:
   name: nvidia-device-plugin-validation
   namespace: openshift-sro
 spec:
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
   serviceAccount: nvidia-device-plugin
   serviceAccountName: nvidia-device-plugin
   readOnlyRootFilesystem: true
