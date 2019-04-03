@@ -37,7 +37,7 @@
                 "providerSpec": {
                     "value": {
                         "ami": {
-                            "id": "ami-097679a7c7a95715e"
+                            "id": "ami-0eac581fbaa9fa9c6"
                         },
                         "apiVersion": "awsproviderconfig.openshift.io/v1beta1",
                         "blockDevices": [
