@@ -35,9 +35,9 @@ spec:
           privileged: true
           runAsNonRoot: false
           runAsUser: 0
-        volumeMounts:
-        - name: collector-textfiles
-          mountPath: /run/prometheus
+#        volumeMounts:
+#        - name: collector-textfiles
+#          mountPath: /run/prometheus
 
       hostNetwork: true
       hostPID: true
@@ -49,9 +49,9 @@ spec:
       - name: sys
         hostPath:
           path: /sys
-      - name: collector-textfiles
-        emptyDir:
-          medium: Memory
+#      - name: collector-textfiles
+#        emptyDir:
+#          medium: Memory
 
       nodeSelector:
         feature.node.kubernetes.io/pci-0300_10de.present: "true"
