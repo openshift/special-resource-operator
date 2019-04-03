@@ -13,7 +13,7 @@
         "namespace": "openshift-machine-api"
     },
     "spec": {
-        "replicas": 1,
+        "replicas": 0,
         "selector": {
             "matchLabels": {
                 "machine.openshift.io/cluster-api-cluster": "YOUR_CLUSTER_ID",
