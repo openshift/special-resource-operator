@@ -31,8 +31,10 @@ spec:
         effect: NoSchedule
       serviceAccount: nvidia-device-plugin
       containers:
-      - image: nvidia/k8s-device-plugin:1.11
+      - image: nvidia/k8s-device-plugin:1.12
         name: nvidia-device-plugin-ctr
+        securityContext:
+          privileged: true
         env:
           - name: NVIDIA_VISIBLE_DEVICES
             value: all
