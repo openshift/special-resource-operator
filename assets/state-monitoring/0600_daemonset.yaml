@@ -30,7 +30,7 @@ spec:
         env:
         - name: PYTHONPATH
           value: "/usr/src/dcgm/bindings"
-        command: ["python", "/usr/src/dcgm/samples/scripts/dcgm_prometheus.py", "-e"]
+        command: ["python", "/usr/src/dcgm/samples/scripts/dcgm_prometheus.py", "-e", "-p", "9600"]
         securityContext:
           privileged: true
           runAsNonRoot: false

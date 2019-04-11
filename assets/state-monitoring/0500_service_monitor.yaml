@@ -3,11 +3,9 @@ kind: ServiceMonitor
 metadata:
   namespace: openshift-monitoring
   name: nvidia-dcgm-exporter
-  labels:
-    team: frontend
 spec:
   endpoints:
-  - port: dcgm
+  - port: dcgm 
 #  namespaceSelector:
 #    matchNames:
 #    - openshift-sro-operator

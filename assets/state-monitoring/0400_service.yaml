@@ -11,6 +11,6 @@ spec:
   type: ClusterIP
   ports:
   - name: dcgm
-    port: 8000
-    targetPort: 8000
+    port: 9600
+    targetPort: 9600
     protocol: TCP
