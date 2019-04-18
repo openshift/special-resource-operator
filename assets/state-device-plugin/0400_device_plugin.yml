@@ -46,5 +46,5 @@ spec:
           hostPath:
             path: /var/lib/kubelet/device-plugins
       nodeSelector:
-        feature.node.kubernetes.io/pci-0300_10de.present: "true"
+        feature.node.kubernetes.io/pci-0302_10de.present: "true"
 
