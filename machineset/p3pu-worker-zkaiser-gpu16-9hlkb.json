@@ -5,29 +5,29 @@
         "creationTimestamp": null,
         "generation": 1,
         "labels": {
-            "machine.openshift.io/cluster-api-cluster": "zkaiser-gpu-summit-pwc7s",
+            "machine.openshift.io/cluster-api-cluster": "zkaiserz-rh-summit-6vcx4",
             "machine.openshift.io/cluster-api-machine-role": "gpu",
             "machine.openshift.io/cluster-api-machine-type": "gpu"
         },
-        "name": "zkaiser-p3.2xlarge",
+        "name": "zkaiser-p3.8xlarge",
         "namespace": "openshift-machine-api"
     },
     "spec": {
         "replicas": 0,
         "selector": {
             "matchLabels": {
-                "machine.openshift.io/cluster-api-cluster": "zkaiser-gpu-summit-pwc7s",
-                "machine.openshift.io/cluster-api-machineset": "zkaiser-gpu-summit-pwc7s-gpu-us-west-2a"
+                "machine.openshift.io/cluster-api-cluster": "zkaiserz-rh-summit-6vcx4",
+                "machine.openshift.io/cluster-api-machineset": "zkaiserz-rh-summit-6vcx4-gpu-us-west-2a"
             }
         },
         "template": {
             "metadata": {
                 "creationTimestamp": null,
                 "labels": {
-                    "machine.openshift.io/cluster-api-cluster": "zkaiser-gpu-summit-pwc7s",
+                    "machine.openshift.io/cluster-api-cluster": "zkaiserz-rh-summit-6vcx4",
                     "machine.openshift.io/cluster-api-machine-role": "gpu",
                     "machine.openshift.io/cluster-api-machine-type": "gpu",
-                    "machine.openshift.io/cluster-api-machineset": "zkaiser-gpu-summit-pwc7s-gpu-us-west-2a"
+                    "machine.openshift.io/cluster-api-machineset": "zkaiserz-rh-summit-6vcx4-gpu-us-west-2a"
                 }
             },
             "spec": {
@@ -37,7 +37,7 @@
                 "providerSpec": {
                     "value": {
                         "ami": {
-                            "id": "ami-0c52cb03f060ea72d"
+                            "id": "ami-038a1d92e97d7e769"
                         },
                         "apiVersion": "awsproviderconfig.openshift.io/v1beta1",
                         "blockDevices": [
@@ -54,9 +54,9 @@
                         },
                         "deviceIndex": 0,
                         "iamInstanceProfile": {
-                            "id": "zkaiser-gpu-summit-pwc7s-worker-profile"
+                            "id": "zkaiserz-rh-summit-6vcx4-worker-profile"
                         },
-                        "instanceType": "p3.2xlarge",
+                        "instanceType": "p3.8xlarge",
                         "kind": "AWSMachineProviderConfig",
                         "metadata": {
                             "creationTimestamp": null
@@ -72,7 +72,7 @@
                                     {
                                         "name": "tag:Name",
                                         "values": [
-                                            "zkaiser-gpu-summit-pwc7s-worker-sg"
+                                            "zkaiserz-rh-summit-6vcx4-worker-sg"
                                         ]
                                     }
                                 ]
@@ -83,14 +83,14 @@
                                 {
                                     "name": "tag:Name",
                                     "values": [
-                                        "zkaiser-gpu-summit-pwc7s-public-us-west-2a"
+                                        "zkaiserz-rh-summit-6vcx4-public-us-west-2a"
                                     ]
                                 }
                             ]
                         },
                         "tags": [
                             {
-                                "name": "kubernetes.io/cluster/zkaiser-gpu-summit-pwc7s",
+                                "name": "kubernetes.io/cluster/zkaiserz-rh-summit-6vcx4",
                                 "value": "owned"
                             }
                         ],

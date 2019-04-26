@@ -16,7 +16,8 @@ spec:
   restartPolicy: OnFailure
   containers:
     - name: cuda-vector-add
-      image: "quay.io/zvonkok/cuda-vector-add:v0.1"
+      image: "quay.io/zvonkok/cuda:10.1-samples-ubi8"
+      command: ["/usr/local/cuda/samples/bin/x86_64/linux/release/vectorAdd"]
       env:
         - name: NVIDIA_VISIBLE_DEVICES
           value: all

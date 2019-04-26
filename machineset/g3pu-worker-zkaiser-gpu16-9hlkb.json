@@ -5,7 +5,7 @@
         "creationTimestamp": null,
         "generation": 1,
         "labels": {
-            "machine.openshift.io/cluster-api-cluster": "zkaiser-gpu-summit-pwc7s",
+            "machine.openshift.io/cluster-api-cluster": "zkaiserz-rh-summit-6vcx4",
             "machine.openshift.io/cluster-api-machine-role": "gpu",
             "machine.openshift.io/cluster-api-machine-type": "gpu"
         },
@@ -16,18 +16,18 @@
         "replicas": 0,
         "selector": {
             "matchLabels": {
-                "machine.openshift.io/cluster-api-cluster": "zkaiser-gpu-summit-pwc7s",
-                "machine.openshift.io/cluster-api-machineset": "zkaiser-gpu-summit-pwc7s-gpu-us-west-2a"
+                "machine.openshift.io/cluster-api-cluster": "zkaiserz-rh-summit-6vcx4",
+                "machine.openshift.io/cluster-api-machineset": "zkaiserz-rh-summit-6vcx4-gpu-us-west-2a"
             }
         },
         "template": {
             "metadata": {
                 "creationTimestamp": null,
                 "labels": {
-                    "machine.openshift.io/cluster-api-cluster": "zkaiser-gpu-summit-pwc7s",
+                    "machine.openshift.io/cluster-api-cluster": "zkaiserz-rh-summit-6vcx4",
                     "machine.openshift.io/cluster-api-machine-role": "gpu",
                     "machine.openshift.io/cluster-api-machine-type": "gpu",
-                    "machine.openshift.io/cluster-api-machineset": "zkaiser-gpu-summit-pwc7s-gpu-us-west-2a"
+                    "machine.openshift.io/cluster-api-machineset": "zkaiserz-rh-summit-6vcx4-gpu-us-west-2a"
                 }
             },
             "spec": {
@@ -54,7 +54,7 @@
                         },
                         "deviceIndex": 0,
                         "iamInstanceProfile": {
-                            "id": "zkaiser-gpu-summit-pwc7s-worker-profile"
+                            "id": "zkaiserz-rh-summit-6vcx4-worker-profile"
                         },
                         "instanceType": "g3.4xlarge",
                         "kind": "AWSMachineProviderConfig",
@@ -72,7 +72,7 @@
                                     {
                                         "name": "tag:Name",
                                         "values": [
-                                            "zkaiser-gpu-summit-pwc7s-worker-sg"
+                                            "zkaiserz-rh-summit-6vcx4-worker-sg"
                                         ]
                                     }
                                 ]
@@ -83,14 +83,14 @@
                                 {
                                     "name": "tag:Name",
                                     "values": [
-                                        "zkaiser-gpu-summit-pwc7s-public-us-west-2a"
+                                        "zkaiserz-rh-summit-6vcx4-public-us-west-2a"
                                     ]
                                 }
                             ]
                         },
                         "tags": [
                             {
-                                "name": "kubernetes.io/cluster/zkaiser-gpu-summit-pwc7s",
+                                "name": "kubernetes.io/cluster/zkaiserz-rh-summit-6vcx4",
                                 "value": "owned"
                             }
                         ],
