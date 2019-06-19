@@ -20,7 +20,7 @@ spec:
       readOnlyRootFilesystem: true
       containers:
         - name: special-resource-operator
-          image: quay.io/zvonkok/special-resource-operator:p3
+          image: quay.io/zvonkok/special-resource-operator
           ports:
           - containerPort: 60000
             name: metrics
