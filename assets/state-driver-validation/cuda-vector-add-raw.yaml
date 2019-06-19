@@ -15,8 +15,7 @@ spec:
   restartPolicy: Never
   containers:
     - name: cuda-vector-add
-      image: "quay.io/zvonkok/cuda:10.1-samples-ubi8"
-      command: ["/usr/local/cuda/samples/bin/x86_64/linux/release/vectorAdd"]
+      image: "quay.io/zvonkok/cuda-vector-add:v0.1"
       env:
         - name: NVIDIA_VISIBLE_DEVICES
           value: all
