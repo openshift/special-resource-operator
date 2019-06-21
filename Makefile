@@ -14,7 +14,7 @@ ENVVAR=GOOS=linux CGO_ENABLED=0
 GOOS=linux
 GO_BUILD_RECIPE=GOOS=$(GOOS) go build -o $(BIN) $(MAIN_PACKAGE)
 
-all: generate build
+all: build
 
 build:
 	$(GO_BUILD_RECIPE)
