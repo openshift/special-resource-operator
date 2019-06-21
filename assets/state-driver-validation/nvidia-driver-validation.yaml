@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: JobDaemonSet
 metadata:
-  name: nvidia-driver-validation
+  name: nvidia-driver-validation-
   namespace: openshift-sro
 spec:
   template:

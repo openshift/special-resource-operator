@@ -511,12 +511,14 @@ func JobDaemonSet(n SRO) (ResourceStatus, error) {
 	}
 
 	for _, node := range list.Items {
-		logger.Info("Setting Jobs NodeName to: ", node.GetName())
+		logger.Info("Setting Jobs NodeName", "To:", node.GetName())
 
 		obj.Spec.Template.Spec.NodeName = node.Name
+		obj.Name = obj.GetName() + node.Name
+
 		n.resources[state].Job = *obj
 
-		logger.Info("Job:", n.resources[state].Job)
+		logger.Info("Manifest", "Job", n.resources[state].Job)
 
 		status, err := Job(n)
 		if err != nil {
