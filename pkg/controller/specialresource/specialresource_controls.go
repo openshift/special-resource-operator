@@ -495,6 +495,17 @@ func Job(n SRO) (ResourceStatus, error) {
 	return Ready, nil
 }
 
+func truncateString(str string, num int) string {
+	bnoden := str
+	if len(str) > num {
+		if num > 3 {
+			num -= 3
+		}
+		bnoden = str[0:num] + "..."
+	}
+	return bnoden
+}
+
 func JobDaemonSet(n SRO) (ResourceStatus, error) {
 
 	state := n.idx
@@ -510,11 +521,14 @@ func JobDaemonSet(n SRO) (ResourceStatus, error) {
 		logger.Info("Could not get NodeList", err)
 	}
 
+	objName := obj.GetName()
+
 	for _, node := range list.Items {
 		logger.Info("Setting Jobs NodeName", "To:", node.GetName())
 
 		obj.Spec.Template.Spec.NodeName = node.Name
-		obj.Name = obj.GetName() + node.Name
+		obj.Name = objName + node.Name
+		obj.Name = truncateString(obj.Name, 63)
 
 		n.resources[state].Job = *obj
 
@@ -524,6 +538,8 @@ func JobDaemonSet(n SRO) (ResourceStatus, error) {
 		if err != nil {
 			return status, err
 		}
+
+		obj.Name = "" // Reset otherwise we are concat it to inf
 	}
 
 	return Ready, nil
