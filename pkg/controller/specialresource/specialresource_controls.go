@@ -538,7 +538,7 @@ func JobDaemonSet(n SRO) (ResourceStatus, error) {
 			return status, err
 		}
 
-		obj.Name = "" // Reset otherwise we are concat it to inf
+		obj = &n.resources[state].Job
 	}
 
 	return Ready, nil
