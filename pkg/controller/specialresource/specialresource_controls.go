@@ -511,6 +511,7 @@ func JobDaemonSet(n SRO) (ResourceStatus, error) {
 	logger := log.WithValues("Job", obj.Name, "Namespace", obj.Namespace)
 	// We need the node labels to fetch the correct container
 	opts := &client.ListOptions{}
+
 	opts.SetLabelSelector("feature.node.kubernetes.io/pci-10de.present=true")
 	list := &corev1.NodeList{}
 	err := n.rec.client.List(context.TODO(), opts, list)

@@ -1,14 +1,17 @@
 apiVersion: batch/v1
 kind: JobDaemonSet
 metadata:
-  name: nvidia-driver-validation-
+  name: nvidia-dp-validation-
   namespace: openshift-sro
 spec:
   template:
     spec:
       containers:
-      - name: nvidia-driver-validation-ctr
+      - name: nvidia-dp-validation-ctr
         image: quay.io/zvonkok/cuda-vector-add:v0.1
       restartPolicy: OnFailure
+      resources:
+        limits:
+          nvidia.com/gpu: 1
       nodeName: localhost
 #  backoffLimit: 100 # 
