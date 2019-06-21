@@ -8,6 +8,7 @@ import (
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	schedv1 "k8s.io/api/scheduling/v1beta1"
@@ -459,6 +460,66 @@ func ServiceMonitor(n SRO) (ResourceStatus, error) {
 	}
 
 	logger.Info("Found")
+
+	return Ready, nil
+}
+
+func Job(n SRO) (ResourceStatus, error) {
+
+	state := n.idx
+	obj := &n.resources[state].Job
+
+	found := &batchv1.Job{}
+	logger := log.WithValues("Job", obj.Name, "Namespace", obj.Namespace)
+
+	if err := controllerutil.SetControllerReference(n.ins, obj, n.rec.scheme); err != nil {
+		return NotReady, err
+	}
+
+	logger.Info("Looking for")
+	err := n.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name}, found)
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Not found, creating")
+		err = n.rec.client.Create(context.TODO(), obj)
+		if err != nil {
+			logger.Info("Couldn't create", "Error", err)
+			return NotReady, err
+		}
+		return Ready, nil
+	} else if err != nil {
+		return NotReady, err
+	}
+
+	logger.Info("Found")
+
+	return Ready, nil
+}
+
+func JobDaemonSet(n SRO) (ResourceStatus, error) {
+
+	logger := log.WithValues("Request.Namespace", "default", "Request.Name", "Node")
+	// We need the node labels to fetch the correct container
+	opts := &client.ListOptions{}
+	opts.SetLabelSelector("feature.node.kubernetes.io/pci-10de.present=true")
+	list := &corev1.NodeList{}
+	err := n.rec.client.List(context.TODO(), opts, list)
+	if err != nil {
+		logger.Info("Could not get NodeList", err)
+	}
+
+	state := n.idx
+	obj := &n.resources[state].Job
+
+	for _, node := range list.Items {
+		logger.Info("Setting Jobs NodeName to: ", node.Name)
+
+		obj.Spec.Template.Spec.NodeName = node.Name
+		n.resources[state].Job = *obj
+		status, err := Job(n)
+		if err != nil {
+			return status, err
+		}
+	}
 
 	return Ready, nil
 }

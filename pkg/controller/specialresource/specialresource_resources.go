@@ -9,6 +9,7 @@ import (
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	schedv1 "k8s.io/api/scheduling/v1beta1"
@@ -37,6 +38,7 @@ type Resources struct {
 	PriorityClass              schedv1.PriorityClass
 	Taint                      corev1.Taint
 	SecurityContextConstraints secv1.SecurityContextConstraints
+	Job                        batchv1.Job
 }
 
 func filePathWalkDir(root string) ([]string, error) {
@@ -130,6 +132,18 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 			_, _, err := s.Decode(m, nil, &res.SecurityContextConstraints)
 			panicIfError(err)
 			ctrl = append(ctrl, SecurityContextConstraints)
+		case "Job":
+			_, _, err := s.Decode(m, nil, &res.Job)
+			panicIfError(err)
+			ctrl = append(ctrl, Job)
+		case "JobDaemonSet":
+			// There are no JobDaemonSet objects in k8s we're emulating those
+			// replace the kind to Job and handle it as a once run DS
+			job := strings.Replace(string(m), "kind: JobDaemonSet", "kind: Job", -1)
+			_, _, err := s.Decode([]byte(job), nil, &res.Job)
+			panicIfError(err)
+			ctrl = append(ctrl, JobDaemonSet)
+
 		default:
 			log.Info("Unknown Resource", "Manifest", m, "Kind", kind)
 		}
