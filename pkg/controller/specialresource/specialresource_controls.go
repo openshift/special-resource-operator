@@ -506,9 +506,9 @@ func truncateString(str string, num int) string {
 func JobDaemonSet(n SRO) (ResourceStatus, error) {
 
 	state := n.idx
-	obj := &n.resources[state].Job
+	backup := n.resources[state].Job
 
-	logger := log.WithValues("Job", obj.Name, "Namespace", obj.Namespace)
+	logger := log.WithValues("Job", backup.Name, "Namespace", backup.Namespace)
 	// We need the node labels to fetch the correct container
 	opts := &client.ListOptions{}
 
@@ -519,6 +519,7 @@ func JobDaemonSet(n SRO) (ResourceStatus, error) {
 		logger.Info("Could not get NodeList", err)
 	}
 
+	obj := backup
 	objName := obj.GetName()
 
 	for _, node := range list.Items {
@@ -529,7 +530,7 @@ func JobDaemonSet(n SRO) (ResourceStatus, error) {
 
 		logger.Info("Setting Jobs NodeName", "To:", obj.GetName())
 
-		n.resources[state].Job = *obj
+		n.resources[state].Job = obj
 
 		logger.Info("Manifest", "Job", n.resources[state].Job)
 
@@ -538,7 +539,7 @@ func JobDaemonSet(n SRO) (ResourceStatus, error) {
 			return status, err
 		}
 
-		obj = &n.resources[state].Job
+		obj = backup
 	}
 
 	return Ready, nil
