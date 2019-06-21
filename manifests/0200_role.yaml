@@ -70,3 +70,12 @@ rules:
   - list
   - watch
   - create
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+  - create

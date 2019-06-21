@@ -497,7 +497,10 @@ func Job(n SRO) (ResourceStatus, error) {
 
 func JobDaemonSet(n SRO) (ResourceStatus, error) {
 
-	logger := log.WithValues("Request.Namespace", "default", "Request.Name", "Node")
+	state := n.idx
+	obj := &n.resources[state].Job
+
+	logger := log.WithValues("Job", obj.Name, "Namespace", obj.Namespace)
 	// We need the node labels to fetch the correct container
 	opts := &client.ListOptions{}
 	opts.SetLabelSelector("feature.node.kubernetes.io/pci-10de.present=true")
@@ -507,14 +510,14 @@ func JobDaemonSet(n SRO) (ResourceStatus, error) {
 		logger.Info("Could not get NodeList", err)
 	}
 
-	state := n.idx
-	obj := &n.resources[state].Job
-
 	for _, node := range list.Items {
-		logger.Info("Setting Jobs NodeName to: ", node.Name)
+		logger.Info("Setting Jobs NodeName to: ", node.GetName())
 
 		obj.Spec.Template.Spec.NodeName = node.Name
 		n.resources[state].Job = *obj
+
+		logger.Info("Job:", n.resources[state].Job)
+
 		status, err := Job(n)
 		if err != nil {
 			return status, err
