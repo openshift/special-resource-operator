@@ -1,32 +1,38 @@
-apiVersion: v1
-kind: Pod
+apiVersion: apps/v1
+kind: DaemonSet
 metadata:
   labels:
     app: nvidia-driver-validation
   name: nvidia-driver-validation
   namespace: openshift-sro
 spec:
-#  serviceAccount: nvidia-readonly
-#  serviceAccountName: nvidia-readonly
-  tolerations:
-    - key: nvidia.com/gpu
-      operator: Exists
-      effect: NoSchedule
-  restartPolicy: Never
-  containers:
-    - name: cuda-vector-add
-      image: "quay.io/zvonkok/cuda-vector-add:v0.1"
-      env:
-        - name: NVIDIA_VISIBLE_DEVICES
-          value: all
-        - name: NVIDIA_DRIVER_CAPABILITIES
-          value: "compute,utility"
-        - name: NVIDIA_REQUIRE_CUDA  
-          value: "cuda>=5.0"
-      securityContext:
-        readOnlyRootFilesystem: true
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop: ["ALL"]
-  nodeSelector:
-    feature.node.kubernetes.io/pci-10de.present: "true"
+  selector:
+    matchLabels:
+      app: nvidia-driver-validation
+  template:
+    metadata:
+      labels:
+        app: nvidia-driver-validation
+  spec:
+    tolerations:
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+    restartPolicy: Error
+    containers:
+      - name: cuda-vector-add
+        image: "quay.io/zvonkok/cuda-vector-add:v0.1"
+        env:
+          - name: NVIDIA_VISIBLE_DEVICES
+            value: all
+          - name: NVIDIA_DRIVER_CAPABILITIES
+            value: "compute,utility"
+          - name: NVIDIA_REQUIRE_CUDA  
+            value: "cuda>=5.0"
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+    nodeSelector:
+      feature.node.kubernetes.io/pci-10de.present: "true"
