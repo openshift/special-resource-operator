@@ -532,8 +532,6 @@ func JobDaemonSet(n SRO) (ResourceStatus, error) {
 
 		n.resources[state].Job = obj
 
-		logger.Info("Manifest", "Job", n.resources[state].Job)
-
 		status, err := Job(n)
 		if err != nil {
 			return status, err
