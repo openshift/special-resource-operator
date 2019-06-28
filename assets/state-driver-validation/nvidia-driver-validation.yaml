@@ -7,6 +7,9 @@ metadata:
     app: nvidia-driver-validation
 spec:
   template:
+    metadata:
+      labels:
+        app: nvidia-driver-validation
     spec:
       containers:
       - name: nvidia-driver-validation-ctr

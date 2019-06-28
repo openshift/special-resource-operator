@@ -7,6 +7,9 @@ metadata:
     app: nvidia-device-plugin-validation
 spec:
   template:
+    metadata:
+      labels:
+        app: nvidia-device-plugin-validation
     spec:
       containers:
       - name: nvidia-device-plugin-validation-ctr
