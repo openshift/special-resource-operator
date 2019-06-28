@@ -3,6 +3,7 @@ package specialresource
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"strings"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
@@ -485,7 +486,7 @@ func Job(n SRO) (ResourceStatus, error) {
 			logger.Info("Couldn't create", "Error", err)
 			return NotReady, err
 		}
-		return Ready, nil
+		return isJobReady(obj.ObjectMeta.Labels["app"], n), nil
 	} else if err != nil {
 		return NotReady, err
 	}
@@ -501,6 +502,14 @@ func truncateString(str string, num int) string {
 		bnoden = str[0:num]
 	}
 	return bnoden
+}
+
+func RandomString(len int) string {
+	bytes := make([]byte, len)
+	for i := 0; i < len; i++ {
+		bytes[i] = byte(65 + rand.Intn(25)) //A=65 and Z = 65+25
+	}
+	return string(bytes)
 }
 
 func JobDaemonSet(n SRO) (ResourceStatus, error) {
@@ -520,15 +529,15 @@ func JobDaemonSet(n SRO) (ResourceStatus, error) {
 	}
 
 	obj := backup
-	objName := obj.GetName()
+	//objName := obj.GetName()
 
 	for _, node := range list.Items {
 
 		obj.Spec.Template.Spec.NodeName = node.Name
-		obj.Name = objName + node.Name
-		obj.Name = truncateString(obj.Name, 56)
+		//obj.Name = objName + RandomString(8)
+		//obj.Name = truncateString(obj.Name, 56)
 
-		logger.Info("Setting Jobs NodeName", "To:", obj.GetName())
+		//	logger.Info("Setting Jobs NodeName", "To:", obj.GetName())
 
 		n.resources[state].Job = obj
 
@@ -541,6 +550,34 @@ func JobDaemonSet(n SRO) (ResourceStatus, error) {
 	}
 
 	return Ready, nil
+}
+
+func isJobReady(name string, n SRO) ResourceStatus {
+	opts := &client.ListOptions{}
+	opts.SetLabelSelector(fmt.Sprintf("app=%s", name))
+	log.Info("DEBUG: Job", "LabelSelector", fmt.Sprintf("app=%s", name))
+	list := &batchv1.JobList{}
+	err := n.rec.client.List(context.TODO(), opts, list)
+	if err != nil {
+		log.Info("Could not get JobList", err)
+	}
+	log.Info("DEBUG: Job", "NumberOfJobs", len(list.Items))
+	if len(list.Items) == 0 {
+		return NotReady
+	}
+
+	for _, job := range list.Items {
+
+		if *job.Spec.Completions != job.Status.Succeeded {
+
+			log.Info("DEBUG: Job", "Completions", *job.Spec.Completions, "!=", job.Status.Succeeded)
+			return NotReady
+		}
+
+		log.Info("DEBUG: Job", "Completions", *job.Spec.Completions, "==", job.Status.Succeeded)
+		return Ready
+	}
+	return NotReady
 }
 
 func PriorityClass(n SRO) (ResourceStatus, error) {

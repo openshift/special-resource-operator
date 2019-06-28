@@ -3,6 +3,8 @@ kind: JobDaemonSet
 metadata:
   name: nvidia-driver-validation-
   namespace: openshift-sro
+  label:
+    app: nvidia-driver-validation
 spec:
   template:
     spec:
@@ -11,4 +13,4 @@ spec:
         image: quay.io/zvonkok/cuda-vector-add:v0.1
       restartPolicy: OnFailure
       nodeName: localhost
-#  backoffLimit: 100 # 
+  backoffLimit: 999999999
