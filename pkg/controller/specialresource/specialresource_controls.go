@@ -286,7 +286,7 @@ func DaemonSet(n SRO) (ResourceStatus, error) {
 	state := n.idx
 	obj := n.resources[state].DaemonSet
 
-	preProcessDaemonSet(obj, n)
+	preProcessDaemonSet(&obj, n)
 
 	found := &appsv1.DaemonSet{}
 	logger := log.WithValues("DaemonSet", obj.Name, "Namespace", obj.Namespace)
