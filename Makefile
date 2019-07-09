@@ -4,9 +4,9 @@ TAG            ?= mount-fix #$(shell git rev-parse --short HEAD)
 IMAGE          ?= ${REGISTRY}/${ORG}/special-resource-operator:${TAG}
 NAMESPACE      ?= openshift-sro-operator
 TEMPLATE_CMD    = sed 's|REPLACE_IMAGE|${IMAGE}|g; s|REPLACE_NAMESPACE|${NAMESPACE}|g; s|Always|IfNotPresent|'
-DEPLOY_OBJECTS  = manifests/0000_namespace.yaml manifests/0010_namespace.yaml manifests/0100_service_account.yaml manifests/0200_role.yaml manifests/0300_role_binding.yaml manifests/0310_readonlyfs_scc.yaml manifests/0400_operator.yaml
-DEPLOY_CRDS     = manifests/0500_crd.yaml
-DEPLOY_CRS_NONE = manifests/0700_cr.yaml
+DEPLOY_SCC_RO   = manifests/0310_readonlyfs_scc.yaml
+DEPLOY_OBJECTS  = manifests/0000_namespace.yaml manifests/0010_namespace.yaml manifests/0100_service_account.yaml manifests/0200_role.yaml manifests/0300_role_binding.yaml manifests/0400_operator.yaml
+DEPLOY_CRDS     = manifests/0500_sro_crd.yaml
 DEPLOY_CRS_NONE = manifests/0600_sro_cr_sched_none.yaml
 DEPLOY_CRS_PRIO = manifests/0600_sro_cr_sched_priority_preemption.yaml
 DEPLOY_CRS_TTOL = manifests/0600_sro_cr_sched_taints_tolerations.yaml
@@ -106,4 +106,4 @@ else
 	sudo docker push $(IMAGE_REGISTRY)/$(IMAGE_TAG)
 endif
 
-.PHONY: all build generate verify verify-gofmt clean local-image local-image-push
+.PHONY: all build generate verify verify-gofmt clean local-image local-image-push $(DEPLOY_CRDS) 
