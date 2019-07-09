@@ -634,7 +634,7 @@ func Taint(n SRO) (ResourceStatus, error) {
 			return Ready, nil
 		}
 		logger.Info("Not found, creating")
-		err := setTaint(n, *obj, node)
+		err := setTaint(n, obj, node)
 		if err != nil {
 			logger.Info("Could not set Taint", "ERROR", err)
 			return NotReady, nil
@@ -643,7 +643,7 @@ func Taint(n SRO) (ResourceStatus, error) {
 	return Ready, nil
 }
 
-func gotTaint(n SRO, taint *corev1.Taint, node corev1.Node) bool {
+func gotTaint(n SRO, taint corev1.Taint, node corev1.Node) bool {
 	for _, existing := range node.Spec.Taints {
 		if existing.Key == taint.Key {
 			return true
