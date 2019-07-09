@@ -1,6 +1,6 @@
 REGISTRY       ?= quay.io
 ORG            ?= zvonkok
-TAG            ?= mount-fix #$(shell git rev-parse --short HEAD)
+TAG            ?= latest #$(shell git rev-parse --short HEAD)
 IMAGE          ?= ${REGISTRY}/${ORG}/special-resource-operator:${TAG}
 NAMESPACE      ?= openshift-sro-operator
 TEMPLATE_CMD    = sed 's|REPLACE_IMAGE|${IMAGE}|g; s|REPLACE_NAMESPACE|${NAMESPACE}|g; s|Always|IfNotPresent|'
