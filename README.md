@@ -45,13 +45,13 @@ This state will deploy a DaemonSet with a driver container. The driver container
 The DaemonSet will use the PCI label from NFD to schedule the DaemonSet only on nodes that have a special resource (0x0300 is a display class and 0x10DE is the vendor id for NVIDIA). 
 ```
       nodeSelector:
-        feature.node.kubernetes.io/pci-0300_10de.present: "true"
+        feature.node.kubernetes.io/pci-10de.present: "true"
 ```
 
 To schedule the correct version of the compiled kernel modules, the operator will fetch the kernel-version label from the special resource nodes and preprocess the driver container DaemonSet in such a way that the `nodeSelector` and the pulled image have the kernel-version in their name: 
 ```
       nodeSelector:
-        feature.node.kubernetes.io/pci-0300_10de.present: "true"
+        feature.node.kubernetes.io/pci-10de.present: "true"
         feature.node.kubernetes.io/kernel-version.full: "KERNEL_FULL_VERSION"
 ```
 ```
