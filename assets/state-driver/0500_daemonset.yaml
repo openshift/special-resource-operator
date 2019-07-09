@@ -42,8 +42,8 @@ spec:
           - name: run-nvidia
             mountPath: /run/nvidia
             mountPropagation: Bidirectional
-          - name: config
-            mountPath: /etc/containers/oci/hooks.d
+#          - name: config
+#            mountPath: /etc/containers/oci/hooks.d
           - name: host
             mountPath: /host
       volumes:
@@ -53,12 +53,12 @@ spec:
         - name: run-nvidia
           hostPath:
             path: /run/nvidia
-        - name: config
-          configMap:
-            name: nvidia-driver
-            items:
-              - key: oci-nvidia-hook-json
-                path: oci-nvidia-hook.json
+#        - name: config
+#          configMap:
+#            name: nvidia-driver
+#            items:
+#              - key: oci-nvidia-hook-json
+#                path: oci-nvidia-hook.json
       nodeSelector:
         feature.node.kubernetes.io/pci-10de.present: "true"
         feature.node.kubernetes.io/kernel-version.full: "KERNEL_FULL_VERSION"

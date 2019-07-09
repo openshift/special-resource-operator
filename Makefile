@@ -1,3 +1,16 @@
+REGISTRY       ?= quay.io
+ORG            ?= zvonkok
+TAG            ?= mount-fix #$(shell git rev-parse --short HEAD)
+IMAGE          ?= ${REGISTRY}/${ORG}/special-resource-operator:${TAG}
+NAMESPACE      ?= openshift-sro-operator
+TEMPLATE_CMD    = sed 's|REPLACE_IMAGE|${IMAGE}|g; s|REPLACE_NAMESPACE|${NAMESPACE}|g; s|Always|IfNotPresent|'
+DEPLOY_OBJECTS  = manifests/0000_namespace.yaml manifests/0010_namespace.yaml manifests/0100_service_account.yaml manifests/0200_role.yaml manifests/0300_role_binding.yaml manifests/0310_readonlyfs_scc.yaml manifests/0400_operator.yaml
+DEPLOY_CRDS     = manifests/0500_crd.yaml
+DEPLOY_CRS_NONE = manifests/0700_cr.yaml
+DEPLOY_CRS_NONE = manifests/0600_sro_cr_sched_none.yaml
+DEPLOY_CRS_PRIO = manifests/0600_sro_cr_sched_priority_preemption.yaml
+DEPLOY_CRS_TTOL = manifests/0600_sro_cr_sched_taints_tolerations.yaml
+
 PACKAGE=github.com/zvonkok/special-resource-operator
 MAIN_PACKAGE=$(PACKAGE)/cmd/manager
 
@@ -18,6 +31,44 @@ all: build
 
 build:
 	$(GO_BUILD_RECIPE)
+
+test-e2e: 
+	@${TEMPLATE_CMD} manifests/0110_namespace.yaml > manifests/operator-init.yaml
+	echo -e "\n---\n" >> manifests/operator-init.yaml
+	@${TEMPLATE_CMD} manifests/0200_service_account.yaml >> manifests/operator-init.yaml
+	echo -e "\n---\n" >> manifests/operator-init.yaml
+	@${TEMPLATE_CMD} manifests/0300_cluster_role.yaml >> manifests/operator-init.yaml
+	echo -e "\n---\n" >> manifests/operator-init.yaml
+	@${TEMPLATE_CMD} manifests/0600_operator.yaml >> manifests/operator-init.yaml
+
+	go test -v ./test/e2e/... -root $(PWD) -kubeconfig=$(KUBECONFIG) -tags e2e  -globalMan $(DEPLOY_CRDS) -namespacedMan manifests/operator-init.yaml 
+
+$(DEPLOY_CRDS):
+	@${TEMPLATE_CMD} $@ | kubectl apply -f -
+
+deploy-crds: $(DEPLOY_CRDS) 
+	sleep 1
+
+deploy-objects: deploy-crds
+	for obj in $(DEPLOY_OBJECTS); do \
+		$(TEMPLATE_CMD) $$obj | kubectl apply -f - ;\
+	done	
+
+deploy: deploy-objects
+	@${TEMPLATE_CMD} $(DEPLOY_CRS_NONE) | kubectl apply -f -
+
+deploy-prio: deploy-objects
+	@${TEMPLATE_CMD} $(DEPLOY_CRS_PRIO) | kubectl apply -f -
+
+deploy-ttol: deploy-objects
+	@${TEMPLATE_CMD} $(DEPLOY_CRS_TTOL) | kubectl apply -f -
+
+undeploy:
+	for obj in $(DEPLOY_OBJECTS) $(DEPLOY_CRDS) $(DEPLOY_CRS_NONE) $(DEPLOY_CRS_PRIO) $(DEPLOY_CRS_TTOL); do \
+		$(TEMPLATE_CMD) $$obj | kubectl delete -f - ;\
+	done	
+
+
 
 verify:	verify-gofmt
 

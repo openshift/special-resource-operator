@@ -5,7 +5,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: special-resource-operator
-  namespace: openshift-sro-operator
+  namespace: REPLACE_NAMESPACE
 roleRef:
   kind: ClusterRole
   name: special-resource-operator

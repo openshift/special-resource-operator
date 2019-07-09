@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: special-resource-operator
-  namespace: openshift-sro-operator
+  namespace: REPLACE_NAMESPACE
 spec:
   replicas: 1
   selector:
@@ -20,7 +20,7 @@ spec:
       readOnlyRootFilesystem: true
       containers:
         - name: special-resource-operator
-          image: quay.io/zvonkok/special-resource-operator:p3
+          image: REPLACE_IMAGE
           ports:
           - containerPort: 60000
             name: metrics
