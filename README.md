@@ -16,7 +16,7 @@ Labels:             beta.kubernetes.io/arch=amd64
                     feature.node.kubernetes.io/cpuid-AVX2=true
                     feature.node.kubernetes.io/kernel-version.full=3.10.0-957.1.3.el7.x86_64
                                 ...
-                    feature.node.kubernetes.io/pci-0300_10de.present=true
+                    feature.node.kubernetes.io/pci-10de.present=true
                     feature.node.kubernetes.io/system-os_release.VERSION_ID=4.0
                     feature.node.kubernetes.io/system-os_release.VERSION_ID.major=4
                     feature.node.kubernetes.io/system-os_release.VERSION_ID.minor=0
