@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: openshift-monitoring
+  namespace: openshift-sro
   name: nvidia-dcgm-exporter
   labels:
     app: nvidia-dcgm-exporter
