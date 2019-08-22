@@ -6,6 +6,7 @@ metadata:
 spec:
   endpoints:
   - port: dcgm 
+  jobLabel: app
   namespaceSelector:
     matchNames:
     - openshift-sro
