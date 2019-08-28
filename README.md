@@ -73,6 +73,26 @@ One will use the same GPU workload as before for validation but this time the Po
 #### State Monitoring
 This state uses a custom metrics exporter DaemonSet to export metrics for Prometheus. A ServiceMonitor adds this exporter as a new scrape target. 
 
+#### State Feature Discovery
+After deploying the enablement stack, which includes the driver, one can now extract or detect special features about the underlying special resource and use a side-car container for NFD to publish those features with an own prefix (namespace). In the case of the GPU, SRO will use: https://github.com/NVIDIA/gpu-feature-discovery to publish those features. Here is a sample output when describing a Node: 
+
+```
+ nvidia.com/cuda.driver.major=430
+ nvidia.com/cuda.driver.minor=34
+ nvidia.com/cuda.driver.rev=
+ nvidia.com/cuda.runtime.major=10
+ nvidia.com/cuda.runtime.minor=1
+ nvidia.com/gfd.timestamp=1566846697
+ nvidia.com/gpu.compute.major=7
+ nvidia.com/gpu.compute.minor=0
+ nvidia.com/gpu.family=undefined
+ nvidia.com/gpu.machine=HVM-domU
+ nvidia.com/gpu.memory=16160
+ nvidia.com/gpu.product=Tesla-V100-SXM2-16GB
+```
+
+Those labels can be used for advanced scheduling decisions. If workloads need specific compute capabilities they can be deployed to the right node with the fitting GPU.
+
 
 ## Hard and Soft Partitioning
 The operator has example CR's how to create a hard or soft partitioning scheme for the worker nodes where one has special resources. Hard partitioning is realized with taints and tolerations where soft partitioning is priority and preemption. 
