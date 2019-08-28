@@ -1,0 +1,16 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: nvidia-feature-discovery
+  namespace: openshift-sro
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: nvidia-feature-discovery
+  namespace: openshift-sro
+subjects:
+- kind: ServiceAccount
+  name: nvidia-feature-discovery
+  namespace: openshift-sro
+userNames:
+- system:serviceaccount:openshift-sro:nvidia-feature-discovery
