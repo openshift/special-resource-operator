@@ -44,12 +44,12 @@ spec:
             mountPropagation: Bidirectional
           - name: config
             mountPath: /etc/containers/oci/hooks.d
-          - name: host
-            mountPath: /host
+          - name: host-modules
+            mountPath: /host/lib/modules
       volumes:
-        - name: host
+        - name: host-modules
           hostPath:
-            path: /
+            path: /lib/modules
         - name: run-nvidia
           hostPath:
             path: /run/nvidia

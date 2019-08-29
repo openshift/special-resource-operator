@@ -82,6 +82,7 @@ func (n *SRO) init(r *ReconcileSpecialResource,
 	addState(n, "/opt/sro/state-driver-validation")
 	addState(n, "/opt/sro/state-device-plugin")
 	addState(n, "/opt/sro/state-device-plugin-validation")
+	addState(n, "/opt/sro/state-prometheus")
 	addState(n, "/opt/sro/state-monitoring")
 	addState(n, "/opt/sro/state-feature-discovery")
 
