@@ -29,7 +29,7 @@ spec:
       serviceAccountName: nvidia-driver
       hostPID: true
       containers:
-      - image: quay.io/zvonkok/nvidia-driver:v410.79-KERNEL_FULL_VERSION
+      - image: quay.io/zvonkok/nvidia-driver:v430.34-KERNEL_FULL_VERSION
         imagePullPolicy: Always
         name: nvidia-driver-ctr
         command: ["nvidia-driver"]
@@ -42,11 +42,16 @@ spec:
           - name: run-nvidia
             mountPath: /run/nvidia
             mountPropagation: Bidirectional
+          - name: host-hooks
+            mountPath: /host/etc/containers/oci
           - name: config
             mountPath: /etc/containers/oci/hooks.d
           - name: host-modules
             mountPath: /host/lib/modules
       volumes:
+        - name: host-hooks
+          hostPath:
+            path: /etc/containers/oci
         - name: host-modules
           hostPath:
             path: /lib/modules
