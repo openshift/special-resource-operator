@@ -5,3 +5,4 @@ metadata:
   namespace: REPLACE_NAMESPACE
 spec:
   schedulingType: "None"
+
