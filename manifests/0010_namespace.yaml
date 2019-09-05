@@ -4,4 +4,5 @@ metadata:
     name: openshift-sro
     labels:
         openshift.io/cluster-monitoring: "true"
-        
+
+
