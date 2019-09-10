@@ -11,9 +11,9 @@ DEPLOY_CRS_NONE = manifests/0600_sro_cr_sched_none.yaml
 DEPLOY_CRS_PRIO = manifests/0600_sro_cr_sched_priority_preemption.yaml
 DEPLOY_CRS_TTOL = manifests/0600_sro_cr_sched_taints_tolerations.yaml
 
-PROM_URL       != oc get secrets -n openshift-monitoring grafana-datasources -o go-template='{{index .data "prometheus.yaml"}}' | base64 --decode | jq '.datasources[0].url'
+PROM_URL       = $(shell oc get secrets -n openshift-monitoring grafana-datasources -o go-template='{{index .data "prometheus.yaml"}}' | base64 --decode | jq '.datasources[0].url')
 PROM_USER      ?= internal
-PROM_PASS      != `oc get secrets -n openshift-monitoring grafana-datasources -o go-template='{{index .data "prometheus.yaml"}}' | base64 --decode | jq '.datasources[0].basicAuthPassword'`
+PROM_PASS      = $(shell oc get secrets -n openshift-monitoring grafana-datasources -o go-template='{{index .data "prometheus.yaml"}}' | base64 --decode | jq '.datasources[0].basicAuthPassword')
 GRAFANA_CMD     = sed 's|REPLACE_PROM_URL|${PROM_URL}|g; s|REPLACE_PROM_USER|${PROM_USER}|g; s|REPLACE_PROM_PASS|${PROM_PASS}|g;'
 
 PACKAGE=github.com/zvonkok/special-resource-operator
