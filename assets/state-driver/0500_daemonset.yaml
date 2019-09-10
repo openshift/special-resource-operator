@@ -22,6 +22,7 @@ spec:
         app: nvidia-driver-daemonset
     spec:
       tolerations:
+      - operator: Exists
       - key: nvidia.com/gpu
         operator: Exists
         effect: NoSchedule
@@ -65,5 +66,6 @@ spec:
               - key: oci-nvidia-hook-json
                 path: oci-nvidia-hook.json
       nodeSelector:
+        node-role.kubernetes.io/worker: ""
         feature.node.kubernetes.io/pci-10de.present: "true"
         feature.node.kubernetes.io/kernel-version.full: "KERNEL_FULL_VERSION"

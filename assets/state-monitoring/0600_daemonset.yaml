@@ -19,6 +19,7 @@ spec:
       name: nvidia-dcgm-exporter
     spec:
       tolerations:
+      - operator: Exists
       - key: nvidia.com/gpu
         operator: Exists
         effect: NoSchedule
@@ -54,4 +55,5 @@ spec:
 #          medium: Memory
 
       nodeSelector:
+        node-role.kubernetes.io/worker: ""
         feature.node.kubernetes.io/pci-10de.present: "true"

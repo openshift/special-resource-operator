@@ -9,6 +9,7 @@ spec:
 #  serviceAccount: nvidia-readonly
 #  serviceAccountName: nvidia-readonly
   tolerations:
+    - operator: Exists
     - key: nvidia.com/gpu
       operator: Exists
       effect: NoSchedule
@@ -29,4 +30,5 @@ spec:
         capabilities:
           drop: ["ALL"]
   nodeSelector:
+    node-role.kubernetes.io/worker: ""
     feature.node.kubernetes.io/pci-10de.present: "true"
