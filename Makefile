@@ -3,13 +3,18 @@ ORG            ?= zvonkok
 TAG            ?= latest #$(shell git rev-parse --short HEAD)
 IMAGE          ?= ${REGISTRY}/${ORG}/special-resource-operator:${TAG}
 NAMESPACE      ?= openshift-sro-operator
-TEMPLATE_CMD    = sed 's|REPLACE_IMAGE|${IMAGE}|g; s|REPLACE_NAMESPACE|${NAMESPACE}|g; s|Always|IfNotPresent|'
+TEMPLATE_CMD    = sed 's+REPLACE_IMAGE+${IMAGE}+g; s+REPLACE_NAMESPACE+${NAMESPACE}+g; s+Always+IfNotPresent+'
 DEPLOY_SCC_RO   = manifests/0310_readonlyfs_scc.yaml
 DEPLOY_OBJECTS  = manifests/0000_namespace.yaml manifests/0010_namespace.yaml manifests/0100_service_account.yaml manifests/0200_role.yaml manifests/0300_role_binding.yaml manifests/0400_operator.yaml
 DEPLOY_CRDS     = manifests/0500_sro_crd.yaml
 DEPLOY_CRS_NONE = manifests/0600_sro_cr_sched_none.yaml
 DEPLOY_CRS_PRIO = manifests/0600_sro_cr_sched_priority_preemption.yaml
 DEPLOY_CRS_TTOL = manifests/0600_sro_cr_sched_taints_tolerations.yaml
+
+PROM_URL       != oc get secrets -n openshift-monitoring grafana-datasources -o go-template='{{index .data "prometheus.yaml"}}' | base64 --decode | jq '.datasources[0].url'
+PROM_USER      ?= internal
+PROM_PASS      != `oc get secrets -n openshift-monitoring grafana-datasources -o go-template='{{index .data "prometheus.yaml"}}' | base64 --decode | jq '.datasources[0].basicAuthPassword'`
+GRAFANA_CMD     = sed 's|REPLACE_PROM_URL|${PROM_URL}|g; s|REPLACE_PROM_USER|${PROM_USER}|g; s|REPLACE_PROM_PASS|${PROM_PASS}|g;'
 
 PACKAGE=github.com/zvonkok/special-resource-operator
 MAIN_PACKAGE=$(PACKAGE)/cmd/manager
@@ -28,6 +33,12 @@ GOOS=linux
 GO_BUILD_RECIPE=GOOS=$(GOOS) go build -o $(BIN) $(MAIN_PACKAGE)
 
 all: build
+
+grafana:
+	kubectl apply -f assets/state-grafana/0100_grafana_service.yaml   
+	oc apply -f assets/state-grafana/0200_grafana_route.yaml
+	${GRAFANA_CMD}   assets/state-grafana/0300_grafana_configmap.yaml  | kubectl apply -f -
+	kubectl apply -f assets/state-grafana/0400_grafana_deployment.yaml 
 
 build:
 	$(GO_BUILD_RECIPE)
@@ -106,4 +117,5 @@ else
 	sudo docker push $(IMAGE_REGISTRY)/$(IMAGE_TAG)
 endif
 
-.PHONY: all build generate verify verify-gofmt clean local-image local-image-push $(DEPLOY_CRDS) 
+.PHONY: all build generate verify verify-gofmt clean local-image local-image-push $(DEPLOY_CRDS) grafana
+

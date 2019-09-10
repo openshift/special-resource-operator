@@ -8,7 +8,7 @@ data:
     {
         "version": "1.0.0",
         "hook": {
-            "path": "/run/nvidia/driver/usr/bin/nvidia-container-runtime-hook",
+            "path": "/run/nvidia/driver/usr/bin/nvidia-container-toolkit",
             "args": ["nvidia-container-runtime-hook", "prestart"],
             "env": [
                 "PATH=/run/nvidia/driver/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"

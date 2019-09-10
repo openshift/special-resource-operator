@@ -23,7 +23,7 @@ objects:
   kind: Service
   metadata:
     name: scale-ci-grafana
-    namespace: scale-ci-grafana
+    namespace: openshift-sro
     labels:
       metrics-infra: scale-ci-grafana
       name: scale-ci-grafana
@@ -39,7 +39,7 @@ objects:
   kind: Route
   metadata:
     name: scale-ci-grafana
-    namespace: scale-ci-grafana
+    namespace: openshift-sro
   spec:
     host: "${ROUTE_URL}"
     to:
@@ -52,7 +52,7 @@ objects:
     labels:
       app: scale-ci-grafana
     name: scale-ci-grafana
-    namespace: scale-ci-grafana
+    namespace: openshift-sro
   spec:
     replicas: 1
     selector:
@@ -82,7 +82,7 @@ objects:
   kind: ConfigMap
   metadata:
     name: sc-ocp-prom
-    namespace: scale-ci-grafana
+    namespace: openshift-sro
   data:
     ocp-prometheus.yml: |
       apiVersion: 1
