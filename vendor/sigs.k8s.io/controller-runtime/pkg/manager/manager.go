@@ -211,7 +211,7 @@ func New(config *rest.Config, options Options) (Manager, error) {
 		fieldIndexes:     cache,
 		client: client.DelegatingClient{
 			Reader: &client.DelegatingReader{
-				CacheReader:  writeObj,
+				CacheReader:  cache,
 				ClientReader: writeObj,
 			},
 			Writer:       writeObj,

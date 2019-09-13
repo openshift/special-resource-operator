@@ -10,6 +10,7 @@ import (
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/ghodss/yaml"
 	secv1 "github.com/openshift/api/security/v1"
+	"github.com/zvonkok/special-resource-operator/pkg/client"
 	"github.com/zvonkok/special-resource-operator/pkg/yamlutil"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -22,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -29,7 +31,8 @@ import (
 
 var (
 	// restMapper for the dynamic client
-	restMapper *restmapper.DeferredDiscoveryRESTMapper
+	restMapper            *restmapper.DeferredDiscoveryRESTMapper
+	cachedDiscoveryClient CachedDiscoveryInterface
 )
 
 type controlFunc []func(n SRO) (ResourceStatus, error)
@@ -40,6 +43,12 @@ const (
 	Ready    ResourceStatus = "Ready"
 	NotReady ResourceStatus = "NotReady"
 )
+
+func init() {
+	cachedDiscoveryClient := cached.NewMemCacheClient(GetClientSet().Discovery())
+	restMapper = restmapper.NewDeferredDiscoveryRESTMapper(sro.rec)
+	restMapper.Reset()
+}
 
 func CreateFromYAML(yamlFile []byte, skipIfExists bool) error {
 	//	namespace, err := ctx.GetNamespace()

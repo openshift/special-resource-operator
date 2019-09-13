@@ -45,13 +45,17 @@ build:
 	$(GO_BUILD_RECIPE)
 
 test-e2e: 
-	@${TEMPLATE_CMD} manifests/0110_namespace.yaml > manifests/operator-init.yaml
+	@${TEMPLATE_CMD} manifests/0000_namespace.yaml > manifests/operator-init.yaml
 	echo -e "\n---\n" >> manifests/operator-init.yaml
-	@${TEMPLATE_CMD} manifests/0200_service_account.yaml >> manifests/operator-init.yaml
+	@${TEMPLATE_CMD} manifests/0010_namespace.yaml > manifests/operator-init.yaml
 	echo -e "\n---\n" >> manifests/operator-init.yaml
-	@${TEMPLATE_CMD} manifests/0300_cluster_role.yaml >> manifests/operator-init.yaml
+	@${TEMPLATE_CMD} manifests/0100_service_account.yaml >> manifests/operator-init.yaml
 	echo -e "\n---\n" >> manifests/operator-init.yaml
-	@${TEMPLATE_CMD} manifests/0600_operator.yaml >> manifests/operator-init.yaml
+	@${TEMPLATE_CMD} manifests/0200_role.yaml >> manifests/operator-init.yaml
+	echo -e "\n---\n" >> manifests/operator-init.yaml
+	@${TEMPLATE_CMD} manifests/0300_role_binding.yaml >> manifests/operator-init.yaml
+	echo -e "\n---\n" >> manifests/operator-init.yaml
+	@${TEMPLATE_CMD} manifests/0400_operator.yaml >> manifests/operator-init.yaml
 
 	go test -v ./test/e2e/... -root $(PWD) -kubeconfig=$(KUBECONFIG) -tags e2e  -globalMan $(DEPLOY_CRDS) -namespacedMan manifests/operator-init.yaml 
 
