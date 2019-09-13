@@ -46,8 +46,12 @@ func CreateFromYAML(yamlFile []byte, skipIfExists bool) error {
 	//	if err != nil {
 	//		return err
 	//	}
+
+	logger.Info("yamlutil")
+
 	scanner := yamlutil.NewYAMLScanner(yamlFile)
 	for scanner.Scan() {
+		logger.Info("bytes")
 		yamlSpec := scanner.Bytes()
 
 		obj := &unstructured.Unstructured{}
@@ -64,6 +68,7 @@ func CreateFromYAML(yamlFile []byte, skipIfExists bool) error {
 		if skipIfExists && apierrors.IsAlreadyExists(err) {
 			continue
 		}
+		logger.Info("skip")
 		if err != nil {
 			_, restErr := restMapper.RESTMappings(obj.GetObjectKind().GroupVersionKind().GroupKind())
 			if restErr == nil {
@@ -89,7 +94,7 @@ func CreateFromYAML(yamlFile []byte, skipIfExists bool) error {
 			}
 		}
 	}
-
+	logger.Info("errr")
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("failed to scan manifest: (%v)", err)
 	}
