@@ -146,6 +146,8 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 			panicIfError(err)
 
 		default:
+			err := CreateFromYAML(m, false)
+			panicIfError(err)
 			log.Info("Unknown Resource", "Manifest", m, "Kind", kind)
 		}
 

@@ -21,6 +21,7 @@ spec:
       containers:
         - name: special-resource-operator
           image: REPLACE_IMAGE
+          imagePullPolicy: IfNotPresent
           ports:
           - containerPort: 60000
             name: metrics
