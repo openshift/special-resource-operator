@@ -78,14 +78,14 @@ func (n *SRO) init(r *ReconcileSpecialResource,
 
 	addClient(n)
 
-	addState(n, "/opt/sro/state-driver")
-	addState(n, "/opt/sro/state-driver-validation")
-	addState(n, "/opt/sro/state-device-plugin")
-	addState(n, "/opt/sro/state-device-plugin-validation")
-	addState(n, "/opt/sro/state-prometheus")
-	addState(n, "/opt/sro/state-monitoring")
+	//	addState(n, "/opt/sro/state-driver")
+	//	addState(n, "/opt/sro/state-driver-validation")
+	//	addState(n, "/opt/sro/state-device-plugin")
+	//	addState(n, "/opt/sro/state-device-plugin-validation")
+	//	addState(n, "/opt/sro/state-prometheus")
+	//	addState(n, "/opt/sro/state-monitoring")
 	addState(n, "/opt/sro/state-grafana")
-	addState(n, "/opt/sro/state-feature-discovery")
+	//	addState(n, "/opt/sro/state-feature-discovery")
 
 	addSchedulingType(n)
 
