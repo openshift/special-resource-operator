@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nvidia-sro-grafana
+  namespace: openshift-sro
+data:
+  ocp-prometheus.yml: |
+    apiVersion: 1
+    datasources:
+    - name: Cluster Prometheus
+      type: prometheus
+      access: proxy
+      orgId: 1
+      url: REPLACE_PROM_URL
+      basicAuth: true
+      basicAuthUser: REPLACE_PROM_USER
+      basicAuthPassword: REPLACE_PROM_PASS
+      withCredentials: false
+      isDefault: true
+      jsonData:
+        tlsSkipVerify: true
+      version: 1
+      editable: false

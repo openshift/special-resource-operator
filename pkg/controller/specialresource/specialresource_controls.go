@@ -5,19 +5,31 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"time"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	"github.com/ghodss/yaml"
 	secv1 "github.com/openshift/api/security/v1"
+	"github.com/zvonkok/special-resource-operator/pkg/yamlutil"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	schedv1 "k8s.io/api/scheduling/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+)
+
+var (
+	// restMapper for the dynamic client
+	restMapper *restmapper.DeferredDiscoveryRESTMapper
 )
 
 type controlFunc []func(n SRO) (ResourceStatus, error)
@@ -28,6 +40,61 @@ const (
 	Ready    ResourceStatus = "Ready"
 	NotReady ResourceStatus = "NotReady"
 )
+
+func CreateFromYAML(yamlFile []byte, skipIfExists bool) error {
+	//	namespace, err := ctx.GetNamespace()
+	//	if err != nil {
+	//		return err
+	//	}
+	scanner := yamlutil.NewYAMLScanner(yamlFile)
+	for scanner.Scan() {
+		yamlSpec := scanner.Bytes()
+
+		obj := &unstructured.Unstructured{}
+		jsonSpec, err := yaml.YAMLToJSON(yamlSpec)
+		if err != nil {
+			return fmt.Errorf("could not convert yaml file to json: %v", err)
+		}
+		if err := obj.UnmarshalJSON(jsonSpec); err != nil {
+			return fmt.Errorf("failed to unmarshal object spec: (%v)", err)
+		}
+		// TODO: obj.SetNamespace(namespace)
+		//err = Global.Client.Create(goctx.TODO(), obj, cleanupOptions)
+		err = sro.rec.client.Create(context.TODO(), obj)
+		if skipIfExists && apierrors.IsAlreadyExists(err) {
+			continue
+		}
+		if err != nil {
+			_, restErr := restMapper.RESTMappings(obj.GetObjectKind().GroupVersionKind().GroupKind())
+			if restErr == nil {
+				return err
+			}
+			// don't store error, as only error will be timeout. Error from runtime client will be easier for
+			// the user to understand than the timeout error, so just use that if we fail
+			_ = wait.PollImmediate(time.Second*1, time.Second*10, func() (bool, error) {
+				restMapper.Reset()
+				_, err := restMapper.RESTMappings(obj.GetObjectKind().GroupVersionKind().GroupKind())
+				if err != nil {
+					return false, nil
+				}
+				return true, nil
+			})
+			//err = Global.Client.Create(goctx.TODO(), obj, cleanupOptions)
+			err = sro.rec.client.Create(context.TODO(), obj)
+			if skipIfExists && apierrors.IsAlreadyExists(err) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("failed to scan manifest: (%v)", err)
+	}
+	return nil
+}
 
 func ServiceAccount(n SRO) (ResourceStatus, error) {
 

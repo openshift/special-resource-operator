@@ -15,7 +15,6 @@ import (
 	schedv1 "k8s.io/api/scheduling/v1beta1"
 
 	secv1 "github.com/openshift/api/security/v1"
-
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes/scheme"
 )
@@ -39,6 +38,7 @@ type Resources struct {
 	Taint                      corev1.Taint
 	SecurityContextConstraints secv1.SecurityContextConstraints
 	Job                        batchv1.Job
+	Deployment                 appsv1.Deployment
 }
 
 func filePathWalkDir(root string) ([]string, error) {
@@ -141,6 +141,9 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 			_, _, err := s.Decode([]byte(job), nil, &res.Job)
 			panicIfError(err)
 			ctrl = append(ctrl, JobDaemonSet)
+		case "Deployment":
+			err := CreateFromYAML(m, false)
+			panicIfError(err)
 
 		default:
 			log.Info("Unknown Resource", "Manifest", m, "Kind", kind)
