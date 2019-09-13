@@ -11,4 +11,5 @@ rules:
   verbs:
   - use
   resourceNames:
-  - hostmount-anyuid 
+  - privileged
+#  - hostmount-anyuid 

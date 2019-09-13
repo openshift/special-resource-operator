@@ -20,6 +20,9 @@ spec:
     spec:
       tolerations:
         - operator: Exists
+        - key: nvidia.com/gpu
+          operator: Exists
+      effect: NoSchedule
       serviceAccount: nvidia-feature-discovery
       serviceAccountName: nvidia-feature-discovery
       containers:
@@ -32,14 +35,13 @@ spec:
             - name: NVIDIA_REQUIRE_CUDA  
               value: "cuda>=5.0"
           name: nvidia-feature-discovery
+          securityContext:
+            privileged: true
           volumeMounts:
             - name: output-dir
               mountPath: "/etc/kubernetes/node-feature-discovery/features.d"
             - name: dmi-product-name
               mountPath: "/sys/class/dmi/id/product_name"
-      nodeSelector:
-        node-role.kubernetes.io/worker: ""
-        feature.node.kubernetes.io/pci-10de.present: "true" # NVIDIA GPU
       volumes:
         - name: output-dir
           hostPath:
@@ -47,3 +49,6 @@ spec:
         - name: dmi-product-name
           hostPath:
             path: "/sys/class/dmi/id/product_name"
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
+        feature.node.kubernetes.io/pci-10de.present: "true" # NVIDIA GPU

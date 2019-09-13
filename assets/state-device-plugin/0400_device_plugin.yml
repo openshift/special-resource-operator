@@ -22,7 +22,7 @@ spec:
         app: nvidia-device-plugin-daemonset
     spec:
       tolerations:
-      - operators: Exists
+      - operator: Exists
       # Allow this pod to be rescheduled while the node is in "critical add-ons only" mode.
       # This, along with the annotation above marks this pod as a critical add-on.
       - key: CriticalAddonsOnly
@@ -32,7 +32,7 @@ spec:
         effect: NoSchedule
       serviceAccount: nvidia-device-plugin
       containers:
-      - image: quay.io/zvonkok/k8s-device-plugin:4.0 #nvidia/k8s-device-plugin:1.11
+      - image: nvidia/k8s-device-plugin:1.11 #quay.io/zvonkok/k8s-device-plugin:4.0 #nvidia/k8s-device-plugin:1.11
         name: nvidia-device-plugin-ctr
         securityContext:
           privileged: true
