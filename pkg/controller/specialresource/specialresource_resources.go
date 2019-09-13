@@ -115,9 +115,12 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 			panicIfError(err)
 			ctrl = append(ctrl, DaemonSet)
 		case "Service":
-			_, _, err := s.Decode(m, nil, &res.Service)
+			err := CreateFromYAML(m, false)
 			panicIfError(err)
-			ctrl = append(ctrl, Service)
+
+			//_, _, err := s.Decode(m, nil, &res.Service)
+			//panicIfError(err)
+			//ctrl = append(ctrl, Service)
 		case "Pod":
 			_, _, err := s.Decode(m, nil, &res.Pod)
 			panicIfError(err)
@@ -146,8 +149,8 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 			panicIfError(err)
 
 		default:
-			err := CreateFromYAML(m, false)
-			panicIfError(err)
+			//err := CreateFromYAML(m, false)
+			//panicIfError(err)
 			log.Info("Unknown Resource", "Manifest", m, "Kind", kind)
 		}
 
