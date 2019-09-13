@@ -70,12 +70,15 @@ func CreateFromYAML(yamlFile []byte, skipIfExists bool) error {
 		}
 		log.Info("skip")
 		if err != nil {
+			log.Info("rest")
 			_, restErr := restMapper.RESTMappings(obj.GetObjectKind().GroupVersionKind().GroupKind())
 			if restErr == nil {
 				return err
 			}
+			log.Info("rest2")
 			// don't store error, as only error will be timeout. Error from runtime client will be easier for
 			// the user to understand than the timeout error, so just use that if we fail
+			log.Info("poll")
 			_ = wait.PollImmediate(time.Second*1, time.Second*10, func() (bool, error) {
 				restMapper.Reset()
 				_, err := restMapper.RESTMappings(obj.GetObjectKind().GroupVersionKind().GroupKind())
@@ -84,6 +87,7 @@ func CreateFromYAML(yamlFile []byte, skipIfExists bool) error {
 				}
 				return true, nil
 			})
+			log.Info("poll2")
 			//err = Global.Client.Create(goctx.TODO(), obj, cleanupOptions)
 			err = sro.rec.client.Create(context.TODO(), obj)
 			if skipIfExists && apierrors.IsAlreadyExists(err) {
