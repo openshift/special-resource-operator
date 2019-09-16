@@ -84,6 +84,7 @@ github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742
 github.com/modern-go/reflect2
 # github.com/openshift/api v3.9.0+incompatible
+github.com/openshift/api/route/v1
 github.com/openshift/api/security/v1
 # github.com/operator-framework/operator-sdk v0.0.0-20190115002347-419cfd39bea8
 github.com/operator-framework/operator-sdk/pkg/k8sutil
@@ -231,9 +232,9 @@ k8s.io/apimachinery/pkg/runtime
 k8s.io/apimachinery/pkg/apis/meta/v1
 k8s.io/apimachinery/pkg/runtime/schema
 k8s.io/apimachinery/pkg/api/errors
-k8s.io/apimachinery/pkg/apis/meta/v1/unstructured
 k8s.io/apimachinery/pkg/runtime/serializer/json
 k8s.io/apimachinery/pkg/types
+k8s.io/apimachinery/pkg/apis/meta/v1/unstructured
 k8s.io/apimachinery/pkg/util/wait
 k8s.io/apimachinery/pkg/util/yaml
 k8s.io/apimachinery/pkg/util/intstr
@@ -275,10 +276,8 @@ k8s.io/client-go/plugin/pkg/client/auth/gcp
 k8s.io/client-go/kubernetes
 k8s.io/client-go/rest
 k8s.io/client-go/tools/clientcmd
-k8s.io/client-go/discovery
-k8s.io/client-go/discovery/cached
 k8s.io/client-go/kubernetes/scheme
-k8s.io/client-go/restmapper
+k8s.io/client-go/discovery
 k8s.io/client-go/util/jsonpath
 k8s.io/client-go/tools/leaderelection
 k8s.io/client-go/tools/leaderelection/resourcelock
@@ -330,6 +329,7 @@ k8s.io/client-go/util/workqueue
 k8s.io/client-go/tools/cache
 k8s.io/client-go/third_party/forked/golang/template
 k8s.io/client-go/tools/reference
+k8s.io/client-go/restmapper
 k8s.io/client-go/util/integer
 k8s.io/client-go/pkg/apis/clientauthentication
 k8s.io/client-go/pkg/apis/clientauthentication/v1alpha1
@@ -339,6 +339,7 @@ k8s.io/client-go/tools/clientcmd/api/v1
 k8s.io/client-go/tools/pager
 k8s.io/client-go/util/buffer
 k8s.io/client-go/util/retry
+k8s.io/client-go/discovery/cached
 # k8s.io/kube-openapi v0.0.0-20180711000925-0cf8f7e6ed1d
 k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/util/proto
