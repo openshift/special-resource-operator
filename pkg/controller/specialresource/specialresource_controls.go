@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"strings"
 
+	b64 "encoding/base64"
+
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
@@ -185,10 +187,40 @@ func ClusterRoleBinding(n SRO) (ResourceStatus, error) {
 	return Ready, nil
 }
 
+func preProcessConfigMap(obj *corev1.ConfigMap, n SRO) {
+	if obj.Name == "nvidia-sro-grafana" {
+		opts := &client.ListOptions{}
+		opts.InNamespace("openshift-monitoring")
+
+		list := &corev1.SecretList{}
+		err := n.rec.client.List(context.TODO(), opts, list)
+		if err != nil {
+			log.Info("Could not get SecretList", err)
+		}
+
+		for _, secret := range list.Items {
+			if secret.Name == "grafana-datasources" {
+				json, _ := b64.StdEncoding.DecodeString(string(secret.Data["prometheus.yaml"]))
+				log.Info("PROM_URL", json)
+
+			}
+		}
+		/*		kernelVersion := kernelFullVersion(n)
+				img := obj.Spec.Template.Spec.Containers[0].Image
+				img = strings.Replace(img, "KERNEL_FULL_VERSION", kernelVersion, -1)
+				obj.Spec.Template.Spec.Containers[0].Image = img
+				sel := "feature.node.kubernetes.io/kernel-version.full"
+				obj.Spec.Template.Spec.NodeSelector[sel] = kernelVersion
+		*/
+	}
+}
+
 func ConfigMap(n SRO) (ResourceStatus, error) {
 
 	state := n.idx
 	obj := n.resources[state].ConfigMap
+
+	preProcessConfigMap(&obj, n)
 
 	found := &corev1.ConfigMap{}
 	logger := log.WithValues("ConfigMap", obj.Name, "Namespace", obj.Namespace)
