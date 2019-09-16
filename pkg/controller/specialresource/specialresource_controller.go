@@ -8,6 +8,9 @@ import (
 	kappsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 
+	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	routev1 "github.com/openshift/api/route/v1"
+	secv1 "github.com/openshift/api/security/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -15,15 +18,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 var log = logf.Log.WithName("controller_specialresource")
-
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
 
 // Add creates a new SpecialResource Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -38,6 +37,20 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
+
+	if err := routev1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "ERROR")
+		return err
+	}
+	if err := promv1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "ERROR")
+		return err
+	}
+	if err := secv1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "ERROR")
+		return err
+	}
+
 	// Create a new controller
 	c, err := controller.New("specialresource-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {

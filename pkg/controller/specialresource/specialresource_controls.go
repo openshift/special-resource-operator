@@ -261,20 +261,23 @@ func kernelFullVersion(n SRO) string {
 	}
 	// Assuming all nodes are running the same kernel version,
 	// One could easily add driver-kernel-versions for each node.
-	node := list.Items[0]
-	labels := node.GetLabels()
+	for _, node := range list.Items {
 
-	var ok bool
-	kernelFullVersion, ok := labels["feature.node.kubernetes.io/kernel-version.full"]
-	if ok {
-		logger.Info(kernelFullVersion)
-	} else {
-		err := errors.NewNotFound(schema.GroupResource{Group: "Node", Resource: "Label"},
-			"feature.node.kubernetes.io/kernel-version.full")
-		logger.Info("Couldn't get kernelVersion", err)
-		return ""
+		labels := node.GetLabels()
+
+		var ok bool
+		kernelFullVersion, ok := labels["feature.node.kubernetes.io/kernel-version.full"]
+		if ok {
+			logger.Info(kernelFullVersion)
+		} else {
+			err := errors.NewNotFound(schema.GroupResource{Group: "Node", Resource: "Label"},
+				"feature.node.kubernetes.io/kernel-version.full")
+			logger.Info("Couldn't get kernelVersion", err)
+			return ""
+		}
+		return kernelFullVersion
 	}
-	return kernelFullVersion
+	return "KERNEL_VERSION_NOT_FOUND"
 }
 
 func preProcessDaemonSet(obj *appsv1.DaemonSet, n SRO) {
