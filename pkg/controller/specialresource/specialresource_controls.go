@@ -7,30 +7,18 @@ import (
 	"strings"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
-	"github.com/ghodss/yaml"
+	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
-	internal_client "github.com/zvonkok/special-resource-operator/pkg/client"
-	"github.com/zvonkok/special-resource-operator/pkg/yamlutil"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	schedv1 "k8s.io/api/scheduling/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	discovery "k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached"
-	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-)
-
-var (
-	// restMapper for the dynamic client
-	restMapper            *restmapper.DeferredDiscoveryRESTMapper
-	cachedDiscoveryClient discovery.CachedDiscoveryInterface
 )
 
 type controlFunc []func(n SRO) (ResourceStatus, error)
@@ -41,107 +29,6 @@ const (
 	Ready    ResourceStatus = "Ready"
 	NotReady ResourceStatus = "NotReady"
 )
-
-func init() {
-	kubeclient, _ := internal_client.GetClientSet()
-	cachedDiscoveryClient := cached.NewMemCacheClient(kubeclient.Discovery())
-	restMapper = restmapper.NewDeferredDiscoveryRESTMapper(cachedDiscoveryClient)
-	restMapper.Reset()
-}
-
-func CreateFromYAML(yamlFile []byte, skipIfExists bool) (ResourceStatus, error) {
-
-	scanner := yamlutil.NewYAMLScanner(yamlFile)
-	for scanner.Scan() {
-		yamlSpec := scanner.Bytes()
-
-		obj := &unstructured.Unstructured{}
-		found := &unstructured.Unstructured{}
-
-		jsonSpec, err := yaml.YAMLToJSON(yamlSpec)
-		if err != nil {
-			return NotReady, fmt.Errorf("could not convert yaml file to json: %v", err)
-		}
-		if err := obj.UnmarshalJSON(jsonSpec); err != nil {
-			return NotReady, fmt.Errorf("failed to unmarshal object spec: (%v)", err)
-		}
-
-		// TODO: obj.SetNamespace(namespace)
-
-		logger := log.WithValues("Name", obj.GetName(), "Namespace", obj.GetNamespace())
-		//err = sro.rec.client.Create(context.TODO(), obj)
-
-		if err := controllerutil.SetControllerReference(sro.ins, obj, sro.rec.scheme); err != nil {
-			return NotReady, err
-		}
-
-		logger.Info("Looking for")
-		err = sro.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
-
-		if err != nil && errors.IsNotFound(err) {
-			logger.Info("Not found, creating")
-			err = sro.rec.client.Create(context.TODO(), obj)
-			if err != nil {
-				logger.Info("Couldn't create", "Error", err)
-				return NotReady, err
-			}
-			return Ready, nil
-		} else if err != nil {
-			return NotReady, err
-		}
-
-		logger.Info("Found")
-	}
-	log.Info("errr")
-	if err := scanner.Err(); err != nil {
-		return NotReady, fmt.Errorf("failed to scan manifest: (%v)", err)
-	}
-	return Ready, nil
-
-	/*
-		if skipIfExists && apierrors.IsAlreadyExists(err) {
-			continue
-		}
-	*/
-	/*
-		if err != nil {
-			log.Info("rest")
-			_, restErr := restMapper.RESTMappings(obj.GetObjectKind().GroupVersionKind().GroupKind())
-			if restErr == nil {
-				return err
-			}
-			log.Info("rest2")
-			// don't store error, as only error will be timeout. Error from runtime client will be easier for
-			// the user to understand than the timeout error, so just use that if we fail
-			log.Info("poll")
-			_ = wait.PollImmediate(time.Second*1, time.Second*10, func() (bool, error) {
-				restMapper.Reset()
-				_, err := restMapper.RESTMappings(obj.GetObjectKind().GroupVersionKind().GroupKind())
-				if err != nil {
-					return false, nil
-				}
-				return true, nil
-			})
-			log.Info("poll2")
-			//err = Global.Client.Create(goctx.TODO(), obj, cleanupOptions)
-			err = sro.rec.client.Create(context.TODO(), obj)
-			if skipIfExists && apierrors.IsAlreadyExists(err) {
-				continue
-			}
-			if err != nil {
-				return err
-			}
-		}*/
-
-	/*
-		}
-		log.Info("errr")
-		if err := scanner.Err(); err != nil {
-			return fmt.Errorf("failed to scan manifest: (%v)", err)
-		}
-		return nil
-	*/
-}
 
 func ServiceAccount(n SRO) (ResourceStatus, error) {
 
@@ -487,6 +374,37 @@ func Pod(n SRO) (ResourceStatus, error) {
 	return isPodReady(obj.Name, n, "Succeeded"), nil
 }
 
+func Deployment(n SRO) (ResourceStatus, error) {
+
+	state := n.idx
+	obj := n.resources[state].Deployment
+
+	found := &appsv1.Deployment{}
+	logger := log.WithValues("Deployment", obj.Name, "Namespace", obj.Namespace)
+
+	if err := controllerutil.SetControllerReference(n.ins, &obj, n.rec.scheme); err != nil {
+		return NotReady, err
+	}
+
+	logger.Info("Looking for")
+	err := n.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name}, found)
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Not found, creating")
+		err = n.rec.client.Create(context.TODO(), &obj)
+		if err != nil {
+			logger.Info("Couldn't create", "Error", err)
+			return NotReady, err
+		}
+		return Ready, nil
+	} else if err != nil {
+		return NotReady, err
+	}
+
+	logger.Info("Found")
+
+	return Ready, nil
+}
+
 func SecurityContextConstraints(n SRO) (ResourceStatus, error) {
 
 	state := n.idx
@@ -525,6 +443,37 @@ func Service(n SRO) (ResourceStatus, error) {
 
 	found := &corev1.Service{}
 	logger := log.WithValues("Service", obj.Name, "Namespace", obj.Namespace)
+
+	if err := controllerutil.SetControllerReference(n.ins, &obj, n.rec.scheme); err != nil {
+		return NotReady, err
+	}
+
+	logger.Info("Looking for")
+	err := n.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: obj.Namespace, Name: obj.Name}, found)
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Not found, creating")
+		err = n.rec.client.Create(context.TODO(), &obj)
+		if err != nil {
+			logger.Info("Couldn't create", "Error", err)
+			return NotReady, err
+		}
+		return Ready, nil
+	} else if err != nil {
+		return NotReady, err
+	}
+
+	logger.Info("Found")
+
+	return Ready, nil
+}
+
+func Route(n SRO) (ResourceStatus, error) {
+
+	state := n.idx
+	obj := n.resources[state].Route
+
+	found := &routev1.Route{}
+	logger := log.WithValues("Route", obj.Name, "Namespace", obj.Namespace)
 
 	if err := controllerutil.SetControllerReference(n.ins, &obj, n.rec.scheme); err != nil {
 		return NotReady, err

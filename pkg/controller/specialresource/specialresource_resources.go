@@ -14,6 +14,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	schedv1 "k8s.io/api/scheduling/v1beta1"
 
+	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -32,6 +33,7 @@ type Resources struct {
 	ConfigMap                  corev1.ConfigMap
 	DaemonSet                  appsv1.DaemonSet
 	Pod                        corev1.Pod
+	Route                      routev1.Route
 	Service                    corev1.Service
 	ServiceMonitor             promv1.ServiceMonitor
 	PriorityClass              schedv1.PriorityClass
@@ -115,12 +117,9 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 			panicIfError(err)
 			ctrl = append(ctrl, DaemonSet)
 		case "Service":
-			_, err := CreateFromYAML(m, false)
+			_, _, err := s.Decode(m, nil, &res.Service)
 			panicIfError(err)
-
-			//_, _, err := s.Decode(m, nil, &res.Service)
-			//panicIfError(err)
-			//ctrl = append(ctrl, Service)
+			ctrl = append(ctrl, Service)
 		case "Pod":
 			_, _, err := s.Decode(m, nil, &res.Pod)
 			panicIfError(err)
@@ -133,6 +132,10 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 			_, _, err := s.Decode(m, nil, &res.SecurityContextConstraints)
 			panicIfError(err)
 			ctrl = append(ctrl, SecurityContextConstraints)
+		case "Route":
+			_, _, err := s.Decode(m, nil, &res.Route)
+			panicIfError(err)
+			ctrl = append(ctrl, Job)
 		case "Job":
 			_, _, err := s.Decode(m, nil, &res.Job)
 			panicIfError(err)
@@ -145,12 +148,10 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 			panicIfError(err)
 			ctrl = append(ctrl, JobDaemonSet)
 		case "Deployment":
-			_, err := CreateFromYAML(m, false)
+			_, _, err := s.Decode(m, nil, &res.Job)
 			panicIfError(err)
-
+			ctrl = append(ctrl, Job)
 		default:
-			//err := CreateFromYAML(m, false)
-			//panicIfError(err)
 			log.Info("Unknown Resource", "Manifest", m, "Kind", kind)
 		}
 
