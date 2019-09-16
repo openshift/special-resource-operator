@@ -115,7 +115,7 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 			panicIfError(err)
 			ctrl = append(ctrl, DaemonSet)
 		case "Service":
-			err := CreateFromYAML(m, false)
+			_, err := CreateFromYAML(m, false)
 			panicIfError(err)
 
 			//_, _, err := s.Decode(m, nil, &res.Service)
@@ -145,7 +145,7 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 			panicIfError(err)
 			ctrl = append(ctrl, JobDaemonSet)
 		case "Deployment":
-			err := CreateFromYAML(m, false)
+			_, err := CreateFromYAML(m, false)
 			panicIfError(err)
 
 		default:
