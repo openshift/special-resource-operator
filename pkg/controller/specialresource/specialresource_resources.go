@@ -135,7 +135,7 @@ func addResourcesControls(path string) (Resources, controlFunc) {
 		case "Route":
 			_, _, err := s.Decode(m, nil, &res.Route)
 			panicIfError(err)
-			ctrl = append(ctrl, Job)
+			ctrl = append(ctrl, Route)
 		case "Job":
 			_, _, err := s.Decode(m, nil, &res.Job)
 			panicIfError(err)
