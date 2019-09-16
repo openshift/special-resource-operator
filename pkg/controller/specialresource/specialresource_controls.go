@@ -67,7 +67,8 @@ func CreateFromYAML(yamlFile []byte, skipIfExists bool) (ResourceStatus, error) 
 		}
 
 		// TODO: obj.SetNamespace(namespace)
-		logger := log.WithValues(obj.GetObjectKind().GroupVersionKind().GroupKind(), obj.GetName(), "Namespace", obj.GetNamespace())
+
+		logger := log.WithValues("Name", obj.GetName(), "Namespace", obj.GetNamespace())
 		//err = sro.rec.client.Create(context.TODO(), obj)
 
 		if err := controllerutil.SetControllerReference(sro.ins, obj, sro.rec.scheme); err != nil {
