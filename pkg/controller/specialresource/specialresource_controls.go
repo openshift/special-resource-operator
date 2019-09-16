@@ -651,22 +651,17 @@ func JobDaemonSet(n SRO) (ResourceStatus, error) {
 func isJobReady(name string, n SRO) ResourceStatus {
 	opts := &client.ListOptions{}
 	opts.SetLabelSelector(fmt.Sprintf("app=%s", name))
-	log.Info("DEBUG: Job", "LabelSelector", fmt.Sprintf("app=%s", name))
 	list := &batchv1.JobList{}
 	err := n.rec.client.List(context.TODO(), opts, list)
 	if err != nil {
 		log.Info("Could not get JobList", err)
 	}
-	log.Info("DEBUG: Job", "NumberOfJobs", len(list.Items))
 	if len(list.Items) == 0 {
 		return NotReady
 	}
 
 	for _, job := range list.Items {
-
 		if *job.Spec.Completions != job.Status.Succeeded {
-
-			log.Info("DEBUG: Job", "Completions", *job.Spec.Completions, "!=", job.Status.Succeeded)
 			return NotReady
 		}
 

@@ -2,9 +2,9 @@ package specialresource
 
 import (
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	srov1alpha1 "github.com/zvonkok/special-resource-operator/pkg/apis/sro/v1alpha1"
-
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -75,6 +75,7 @@ func (n *SRO) init(r *ReconcileSpecialResource,
 
 	promv1.AddToScheme(r.scheme)
 	secv1.AddToScheme(r.scheme)
+	routev1.AddToScheme(r.scheme)
 
 	addClient(n)
 
