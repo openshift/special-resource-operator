@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached"
+	discovery "k8s.io/client-go/discovery"
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -32,7 +33,7 @@ import (
 var (
 	// restMapper for the dynamic client
 	restMapper            *restmapper.DeferredDiscoveryRESTMapper
-	cachedDiscoveryClient CachedDiscoveryInterface
+	cachedDiscoveryClient discovery.CachedDiscoveryInterface
 )
 
 type controlFunc []func(n SRO) (ResourceStatus, error)
