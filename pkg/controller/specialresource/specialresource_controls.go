@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
-	"time"
 
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/ghodss/yaml"
@@ -18,13 +17,11 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	schedv1 "k8s.io/api/scheduling/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/discovery/cached"
 	discovery "k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -52,34 +49,60 @@ func init() {
 	restMapper.Reset()
 }
 
-func CreateFromYAML(yamlFile []byte, skipIfExists bool) error {
-	//	namespace, err := ctx.GetNamespace()
-	//	if err != nil {
-	//		return err
-	//	}
-
-	log.Info("yamlutil")
+func CreateFromYAML(yamlFile []byte, skipIfExists bool) (ResourceStatus, error) {
 
 	scanner := yamlutil.NewYAMLScanner(yamlFile)
 	for scanner.Scan() {
-		log.Info("bytes")
 		yamlSpec := scanner.Bytes()
 
 		obj := &unstructured.Unstructured{}
+		found := &unstructured.Unstructured{}
+
 		jsonSpec, err := yaml.YAMLToJSON(yamlSpec)
 		if err != nil {
-			return fmt.Errorf("could not convert yaml file to json: %v", err)
+			return NotReady, fmt.Errorf("could not convert yaml file to json: %v", err)
 		}
 		if err := obj.UnmarshalJSON(jsonSpec); err != nil {
-			return fmt.Errorf("failed to unmarshal object spec: (%v)", err)
+			return NotReady, fmt.Errorf("failed to unmarshal object spec: (%v)", err)
 		}
+
 		// TODO: obj.SetNamespace(namespace)
-		//err = Global.Client.Create(goctx.TODO(), obj, cleanupOptions)
-		err = sro.rec.client.Create(context.TODO(), obj)
+		logger := log.WithValues(obj.GetObjectKind().GroupVersionKind().GroupKind(), obj.GetName(), "Namespace", obj.GetNamespace())
+		//err = sro.rec.client.Create(context.TODO(), obj)
+
+		if err := controllerutil.SetControllerReference(sro.ins, obj, sro.rec.scheme); err != nil {
+			return NotReady, err
+		}
+
+		logger.Info("Looking for")
+		err = sro.rec.client.Get(context.TODO(), types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
+
+		if err != nil && errors.IsNotFound(err) {
+			logger.Info("Not found, creating")
+			err = sro.rec.client.Create(context.TODO(), obj)
+			if err != nil {
+				logger.Info("Couldn't create", "Error", err)
+				return NotReady, err
+			}
+			return Ready, nil
+		} else if err != nil {
+			return NotReady, err
+		}
+
+		logger.Info("Found")
+	}
+	log.Info("errr")
+	if err := scanner.Err(); err != nil {
+		return NotReady, fmt.Errorf("failed to scan manifest: (%v)", err)
+	}
+	return Ready, nil
+
+	/*
 		if skipIfExists && apierrors.IsAlreadyExists(err) {
 			continue
 		}
-		log.Info("skip")
+	*/
+	/*
 		if err != nil {
 			log.Info("rest")
 			_, restErr := restMapper.RESTMappings(obj.GetObjectKind().GroupVersionKind().GroupKind())
@@ -107,13 +130,16 @@ func CreateFromYAML(yamlFile []byte, skipIfExists bool) error {
 			if err != nil {
 				return err
 			}
+		}*/
+
+	/*
 		}
-	}
-	log.Info("errr")
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("failed to scan manifest: (%v)", err)
-	}
-	return nil
+		log.Info("errr")
+		if err := scanner.Err(); err != nil {
+			return fmt.Errorf("failed to scan manifest: (%v)", err)
+		}
+		return nil
+	*/
 }
 
 func ServiceAccount(n SRO) (ResourceStatus, error) {
