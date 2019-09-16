@@ -6,13 +6,6 @@ import (
 	"os/user"
 	"path/filepath"
 
-	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
-	nfdv1alpha1 "github.com/openshift/cluster-nfd-operator/pkg/apis/nfd/v1alpha1"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -51,7 +44,7 @@ func GetConfig() (*rest.Config, error) {
 	return nil, fmt.Errorf("Could not locate a kubeconfig")
 }
 
-// GetCfgV1Client returns OpenShift *v1.ConfigV1Client for talking to a Kubernetes apiserver.
+/* GetCfgV1Client returns OpenShift *v1.ConfigV1Client for talking to a Kubernetes apiserver.
 func GetCfgV1Client() (*configv1client.ConfigV1Client, error) {
 	c, err := GetConfig()
 	if err != nil {
@@ -65,7 +58,7 @@ func GetCfgV1Client() (*configv1client.ConfigV1Client, error) {
 
 	return operatorClient, nil
 }
-
+*/
 func GetClientSet() (kubernetes.Interface, error) {
 	c, err := GetConfig()
 	if err != nil {
@@ -80,6 +73,7 @@ func GetClientSet() (kubernetes.Interface, error) {
 	return clientSet, nil
 }
 
+/*
 func GetApiClient() (apiextensionsclient.Interface, error) {
 	c, err := GetConfig()
 	if err != nil {
@@ -94,7 +88,8 @@ func GetApiClient() (apiextensionsclient.Interface, error) {
 	return eclient, nil
 
 }
-
+*/
+/*
 var SchemeGroupVersion = schema.GroupVersion{Group: "nfd.openshift.io", Version: "v1alpha1"}
 
 // CR related
@@ -184,3 +179,4 @@ func (c *nfdConfigClient) Get(name string) (*nfdv1alpha1.NodeFeatureDiscovery, e
 		Name(name).Do().Into(result)
 	return result, err
 }
+*/

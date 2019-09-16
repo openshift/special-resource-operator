@@ -10,7 +10,7 @@ import (
 	promv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/ghodss/yaml"
 	secv1 "github.com/openshift/api/security/v1"
-	"github.com/zvonkok/special-resource-operator/pkg/client"
+	internal_client "github.com/zvonkok/special-resource-operator/pkg/client"
 	"github.com/zvonkok/special-resource-operator/pkg/yamlutil"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -45,8 +45,9 @@ const (
 )
 
 func init() {
-	cachedDiscoveryClient := cached.NewMemCacheClient(GetClientSet().Discovery())
-	restMapper = restmapper.NewDeferredDiscoveryRESTMapper(sro.rec)
+	kubeclient, _ := internal_client.GetClientSet()
+	cachedDiscoveryClient := cached.NewMemCacheClient(kubeclient.Discovery())
+	restMapper = restmapper.NewDeferredDiscoveryRESTMapper(cachedDiscoveryClient)
 	restMapper.Reset()
 }
 
