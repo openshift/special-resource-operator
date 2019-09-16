@@ -73,9 +73,12 @@ func (n *SRO) init(r *ReconcileSpecialResource,
 	n.ins = i
 	n.idx = 0
 
-	promv1.AddToScheme(r.scheme)
-	secv1.AddToScheme(r.scheme)
-	routev1.AddToScheme(r.scheme)
+	err := promv1.AddToScheme(r.scheme)
+	panicIfError(err)
+	err = secv1.AddToScheme(r.scheme)
+	panicIfError(err)
+	err = routev1.AddToScheme(r.scheme)
+	panicIfError(err)
 
 	addClient(n)
 
