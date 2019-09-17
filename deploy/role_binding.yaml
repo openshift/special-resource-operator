@@ -2,6 +2,7 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: special-resource-operator
+  namespace: REPLACE_NAMESPACE
 subjects:
 - kind: ServiceAccount
   name: special-resource-operator

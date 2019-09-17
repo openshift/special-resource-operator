@@ -60,7 +60,7 @@ var (
 	cleanupTimeout       = time.Second * 30
 	opName               = "gpu"
 	opNamespace          = "openshift-sro"
-	opImage              = "quay.io/zvonkok/node-feature-discovery:v4.2"
+	opImage              = "quay.io/zvonkok/special-resource-operator:v4.2"
 	//opImage = "registry.svc.ci.openshift.org/openshift/node-feature-discovery-container:v4.2"
 )
 

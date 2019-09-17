@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Route
+metadata:
+  name: nvidia-sro-grafana
+  namespace: openshift-sro
+spec:
+  host: ""
+  to:
+    kind: Service
+    name: nvidia-sro-grafana
+    weight: 100
+  port:
+    targetPort: 3000
