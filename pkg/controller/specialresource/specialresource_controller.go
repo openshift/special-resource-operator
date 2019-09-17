@@ -103,7 +103,7 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	InitializeClusterResources("/etc/kubernetes/nvidia-gpu/state-driver/0100_service_account.yaml", r.client)
+	InitializeClusterResources("/etc/kubernetes/special-resource/nvidia-gpu/state-driver/0100_service_account.yaml", r.client)
 
 	return reconcile.Result{}, nil
 }

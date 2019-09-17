@@ -6,7 +6,7 @@ NAMESPACE      ?= openshift-sro
 PULLPOLICY     ?= IfNotPresent
 TEMPLATE_CMD    = sed 's+REPLACE_IMAGE+${IMAGE}+g; s+REPLACE_NAMESPACE+${NAMESPACE}+g; s+Always+${PULLPOLICY}+'
 DEPLOY_SCC_RO   = manifests/0310_readonlyfs_scc.yaml
-DEPLOY_OBJECTS  = namespace.yaml service_account.yaml role.yaml role_binding.yaml operator.yaml
+DEPLOY_OBJECTS  = namespace.yaml service_account.yaml role.yaml role_binding.yaml operator.yaml crds/sro_v1alpha1_specialresource_cr.yaml
 DEPLOY_CRD      = deploy/crds/sro_v1alpha1_specialresource_crd.yaml
 DEPLOY_CR       = deploy/crds/sro_v1alpha1_specialresource_cr.yaml
 
