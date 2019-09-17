@@ -103,7 +103,7 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	InitializeClusterResources("/etc/kubernetes/nvidia-gpu")
+	//InitializeClusterResources("/etc/kubernetes/nvidia-gpu")
 
 	return reconcile.Result{}, nil
 }
