@@ -2,21 +2,24 @@ package specialresource
 
 import (
 	"context"
+	"fmt"
+	"io/ioutil"
+	"time"
 
 	srov1alpha1 "github.com/zvonkok/special-resource-operator/pkg/apis/sro/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"sigs.k8s.io/yaml"
 )
 
 var log = logf.Log.WithName("controller_specialresource")
@@ -100,54 +103,67 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
+	InitializeClusterResources("/etc/kubernetes/nvidia-gpu")
 
-	// Set SpecialResource instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
-	} else if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *srov1alpha1.SpecialResource) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
+func createFromYAML(yamlFile []byte, skipIfExists bool, cleanupOptions *CleanupOptions) error {
+	//	namespace, err := ctx.GetNamespace()
+	//	if err != nil {
+	//		return err
+	//	}
+	scanner := yamlutil.NewYAMLScanner(yamlFile)
+	for scanner.Scan() {
+		yamlSpec := scanner.Bytes()
+
+		obj := &unstructured.Unstructured{}
+		jsonSpec, err := yaml.YAMLToJSON(yamlSpec)
+		if err != nil {
+			return fmt.Errorf("could not convert yaml file to json: %v", err)
+		}
+		obj.UnmarshalJSON(jsonSpec)
+		obj.SetNamespace(namespace)
+		err = Global.Client.Create(goctx.TODO(), obj, cleanupOptions)
+		if skipIfExists && apierrors.IsAlreadyExists(err) {
+			continue
+		}
+		if err != nil {
+			_, restErr := restMapper.RESTMappings(obj.GetObjectKind().GroupVersionKind().GroupKind())
+			if restErr == nil {
+				return err
+			}
+			// don't store error, as only error will be timeout. Error from runtime client will be easier for
+			// the user to understand than the timeout error, so just use that if we fail
+			wait.PollImmediate(time.Second*1, time.Second*10, func() (bool, error) {
+				restMapper.Reset()
+				_, err := restMapper.RESTMappings(obj.GetObjectKind().GroupVersionKind().GroupKind())
+				if err != nil {
+					return false, nil
+				}
+				return true, nil
+			})
+			err = Global.Client.Create(goctx.TODO(), obj, cleanupOptions)
+			if skipIfExists && apierrors.IsAlreadyExists(err) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+		}
 	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
-		},
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("failed to scan manifest: (%v)", err)
 	}
+	return nil
+}
+
+func InitializeClusterResources(file string) error {
+	// create namespaced resources
+	namespacedYAML, err := ioutil.ReadFile(file)
+	if err != nil {
+		return fmt.Errorf("failed to read namespaced manifest: %v", err)
+	}
+	return createFromYAML(namespacedYAML, false)
 }
