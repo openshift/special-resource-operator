@@ -2,6 +2,7 @@ module github.com/zvonkok/special-resource-operator
 
 require (
 	github.com/NYTimes/gziphandler v1.0.1 // indirect
+	github.com/ghodss/yaml v1.0.0
 	github.com/go-openapi/spec v0.19.0
 	github.com/openshift/api v3.9.0+incompatible
 	github.com/operator-framework/operator-sdk v0.10.1-0.20190916192541-244ae8692d2d
