@@ -88,7 +88,7 @@ test:
 	go test ./cmd/... ./pkg/... -coverprofile cover.out
 
 local-image-push:
-	podman push  $(IMAGE) 
+	podman push $(IMAGE) 
 
 .PHONY: all build generate verify verify-gofmt clean local-image local-image-push $(DEPLOY_CRDS) grafana
 

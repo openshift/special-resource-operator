@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"time"
 
 	srov1alpha1 "github.com/zvonkok/special-resource-operator/pkg/apis/sro/v1alpha1"
+	"github.com/zvonkok/special-resource-operator/pkg/yamlutil"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -103,16 +103,15 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	//InitializeClusterResources("/etc/kubernetes/nvidia-gpu")
+	InitializeClusterResources("/etc/kubernetes/nvidia-gpu/state-driver/0100_service_account.yaml", r.client)
 
 	return reconcile.Result{}, nil
 }
 
-func createFromYAML(yamlFile []byte, skipIfExists bool, cleanupOptions *CleanupOptions) error {
-	//	namespace, err := ctx.GetNamespace()
-	//	if err != nil {
-	//		return err
-	//	}
+func createFromYAML(yamlFile []byte, skipIfExists bool, client client.Client) error {
+
+	namespace := "openshift-sro"
+
 	scanner := yamlutil.NewYAMLScanner(yamlFile)
 	for scanner.Scan() {
 		yamlSpec := scanner.Bytes()
@@ -122,34 +121,13 @@ func createFromYAML(yamlFile []byte, skipIfExists bool, cleanupOptions *CleanupO
 		if err != nil {
 			return fmt.Errorf("could not convert yaml file to json: %v", err)
 		}
+
 		obj.UnmarshalJSON(jsonSpec)
 		obj.SetNamespace(namespace)
-		err = Global.Client.Create(goctx.TODO(), obj, cleanupOptions)
+
+		client.Create(context.TODO(), obj)
 		if skipIfExists && apierrors.IsAlreadyExists(err) {
 			continue
-		}
-		if err != nil {
-			_, restErr := restMapper.RESTMappings(obj.GetObjectKind().GroupVersionKind().GroupKind())
-			if restErr == nil {
-				return err
-			}
-			// don't store error, as only error will be timeout. Error from runtime client will be easier for
-			// the user to understand than the timeout error, so just use that if we fail
-			wait.PollImmediate(time.Second*1, time.Second*10, func() (bool, error) {
-				restMapper.Reset()
-				_, err := restMapper.RESTMappings(obj.GetObjectKind().GroupVersionKind().GroupKind())
-				if err != nil {
-					return false, nil
-				}
-				return true, nil
-			})
-			err = Global.Client.Create(goctx.TODO(), obj, cleanupOptions)
-			if skipIfExists && apierrors.IsAlreadyExists(err) {
-				continue
-			}
-			if err != nil {
-				return err
-			}
 		}
 	}
 
@@ -159,11 +137,11 @@ func createFromYAML(yamlFile []byte, skipIfExists bool, cleanupOptions *CleanupO
 	return nil
 }
 
-func InitializeClusterResources(file string) error {
+func InitializeClusterResources(file string, client client.Client) error {
 	// create namespaced resources
 	namespacedYAML, err := ioutil.ReadFile(file)
 	if err != nil {
 		return fmt.Errorf("failed to read namespaced manifest: %v", err)
 	}
-	return createFromYAML(namespacedYAML, false)
+	return createFromYAML(namespacedYAML, false, client)
 }
