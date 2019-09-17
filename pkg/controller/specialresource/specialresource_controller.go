@@ -2,35 +2,33 @@ package specialresource
 
 import (
 	"context"
-	"time"
 
-	routev1 "github.com/openshift/api/route/v1"
 	srov1alpha1 "github.com/zvonkok/special-resource-operator/pkg/apis/sro/v1alpha1"
-	kappsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 var log = logf.Log.WithName("controller_specialresource")
 
+/**
+* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
+* business logic.  Delete these comments after modifying this file.*
+ */
+
 // Add creates a new SpecialResource Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
-
-	if err := routev1.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
-
-	}
-
 	return add(mgr, newReconciler(mgr))
 }
 
@@ -55,7 +53,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner SpecialResource
-	err = c.Watch(&source.Kind{Type: &kappsv1.DaemonSet{}}, &handler.EnqueueRequestForOwner{
+	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &srov1alpha1.SpecialResource{},
 	})
@@ -66,14 +64,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
+// blank assignment to verify that ReconcileSpecialResource implements reconcile.Reconciler
 var _ reconcile.Reconciler = &ReconcileSpecialResource{}
-var sro SRO
 
 // ReconcileSpecialResource reconciles a SpecialResource object
 type ReconcileSpecialResource struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-
 	client client.Client
 	scheme *runtime.Scheme
 }
@@ -86,12 +83,12 @@ type ReconcileSpecialResource struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	logger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	logger.Info("Reconciling SpecialResource")
+	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger.Info("Reconciling SpecialResource")
 
 	// Fetch the SpecialResource instance
-	res := &srov1alpha1.SpecialResource{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, res)
+	instance := &srov1alpha1.SpecialResource{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -103,22 +100,54 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	sro.init(r, res)
+	// Define a new Pod object
+	pod := newPodForCR(instance)
 
-	for {
-		stat, err := sro.step()
-		if stat == "NotReady" {
-			// If the resource is not ready, wait 5 secs and reconcile
-			log.Info("SpecialResource", "ResourceStatus", stat)
-			return reconcile.Result{RequeueAfter: time.Second * 5}, nil
-		}
+	// Set SpecialResource instance as the owner and controller
+	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check if this Pod already exists
+	found := &corev1.Pod{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
+	if err != nil && errors.IsNotFound(err) {
+		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
+		err = r.client.Create(context.TODO(), pod)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		if sro.last() {
-			break
-		}
+
+		// Pod created successfully - don't requeue
+		return reconcile.Result{}, nil
+	} else if err != nil {
+		return reconcile.Result{}, err
 	}
 
+	// Pod already exists - don't requeue
+	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
 	return reconcile.Result{}, nil
+}
+
+// newPodForCR returns a busybox pod with the same name/namespace as the cr
+func newPodForCR(cr *srov1alpha1.SpecialResource) *corev1.Pod {
+	labels := map[string]string{
+		"app": cr.Name,
+	}
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-pod",
+			Namespace: cr.Namespace,
+			Labels:    labels,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:    "busybox",
+					Image:   "busybox",
+					Command: []string{"sleep", "3600"},
+				},
+			},
+		},
+	}
 }
