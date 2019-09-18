@@ -134,13 +134,15 @@ func createFromYAML(yamlFile []byte, skipIfExists bool, client client.Client) er
 		labels := obj.GetLabels()
 
 		for k, v := range labels {
-			log.Info(k, v)
+			log.Info(k)
+			log.Info(v)
 		}
 
 		anno := obj.GetAnnotations()
 
 		for k, v := range anno {
-			log.Info(k, v)
+			log.Info(k)
+			log.Info(v)
 		}
 
 		//err = client.Create(context.TODO(), obj)
