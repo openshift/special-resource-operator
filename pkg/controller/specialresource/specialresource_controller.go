@@ -115,6 +115,7 @@ func createFromYAML(yamlFile []byte, skipIfExists bool, client client.Client) er
 	namespace := "openshift-sro"
 
 	scanner := yamlutil.NewYAMLScanner(yamlFile)
+
 	for scanner.Scan() {
 		yamlSpec := scanner.Bytes()
 
@@ -127,7 +128,16 @@ func createFromYAML(yamlFile []byte, skipIfExists bool, client client.Client) er
 		obj.UnmarshalJSON(jsonSpec)
 		obj.SetNamespace(namespace)
 
-		client.Create(context.TODO(), obj)
+		log.Infof("Name", obj.GetName())
+		log.Infof("Namespace", obj.GetNamespace())
+		labels := obj.GetLabels()
+
+		for k, v := range m {
+			log.Printf("Labels key[%s] value[%s]\n", k, v)
+		}
+
+		//	err := client.Create(context.TODO(), obj)
+
 		if skipIfExists && apierrors.IsAlreadyExists(err) {
 			continue
 		}
