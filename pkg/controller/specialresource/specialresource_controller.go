@@ -128,15 +128,15 @@ func createFromYAML(yamlFile []byte, skipIfExists bool, client client.Client) er
 		obj.UnmarshalJSON(jsonSpec)
 		obj.SetNamespace(namespace)
 
-		log.Infof("Name", obj.GetName())
-		log.Infof("Namespace", obj.GetNamespace())
+		log.Info(obj.GetName())
+		log.Info(obj.GetNamespace())
 		labels := obj.GetLabels()
 
-		for k, v := range m {
-			log.Printf("Labels key[%s] value[%s]\n", k, v)
+		for k, v := range labels {
+			log.Info(k, v)
 		}
 
-		//	err := client.Create(context.TODO(), obj)
+		err = client.Create(context.TODO(), obj)
 
 		if skipIfExists && apierrors.IsAlreadyExists(err) {
 			continue
