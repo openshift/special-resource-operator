@@ -104,7 +104,7 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 	}
 	reqLogger.Info("InitResources")
 
-	InitializeClusterResources("/etc/kubernetes/special-resource/nvidia-gpu/state-driver/0100_service_account.yaml", r.client)
+	InitializeClusterResources("/etc/kubernetes/special-resource/nvidia-gpu/state-driver.yaml", r.client)
 
 	return reconcile.Result{}, nil
 }
@@ -137,7 +137,13 @@ func createFromYAML(yamlFile []byte, skipIfExists bool, client client.Client) er
 			log.Info(k, v)
 		}
 
-		err = client.Create(context.TODO(), obj)
+		anno := obj.GetAnnotations()
+
+		for k, v := range anno {
+			log.Info(k, v)
+		}
+
+		//err = client.Create(context.TODO(), obj)
 
 		if skipIfExists && apierrors.IsAlreadyExists(err) {
 			continue
