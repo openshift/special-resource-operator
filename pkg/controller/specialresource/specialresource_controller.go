@@ -111,7 +111,7 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 
 func createFromYAML(yamlFile []byte, skipIfExists bool, client client.Client) error {
 
-	reqLogger.Info("createFRomYaml")
+	log.Info("createFRomYaml")
 	namespace := "openshift-sro"
 
 	scanner := yamlutil.NewYAMLScanner(yamlFile)
