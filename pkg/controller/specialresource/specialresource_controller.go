@@ -128,6 +128,7 @@ func createFromYAML(yamlFile []byte, skipIfExists bool, client client.Client) er
 		obj.UnmarshalJSON(jsonSpec)
 		obj.SetNamespace(namespace)
 
+		log.Info(obj.GetKind())
 		log.Info(obj.GetName())
 		log.Info(obj.GetNamespace())
 		labels := obj.GetLabels()
