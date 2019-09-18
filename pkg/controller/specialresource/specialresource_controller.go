@@ -102,6 +102,7 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+	reqLogger.Info("InitResources")
 
 	InitializeClusterResources("/etc/kubernetes/special-resource/nvidia-gpu/state-driver/0100_service_account.yaml", r.client)
 
@@ -110,6 +111,7 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 
 func createFromYAML(yamlFile []byte, skipIfExists bool, client client.Client) error {
 
+	reqLogger.Info("createFRomYaml")
 	namespace := "openshift-sro"
 
 	scanner := yamlutil.NewYAMLScanner(yamlFile)

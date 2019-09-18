@@ -6,9 +6,9 @@ NAMESPACE      ?= openshift-sro
 PULLPOLICY     ?= IfNotPresent
 TEMPLATE_CMD    = sed 's+REPLACE_IMAGE+${IMAGE}+g; s+REPLACE_NAMESPACE+${NAMESPACE}+g; s+Always+${PULLPOLICY}+'
 DEPLOY_SCC_RO   = manifests/0310_readonlyfs_scc.yaml
-DEPLOY_OBJECTS  = namespace.yaml service_account.yaml role.yaml role_binding.yaml operator.yaml crds/sro_v1alpha1_specialresource_cr.yaml
-DEPLOY_CRD      = deploy/crds/sro_v1alpha1_specialresource_crd.yaml
-DEPLOY_CR       = deploy/crds/sro_v1alpha1_specialresource_cr.yaml
+DEPLOY_OBJECTS  = namespace.yaml service_account.yaml role.yaml role_binding.yaml operator.yaml
+DEPLOY_CRD      = crds/sro_v1alpha1_specialresource_crd.yaml
+DEPLOY_CR       = crds/sro_v1alpha1_specialresource_cr.yaml
 
 PACKAGE         = github.com/zvonkok/special-resource-operator
 MAIN_PACKAGE    = $(PACKAGE)/cmd/manager
@@ -44,13 +44,13 @@ test-e2e:
 	go test -v ./test/e2e/... -root $(PWD) -kubeconfig=$(KUBECONFIG) -tags e2e  -globalMan $(DEPLOY_CRD) -namespacedMan $(TEST_RESOURCES)
 
 $(DEPLOY_CRD):
-	@${TEMPLATE_CMD} $@ | kubectl apply -f -
+	@${TEMPLATE_CMD} deploy/$@ | kubectl apply -f -
 
 deploy-crd: $(DEPLOY_CRD) 
 	sleep 1
 
 deploy-objects: deploy-crd
-	for obj in $(DEPLOY_OBJECTS); do \
+	for obj in $(DEPLOY_OBJECTS) $(DEPLOY_CR); do \
 		$(TEMPLATE_CMD) deploy/$$obj | kubectl apply -f - ;\
 	done	
 
@@ -58,8 +58,8 @@ deploy: deploy-objects
 	@${TEMPLATE_CMD} $(DEPLOY_CR) | kubectl apply -f -
 
 undeploy:
-	for obj in $(DEPLOY_CRD) $(DEPLOY_CR) $(DEPLOY_OBJECTS)  do \
-		$(TEMPLATE_CMD) $$obj | kubectl delete -f - ;\
+	for obj in $(DEPLOY_CRD) $(DEPLOY_CR) $(DEPLOY_OBJECTS); do \
+		$(TEMPLATE_CMD) deploy/$$obj | kubectl delete -f - ;\
 	done	
 
 
@@ -83,7 +83,7 @@ clean:
 	rm -f $(BIN)
 
 local-image:
-	podman build -t $(IMAGE) -f $(DOCKERFILE) .
+	podman build --no-cache -t $(IMAGE) -f $(DOCKERFILE) .
 test:
 	go test ./cmd/... ./pkg/... -coverprofile cover.out
 
