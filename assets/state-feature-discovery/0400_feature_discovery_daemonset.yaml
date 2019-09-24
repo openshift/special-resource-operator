@@ -26,7 +26,7 @@ spec:
       serviceAccount: nvidia-feature-discovery
       serviceAccountName: nvidia-feature-discovery
       containers:
-        - image: quay.io/zvonkok/nvidia-feature-discovery  # nvidia/gpu-feature-discovery:1.0.0-alpha
+        - image: quay.io/openshift-psap/nvidia-feature-discovery  # nvidia/gpu-feature-discovery:1.0.0-alpha
           env:
             - name: NVIDIA_VISIBLE_DEVICES
               value: all

@@ -1,4 +1,4 @@
-module github.com/zvonkok/special-resource-operator
+module github.com/openshift-psap/special-resource-operator
 
 require (
 	github.com/NYTimes/gziphandler v1.0.1 // indirect

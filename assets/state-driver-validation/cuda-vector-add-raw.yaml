@@ -16,7 +16,7 @@ spec:
   restartPolicy: Never
   containers:
     - name: cuda-vector-add
-      image: "quay.io/zvonkok/cuda-vector-add:v0.1"
+      image: "quay.io/openshift-psap/cuda-vector-add:v0.1"
       env:
         - name: NVIDIA_VISIBLE_DEVICES
           value: all

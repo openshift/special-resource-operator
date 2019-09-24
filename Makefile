@@ -1,5 +1,5 @@
 REGISTRY       ?= quay.io
-ORG            ?= zvonkok
+ORG            ?= openshift-psap
 TAG            ?= $(shell git branch | grep \* | cut -d ' ' -f2)
 IMAGE          ?= ${REGISTRY}/${ORG}/special-resource-operator:${TAG}
 NAMESPACE      ?= openshift-sro
@@ -10,7 +10,7 @@ DEPLOY_OBJECTS  = namespace.yaml service_account.yaml role.yaml role_binding.yam
 DEPLOY_CRD      = crds/sro_v1alpha1_specialresource_crd.yaml
 DEPLOY_CR       = crds/sro_v1alpha1_specialresource_cr.yaml
 
-PACKAGE         = github.com/zvonkok/special-resource-operator
+PACKAGE         = github.com/openshift-psap/special-resource-operator
 MAIN_PACKAGE    = $(PACKAGE)/cmd/manager
 
 DOCKERFILE      = Dockerfile

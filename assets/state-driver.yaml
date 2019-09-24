@@ -139,7 +139,7 @@ spec:
       serviceAccountName: nvidia-driver
       hostPID: true
       containers:
-      - image: quay.io/zvonkok/nvidia-driver:v430.34-KERNEL_FULL_VERSION
+      - image: quay.io/openshift-psap/nvidia-driver:v430.34-KERNEL_FULL_VERSION
         imagePullPolicy: Always
         name: nvidia-driver-ctr
         command: ["nvidia-driver"]

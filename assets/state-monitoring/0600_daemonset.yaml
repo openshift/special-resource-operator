@@ -26,7 +26,7 @@ spec:
       serviceAccount: nvidia-dcgm-exporter
       serviceAccountName: nvidia-dcgm-exporter
       containers:
-      - image: quay.io/zvonkok/dcgm #nvidia/dcgm-exporter:1.4.6
+      - image: quay.io/openshift-psap/dcgm #nvidia/dcgm-exporter:1.4.6
         name: nvidia-dcgm-exporter
         env:
         - name: PYTHONPATH

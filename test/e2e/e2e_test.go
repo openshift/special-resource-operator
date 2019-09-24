@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
-	apis "github.com/zvonkok/special-resource-operator/pkg/apis"
-	operator "github.com/zvonkok/special-resource-operator/pkg/apis/sro/v1alpha1"
-	"github.com/zvonkok/special-resource-operator/pkg/yamlutil"
+	apis "github.com/openshift-psap/special-resource-operator/pkg/apis"
+	operator "github.com/openshift-psap/special-resource-operator/pkg/apis/sro/v1alpha1"
+	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 
@@ -60,7 +60,7 @@ var (
 	cleanupTimeout       = time.Second * 30
 	opName               = "gpu"
 	opNamespace          = "openshift-sro"
-	opImage              = "quay.io/zvonkok/special-resource-operator:v4.2"
+	opImage              = "quay.io/openshift-psap/speic:v4.2"
 	//opImage = "registry.svc.ci.openshift.org/openshift/node-feature-discovery-container:v4.2"
 )
 
@@ -138,7 +138,7 @@ func TestSpecialResource(t *testing.T) {
 
 	defer ctx.Cleanup()
 
-	err := ctx.InitializeClusterResources("/home/zvonkok/go/src/github.com/zvonkok/special-resource-operator/manifests/operator-init.yaml")
+	err := ctx.InitializeClusterResources("/home/openshift-psap/go/src/github.com/openshift-psap/special-resource-operator/manifests/operator-init.yaml")
 	if err != nil {
 		t.Fatalf("failed to initialize cluster resources: %v", err)
 	}

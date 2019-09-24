@@ -11,9 +11,9 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 
-	"github.com/zvonkok/special-resource-operator/pkg/apis"
-	"github.com/zvonkok/special-resource-operator/pkg/controller"
-	"github.com/zvonkok/special-resource-operator/pkg/controller/specialresource"
+	"github.com/openshift-psap/special-resource-operator/pkg/apis"
+	"github.com/openshift-psap/special-resource-operator/pkg/controller"
+	"github.com/openshift-psap/special-resource-operator/pkg/controller/specialresource"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
