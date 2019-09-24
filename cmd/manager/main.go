@@ -13,8 +13,8 @@ import (
 
 	"github.com/zvonkok/special-resource-operator/pkg/apis"
 	"github.com/zvonkok/special-resource-operator/pkg/controller"
+	"github.com/zvonkok/special-resource-operator/pkg/controller/specialresource"
 
-	routev1 "github.com/openshift/api/route/v1"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
@@ -108,7 +108,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := routev1.AddToScheme(mgr.GetScheme()); err != nil {
+	if err := specialresource.Add3dpartyResourcesToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

@@ -60,3 +60,11 @@ rules:
   - '*'
   verbs:
   - '*'
+- apiGroups: 
+  - rbac.authorization.k8s.io
+  resources:
+  - role 
+  - rolebinding
+  verbs:
+  - get
+  
