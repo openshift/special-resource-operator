@@ -55,7 +55,7 @@ deploy-objects: deploy-crd
 	done	
 
 deploy: deploy-objects
-	@${TEMPLATE_CMD} $(DEPLOY_CR) | kubectl apply -f -
+	@${TEMPLATE_CMD} deploy/$(DEPLOY_CR) | kubectl apply -f -
 
 undeploy:
 	for obj in $(DEPLOY_CRD) $(DEPLOY_CR) $(DEPLOY_OBJECTS); do \

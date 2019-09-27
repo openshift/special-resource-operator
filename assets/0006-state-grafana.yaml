@@ -1,0 +1,88 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nvidia-grafana
+  namespace: openshift-sro
+  labels:
+    metrics-infra: nvidia-grafana
+    name: nvidia-grafana
+spec:
+  ports:
+  - name: nvidia-grafana
+    port: 3000
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: nvidia-grafana
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: nvidia-grafana
+  namespace: openshift-sro
+spec:
+  host: ""
+  to:
+    kind: Service
+    name: nvidia-grafana
+    weight: 100
+  port:
+    targetPort: 3000
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nvidia-grafana
+  namespace: openshift-sro
+  annotations:
+    callback: nvidia-grafana-configmap
+data:
+  ocp-prometheus.yml: |
+    apiVersion: 1
+    datasources:
+    - name: Cluster Prometheus
+      type: prometheus
+      access: proxy
+      orgId: 1
+      url: REPLACE_PROM_URL
+      basicAuth: true
+      basicAuthUser: REPLACE_PROM_USER
+      basicAuthPassword: REPLACE_PROM_PASS
+      withCredentials: false
+      isDefault: true
+      jsonData:
+        tlsSkipVerify: true
+      version: 1
+      editable: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nvidia-grafana
+  name: nvidia-grafana
+  namespace: openshift-sro
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nvidia-grafana
+  template:
+    metadata:
+      labels:
+        app: nvidia-grafana
+      name: nvidia-grafana
+    spec:
+      containers:
+      - name: nvidia-grafana
+        image: docker.io/grafana/grafana:master
+        ports:
+        - name: sc-grafana-http
+          containerPort: 3000
+        volumeMounts:
+        - mountPath: /etc/grafana/provisioning/datasources
+          name: nvidia-grafana
+      volumes:
+      - name: nvidia-grafana
+        configMap:
+          name: nvidia-grafana

@@ -4,8 +4,11 @@ import (
 	"context"
 
 	srov1alpha1 "github.com/openshift-psap/special-resource-operator/pkg/apis/sro/v1alpha1"
-
+	routev1 "github.com/openshift/api/route/v1"
+	secv1 "github.com/openshift/api/security/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,11 +54,59 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// TODO(user): Modify this to be the types you create that are owned by the primary resource
 	// Watch for changes to secondary resource Pods and requeue the owner SpecialResource
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+	if err = c.Watch(&source.Kind{Type: &appsv1.DaemonSet{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &srov1alpha1.SpecialResource{},
-	})
-	if err != nil {
+	}); err != nil {
+		return err
+	}
+
+	if err = c.Watch(&source.Kind{Type: &corev1.ServiceAccount{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &srov1alpha1.SpecialResource{},
+	}); err != nil {
+		return err
+	}
+
+	if err = c.Watch(&source.Kind{Type: &secv1.SecurityContextConstraints{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &srov1alpha1.SpecialResource{},
+	}); err != nil {
+		return err
+	}
+
+	if err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &srov1alpha1.SpecialResource{},
+	}); err != nil {
+		return err
+	}
+
+	if err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &srov1alpha1.SpecialResource{},
+	}); err != nil {
+		return err
+	}
+
+	if err = c.Watch(&source.Kind{Type: &rbacv1.Role{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &srov1alpha1.SpecialResource{},
+	}); err != nil {
+		return err
+	}
+
+	if err = c.Watch(&source.Kind{Type: &rbacv1.RoleBinding{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &srov1alpha1.SpecialResource{},
+	}); err != nil {
+		return err
+	}
+
+	if err = c.Watch(&source.Kind{Type: &routev1.Route{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &srov1alpha1.SpecialResource{},
+	}); err != nil {
 		return err
 	}
 
@@ -99,7 +150,9 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	ReconcileClusterResources(r)
+	if err := ReconcileClusterResources(r); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	return reconcile.Result{}, nil
 }

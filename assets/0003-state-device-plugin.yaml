@@ -1,3 +1,41 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nvidia-device-plugin
+  namespace: openshift-sro
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: nvidia-device-plugin
+  namespace: openshift-sro
+rules:
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+  resourceNames:
+  - privileged
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: nvidia-device-plugin
+  namespace: openshift-sro
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: nvidia-device-plugin
+  namespace: openshift-sro
+subjects:
+- kind: ServiceAccount
+  name: nvidia-device-plugin
+  namespace: openshift-sro
+userNames:
+- system:serviceaccount:openshift-sro-operator:nvidia-device-plugin
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -7,6 +45,7 @@ metadata:
   namespace: openshift-sro
   annotations:
     openshift.io/scc: hostmount-anyuid
+    callback: nvidia-device-plugin-daemonset
 spec:
   selector:
     matchLabels:
@@ -32,7 +71,7 @@ spec:
         effect: NoSchedule
       serviceAccount: nvidia-device-plugin
       containers:
-      - image: nvidia/k8s-device-plugin:1.11 #quay.io/openshift-psap/k8s-device-plugin:4.0 #nvidia/k8s-device-plugin:1.11
+      - image: nvidia/k8s-device-plugin:1.11 
         name: nvidia-device-plugin-ctr
         securityContext:
           privileged: true
@@ -49,5 +88,3 @@ spec:
       nodeSelector:
         node-role.kubernetes.io/worker: ""
         feature.node.kubernetes.io/pci-10de.present: "true"
-
-

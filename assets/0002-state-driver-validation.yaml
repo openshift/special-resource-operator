@@ -5,6 +5,8 @@ metadata:
     app: nvidia-driver-validation
   name: nvidia-driver-validation
   namespace: openshift-sro
+  annotations:
+    callback: nvidia-driver-validation
 spec:
 #  serviceAccount: nvidia-readonly
 #  serviceAccountName: nvidia-readonly

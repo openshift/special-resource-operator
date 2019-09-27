@@ -5,6 +5,8 @@ metadata:
     app: nvidia-device-plugin-validation
   name: nvidia-device-plugin-validation
   namespace: openshift-sro
+  annotations:
+    callback: nvidia-device-plugin-validation
 spec:
   tolerations:
     - operator: Exists

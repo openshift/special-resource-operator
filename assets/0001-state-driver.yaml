@@ -116,6 +116,7 @@ metadata:
   namespace: openshift-sro
   annotations:
     openshift.io/scc: nvidia-driver
+    callback: nvidia-driver-daemonset
 spec:
   selector:
     matchLabels:
