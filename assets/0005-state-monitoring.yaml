@@ -108,8 +108,6 @@ metadata:
     app: nvidia-dcgm-exporter
   name: nvidia-dcgm-exporter
   namespace: openshift-sro
-  annotations:
-    callback: nvidia-dcgm-exporter
 spec:
   selector:
     matchLabels:
@@ -121,26 +119,77 @@ spec:
       name: nvidia-dcgm-exporter
     spec:
       tolerations:
-      - operator: Exists
       - key: nvidia.com/gpu
         operator: Exists
         effect: NoSchedule
       serviceAccount: nvidia-dcgm-exporter
       serviceAccountName: nvidia-dcgm-exporter
       containers:
-      - image: quay.io/openshift-psap/dcgm #nvidia/dcgm-exporter:1.4.6
+      - image: quay.io/prometheus/node-exporter:v0.16.0
+        name: node-exporter
+        args:
+        - "--web.listen-address=0.0.0.0:9600"
+        - "--path.procfs=/host/proc"
+        - "--path.sysfs=/host/sys"
+        - "--collector.textfile.directory=/run/prometheus"
+        - "--no-collector.arp"
+        - "--no-collector.bcache"
+        - "--no-collector.bonding"
+        - "--no-collector.conntrack"
+        - "--no-collector.cpu"
+        - "--no-collector.diskstats"
+        - "--no-collector.edac"
+        - "--no-collector.entropy"
+        - "--no-collector.filefd"
+        - "--no-collector.filesystem"
+        - "--no-collector.hwmon"
+        - "--no-collector.infiniband"
+        - "--no-collector.ipvs"
+        - "--no-collector.loadavg"
+        - "--no-collector.mdadm"
+        - "--no-collector.meminfo"
+        - "--no-collector.netdev"
+        - "--no-collector.netstat"
+        - "--no-collector.nfs"
+        - "--no-collector.nfsd"
+        - "--no-collector.sockstat"
+        - "--no-collector.stat"
+        - "--no-collector.time"
+        - "--no-collector.timex"
+        - "--no-collector.uname"
+        - "--no-collector.vmstat"
+        - "--no-collector.wifi"
+        - "--no-collector.xfs"
+        - "--no-collector.zfs"
+        ports:
+        - name: metrics
+          containerPort: 9600
+          hostPort: 9600
+        resources:
+          requests:
+            memory: 30Mi
+            cpu: 100m
+          limits:
+            memory: 50Mi
+            cpu: 200m
+        volumeMounts:
+        - name: proc
+          readOnly:  true
+          mountPath: /host/proc
+        - name: sys
+          readOnly: true
+          mountPath: /host/sys
+        - name: collector-textfiles
+          readOnly: true
+          mountPath: /run/prometheus
+      - image: nvidia/dcgm-exporter:1.4.6
         name: nvidia-dcgm-exporter
-        env:
-        - name: PYTHONPATH
-          value: "/usr/src/dcgm/bindings"
-        command: ["python", "/usr/src/dcgm/samples/scripts/dcgm_prometheus.py", "-e", "-p", "9600"]
         securityContext:
-          privileged: true
           runAsNonRoot: false
           runAsUser: 0
-#        volumeMounts:
-#        - name: collector-textfiles
-#          mountPath: /run/prometheus
+        volumeMounts:
+        - name: collector-textfiles
+          mountPath: /run/prometheus
 
       hostNetwork: true
       hostPID: true
@@ -152,10 +201,9 @@ spec:
       - name: sys
         hostPath:
           path: /sys
-#      - name: collector-textfiles
-#        emptyDir:
-#          medium: Memory
-
+      - name: collector-textfiles
+        emptyDir:
+          medium: Memory
       nodeSelector:
         node-role.kubernetes.io/worker: ""
         feature.node.kubernetes.io/pci-10de.present: "true"
