@@ -119,6 +119,7 @@ spec:
       name: nvidia-dcgm-exporter
     spec:
       tolerations:
+      - operator: Exists
       - key: nvidia.com/gpu
         operator: Exists
         effect: NoSchedule

@@ -9,7 +9,7 @@ metadata:
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions: {}
-  description: Placeholder description
+  description: The special resource operator is an orchestrator for resources in a cluster specifically designed for resources that need extra management. This reference implementation shows how GPUs can be deployed on a Kubernetes/OpenShift cluster. There is a general problem when trying to configure a cluster with a special resource. One does not know which node has a special resource or not. To circumvent this bootstrap problem, the SRO relies on the NFD operator and its node feature discovery capabilities. NFD will label the host with node specific attributes, like PCI cards, kernel or OS version and many more, see (Upstream NFD) fore more info.
   displayName: Special Resource Operator
   install:
     spec:
