@@ -5,7 +5,6 @@ IMAGE          ?= ${REGISTRY}/${ORG}/special-resource-operator:${TAG}
 NAMESPACE      ?= openshift-sro
 PULLPOLICY     ?= IfNotPresent
 TEMPLATE_CMD    = sed 's+REPLACE_IMAGE+${IMAGE}+g; s+REPLACE_NAMESPACE+${NAMESPACE}+g; s+Always+${PULLPOLICY}+'
-DEPLOY_SCC_RO   = manifests/0310_readonlyfs_scc.yaml
 DEPLOY_OBJECTS  = namespace.yaml service_account.yaml role.yaml role_binding.yaml operator.yaml
 DEPLOY_CRD      = crds/sro_v1alpha1_specialresource_crd.yaml
 DEPLOY_CR       = crds/sro_v1alpha1_specialresource_cr.yaml
@@ -50,19 +49,17 @@ deploy-crd: $(DEPLOY_CRD)
 	sleep 1
 
 deploy-objects: deploy-crd
-	for obj in $(DEPLOY_OBJECTS) $(DEPLOY_CR); do \
-		$(TEMPLATE_CMD) deploy/$$obj | kubectl apply -f - ;\
+	for obj in $(DEPLOY_OBJECTS) $(DEPLOY_CR); do               \
+		$(TEMPLATE_CMD) deploy/$$obj | kubectl apply -f - ; \
 	done	
 
 deploy: deploy-objects
 	@${TEMPLATE_CMD} deploy/$(DEPLOY_CR) | kubectl apply -f -
 
 undeploy:
-	for obj in $(DEPLOY_CRD) $(DEPLOY_CR) $(DEPLOY_OBJECTS); do \
-		$(TEMPLATE_CMD) deploy/$$obj | kubectl delete -f - ;\
+	for obj in $(DEPLOY_CRD) $(DEPLOY_CR) $(DEPLOY_OBJECTS); do  \
+		$(TEMPLATE_CMD) deploy/$$obj | kubectl delete -f - ; \
 	done	
-
-
 
 verify:	verify-gofmt
 
