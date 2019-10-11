@@ -101,6 +101,10 @@ After deploying the enablement stack, which includes the driver, one can now ext
 Those labels can be used for advanced scheduling decisions. If workloads need specific compute capabilities they can be deployed to the right node with the fitting GPU.
 
 
+#### State Grafana
+The last steps involves deploying a mutable Grafana instance with a preinstalled GPU dashboard. 
+`oc get route -n openshift-sro` will show the URL for the Grafana instance. 
+
 ## Hard and Soft Partitioning
 The operator has example CR's how to create a hard or soft partitioning scheme for the worker nodes where one has special resources. Hard partitioning is realized with taints and tolerations where soft partitioning is priority and preemption. 
 
