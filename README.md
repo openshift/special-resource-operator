@@ -1,3 +1,14 @@
+# Installation
+
+For OpenShift 4.1 and 4.2 use branch `release-4.2`. Do not use `master` branch. 
+
+```
+$ git clone https://github.com/openshift-psap/special-resource-operator
+$ cd special-resource-operator
+$ git checkout release-4.2
+$ PULLPOLICY=Always make deploy
+```
+
 # Special Resource Operator (SRO)
 
 The special resource operator is an orchestrator for resources in a cluster specifically designed for resources that need extra management. This reference implementation shows how GPUs can be deployed on a Kubernetes/OpenShift cluster. 
