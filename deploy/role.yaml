@@ -9,7 +9,7 @@ rules:
   resources: ["roles", "rolebindings"]
   verbs: ['*']
 - apiGroups: [""]
-  resources: ["pods", "services", "endpoints", "persistentvolumeclaims", "events", "configmaps", "configmaplists", "secrets", "serviceaccounts", "nodes"]
+  resources: ["pods", "pods/log", "services", "endpoints", "persistentvolumeclaims", "events", "configmaps", "configmaplists", "secrets", "serviceaccounts", "nodes"]
   verbs: ['*']
 - apiGroups: [""]
   resources: ["namespaces"]
@@ -32,6 +32,19 @@ rules:
 - apiGroups: ["route.openshift.io"]
   resources: ["routes"]
   verbs: ["get", "list", "watch", "create", "update"]
+- apiGroups: ["build.openshift.io"]
+  resources: ["buildconfigs"]
+  verbs: ["get", "watch", "list", "create", "update"]
+- apiGroups: ["build.openshift.io"]
+  resources: ["builds"]
+  verbs: ["get", "watch", "list"]
+- apiGroups: ["image.openshift.io"]
+  resources: ["imagestreams"]
+  verbs: ["get", "watch", "list", "create", "update"]
+- apiGroups: ["monitoring.coreos.com"]
+  resources: ["prometheusrules"]
+  verbs: ["get", "watch", "list", "create", "update", "delete"]
+
 --- 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

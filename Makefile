@@ -15,7 +15,7 @@ MAIN_PACKAGE    = $(PACKAGE)/cmd/manager
 DOCKERFILE      = Dockerfile
 ENVVAR          = GOOS=linux CGO_ENABLED=0
 GOOS            = linux
-GO_BUILD_RECIPE = GOOS=$(GOOS) go build -o $(BIN) $(MAIN_PACKAGE)
+GO_BUILD_RECIPE = GOOS=$(GOOS) go build -mod=vendor -o $(BIN) $(MAIN_PACKAGE)
 
 TEST_RESOURCES  = $(shell mktemp -d)/test-init.yaml
 
@@ -46,18 +46,18 @@ $(DEPLOY_CRD):
 	@${TEMPLATE_CMD} deploy/$@ | kubectl apply -f -
 
 deploy-crd: $(DEPLOY_CRD) 
-	sleep 1
+	@sleep 1 
 
 deploy-objects: deploy-crd
-	for obj in $(DEPLOY_OBJECTS) $(DEPLOY_CR); do               \
+	@for obj in $(DEPLOY_OBJECTS) $(DEPLOY_CR); do               \
 		$(TEMPLATE_CMD) deploy/$$obj | kubectl apply -f - ; \
-	done	
+	done 
 
 deploy: deploy-objects
 	@${TEMPLATE_CMD} deploy/$(DEPLOY_CR) | kubectl apply -f -
 
 undeploy:
-	for obj in $(DEPLOY_CRD) $(DEPLOY_CR) $(DEPLOY_OBJECTS); do  \
+	@for obj in $(DEPLOY_CRD) $(DEPLOY_CR) $(DEPLOY_OBJECTS); do  \
 		$(TEMPLATE_CMD) deploy/$$obj | kubectl delete -f - ; \
 	done	
 

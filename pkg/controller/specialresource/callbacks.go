@@ -10,6 +10,7 @@ type resourceCallbacks map[string]func(obj *unstructured.Unstructured, r *Reconc
 
 var prefixCallback resourceCallbacks
 var postfixCallback resourceCallbacks
+var waitFor resourceCallbacks
 
 // SetupCallbacks preassign callbacks for manipulating and handling of resources
 func SetupCallbacks() error {
@@ -17,8 +18,15 @@ func SetupCallbacks() error {
 	prefixCallback = make(resourceCallbacks)
 	postfixCallback = make(resourceCallbacks)
 
+	waitFor = make(resourceCallbacks)
+
 	prefixCallback["nvidia-driver-daemonset"] = prefixNVIDIAdriverDaemonset
 	prefixCallback["nvidia-grafana-configmap"] = prefixNVIDIAgrafanaConfigMap
+
+	waitFor["Pod"] = waitForPod
+	waitFor["DaemonSet"] = waitForDaemonSet
+	waitFor["BuildConfig"] = waitForBuild
+	waitFor["nvidia-driver-daemonset"] = waitForDaemonSetLogs
 
 	return nil
 }
@@ -53,15 +61,16 @@ func postfixResourceCallback(obj *unstructured.Unstructured, r *ReconcileSpecial
 	annotations := obj.GetAnnotations()
 	todo = annotations["callback"]
 
+	if err := waitForResource(obj, r); err != nil {
+		return err
+	}
+
 	if todo, ok = annotations["callback"]; !ok {
 		return nil
 	}
+
 	if postfix, ok := postfixCallback[todo]; ok {
 		return postfix(obj, r)
-	}
-
-	if err := waitForResource(obj, r); err != nil {
-		return err
 	}
 
 	return nil

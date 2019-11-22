@@ -7,7 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
+	monitoringV1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
+	buildV1 "github.com/openshift/api/build/v1"
+	imageV1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,8 +44,16 @@ func Add3dpartyResourcesToScheme(scheme *runtime.Scheme) error {
 	if err := routev1.AddToScheme(scheme); err != nil {
 		return err
 	}
-
 	if err := secv1.AddToScheme(scheme); err != nil {
+		return err
+	}
+	if err := buildV1.AddToScheme(scheme); err != nil {
+		return err
+	}
+	if err := imageV1.AddToScheme(scheme); err != nil {
+		return err
+	}
+	if err := monitoringV1.AddToScheme(scheme); err != nil {
 		return err
 	}
 
@@ -130,12 +141,26 @@ func createFromYAML(yamlFile []byte, r *ReconcileSpecialResource) error {
 	return nil
 }
 
+// Some resources need an updated resourceversion, during updates
+func needToUpdateResourceVersion(kind string) bool {
+
+	if kind == "SecurityContextConstraints" ||
+		kind == "Service" ||
+		kind == "ServiceMonitor" ||
+		kind == "Route" ||
+		kind == "BuildConfig" ||
+		kind == "ImageStream" ||
+		kind == "PrometheusRule" {
+		return true
+	}
+	return false
+}
+
 func updateResource(req *unstructured.Unstructured, found *unstructured.Unstructured) error {
 
 	kind := found.GetKind()
 
-	if kind == "SecurityContextConstraints" || kind == "Service" || kind == "ServiceMonitor" || kind == "Route" {
-
+	if needToUpdateResourceVersion(kind) {
 		version, fnd, err := unstructured.NestedString(found.Object, "metadata", "resourceVersion")
 		checkNestedFields(fnd, err)
 
@@ -173,7 +198,8 @@ func CRUD(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
 	if apierrors.IsNotFound(err) {
 		logger.Info("Not found, creating")
 		if err := r.client.Create(context.TODO(), obj); err != nil {
-			return fmt.Errorf("Couldn't Create (%v)", err)
+			logger.Error(err, "Couldn't Create Resource")
+			return err
 		}
 		return nil
 	}
@@ -182,16 +208,22 @@ func CRUD(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
 		logger.Info("Found, updating")
 		required := obj.DeepCopy()
 
+		// required.ResourceVersion = found.ResourceVersion
 		if err := updateResource(required, found); err != nil {
-			log.Error(err, "Couldn't Update Resource")
+			logger.Error(err, "Couldn't Update ResourceVersion")
 			return err
 		}
-		//required.ResourceVersion = found.ResourceVersion
 
 		if err := r.client.Update(context.TODO(), required); err != nil {
-			return fmt.Errorf("Couldn't Update (%v)", err)
+			logger.Error(err, "Couldn't Update Resource")
+			return err
 		}
 		return nil
+	}
+
+	if apierrors.IsForbidden(err) {
+		logger.Error(err, "Forbidden check Role, ClusterRole and Bindings for operator")
+		return err
 	}
 
 	if err != nil {

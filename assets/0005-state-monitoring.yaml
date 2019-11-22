@@ -208,4 +208,31 @@ spec:
       nodeSelector:
         node-role.kubernetes.io/worker: ""
         feature.node.kubernetes.io/pci-10de.present: "true"
-
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    prometheus: example
+    role: alert-rules
+  name: prometheus-example-rules
+spec:
+  groups:
+  - name: nvidia_gpu.rules
+    rules:
+    - alert: GPUUnusedResources
+      expr: dcgm_gpu_utilization == 0
+      for: 5m 
+      labels:
+        severity: warning
+      annotations:
+        description: GPU idle for the last 5min, do some work!
+        summary: GPU Node sad, nothing to do
+    - alert: GPUTemperatureTooHigh
+      expr: dcgm_gpu_temp > 50
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        description: GPU temperature too high for the last 5min
+        summary: GPU Node sad, it is getting hot in here

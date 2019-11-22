@@ -1,15 +1,21 @@
 package specialresource
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"regexp"
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type statusCallback func(obj *unstructured.Unstructured) bool
@@ -49,15 +55,27 @@ func makeStatusCallback(obj *unstructured.Unstructured, status interface{}, fiel
 	}
 }
 
+var waitCallback resourceCallbacks
+
 func waitForResource(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
 
-	if obj.GetKind() == "DaemonSet" {
-		return waitForDaemonSet(obj, r)
+	log.Info("waitForResource", "Kind", obj.GetKind())
+
+	var err error = nil
+	// Wait for general availability, Pods Complete, Running
+	// DaemonSet NumberUnavailable == 0, etc
+	if wait, ok := waitFor[obj.GetKind()]; ok {
+		if err = wait(obj, r); err != nil {
+			return err
+		}
 	}
-	if obj.GetKind() == "Pod" {
-		return waitForPod(obj, r)
+	// Wait for specific condition of a specific resource
+	if wait, ok := waitFor[obj.GetName()]; ok {
+		if err = wait(obj, r); err != nil {
+			return err
+		}
 	}
-	return nil
+	return err
 }
 
 func waitForPod(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
@@ -76,11 +94,41 @@ func waitForDaemonSet(obj *unstructured.Unstructured, r *ReconcileSpecialResourc
 	return waitForResourceFullAvailability(obj, r, callback)
 }
 
+func waitForBuild(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
+
+	if err := waitForResourceAvailability(obj, r); err != nil {
+		return err
+	}
+
+	builds := &unstructured.UnstructuredList{}
+	builds.SetAPIVersion("build.openshift.io/v1")
+	builds.SetKind("build")
+
+	opts := &client.ListOptions{}
+	opts.InNamespace(r.specialresource.Namespace)
+
+	err := r.client.List(context.TODO(), opts, builds)
+	if err != nil {
+		log.Error(err, "Could not get BuildList")
+		return err
+	}
+
+	for _, build := range builds.Items {
+		callback := makeStatusCallback(&build, "Complete", "status", "phase")
+		err := waitForResourceFullAvailability(&build, r, callback)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // WAIT FOR RESOURCES -- other file?
 
 var (
 	retryInterval = time.Second * 5
-	timeout       = time.Second * 60
+	timeout       = time.Second * 120
 )
 
 func waitForResourceAvailability(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
@@ -118,4 +166,56 @@ func waitForResourceFullAvailability(obj *unstructured.Unstructured, r *Reconcil
 		return false, nil
 	})
 	return err
+}
+
+func waitForDaemonSetLogs(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
+	log.Info("waitForDaemonSetLogs", "Name", obj.GetName())
+
+	pods := &unstructured.UnstructuredList{}
+	pods.SetAPIVersion("v1")
+	pods.SetKind("pod")
+
+	label := make(map[string]string)
+	label["app"] = obj.GetName()
+
+	opts := &client.ListOptions{}
+	opts.InNamespace(r.specialresource.Namespace)
+	opts.MatchingLabels(label)
+
+	err := r.client.List(context.TODO(), opts, pods)
+	if err != nil {
+		log.Error(err, "Could not get PodList")
+		return err
+	}
+
+	for _, pod := range pods.Items {
+		log.Info("waitForDaemonSetLogs", "Pod", pod.GetName())
+		podLogOpts := corev1.PodLogOptions{}
+		req := kubeclient.CoreV1().Pods(pod.GetNamespace()).GetLogs(pod.GetName(), &podLogOpts)
+		podLogs, err := req.Stream()
+		if err != nil {
+			log.Error(err, "Error in opening stream")
+			return err
+		}
+		defer podLogs.Close()
+
+		buf := new(bytes.Buffer)
+		_, err = io.Copy(buf, podLogs)
+		if err != nil {
+			log.Error(err, "Error in copy information from podLogs to buf")
+			return err
+		}
+		str := buf.String()
+		lastBytes := str[len(str)-20:]
+		log.Info("waitForDaemonSetLogs", "LastBytes", lastBytes)
+		pattern := "\\+ wait \\d+"
+		if match, _ := regexp.MatchString(pattern, lastBytes); !match {
+			return errors.New("Not yet done. Not matched against \\+ wait \\d+ ")
+		}
+
+		// We're only checking one Pod not all of them
+		break
+	}
+
+	return nil
 }

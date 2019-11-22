@@ -4,11 +4,14 @@ import (
 	"context"
 
 	srov1alpha1 "github.com/openshift-psap/special-resource-operator/pkg/apis/sro/v1alpha1"
+	buildV1 "github.com/openshift/api/build/v1"
+	imageV1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	monitoringV1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -104,6 +107,27 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	if err = c.Watch(&source.Kind{Type: &routev1.Route{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &srov1alpha1.SpecialResource{},
+	}); err != nil {
+		return err
+	}
+
+	if err = c.Watch(&source.Kind{Type: &buildV1.BuildConfig{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &srov1alpha1.SpecialResource{},
+	}); err != nil {
+		return err
+	}
+
+	if err = c.Watch(&source.Kind{Type: &imageV1.ImageStream{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &srov1alpha1.SpecialResource{},
+	}); err != nil {
+		return err
+	}
+
+	if err = c.Watch(&source.Kind{Type: &monitoringV1.PrometheusRule{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &srov1alpha1.SpecialResource{},
 	}); err != nil {
