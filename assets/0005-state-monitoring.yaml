@@ -222,17 +222,41 @@ spec:
     rules:
     - alert: GPUUnusedResources
       expr: dcgm_gpu_utilization == 0
-      for: 5m 
+      for: 10m 
       labels:
         severity: warning
       annotations:
         description: GPU idle for the last 5min, do some work!
         summary: GPU Node sad, nothing to do
     - alert: GPUTemperatureTooHigh
-      expr: dcgm_gpu_temp > 50
-      for: 5m
+      expr: dcgm_gpu_temp > 60
+      for: 10m
       labels:
         severity: warning
       annotations:
-        description: GPU temperature too high for the last 5min
+        description: GPU temperature too high for the last 10min
         summary: GPU Node sad, it is getting hot in here
+    - alert: GPUTemperatureTooHigh
+      expr: dcgm_gpu_temp > 70
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        description: GPU temperature very high for the last 10min
+        summary: GPU Node sad, it is getting hot in here
+    - alert: GPUTemperatureTooHigh
+      expr: dcgm_gpu_temp > 80
+      for: 10m
+      labels:
+        severity: critical
+      annotations:
+        description: GPU temperature critical for the last 10min
+        summary: GPU Node sad, it is getting hot in here
+    - alert: GPUThermalViolation
+      expr: dcgm_thermal_violation > 1
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        description: GPU Thermal Violation
+        summary: GPU Node is too hot, may break your GPU

@@ -1,0 +1,36 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  labels:
+    app: nvidia-driver-internal
+  name: nvidia-driver-internal
+spec: {}
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  labels:
+    app: nvidia-driver-internal
+  name: nvidia-driver-internal
+spec:
+  runPolicy: "Serial"
+  triggers:
+    - type: "ConfigChange"
+    - type: "ImageChange"
+  source:
+    git:
+      ref: rhel8
+      uri: https://gitlab.com/zvonkok/driver.git
+    contextDir: rhel8
+    type: Git
+  strategy:
+    dockerStrategy:
+      buildArgs:
+        - name: "DRIVER_VERSION"
+          value: "410.129-diagnostic"
+        - name: "SHORT_DRIVER_VERSION"
+          value: "410.129"
+  output:
+    to:
+      kind: ImageStreamTag
+      name: nvidia-driver-internal:latest
