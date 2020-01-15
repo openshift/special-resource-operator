@@ -20,24 +20,40 @@ import (
 
 type statusCallback func(obj *unstructured.Unstructured) bool
 
+var stateLabels = map[string]map[string]string{
+	"nvidia-driver-daemonset":            {"specialresource.openshift.io/driver-container": "ready"},
+	"nvidia-driver-validation-daemonset": {"specialresource.openshift.io/driver-validation": "ready"},
+	"nvidia-device-plugin-daemonset":     {"specialresource.openshift.io/device-plugin": "ready"},
+	"nvidia-dp-validation-daemonset":     {"specialresource.openshift.io/device-validation": "ready"},
+	"nvidia-dcgm-exporter":               {"specialresource.openshift.io/device-monitoring": "ready"},
+}
+
 // makeStatusCallback Closure capturing json path and expected status
 func makeStatusCallback(obj *unstructured.Unstructured, status interface{}, fields ...string) func(obj *unstructured.Unstructured) bool {
 	_status := status
 	_fields := fields
 	return func(obj *unstructured.Unstructured) bool {
 		switch x := _status.(type) {
-		case int, int32, int8, int64:
+		case int64:
+			expected := _status.(int64)
+			current, found, err := unstructured.NestedInt64(obj.Object, _fields...)
+			checkNestedFields(found, err)
 
-			expected := _status.(int)
-			current, found, _ := unstructured.NestedInt64(obj.Object, _fields...)
-			if !found {
-				log.Info("Not found, ignoring")
-				return true
-			}
 			if current == int64(expected) {
 				return true
 			}
 			return false
+
+		case int:
+			expected := _status.(int)
+			current, found, err := unstructured.NestedInt64(obj.Object, _fields...)
+			checkNestedFields(found, err)
+
+			if int(current) == int(expected) {
+				return true
+			}
+			return false
+
 		case string:
 			expected := _status.(string)
 			current, found, err := unstructured.NestedString(obj.Object, _fields...)
@@ -57,6 +73,56 @@ func makeStatusCallback(obj *unstructured.Unstructured, status interface{}, fiel
 
 var waitCallback resourceCallbacks
 
+func labelNodesAccordingToState(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
+
+	if obj.GetKind() != "DaemonSet" {
+		return nil
+	}
+
+	cacheNodes(r, true)
+
+	for _, node := range node.list.Items {
+		labels := node.GetLabels()
+
+		stateLabel, found := stateLabels[obj.GetName()]
+		if !found {
+			return nil
+		}
+
+		for k := range stateLabel {
+
+			_, found := labels[k]
+			if found {
+				log.Info("NODE", "Label ", stateLabel, "on ", node.GetName())
+				continue
+			}
+			// Label missing update the Node to advance to the next state
+			updated := node.DeepCopy()
+
+			labels[k] = "ready"
+
+			updated.SetLabels(labels)
+
+			err := r.client.Update(context.TODO(), updated)
+			if apierrors.IsForbidden(err) {
+				return fmt.Errorf("Forbidden check Role, ClusterRole and Bindings for operator %s", err)
+			}
+			if apierrors.IsConflict(err) {
+				cacheNodes(r, true)
+				return fmt.Errorf("Node Conflict Label %s err %s", stateLabel, err)
+			}
+
+			if err != nil {
+				log.Error(err, "Node Update", "label", stateLabel)
+				return fmt.Errorf("Couldn't Update Node")
+			}
+
+			log.Info("NODE", "Setting Label ", stateLabel, "on ", updated.GetName())
+		}
+	}
+	return nil
+}
+
 func waitForResource(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
 
 	log.Info("waitForResource", "Kind", obj.GetKind())
@@ -75,7 +141,9 @@ func waitForResource(obj *unstructured.Unstructured, r *ReconcileSpecialResource
 			return err
 		}
 	}
-	return err
+	// If resource available, label the nodes according to the current state
+	// if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
+	return labelNodesAccordingToState(obj, r)
 }
 
 func waitForPod(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
@@ -86,12 +154,38 @@ func waitForPod(obj *unstructured.Unstructured, r *ReconcileSpecialResource) err
 	return waitForResourceFullAvailability(obj, r, callback)
 }
 
+func waitForDaemonSetCallback(obj *unstructured.Unstructured) bool {
+
+	// The total number of nodes that should be running the daemon pod
+	var err error
+	var found bool
+	var callback statusCallback
+
+	callback = func(obj *unstructured.Unstructured) bool { return false }
+
+	node.count, found, err = unstructured.NestedInt64(obj.Object, "status", "desiredNumberScheduled")
+	checkNestedFields(found, err)
+
+	_, found, err = unstructured.NestedInt64(obj.Object, "status", "numberUnavailable")
+	if found {
+		callback = makeStatusCallback(obj, 0, "status", "numberUnavailable")
+	}
+
+	_, found, err = unstructured.NestedInt64(obj.Object, "status", "numberAvailable")
+	if found {
+		callback = makeStatusCallback(obj, node.count, "status", "numberAvailable")
+	}
+
+	return callback(obj)
+
+}
+
 func waitForDaemonSet(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
 	if err := waitForResourceAvailability(obj, r); err != nil {
 		return err
 	}
-	callback := makeStatusCallback(obj, 0, "status", "numberUnavailable")
-	return waitForResourceFullAvailability(obj, r, callback)
+
+	return waitForResourceFullAvailability(obj, r, waitForDaemonSetCallback)
 }
 
 func waitForBuild(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {

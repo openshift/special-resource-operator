@@ -1,17 +1,14 @@
 package specialresource
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func prefixNVIDIAdriverDaemonset(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
@@ -50,17 +47,9 @@ func prefixNVIDIAdriverDaemonset(obj *unstructured.Unstructured, r *ReconcileSpe
 func kernelFullVersion(r *ReconcileSpecialResource) string {
 
 	logger := log.WithValues("Request.Namespace", "default", "Request.Name", "Node")
-	// We need the node labels to fetch the correct container
-	opts := &client.ListOptions{}
-	opts.SetLabelSelector("feature.node.kubernetes.io/pci-10de.present=true")
-	list := &corev1.NodeList{}
-	err := r.client.List(context.TODO(), opts, list)
-	if err != nil {
-		logger.Info("Could not get NodeList", err)
-	}
 	// Assuming all nodes are running the same kernel version,
 	// One could easily add driver-kernel-versions for each node.
-	for _, node := range list.Items {
+	for _, node := range node.list.Items {
 		labels := node.GetLabels()
 
 		var ok bool
@@ -75,9 +64,7 @@ func kernelFullVersion(r *ReconcileSpecialResource) string {
 		}
 		return kernelFullVersion
 	}
-
 	return ""
-
 }
 
 func getPromURLPass(obj *unstructured.Unstructured, r *ReconcileSpecialResource) (string, string, error) {

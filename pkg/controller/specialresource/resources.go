@@ -19,13 +19,23 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/yaml"
 )
 
+type nodes struct {
+	list  *unstructured.UnstructuredList
+	count int64
+}
+
 var (
 	manifests  = "/etc/kubernetes/special-resource/nvidia-gpu"
 	kubeclient *kubernetes.Clientset
+	node       = nodes{
+		list:  &unstructured.UnstructuredList{},
+		count: 0xDEADBEEF,
+	}
 )
 
 // AddKubeClient Add a native non-caching client for advanced CRUD operations
@@ -78,6 +88,33 @@ func exitOnError(err error, msg string) {
 	}
 }
 
+func cacheNodes(r *ReconcileSpecialResource, force bool) (*unstructured.UnstructuredList, error) {
+
+	// The initial list is what we're working with
+	// a SharedInformer will update the list of nodes if
+	// more nodes join the cluster.
+	cached := int64(len(node.list.Items))
+	if cached == node.count && !force {
+		return node.list, nil
+	}
+
+	node.list.SetAPIVersion("v1")
+	node.list.SetKind("NodeList")
+
+	opts := &client.ListOptions{}
+	opts.SetLabelSelector("feature.node.kubernetes.io/pci-10de.present=true")
+
+	err := r.client.List(context.TODO(), opts, node.list)
+	if err != nil {
+		log.Error(err, "Could not get NodeList")
+	}
+
+	log.Info("NODES", "cached", cached)
+	log.Info("NODES", "current", len(node.list.Items))
+
+	return node.list, err
+}
+
 // ReconcileClusterResources Reconcile cluster resources
 func ReconcileClusterResources(r *ReconcileSpecialResource) error {
 
@@ -86,6 +123,9 @@ func ReconcileClusterResources(r *ReconcileSpecialResource) error {
 
 	states, err := filePathWalkDir(manifests)
 	exitOnError(err, "Cannot walk dir: "+manifests)
+
+	node.list, err = cacheNodes(r, false)
+	exitOnError(err, "Cannot get Nodes")
 
 	for _, state := range states {
 

@@ -118,6 +118,15 @@ spec:
         app: nvidia-dcgm-exporter
       name: nvidia-dcgm-exporter
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: specialresource.openshift.io/device-validation
+                operator: In 
+                values:
+                - ready 
       tolerations:
       - operator: Exists
       - key: nvidia.com/gpu

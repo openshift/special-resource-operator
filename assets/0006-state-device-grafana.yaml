@@ -666,6 +666,15 @@ spec:
         app: nvidia-grafana
       name: nvidia-grafana
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: specialresource.openshift.io/device-monitoring
+                operator: In 
+                values:
+                - ready 
       containers:
       - name: nvidia-grafana
         image: docker.io/grafana/grafana:master

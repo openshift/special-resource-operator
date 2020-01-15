@@ -59,6 +59,15 @@ spec:
         app.kubernetes.io/version: 1.0.0-alpha
         app.kubernetes.io/part-of: nvidia-gpu
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: specialresource.openshift.io/device-validation
+                operator: In 
+                values:
+                - ready 
       tolerations:
         - operator: Exists
         - key: nvidia.com/gpu
