@@ -1,38 +1,33 @@
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
-	schedv1 "k8s.io/api/scheduling/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type SchedulingType string
-
-const (
-	PriorityPreemption SchedulingType = "PrioriyPreemption"
-	TaintsTolerations  SchedulingType = "TaintsToleration"
-	None               SchedulingType = "None"
-)
+// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
+// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // SpecialResourceSpec defines the desired state of SpecialResource
+// +k8s:openapi-gen=true
 type SpecialResourceSpec struct {
+	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	Scheduling         SchedulingType          `json:"schedulingType"`
-	PriorityClassItems []schedv1.PriorityClass `json:"priorityClasses" protobuf:"bytes,2,rep,name=priorityClasses"`
-	Taints             []corev1.Taint          `json:"taints,omitempty" protobuf:"bytes,5,opt,name=taints"`
+	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 }
 
 // SpecialResourceStatus defines the observed state of SpecialResource
+// +k8s:openapi-gen=true
 type SpecialResourceStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-
+	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // SpecialResource is the Schema for the specialresources API
 // +k8s:openapi-gen=true
+// +kubebuilder:subresource:status
 type SpecialResource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

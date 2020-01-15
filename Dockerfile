@@ -1,13 +1,13 @@
-FROM registry.svc.ci.openshift.org/openshift/release:golang-1.10 AS builder
-WORKDIR /go/src/github.com/zvonkok/special-resource-operator
+FROM registry.access.redhat.com/ubi8/go-toolset AS builder
+WORKDIR /go/src/github.com/openshift-psap/special-resource-operator
 COPY . .
 RUN make build
 
-FROM registry.svc.ci.openshift.org/openshift/origin-v4.0:base
-COPY --from=builder /go/src/github.com/zvonkok/special-resource-operator/special-resource-operator /usr/bin/
+FROM registry.access.redhat.com/ubi8/ubi
+COPY --from=builder /go/src/github.com/openshift-psap/special-resource-operator/special-resource-operator /usr/bin/
 
-RUN mkdir -p /opt/sro
-COPY assets/ /opt/sro
+RUN mkdir -p /etc/kubernetes/special-resource/nvidia-gpu
+COPY assets/ /etc/kubernetes/special-resource/nvidia-gpu
 
 RUN useradd special-resource-operator
 USER special-resource-operator

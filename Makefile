@@ -1,74 +1,65 @@
 REGISTRY       ?= quay.io
-ORG            ?= zvonkok
-TAG            ?= latest #$(shell git rev-parse --short HEAD)
+ORG            ?= openshift-psap
+TAG            ?= $(shell git branch | grep \* | cut -d ' ' -f2)
 IMAGE          ?= ${REGISTRY}/${ORG}/special-resource-operator:${TAG}
-NAMESPACE      ?= openshift-sro-operator
-TEMPLATE_CMD    = sed 's|REPLACE_IMAGE|${IMAGE}|g; s|REPLACE_NAMESPACE|${NAMESPACE}|g; s|Always|IfNotPresent|'
-DEPLOY_SCC_RO   = manifests/0310_readonlyfs_scc.yaml
-DEPLOY_OBJECTS  = manifests/0000_namespace.yaml manifests/0010_namespace.yaml manifests/0100_service_account.yaml manifests/0200_role.yaml manifests/0300_role_binding.yaml manifests/0400_operator.yaml
-DEPLOY_CRDS     = manifests/0500_sro_crd.yaml
-DEPLOY_CRS_NONE = manifests/0600_sro_cr_sched_none.yaml
-DEPLOY_CRS_PRIO = manifests/0600_sro_cr_sched_priority_preemption.yaml
-DEPLOY_CRS_TTOL = manifests/0600_sro_cr_sched_taints_tolerations.yaml
+NAMESPACE      ?= openshift-sro
+PULLPOLICY     ?= IfNotPresent
+TEMPLATE_CMD    = sed 's+REPLACE_IMAGE+${IMAGE}+g; s+REPLACE_NAMESPACE+${NAMESPACE}+g; s+Always+${PULLPOLICY}+'
+DEPLOY_OBJECTS  = namespace.yaml service_account.yaml role.yaml role_binding.yaml operator.yaml
+DEPLOY_CRD      = crds/sro_v1alpha1_specialresource_crd.yaml
+DEPLOY_CR       = crds/sro_v1alpha1_specialresource_cr.yaml
 
-PACKAGE=github.com/zvonkok/special-resource-operator
-MAIN_PACKAGE=$(PACKAGE)/cmd/manager
+PACKAGE         = github.com/openshift-psap/special-resource-operator
+MAIN_PACKAGE    = $(PACKAGE)/cmd/manager
+
+DOCKERFILE      = Dockerfile
+ENVVAR          = GOOS=linux CGO_ENABLED=0
+GOOS            = linux
+GO_BUILD_RECIPE = GOOS=$(GOOS) go build -mod=vendor -o $(BIN) $(MAIN_PACKAGE)
+
+TEST_RESOURCES  = $(shell mktemp -d)/test-init.yaml
+
 
 BIN=$(lastword $(subst /, ,$(PACKAGE)))
-BINDATA=pkg/manifests/bindata.go
 
 GOFMT_CHECK=$(shell find . -not \( \( -wholename './.*' -o -wholename '*/vendor/*' \) -prune \) -name '*.go' | sort -u | xargs gofmt -s -l)
 
-DOCKERFILE=Dockerfile
-IMAGE_TAG=zvonkok/special-resource-operator
-IMAGE_REGISTRY=quay.io
-
-ENVVAR=GOOS=linux CGO_ENABLED=0
-GOOS=linux
-GO_BUILD_RECIPE=GOOS=$(GOOS) go build -o $(BIN) $(MAIN_PACKAGE)
 
 all: build
+
 
 build:
 	$(GO_BUILD_RECIPE)
 
 test-e2e: 
-	@${TEMPLATE_CMD} manifests/0110_namespace.yaml > manifests/operator-init.yaml
-	echo -e "\n---\n" >> manifests/operator-init.yaml
-	@${TEMPLATE_CMD} manifests/0200_service_account.yaml >> manifests/operator-init.yaml
-	echo -e "\n---\n" >> manifests/operator-init.yaml
-	@${TEMPLATE_CMD} manifests/0300_cluster_role.yaml >> manifests/operator-init.yaml
-	echo -e "\n---\n" >> manifests/operator-init.yaml
-	@${TEMPLATE_CMD} manifests/0600_operator.yaml >> manifests/operator-init.yaml
+	@${TEMPLATE_CMD} manifests/service_account.yaml > $(TEST_RESOURCES)
+	echo -e "\n---\n" >> $(TEST_RESOURCES)
+	@${TEMPLATE_CMD} manifests/role.yaml >> $(TEST_RESOURCES)
+	echo -e "\n---\n" >> $(TEST_RESOURCES)
+	@${TEMPLATE_CMD} manifests/role_binding.yaml >> $(TEST_RESOURCES)
+	echo -e "\n---\n" >> $(TEST_RESOURCES)
+	@${TEMPLATE_CMD} manifests/operator.yaml >> $(TEST_RESOURCES)
 
-	go test -v ./test/e2e/... -root $(PWD) -kubeconfig=$(KUBECONFIG) -tags e2e  -globalMan $(DEPLOY_CRDS) -namespacedMan manifests/operator-init.yaml 
+	go test -v ./test/e2e/... -root $(PWD) -kubeconfig=$(KUBECONFIG) -tags e2e  -globalMan $(DEPLOY_CRD) -namespacedMan $(TEST_RESOURCES)
 
-$(DEPLOY_CRDS):
-	@${TEMPLATE_CMD} $@ | kubectl apply -f -
+$(DEPLOY_CRD):
+	@${TEMPLATE_CMD} deploy/$@ | kubectl apply -f -
 
-deploy-crds: $(DEPLOY_CRDS) 
-	sleep 1
+deploy-crd: $(DEPLOY_CRD) 
+	@sleep 1 
 
-deploy-objects: deploy-crds
-	for obj in $(DEPLOY_OBJECTS); do \
-		$(TEMPLATE_CMD) $$obj | kubectl apply -f - ;\
-	done	
+deploy-objects: deploy-crd
+	@for obj in $(DEPLOY_OBJECTS) $(DEPLOY_CR); do               \
+		$(TEMPLATE_CMD) deploy/$$obj | kubectl apply -f - ; \
+	done 
 
 deploy: deploy-objects
-	@${TEMPLATE_CMD} $(DEPLOY_CRS_NONE) | kubectl apply -f -
-
-deploy-prio: deploy-objects
-	@${TEMPLATE_CMD} $(DEPLOY_CRS_PRIO) | kubectl apply -f -
-
-deploy-ttol: deploy-objects
-	@${TEMPLATE_CMD} $(DEPLOY_CRS_TTOL) | kubectl apply -f -
+	@${TEMPLATE_CMD} deploy/$(DEPLOY_CR) | kubectl apply -f -
 
 undeploy:
-	for obj in $(DEPLOY_OBJECTS) $(DEPLOY_CRDS) $(DEPLOY_CRS_NONE) $(DEPLOY_CRS_PRIO) $(DEPLOY_CRS_TTOL); do \
-		$(TEMPLATE_CMD) $$obj | kubectl delete -f - ;\
+	@for obj in $(DEPLOY_CRD) $(DEPLOY_CR) $(DEPLOY_OBJECTS); do  \
+		$(TEMPLATE_CMD) deploy/$$obj | kubectl delete -f - ; \
 	done	
-
-
 
 verify:	verify-gofmt
 
@@ -89,21 +80,12 @@ clean:
 	rm -f $(BIN)
 
 local-image:
-ifdef USE_BUILDAH
-	buildah bud $(BUILDAH_OPTS) -t $(IMAGE_TAG) -f $(DOCKERFILE) .
-else
-	sudo docker build -t $(IMAGE_TAG) -f $(DOCKERFILE) .
-endif
-
+	podman build --no-cache -t $(IMAGE) -f $(DOCKERFILE) .
 test:
 	go test ./cmd/... ./pkg/... -coverprofile cover.out
 
 local-image-push:
-ifdef USE_BUILDAH
-	buildah push $(BUILDAH_OPTS) $(IMAGE_TAG) $(IMAGE_REGISTRY)/$(IMAGE_TAG)
-else
-	sudo docker tag $(IMAGE_TAG) $(IMAGE_REGISTRY)/$(IMAGE_TAG)
-	sudo docker push $(IMAGE_REGISTRY)/$(IMAGE_TAG)
-endif
+	podman push $(IMAGE) 
 
-.PHONY: all build generate verify verify-gofmt clean local-image local-image-push $(DEPLOY_CRDS) 
+.PHONY: all build generate verify verify-gofmt clean local-image local-image-push $(DEPLOY_CRDS) grafana
+
