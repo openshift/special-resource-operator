@@ -22,6 +22,7 @@ func schema_pkg_apis_sro_v1alpha1_SpecialResource(ref common.ReferenceCallback) 
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "SpecialResource is the Schema for the specialresources API",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
@@ -65,10 +66,9 @@ func schema_pkg_apis_sro_v1alpha1_SpecialResourceSpec(ref common.ReferenceCallba
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "SpecialResourceSpec defines the desired state of SpecialResource",
-				Properties:  map[string]spec.Schema{},
+				Type:        []string{"object"},
 			},
 		},
-		Dependencies: []string{},
 	}
 }
 
@@ -77,9 +77,18 @@ func schema_pkg_apis_sro_v1alpha1_SpecialResourceStatus(ref common.ReferenceCall
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "SpecialResourceStatus defines the observed state of SpecialResource",
-				Properties:  map[string]spec.Schema{},
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Description: "INSERT ADDITIONAL STATUS FIELD - define observed state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"state"},
 			},
 		},
-		Dependencies: []string{},
 	}
 }
