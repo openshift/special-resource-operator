@@ -6,7 +6,7 @@ NAMESPACE      ?= openshift-sro
 PULLPOLICY     ?= IfNotPresent
 TEMPLATE_CMD    = sed 's+REPLACE_IMAGE+${IMAGE}+g; s+REPLACE_NAMESPACE+${NAMESPACE}+g; s+Always+${PULLPOLICY}+'
 DEPLOY_OBJECTS  = namespace.yaml service_account.yaml role.yaml role_binding.yaml operator.yaml
-DEPLOY_CRD      = crds/sro_v1alpha1_specialresource_crd.yaml
+DEPLOY_CRD      = crds/sro.openshift.io_specialresources_crd.yaml 
 DEPLOY_CR       = crds/sro_v1alpha1_specialresource_cr.yaml
 
 PACKAGE         = github.com/openshift-psap/special-resource-operator
