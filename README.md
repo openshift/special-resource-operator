@@ -1,11 +1,8 @@
 # Installation
 
-For OpenShift 4.1 and 4.2 use branch `release-4.2`. Do not use `master` branch. 
-
 ```
 $ git clone https://github.com/openshift-psap/special-resource-operator
 $ cd special-resource-operator
-$ git checkout release-4.2
 $ PULLPOLICY=Always make deploy
 ```
 
