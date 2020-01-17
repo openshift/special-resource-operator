@@ -54,6 +54,7 @@ deploy-objects: deploy-crd
 	done 
 
 deploy: deploy-objects
+	kubectl create configmap special-resource-operator-states -n $(NAMESPACE) --from-file=assets/
 	@${TEMPLATE_CMD} deploy/$(DEPLOY_CR) | kubectl apply -f -
 
 undeploy:

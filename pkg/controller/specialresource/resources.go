@@ -3,9 +3,9 @@ package specialresource
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 
 	monitoringV1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
@@ -115,14 +115,39 @@ func cacheNodes(r *ReconcileSpecialResource, force bool) (*unstructured.Unstruct
 	return node.list, err
 }
 
+func getSROstates(r *ReconcileSpecialResource) (map[string]interface{}, []string, error) {
+
+	log.Info("Looking for ConfigMap special-resource-operator-states")
+	cm := &unstructured.Unstructured{}
+
+	cm.SetAPIVersion("v1")
+	cm.SetKind("ConfigMap")
+
+	err := r.client.Get(context.TODO(), types.NamespacedName{Namespace: r.specialresource.GetNamespace(), Name: "special-resource-operator-states"}, cm)
+
+	if apierrors.IsNotFound(err) {
+		log.Info("ConfigMap special-resource-states not found, see README and create the states")
+		return nil, nil, nil
+	}
+
+	manifests, found, err := unstructured.NestedMap(cm.Object, "data")
+	checkNestedFields(found, err)
+
+	states := make([]string, 0, len(manifests))
+	for key := range manifests {
+		states = append(states, key)
+	}
+
+	sort.Strings(states)
+
+	return manifests, states, nil
+
+}
+
 // ReconcileClusterResources Reconcile cluster resources
 func ReconcileClusterResources(r *ReconcileSpecialResource) error {
 
-	_, err := os.Stat(manifests)
-	exitOnError(err, "Missing manifests dir: "+manifests)
-
-	states, err := filePathWalkDir(manifests)
-	exitOnError(err, "Cannot walk dir: "+manifests)
+	manifests, states, err := getSROstates(r)
 
 	node.list, err = cacheNodes(r, false)
 	exitOnError(err, "Cannot get Nodes")
@@ -130,13 +155,12 @@ func ReconcileClusterResources(r *ReconcileSpecialResource) error {
 	for _, state := range states {
 
 		log.Info("Executing", "State", state)
-		namespacedYAML, err := ioutil.ReadFile(state)
-		exitOnError(err, "Cannot read state file: "+state)
-
+		namespacedYAML := []byte(manifests[state].(string))
 		if err := createFromYAML(namespacedYAML, r); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
