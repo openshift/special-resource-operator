@@ -109,13 +109,10 @@ func cacheNodes(r *ReconcileSpecialResource, force bool) (*unstructured.Unstruct
 		log.Error(err, "Could not get NodeList")
 	}
 
-	log.Info("NODES", "cached", cached)
-	log.Info("NODES", "current", len(node.list.Items))
-
 	return node.list, err
 }
 
-func getSROstates(r *ReconcileSpecialResource) (map[string]interface{}, []string, error) {
+func getSROstatesCM(r *ReconcileSpecialResource) (map[string]interface{}, []string, error) {
 
 	log.Info("Looking for ConfigMap special-resource-operator-states")
 	cm := &unstructured.Unstructured{}
@@ -147,7 +144,7 @@ func getSROstates(r *ReconcileSpecialResource) (map[string]interface{}, []string
 // ReconcileClusterResources Reconcile cluster resources
 func ReconcileClusterResources(r *ReconcileSpecialResource) error {
 
-	manifests, states, err := getSROstates(r)
+	manifests, states, err := getSROstatesCM(r)
 
 	node.list, err = cacheNodes(r, false)
 	exitOnError(err, "Cannot get Nodes")

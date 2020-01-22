@@ -12,6 +12,8 @@ metadata:
   labels:
     app: nvidia-driver-internal
   name: nvidia-driver-internal
+  annotations:
+    callback: nvidia-driver-internal
 spec:
   runPolicy: "Serial"
   triggers:

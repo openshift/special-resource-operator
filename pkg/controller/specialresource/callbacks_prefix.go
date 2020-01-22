@@ -11,6 +11,38 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+func prefixNVIDIABuildConfig(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
+
+	var nodeOSrel string
+	var nodeOSver string
+
+	for _, node := range node.list.Items {
+		labels := node.GetLabels()
+		nodeOSrel = labels["feature.node.kubernetes.io/system-os_release.ID"]
+		nodeOSver = labels["feature.node.kubernetes.io/system-os_release.VERSION_ID.major"]
+
+		if len(nodeOSrel) == 0 || len(nodeOSver) == 0 {
+			return fmt.Errorf("Cannot extract feature.node.kubernetes.io/system-os_release.*, is NFD running? Check node labels")
+		}
+		continue
+	}
+
+	log.Info("OS", "rel", nodeOSrel)
+	log.Info("OS", "ver", nodeOSver)
+
+	if strings.Compare(nodeOSrel, "rhcos") == 0 && strings.Compare(nodeOSver, "4") == 0 {
+		log.Info("Setting OS to rhel8")
+
+		err := unstructured.SetNestedField(obj.Object, "rhel8", "spec", "source", "git", "ref")
+		checkNestedFields(true, err)
+
+		err = unstructured.SetNestedField(obj.Object, "rhel8", "spec", "source", "contextDir")
+		checkNestedFields(true, err)
+	}
+
+	return nil
+}
+
 func prefixNVIDIAdriverDaemonset(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
 
 	containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")

@@ -22,6 +22,7 @@ func SetupCallbacks() error {
 
 	prefixCallback["nvidia-driver-daemonset"] = prefixNVIDIAdriverDaemonset
 	prefixCallback["nvidia-grafana-configmap"] = prefixNVIDIAgrafanaConfigMap
+	prefixCallback["nvidia-driver-internal"] = prefixNVIDIABuildConfig
 
 	waitFor["Pod"] = waitForPod
 	waitFor["DaemonSet"] = waitForDaemonSet
