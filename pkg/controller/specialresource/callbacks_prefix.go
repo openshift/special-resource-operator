@@ -18,6 +18,10 @@ func prefixNVIDIAdriverDaemonset(obj *unstructured.Unstructured, r *ReconcileSpe
 
 	kernelVersion := kernelFullVersion(r)
 
+	if kernelVersion == "" {
+		return fmt.Errorf("Cannot extract kernelVersion from a Special Resource Node, scale up a Special Resource Node")
+	}
+
 	for _, container := range containers {
 		switch container := container.(type) {
 		case map[string]interface{}:
