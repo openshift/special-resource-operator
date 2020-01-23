@@ -11,6 +11,35 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+func setOSforBuild(obj *unstructured.Unstructured, rel string, ver string) {
+
+	log.Info("OS", "rel", rel)
+	log.Info("OS", "ver", ver)
+
+	var nodeOS string
+
+	if strings.Compare(rel, "rhcos") == 0 && strings.Compare(ver, "4") == 0 {
+		log.Info("Setting OS to rhel8")
+		nodeOS = "rhel8"
+	}
+
+	if strings.Compare(rel, "rhel") == 0 && strings.Compare(ver, "8") == 0 {
+		log.Info("Setting OS to rhel8")
+		nodeOS = "rhel8"
+	}
+
+	if strings.Compare(rel, "rhel") == 0 && strings.Compare(ver, "7") == 0 {
+		log.Info("Setting OS to rhel7")
+		nodeOS = "rhel7"
+	}
+
+	err := unstructured.SetNestedField(obj.Object, nodeOS, "spec", "source", "git", "ref")
+	checkNestedFields(true, err)
+
+	err = unstructured.SetNestedField(obj.Object, nodeOS, "spec", "source", "contextDir")
+	checkNestedFields(true, err)
+}
+
 func prefixNVIDIABuildConfig(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
 
 	var nodeOSrel string
@@ -27,18 +56,7 @@ func prefixNVIDIABuildConfig(obj *unstructured.Unstructured, r *ReconcileSpecial
 		continue
 	}
 
-	log.Info("OS", "rel", nodeOSrel)
-	log.Info("OS", "ver", nodeOSver)
-
-	if strings.Compare(nodeOSrel, "rhcos") == 0 && strings.Compare(nodeOSver, "4") == 0 {
-		log.Info("Setting OS to rhel8")
-
-		err := unstructured.SetNestedField(obj.Object, "rhel8", "spec", "source", "git", "ref")
-		checkNestedFields(true, err)
-
-		err = unstructured.SetNestedField(obj.Object, "rhel8", "spec", "source", "contextDir")
-		checkNestedFields(true, err)
-	}
+	setOSforBuild(obj, nodeOSrel, nodeOSver)
 
 	return nil
 }
