@@ -303,7 +303,7 @@ func waitForDaemonSetLogs(obj *unstructured.Unstructured, r *ReconcileSpecialRes
 			return err
 		}
 		str := buf.String()
-		lastBytes := str[len(str)-20:]
+		lastBytes := str[len(str)-100:]
 		log.Info("waitForDaemonSetLogs", "LastBytes", lastBytes)
 		pattern := "\\+ wait \\d+"
 		if match, _ := regexp.MatchString(pattern, lastBytes); !match {
