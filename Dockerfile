@@ -1,9 +1,9 @@
-FROM registry.access.redhat.com/ubi8/go-toolset AS builder
+FROM openshift/origin-release:golang-1.13 AS builder
 WORKDIR /go/src/github.com/openshift-psap/special-resource-operator
 COPY . .
 RUN make build
 
-FROM registry.access.redhat.com/ubi8/ubi
+FROM openshift/origin-base
 COPY --from=builder /go/src/github.com/openshift-psap/special-resource-operator/special-resource-operator /usr/bin/
 
 RUN mkdir -p /etc/kubernetes/special-resource/nvidia-gpu
