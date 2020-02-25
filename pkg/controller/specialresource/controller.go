@@ -3,6 +3,7 @@ package specialresource
 import (
 	"context"
 
+	monitoringV1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	srov1alpha1 "github.com/openshift-psap/special-resource-operator/pkg/apis/sro/v1alpha1"
 	buildV1 "github.com/openshift/api/build/v1"
 	imageV1 "github.com/openshift/api/image/v1"
@@ -11,7 +12,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	monitoringV1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
