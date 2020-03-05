@@ -1,10 +1,10 @@
 REGISTRY       ?= quay.io
 ORG            ?= openshift-psap
 TAG            ?= $(shell git branch | grep \* | cut -d ' ' -f2)
-IMAGE          ?= ${REGISTRY}/${ORG}/special-resource-operator:${TAG}
+IMAGE          ?= $(REGISTRY)/$(ORG)/special-resource-operator:$(TAG)
 NAMESPACE      ?= openshift-sro
 PULLPOLICY     ?= IfNotPresent
-TEMPLATE_CMD    = sed 's+REPLACE_IMAGE+${IMAGE}+g; s+REPLACE_NAMESPACE+${NAMESPACE}+g; s+Always+${PULLPOLICY}+'
+TEMPLATE_CMD    = sed 's+REPLACE_IMAGE+$(IMAGE)+g; s+REPLACE_NAMESPACE+$(NAMESPACE)+g; s+Always+$(PULLPOLICY)+'
 DEPLOY_OBJECTS  = namespace.yaml service_account.yaml role.yaml role_binding.yaml operator.yaml
 DEPLOY_CRD      = crds/sro.openshift.io_specialresources_crd.yaml 
 DEPLOY_CR       = crds/sro_v1alpha1_specialresource_cr.yaml
@@ -20,31 +20,31 @@ GO_BUILD_RECIPE = GO111MODULE=$(GO111MODULE) GOOS=$(GOOS) go build -mod=vendor -
 
 TEST_RESOURCES  = $(shell mktemp -d)/test-init.yaml
 
-
 BIN=$(lastword $(subst /, ,$(PACKAGE)))
 
 GOFMT_CHECK=$(shell find . -not \( \( -wholename './.*' -o -wholename '*/vendor/*' \) -prune \) -name '*.go' | sort -u | xargs gofmt -s -l)
 
-
 all: build
-
 
 build:
 	$(GO_BUILD_RECIPE)
 
+test: verify
+	go test ./cmd/... ./pkg/... -coverprofile cover.out
+
 test-e2e: 
-	@${TEMPLATE_CMD} manifests/service_account.yaml > $(TEST_RESOURCES)
+	@$(TEMPLATE_CMD) manifests/service_account.yaml > $(TEST_RESOURCES)
 	echo -e "\n---\n" >> $(TEST_RESOURCES)
-	@${TEMPLATE_CMD} manifests/role.yaml >> $(TEST_RESOURCES)
+	@$(TEMPLATE_CMD) manifests/role.yaml >> $(TEST_RESOURCES)
 	echo -e "\n---\n" >> $(TEST_RESOURCES)
-	@${TEMPLATE_CMD} manifests/role_binding.yaml >> $(TEST_RESOURCES)
+	@$(TEMPLATE_CMD) manifests/role_binding.yaml >> $(TEST_RESOURCES)
 	echo -e "\n---\n" >> $(TEST_RESOURCES)
-	@${TEMPLATE_CMD} manifests/operator.yaml >> $(TEST_RESOURCES)
+	@$(TEMPLATE_CMD) manifests/operator.yaml >> $(TEST_RESOURCES)
 
 	go test -v ./test/e2e/... -root $(PWD) -kubeconfig=$(KUBECONFIG) -tags e2e  -globalMan $(DEPLOY_CRD) -namespacedMan $(TEST_RESOURCES)
 
 $(DEPLOY_CRD):
-	@${TEMPLATE_CMD} deploy/$@ | kubectl apply -f -
+	@$(TEMPLATE_CMD) deploy/$@ | kubectl apply -f -
 
 deploy-crd: $(DEPLOY_CRD) 
 	@sleep 1 
@@ -56,7 +56,7 @@ deploy-objects: deploy-crd
 
 deploy: deploy-objects
 	kubectl create configmap special-resource-operator-states -n $(NAMESPACE) --from-file=assets/
-	@${TEMPLATE_CMD} deploy/$(DEPLOY_CR) | kubectl apply -f -
+	@$(TEMPLATE_CMD) deploy/$(DEPLOY_CR) | kubectl apply -f -
 
 undeploy:
 	@for obj in $(DEPLOY_CRD) $(DEPLOY_CR) $(DEPLOY_OBJECTS); do  \
@@ -83,11 +83,8 @@ clean:
 
 local-image:
 	podman build --no-cache -t $(IMAGE) -f $(DOCKERFILE) .
-test:
-	go test ./cmd/... ./pkg/... -coverprofile cover.out
 
 local-image-push:
 	podman push $(IMAGE) 
 
-.PHONY: all build generate verify verify-gofmt clean local-image local-image-push $(DEPLOY_CRDS) grafana
-
+.PHONY: all build generate verify verify-gofmt clean test test-e2e local-image local-image-push $(DEPLOY_CRDS) grafana
