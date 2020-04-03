@@ -1,0 +1,11 @@
+{
+  "metadata": {
+    "labels": {
+      "specialresource.openshift.io/config": "true"
+    },
+    "annotations": {
+      "specialresource.openshift.io/nfd": "feature.node.kubernetes.io/pci-10de.present",
+      "specialresource.openshift.io/hardware": "nvidia-gpu"
+    }
+  }
+}

@@ -4,10 +4,7 @@ COPY . .
 RUN make build
 
 FROM registry.svc.ci.openshift.org/ocp/4.0:base
-COPY --from=builder /go/src/github.com/openshift-psap/special-resource-operator/special-resource-operator  /usr/bin/
-
-RUN mkdir -p /opt/sro
-COPY assets/* /opt/sro/.
+COPY --from=builder /go/src/github.com/openshift-psap/special-resource-operator/special-resource-operator /usr/bin/
 
 RUN useradd special-resource-operator
 USER special-resource-operator

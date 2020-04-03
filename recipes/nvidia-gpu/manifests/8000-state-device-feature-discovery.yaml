@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.HardwareResource}}-{{.GroupName.DeviceFeatureDiscovery}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{.HardwareResource}}-{{.GroupName.DeviceFeatureDiscovery}}
+rules:
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+  resourceNames:
+  - privileged
+#  - hostmount-anyuid 
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{.HardwareResource}}-{{.GroupName.DeviceFeatureDiscovery}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{.HardwareResource}}-{{.GroupName.DeviceFeatureDiscovery}}
+subjects:
+- kind: ServiceAccount
+  name: {{.HardwareResource}}-{{.GroupName.DeviceFeatureDiscovery}}
+userNames:
+- system:serviceaccount:{{.OperatorNamespace}}:{.HardwareResource}}-{{.GroupName.DeviceFeatureDiscovery}}
+--- 
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{.HardwareResource}}-{{.GroupName.DeviceFeatureDiscovery}}
+  annotations:
+    specialresource.openshift.io/wait: "true"
+  labels:
+    app.kubernetes.io/name: {{.HardwareResource}}-{{.GroupName.DeviceFeatureDiscovery}}
+    app.kubernetes.io/version: 1.0.0-alpha
+    app.kubernetes.io/part-of: nvidia-gpu
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{.HardwareResource}}-{{.GroupName.DeviceFeatureDiscovery}}
+      app.kubernetes.io/part-of: nvidia-gpu
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{.HardwareResource}}-{{.GroupName.DeviceFeatureDiscovery}}
+        app.kubernetes.io/version: 1.0.0-alpha
+        app.kubernetes.io/part-of: nvidia-gpu
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: {{.StateName.DeviceMonitoring}}-{{.HardwareResource}}
+                operator: In 
+                values:
+                - ready 
+      tolerations:
+        - operator: Exists
+        - key: nvidia.com/gpu
+          operator: Exists
+      effect: NoSchedule
+      serviceAccount: {{.HardwareResource}}-{{.GroupName.DeviceFeatureDiscovery}}
+      serviceAccountName: {{.HardwareResource}}-{{.GroupName.DeviceFeatureDiscovery}}
+      containers:
+        - image: quay.io/openshift-psap/nvidia-feature-discovery  # nvidia/gpu-feature-discovery:1.0.0-alpha
+          env:
+            - name: NVIDIA_VISIBLE_DEVICES
+              value: all
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: "compute,utility"
+            - name: NVIDIA_REQUIRE_CUDA  
+              value: "cuda>=5.0"
+          name: {{.HardwareResource}}-{{.GroupName.DeviceFeatureDiscovery}}
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: output-dir
+              mountPath: "/etc/kubernetes/node-feature-discovery/features.d"
+            - name: dmi-product-name
+              mountPath: "/sys/class/dmi/id/product_name"
+      volumes:
+        - name: output-dir
+          hostPath:
+            path: "/etc/kubernetes/node-feature-discovery/features.d"
+        - name: dmi-product-name
+          hostPath:
+            path: "/sys/class/dmi/id/product_name"
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
+        {{.NodeFeature}}: "true" 

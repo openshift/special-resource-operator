@@ -2,6 +2,7 @@ package specialresource
 
 import (
 	"context"
+	"fmt"
 
 	monitoringV1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	srov1alpha1 "github.com/openshift-psap/special-resource-operator/pkg/apis/sro/v1alpha1"
@@ -9,6 +10,7 @@ import (
 	imageV1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
+	errs "github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -23,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-var log = logf.Log.WithName("controller_specialresource")
+var log = logf.Log.WithName("specialresource")
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -44,7 +46,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("specialresource-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("specialresource", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
@@ -157,7 +159,7 @@ type ReconcileSpecialResource struct {
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger := log.WithValues("Namespace", request.Namespace, "Name", request.Name)
 	reqLogger.Info("Reconciling SpecialResource")
 
 	// Fetch the SpecialResource instance
@@ -174,8 +176,11 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	if err := ReconcileClusterResources(r); err != nil {
-		return reconcile.Result{}, err
+	if err := ReconcileHardwareConfigurations(r); err != nil {
+		// We do not want a stacktrace here, errs.Wrap already created
+		// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
+		log.Info("Could not reconcile hardware configurations", "error", fmt.Sprintf("%v", err))
+		return reconcile.Result{}, errs.New("Reconciling failed")
 	}
 
 	return reconcile.Result{}, nil

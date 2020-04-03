@@ -1,0 +1,314 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{.OperatorNamespace}}
+  labels:
+    openshift.io/cluster-monitoring: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.GroupName.DevicePlugin}}-validation-entrypoint-{{.HardwareResource}}
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    NUM_GPUS=$(nvidia-smi -L | wc -l)
+    if [ $NUM_GPUS -eq 0 ]; then
+      echo "ERROR No GPUs found"
+      exit 1
+    fi
+
+    /usr/local/cuda-8.0/samples/0_Simple/vectorAdd/vectorAdd
+
+    if [ ! $? -eq 0 ]; then 
+      exit 1
+    fi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+rules:
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+  resourceNames:
+  - privileged 
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+subjects:
+- kind: ServiceAccount
+  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+userNames:
+- system:serviceaccount:{{.OperatorNamespace}}:{{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: prometheus-k8s
+rules:
+ - apiGroups:
+   - ""
+   resources:
+   - services
+   - endpoints
+   - pods
+   verbs:
+   - get
+   - list
+   - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: prometheus-k8s
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: prometheus-k8s
+subjects:
+- kind: ServiceAccount
+  name: prometheus-k8s
+  namespace: openshift-monitoring
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+  labels:
+    app: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+spec:
+  selector:
+    app: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+  type: ClusterIP
+  ports:
+  - name: dcgm
+    port: 9600
+    targetPort: 9600
+    protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+spec:
+  endpoints:
+  - port: dcgm 
+  jobLabel: app
+  namespaceSelector:
+    matchNames:
+    - {{.OperatorNamespace}}
+  selector:
+    matchLabels:
+      app: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+---
+# Node exporter collecting only GPU metrics from dcgm-exporter.
+# Except textfile collector, all other collectors that are enabled by default are disabled.
+# Refer: https://github.com/prometheus/node_exporter/tree/release-0.16
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels: 
+    app: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+  annotations: 
+    specialresource.openshift.io/state: "device-monitoring"
+    specialresource.openshift.io/wait: "true"
+spec:
+  selector:
+    matchLabels:
+      app: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+  template:
+    metadata:
+      labels:
+        app: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+      name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: {{.StateName.DevicePlugin}}-{{.HardwareResource}}
+                operator: In 
+                values:
+                - ready 
+      tolerations:
+      - operator: Exists
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+      serviceAccount: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+      serviceAccountName: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+      initContainers:
+      - image: quay.io/openshift-psap/cuda-vector-add:v0.1
+        imagePullPolicy: Always
+        name: {{.GroupName.DevicePlugin}}-validation-{{.HardwareResource}}
+        command: ["/bin/entrypoint.sh"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          limits:
+            nvidia.com/gpu:  # requesting all GPUs
+        volumeMounts:
+        - name: init-entrypoint
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+      containers:
+      - image: quay.io/prometheus/node-exporter:v0.16.0
+        name: node-exporter
+        args:
+        - "--web.listen-address=0.0.0.0:9600"
+        - "--path.procfs=/host/proc"
+        - "--path.sysfs=/host/sys"
+        - "--collector.textfile.directory=/run/prometheus"
+        - "--no-collector.arp"
+        - "--no-collector.bcache"
+        - "--no-collector.bonding"
+        - "--no-collector.conntrack"
+        - "--no-collector.cpu"
+        - "--no-collector.diskstats"
+        - "--no-collector.edac"
+        - "--no-collector.entropy"
+        - "--no-collector.filefd"
+        - "--no-collector.filesystem"
+        - "--no-collector.hwmon"
+        - "--no-collector.infiniband"
+        - "--no-collector.ipvs"
+        - "--no-collector.loadavg"
+        - "--no-collector.mdadm"
+        - "--no-collector.meminfo"
+        - "--no-collector.netdev"
+        - "--no-collector.netstat"
+        - "--no-collector.nfs"
+        - "--no-collector.nfsd"
+        - "--no-collector.sockstat"
+        - "--no-collector.stat"
+        - "--no-collector.time"
+        - "--no-collector.timex"
+        - "--no-collector.uname"
+        - "--no-collector.vmstat"
+        - "--no-collector.wifi"
+        - "--no-collector.xfs"
+        - "--no-collector.zfs"
+        ports:
+        - name: metrics
+          containerPort: 9600
+          hostPort: 9600
+        resources:
+          requests:
+            memory: 30Mi
+            cpu: 100m
+          limits:
+            memory: 50Mi
+            cpu: 200m
+        volumeMounts:
+        - name: proc
+          readOnly:  true
+          mountPath: /host/proc
+        - name: sys
+          readOnly: true
+          mountPath: /host/sys
+        - name: collector-textfiles
+          readOnly: true
+          mountPath: /run/prometheus
+      - image: nvidia/dcgm-exporter:1.4.6
+        name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+        securityContext:
+          runAsNonRoot: false
+          runAsUser: 0
+        volumeMounts:
+        - name: collector-textfiles
+          mountPath: /run/prometheus
+
+      hostNetwork: true
+      hostPID: true
+
+      volumes:
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: sys
+        hostPath:
+          path: /sys
+      - name: collector-textfiles
+        emptyDir:
+          medium: Memory
+      - name: init-entrypoint
+        configMap:
+          defaultMode: 0700
+          name: {{.GroupName.DevicePlugin}}-validation-entrypoint-{{.HardwareResource}}
+
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
+        {{.NodeFeature}}: "true"
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    prometheus: example
+    role: alert-rules
+  name: specialresource-prometheus-rules-{{.HardwareResource}}
+spec:
+  groups:
+  - name: nvidia_gpu.rules
+    rules:
+    - alert: GPUUnusedResources
+      expr: dcgm_gpu_utilization == 0
+      for: 10m 
+      labels:
+        severity: warning
+      annotations:
+        description: GPU idle for the last 5min, do some work!
+        summary: GPU Node sad, nothing to do
+    - alert: GPUTemperatureTooHigh
+      expr: dcgm_gpu_temp > 60
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        description: GPU temperature too high for the last 10min
+        summary: GPU Node sad, it is getting hot in here
+    - alert: GPUTemperatureTooHigh
+      expr: dcgm_gpu_temp > 70
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        description: GPU temperature very high for the last 10min
+        summary: GPU Node sad, it is getting hot in here
+    - alert: GPUTemperatureTooHigh
+      expr: dcgm_gpu_temp > 80
+      for: 10m
+      labels:
+        severity: critical
+      annotations:
+        description: GPU temperature critical for the last 10min
+        summary: GPU Node sad, it is getting hot in here
+    - alert: GPUThermalViolation
+      expr: dcgm_thermal_violation > 1
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        description: GPU Thermal Violation
+        summary: GPU Node is too hot, may break your GPU

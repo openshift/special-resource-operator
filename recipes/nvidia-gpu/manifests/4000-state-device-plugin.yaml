@@ -1,0 +1,133 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: specialresource-driver-validation-entrypoint-{{.HardwareResource}}
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    NUM_GPUS=$(nvidia-smi -L | wc -l)
+    if [ $NUM_GPUS -eq 0 ]; then
+      echo "ERROR No GPUs found"
+      exit 1
+    fi
+
+    cd /usr/local/cuda-10.2/cuda-samples/Samples/vectorAdd_nvrtc
+    ./vectorAdd_nvrtc
+
+    if [ ! $? -eq 0 ]; then
+      exit 1
+    fi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+rules:
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+  resourceNames:
+  - privileged
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+subjects:
+- kind: ServiceAccount
+  name: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+userNames:
+- system:serviceaccount:{{.OperatorNamespace}}:{{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+  name: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+  annotations:
+    openshift.io/scc: hostmount-anyuid
+    specialresource.openshift.io/state: "device-plugin"
+    specialresource.openshift.io/wait: "true"
+spec:
+  selector:
+    matchLabels:
+      app: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+  template:
+    metadata:
+      # Mark this pod as a critical add-on; when enabled, the critical add-on scheduler
+      # reserves resources for critical add-on pods so that they can be rescheduled after
+      # a failure.  This annotation works in tandem with the toleration below.
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+      labels:
+        app: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: {{.StateName.RuntimeEnablement}}-{{.HardwareResource}}
+                operator: In 
+                values:
+                - ready 
+      tolerations:
+      - operator: Exists
+      # Allow this pod to be rescheduled while the node is in "critical add-ons only" mode.
+      # This, along with the annotation above marks this pod as a critical add-on.
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+      serviceAccount: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+      initContainers:
+      - image: nvidia/samples:cuda10.2-vectorAdd
+        imagePullPolicy: Always
+        name: specialresource-runtime-validation-{{.HardwareResource}}
+        command: ["/bin/entrypoint.sh"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+        - name: init-entrypoint
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+      containers:
+      - image: nvidia/k8s-device-plugin:1.11 
+        name: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}-ctr
+        securityContext:
+          privileged: true
+        env:
+          - name: NVIDIA_VISIBLE_DEVICES
+            value: all
+        volumeMounts:
+          - name: device-plugin-{{.HardwareResource}}
+            mountPath: /var/lib/kubelet/device-plugins
+      volumes:
+        - name: device-plugin-{{.HardwareResource}}
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: init-entrypoint
+          configMap:
+            defaultMode: 0700
+            name: specialresource-driver-validation-entrypoint-{{.HardwareResource}}
+
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
+        {{.NodeFeature}}: "true"

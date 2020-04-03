@@ -13,7 +13,7 @@ rules:
   verbs: ['*']
 - apiGroups: [""]
   resources: ["namespaces"]
-  verbs: ["get"]
+  verbs: ['*']
 - apiGroups: ["apps"]
   resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]
   verbs: ['*']

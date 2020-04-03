@@ -3,13 +3,13 @@ package specialresource
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"regexp"
 	"strings"
 	"time"
 
+	errs "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -18,15 +18,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var waitFor resourceCallbacks
+
+func init() {
+
+	waitFor = make(resourceCallbacks)
+	waitFor["Pod"] = waitForPod
+	waitFor["DaemonSet"] = waitForDaemonSet
+	waitFor["BuildConfig"] = waitForBuild
+
+}
+
 type statusCallback func(obj *unstructured.Unstructured) bool
 
-var stateLabels = map[string]map[string]string{
-	"nvidia-driver-daemonset":            {"specialresource.openshift.io/driver-container": "ready"},
-	"nvidia-driver-validation-daemonset": {"specialresource.openshift.io/driver-validation": "ready"},
-	"nvidia-device-plugin-daemonset":     {"specialresource.openshift.io/device-plugin": "ready"},
-	"nvidia-dp-validation-daemonset":     {"specialresource.openshift.io/device-validation": "ready"},
-	"nvidia-dcgm-exporter":               {"specialresource.openshift.io/device-monitoring": "ready"},
-}
+var (
+	retryInterval = time.Second * 5
+	timeout       = time.Second * 15
+)
 
 // makeStatusCallback Closure capturing json path and expected status
 func makeStatusCallback(obj *unstructured.Unstructured, status interface{}, fields ...string) func(obj *unstructured.Unstructured) bool {
@@ -73,59 +81,6 @@ func makeStatusCallback(obj *unstructured.Unstructured, status interface{}, fiel
 
 var waitCallback resourceCallbacks
 
-func labelNodesAccordingToState(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
-
-	if obj.GetKind() != "DaemonSet" {
-		return nil
-	}
-
-	cacheNodes(r, true)
-
-	for _, node := range node.list.Items {
-		labels := node.GetLabels()
-
-		stateLabel, found := stateLabels[obj.GetName()]
-		if !found {
-			return nil
-		}
-
-		for k := range stateLabel {
-
-			_, found := labels[k]
-			if found {
-				log.Info("NODE", "Label ", stateLabel, "on ", node.GetName())
-				updateStatus(obj, r, stateLabel)
-				continue
-			}
-			// Label missing update the Node to advance to the next state
-			updated := node.DeepCopy()
-
-			labels[k] = "ready"
-
-			updated.SetLabels(labels)
-
-			err := r.client.Update(context.TODO(), updated)
-			if apierrors.IsForbidden(err) {
-				return fmt.Errorf("Forbidden check Role, ClusterRole and Bindings for operator %s", err)
-			}
-			if apierrors.IsConflict(err) {
-				cacheNodes(r, true)
-				return fmt.Errorf("Node Conflict Label %s err %s", stateLabel, err)
-			}
-
-			if err != nil {
-				log.Error(err, "Node Update", "label", stateLabel)
-				return fmt.Errorf("Couldn't Update Node")
-			}
-
-			log.Info("NODE", "Setting Label ", stateLabel, "on ", updated.GetName())
-
-			updateStatus(obj, r, stateLabel)
-		}
-	}
-	return nil
-}
-
 func waitForResource(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
 
 	log.Info("waitForResource", "Kind", obj.GetKind())
@@ -135,18 +90,11 @@ func waitForResource(obj *unstructured.Unstructured, r *ReconcileSpecialResource
 	// DaemonSet NumberUnavailable == 0, etc
 	if wait, ok := waitFor[obj.GetKind()]; ok {
 		if err = wait(obj, r); err != nil {
-			return err
+			return errs.Wrap(err, "Waiting too long for resource")
 		}
 	}
-	// Wait for specific condition of a specific resource
-	if wait, ok := waitFor[obj.GetName()]; ok {
-		if err = wait(obj, r); err != nil {
-			return err
-		}
-	}
-	// If resource available, label the nodes according to the current state
-	// if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
-	return labelNodesAccordingToState(obj, r)
+
+	return nil
 }
 
 func waitForPod(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
@@ -204,29 +152,19 @@ func waitForBuild(obj *unstructured.Unstructured, r *ReconcileSpecialResource) e
 	opts := &client.ListOptions{}
 	opts.InNamespace(r.specialresource.Namespace)
 
-	err := r.client.List(context.TODO(), opts, builds)
-	if err != nil {
-		log.Error(err, "Could not get BuildList")
-		return err
+	if err := r.client.List(context.TODO(), opts, builds); err != nil {
+		return errs.Wrap(err, "Could not get BuildList")
 	}
 
 	for _, build := range builds.Items {
 		callback := makeStatusCallback(&build, "Complete", "status", "phase")
-		err := waitForResourceFullAvailability(&build, r, callback)
-		if err != nil {
+		if err := waitForResourceFullAvailability(&build, r, callback); err != nil {
 			return err
 		}
 	}
 
 	return nil
 }
-
-// WAIT FOR RESOURCES -- other file?
-
-var (
-	retryInterval = time.Second * 5
-	timeout       = time.Second * 120
-)
 
 func waitForResourceAvailability(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
 
@@ -265,7 +203,8 @@ func waitForResourceFullAvailability(obj *unstructured.Unstructured, r *Reconcil
 	return err
 }
 
-func waitForDaemonSetLogs(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
+func waitForDaemonSetLogs(obj *unstructured.Unstructured, r *ReconcileSpecialResource, pattern string) error {
+
 	log.Info("waitForDaemonSetLogs", "Name", obj.GetName())
 
 	pods := &unstructured.UnstructuredList{}
@@ -273,7 +212,16 @@ func waitForDaemonSetLogs(obj *unstructured.Unstructured, r *ReconcileSpecialRes
 	pods.SetKind("pod")
 
 	label := make(map[string]string)
-	label["app"] = obj.GetName()
+
+	var found bool
+	var selector string
+
+	if selector, found = obj.GetLabels()["app"]; !found {
+		errs.New("Cannot find Label app=, missing take a look at the manifests")
+	}
+
+	log.Info("Looking for Pods with label app=" + selector)
+	label["app"] = selector
 
 	opts := &client.ListOptions{}
 	opts.InNamespace(r.specialresource.Namespace)
@@ -281,8 +229,7 @@ func waitForDaemonSetLogs(obj *unstructured.Unstructured, r *ReconcileSpecialRes
 
 	err := r.client.List(context.TODO(), opts, pods)
 	if err != nil {
-		log.Error(err, "Could not get PodList")
-		return err
+		return errs.Wrap(err, "Could not get PodList")
 	}
 
 	for _, pod := range pods.Items {
@@ -291,25 +238,22 @@ func waitForDaemonSetLogs(obj *unstructured.Unstructured, r *ReconcileSpecialRes
 		req := kubeclient.CoreV1().Pods(pod.GetNamespace()).GetLogs(pod.GetName(), &podLogOpts)
 		podLogs, err := req.Stream()
 		if err != nil {
-			log.Error(err, "Error in opening stream")
-			return err
+			return errs.Wrap(err, "Error in opening stream")
 		}
 		defer podLogs.Close()
 
 		buf := new(bytes.Buffer)
 		_, err = io.Copy(buf, podLogs)
 		if err != nil {
-			log.Error(err, "Error in copy information from podLogs to buf")
-			return err
+			return errs.Wrap(err, "Error in copy information from podLogs to buf")
 		}
 		str := buf.String()
 		lastBytes := str[len(str)-100:]
 		log.Info("waitForDaemonSetLogs", "LastBytes", lastBytes)
-		pattern := "\\+ wait \\d+"
-		if match, _ := regexp.MatchString(pattern, lastBytes); !match {
-			return errors.New("Not yet done. Not matched against \\+ wait \\d+ ")
-		}
 
+		if match, _ := regexp.MatchString(pattern, lastBytes); !match {
+			return errs.New("Not yet done. Not matched against \\+ wait \\d+ ")
+		}
 		// We're only checking one Pod not all of them
 		break
 	}
