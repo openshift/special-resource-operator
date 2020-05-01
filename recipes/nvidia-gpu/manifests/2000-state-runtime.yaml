@@ -41,7 +41,7 @@ data:
 
     chcon -t container_file_t /run/nvidia/driver/dev/*
 
-    /work/run.sh /run/nvidia 
+    /work/nvidia-toolkit  /usr/local/nvidia
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -92,11 +92,9 @@ spec:
           subPath: entrypoint.sh
 
       containers:
-      - image: nvidia/container-toolkit:1.0.0-alpha.3
+      - image: nvidia/container-toolkit:1.0.2-ubi8 
         command: ["/bin/entrypoint.sh"]
         env:
-        - name: TOOLKIT_ARGS
-          value: --symlink /usr/local/nvidia
         - name: RUNTIME_ARGS
         - name: RUNTIME
           value: crio
@@ -121,10 +119,10 @@ spec:
           name: nvidia-install-path
         - mountPath: /etc/docker
           name: docker-config
-        - mountPath: /usr/local/nvidia
-          name: nvidia-local
         - mountPath: /usr/share/containers/oci/hooks.d
           name: crio-hooks
+        - name: nvidia-local
+          mountPath: /usr/local/nvidia
       hostPID: true
       nodeSelector:
         {{.NodeFeature}}: "true"
@@ -167,3 +165,4 @@ spec:
           path: /etc/containers/oci/hooks.d
           type: ""
         name: crio-hooks
+
