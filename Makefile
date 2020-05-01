@@ -6,7 +6,7 @@ TAG              ?= $(shell git branch | grep \* | cut -d ' ' -f2)
 IMAGE            ?= $(REGISTRY)/$(ORG)/special-resource-operator:$(TAG)
 NAMESPACE        ?= $(SPECIALRESOURCE)
 PULLPOLICY       ?= IfNotPresent
-TEMPLATE_CMD      = sed 's+REPLACE_IMAGE+$(IMAGE)+g; s+REPLACE_NAMESPACE+$(NAMESPACE)+g; s+Always+$(PULLPOLICY)+'
+TEMPLATE_CMD      = sed 's+REPLACE_IMAGE+$(IMAGE)+g; s+REPLACE_NAMESPACE+$(NAMESPACE)+g; s+Always+$(PULLPOLICY)+; s+REPLACE_SPECIALRESOURCE+$(SPECIALRESOURCE)+'
 DEPLOY_NAMESPACE  = namespace.yaml
 DEPLOY_OBJECTS    = service_account.yaml role.yaml role_binding.yaml operator.yaml
 DEPLOY_CRD        = crds/sro.openshift.io_specialresources_crd.yaml 
@@ -67,7 +67,7 @@ deploy: $(DEPLOY_NAMESPACE) $(SPECIALRESOURCE) deploy-objects
 include recipes/$(SPECIALRESOURCE)/config/Makefile
 
 undeploy:
-	@for obj in $(DEPLOY_CRD) $(DEPLOY_CR) $(DEPLOY_OBJECTS); do  \
+	@for obj in $(DEPLOY_CRD) $(DEPLOY_CR) $(DEPLOY_OBJECTS) $(DEPLOY_NAMESPACE); do  \
 		$(TEMPLATE_CMD) deploy/$$obj | kubectl delete -f - ; \
 	done	
 

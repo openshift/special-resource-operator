@@ -26,14 +26,14 @@ spec:
   source:
     git:
       ref: master
-      uri: https://gitlab.com/nvidia/driver.git
-    contextDir: {{.OperatingSystemMajor}}
+      uri: https://github.com/openshift-psap/mofed-driver-container.git
+    contextDir: {{.OperatingSystemMajorMinor}}
     type: Git
   strategy:
     dockerStrategy:
       buildArgs:
         - name: "DRIVER_VERSION"
-          value: "440.33.01"
+          value: "4.7-1.0.0.1"
   output:
     to:
       kind: ImageStreamTag

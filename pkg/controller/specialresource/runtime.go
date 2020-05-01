@@ -1,6 +1,7 @@
 package specialresource
 
 import (
+	"strconv"
 	"strings"
 
 	errs "github.com/pkg/errors"
@@ -30,13 +31,14 @@ type resourceStateName struct {
 }
 
 type runtimeInformation struct {
-	OperatingSystem   string
-	KernelVersion     string
-	ClusterVersion    string
-	UpdateVendor      string
-	NodeFeature       string
-	HardwareResource  string
-	OperatorNamespace string
+	OperatingSystemMajor      string
+	OperatingSystemMajorMinor string
+	KernelVersion             string
+	ClusterVersion            string
+	UpdateVendor              string
+	NodeFeature               string
+	HardwareResource          string
+	OperatorNamespace         string
 
 	GroupName resourceGroupName
 	StateName resourceStateName
@@ -62,7 +64,8 @@ var runInfo = runtimeInformation{
 
 func logRuntimeInformation() {
 	log.Info("Runtime Information", "OperatorNamespace", runInfo.OperatorNamespace)
-	log.Info("Runtime Information", "OperatingSystem", runInfo.OperatingSystem)
+	log.Info("Runtime Information", "OperatingSystemMajor", runInfo.OperatingSystemMajor)
+	log.Info("Runtime Information", "OperatingSystemMajorMinor", runInfo.OperatingSystemMajorMinor)
 	log.Info("Runtime Information", "KernelVersion", runInfo.KernelVersion)
 	log.Info("Runtime Information", "ClusterVersion", runInfo.ClusterVersion)
 	log.Info("Runtime Information", "UpdateVendor", runInfo.UpdateVendor)
@@ -72,7 +75,7 @@ func logRuntimeInformation() {
 func getRuntimeInformation(r *ReconcileSpecialResource) {
 
 	var err error
-	runInfo.OperatingSystem, err = getOperatingSystem()
+	runInfo.OperatingSystemMajor, runInfo.OperatingSystemMajorMinor, err = getOperatingSystem()
 	exitOnError(errs.Wrap(err, "Failed to get operating system"))
 
 	runInfo.KernelVersion, err = getKernelVersion()
@@ -84,49 +87,60 @@ func getRuntimeInformation(r *ReconcileSpecialResource) {
 	runInfo.OperatorNamespace = r.specialresource.GetNamespace()
 }
 
-func getOperatingSystem() (string, error) {
+func getOperatingSystem() (string, string, error) {
 
 	var nodeOSrel string
-	var nodeOSver string
+	var nodeOSmaj string
+	var nodeOSmin string
 
 	// Assuming all nodes are running the same os
+
+	os := "feature.node.kubernetes.io/system-os_release"
+
 	for _, node := range node.list.Items {
 		labels := node.GetLabels()
-		nodeOSrel = labels["feature.node.kubernetes.io/system-os_release.ID"]
-		nodeOSver = labels["feature.node.kubernetes.io/system-os_release.VERSION_ID.major"]
+		nodeOSrel = labels[os+".ID"]
+		nodeOSmaj = labels[os+".VERSION_ID.major"]
+		nodeOSmin = labels[os+".VERSION_ID.minor"]
 
-		if len(nodeOSrel) == 0 || len(nodeOSver) == 0 {
-			return "", errs.New("Cannot extract feature.node.kubernetes.io/system-os_release.*, is NFD running? Check node labels")
+		if len(nodeOSrel) == 0 || len(nodeOSmaj) == 0 {
+			return "", "", errs.New("Cannot extract " + os + ".*, is NFD running? Check node labels")
 		}
 		break
 	}
 
-	return renderOperatingSystem(nodeOSrel, nodeOSver), nil
+	return renderOperatingSystem(nodeOSrel, nodeOSmaj, nodeOSmin)
 }
 
-func renderOperatingSystem(rel string, ver string) string {
+func renderOperatingSystem(rel string, maj string, min string) (string, string, error) {
 
 	log.Info("OS", "rel", rel)
-	log.Info("OS", "ver", ver)
+	log.Info("OS", "maj", maj)
+	log.Info("OS", "min", min) // this can be empty e.g fedora30
 
-	var nodeOS string
+	// rhcos version is the openshift version running need to translate
+	// into rhel major minor version
+	if strings.Compare(rel, "rhcos") == 0 {
+		rel := "rhel"
 
-	if strings.Compare(rel, "rhcos") == 0 && strings.Compare(ver, "4") == 0 {
-		log.Info("Setting OS to rhel8")
-		nodeOS = "rhel8"
+		num, _ := strconv.Atoi(min)
+
+		if strings.Compare(maj, "4") == 0 && num < 4 {
+			maj := "8"
+			return rel + maj, rel + maj + ".0", nil
+		}
+		maj := "8"
+		return rel + maj, rel + maj + ".1", nil
 	}
 
-	if strings.Compare(rel, "rhel") == 0 && strings.Compare(ver, "8") == 0 {
-		log.Info("Setting OS to rhel8")
-		nodeOS = "rhel8"
+	// A Fedora system has no min yet, so if min is empty
+	// return fedora31 and not fedora31.
+	if min == "" {
+		return rel + maj, rel + maj, nil
 	}
 
-	if strings.Compare(rel, "rhel") == 0 && strings.Compare(ver, "7") == 0 {
-		log.Info("Setting OS to rhel7")
-		nodeOS = "rhel7"
-	}
+	return rel + maj, rel + maj + "." + min, nil
 
-	return nodeOS
 }
 
 func getKernelVersion() (string, error) {

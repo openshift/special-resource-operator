@@ -1,7 +1,7 @@
 apiVersion: sro.openshift.io/v1alpha1
 kind: SpecialResource
 metadata:
-  name: nvidia-gpu
+  name: REPLACE_SPECIALRESOURCE
   namespace: REPLACE_NAMESPACE
 spec:
   # Add fields here

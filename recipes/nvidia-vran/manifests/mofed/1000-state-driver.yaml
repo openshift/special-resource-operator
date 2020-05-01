@@ -37,8 +37,40 @@ metadata:
   name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}-entrypoint
 data:
   entrypoint.sh: |-
-    #!/bin/bash
-    nvidia-driver init 
+    #!/bin/bash -x
+
+    mount_rootfs() {
+      echo "Mounting {{.HardwareResource}} driver rootfs..."
+      mount --make-runbindable /sys
+      mount --make-private /sys
+      mkdir -p /run/mofed/driver
+      mount --rbind / /run/mofed/driver
+    }
+
+    unmount_rootfs() {
+      echo "Unmounting {{.HardwareResource}} driver rootfs..."
+      if findmnt -r -o TARGET | grep "/run/mofed/driver" > /dev/null; then
+        umount -l -R /run/mofed/driver
+      fi
+    }
+
+    modprobe -r rpcrdma ib_srpt ib_isert rdma_cm
+    modprobe -r i40iw ib_core
+    /etc/init.d/openibd stop
+    modprobe tls
+    modprobe ib_core
+    modprobe mlx5_core
+    modprobe mlx5_ib
+    ibv_devinfo
+    mst start
+    mst status -v
+
+    mount_rootfs
+
+    trap "echo 'Caught signal'; exit 1" HUP INT QUIT PIPE TERM
+    trap "unmount_rootfs" EXIT
+        
+    sleep infinity
 ---
 # Please edit the object below. Lines beginning with a '#' will be ignored,
 # and an empty file will abort the edit. If an error occurs while saving this file will be
@@ -97,7 +129,7 @@ metadata:
   annotations:
     openshift.io/scc: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
     specialresource.openshift.io/wait: "true"
-    specialresrouce.openshift.io/wait-for-logs: "\\+ wait \\d+"
+    specialresrouce.openshift.io/wait-for-logs: "\\+ sleep infinity"
     specialresource.openshift.io/state: "driver-container"
     specialresource.openshift.io/driver-container-vendor: {{.NodeFeature}}    
 spec:
@@ -133,7 +165,7 @@ spec:
             level: "s0"
         volumeMounts:
           - name: run-{{.HardwareResource}}
-            mountPath: /run/nvidia
+            mountPath: /run/mofed
             mountPropagation: Bidirectional
           - name: entrypoint
             mountPath: /bin/entrypoint.sh
@@ -142,7 +174,7 @@ spec:
       volumes:
         - name: run-{{.HardwareResource}}
           hostPath:
-            path: /run/nvidia
+            path: /run/mofed
         - name: entrypoint
           configMap:
             defaultMode: 0700

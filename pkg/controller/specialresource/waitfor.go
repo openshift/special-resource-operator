@@ -247,8 +247,14 @@ func waitForDaemonSetLogs(obj *unstructured.Unstructured, r *ReconcileSpecialRes
 		if err != nil {
 			return errs.Wrap(err, "Error in copy information from podLogs to buf")
 		}
-		str := buf.String()
-		lastBytes := str[len(str)-100:]
+
+		cutoff := 100
+		if buf.Len() <= 100 {
+			cutoff = 0
+		}
+
+		logs := buf.String()
+		lastBytes := logs[len(logs)-cutoff:]
 		log.Info("waitForDaemonSetLogs", "LastBytes", lastBytes)
 
 		if match, _ := regexp.MatchString(pattern, lastBytes); !match {
