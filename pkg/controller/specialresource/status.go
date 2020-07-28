@@ -16,7 +16,7 @@ func updateStatus(obj *unstructured.Unstructured, r *ReconcileSpecialResource, l
 
 	r.specialresource.Status.State = current[0]
 
-	err := r.client.Status().Update(context.TODO(), r.specialresource)
+	err := r.client.Status().Update(context.TODO(), &r.specialresource)
 	if err != nil {
 		log.Error(err, "Failed to update SpecialResource status")
 		return

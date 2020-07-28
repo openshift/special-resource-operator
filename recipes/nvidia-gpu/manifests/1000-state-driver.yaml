@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 rules:
 - apiGroups:
   - security.openshift.io
@@ -20,24 +20,43 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 subjects:
 - kind: ServiceAccount
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 userNames:
-- system:serviceaccount:{{.OperatorNamespace}}:{{.HardwareResource}}-{{.GroupName.DriverContainer}}
+- system:serviceaccount:{{.SpecialResource.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}-entrypoint
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}-entrypoint
 data:
   entrypoint.sh: |-
-    #!/bin/bash
+    #!/bin/bash -x
+
+    # Enable EUS and try to install kernel-devel and kernel-headers 
+    dnf -y --enablerepo=rhel-8-for-x86_64-baseos-eus-rpms --releasever=8.2 install \ 
+    kernel-devel-$(uname -r) kernel-headers-$(uname -r) kernel-core-$(uname -r)
+
+    # If EUS fails get kernel-devel and kernel-headers from machine-os-content
+    if [ $? -eq 0 ]; then
+      echo "EUS - kernel-devel-$(uname -r) kernel-headers-$(uname -r)  kernel-core-$(uname -r) installed"
+    else
+      echo "EUS FAILED - installing from payload"
+      KERNEL_DEVEL=$(find /tmp/overlay -name kernel-devel-$(uname -r).rpm -exec ls {} \; | tail)
+      KERNEL_HEADERS=$(find /tmp/overlay -name kernel-headers-$(uname -r).rpm -exec ls {} \; | tail)
+      KERNEL_CORE=$(find /tmp/overlay -name kernel-core-$(uname -r).rpm -exec ls {} \; | tail)
+
+      dnf -y install $KERNEL_DEVEL
+      dnf -y install $KERNEL_HEADERS
+      dnf -y install $KERNEL_CORE
+    fi
+
     nvidia-driver init 
 ---
 # Please edit the object below. Lines beginning with a '#' will be ignored,
@@ -71,7 +90,7 @@ metadata:
       any SELinux context.  WARNING: this is the most relaxed SCC and should be used
       only for cluster administration. Grant with caution.'
 
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 priority: null
 readOnlyRootFilesystem: false
 requiredDropCapabilities: null
@@ -84,7 +103,7 @@ seccompProfiles:
 supplementalGroups:
   type: RunAsAny
 users:
-- system:serviceaccount:{{.OperatorNamespace}}:{{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+- system:serviceaccount:{{.SpecialResource.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 volumes:
 - '*'
 ---
@@ -92,18 +111,18 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
-    app: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+    app: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
   annotations:
-    openshift.io/scc: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+    openshift.io/scc: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
     specialresource.openshift.io/wait: "true"
-    specialresrouce.openshift.io/wait-for-logs: "\\+ wait \\d+"
+    specialresource.openshift.io/wait-for-logs: "\\+ wait \\d+"
     specialresource.openshift.io/state: "driver-container"
-    specialresource.openshift.io/driver-container-vendor: {{.NodeFeature}}    
+    specialresource.openshift.io/driver-container-vendor: {{.SpecialResource.Spec.Node.Selector}}    
 spec:
   selector:
     matchLabels:
-      app: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+      app: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
   template:
     metadata:
       # Mark this pod as a critical add-on; when enabled, the critical add-on scheduler
@@ -112,42 +131,48 @@ spec:
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
-        app: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+        app: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
     spec:
       tolerations:
       - operator: Exists
       - key: nvidia.com/gpu
         operator: Exists
         effect: NoSchedule
-      serviceAccount: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
-      serviceAccountName: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+      serviceAccount: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+      serviceAccountName: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
       hostPID: true
       containers:
-      - image: image-registry.openshift-image-registry.svc:5000/{{.OperatorNamespace}}/{{.HardwareResource}}-{{.GroupName.DriverContainer}}:v{{.KernelVersion}}
+      - image: image-registry.openshift-image-registry.svc:5000/{{.SpecialResource.Namespace}}/{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}:v{{.KernelVersion}}
         imagePullPolicy: Always
-        name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+        name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
         command: ["/bin/entrypoint.sh"]
         securityContext:
           privileged: true
           seLinuxOptions:
             level: "s0"
         volumeMounts:
-          - name: run-{{.HardwareResource}}
+          - name: run-{{.SpecialResource.Name}}
             mountPath: /run/nvidia
             mountPropagation: Bidirectional
           - name: entrypoint
             mountPath: /bin/entrypoint.sh
             readOnly: true
             subPath: entrypoint.sh
+          - name: overlay
+            mountPath: /tmp/overlay
+            readOnly: true
       volumes:
-        - name: run-{{.HardwareResource}}
+        - name: overlay
+          hostPath:
+            path: /var/lib/containers/storage/overlay
+        - name: run-{{.SpecialResource.Name}}
           hostPath:
             path: /run/nvidia
         - name: entrypoint
           configMap:
             defaultMode: 0700
-            name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}-entrypoint
+            name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}-entrypoint
       nodeSelector:
         node-role.kubernetes.io/worker: ""
-        {{.NodeFeature}}: "true"
+        {{.SpecialResource.Spec.Node.Selector}}: "true"
         feature.node.kubernetes.io/kernel-version.full: "{{.KernelVersion}}"

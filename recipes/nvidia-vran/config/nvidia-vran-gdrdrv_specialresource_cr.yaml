@@ -1,0 +1,8 @@
+apiVersion: sro.openshift.io/v1alpha1
+kind: SpecialResource
+metadata:
+  name: nvidia-vran-gdrdrv
+  namespace: REPLACE_NAMESPACE
+spec:
+  node:
+    selector: "feature.node.kubernetes.io/pci-10de.present"

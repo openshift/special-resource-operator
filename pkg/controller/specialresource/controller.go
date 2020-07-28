@@ -148,7 +148,7 @@ type ReconcileSpecialResource struct {
 	// that reads objects from the cache and writes to the apiserver
 	client          client.Client
 	scheme          *runtime.Scheme
-	specialresource *srov1alpha1.SpecialResource
+	specialresource srov1alpha1.SpecialResource
 }
 
 // Reconcile reads that state of the cluster for a SpecialResource object and makes changes based on the state read
@@ -163,8 +163,11 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 	reqLogger.Info("Reconciling SpecialResource")
 
 	// Fetch the SpecialResource instance
-	r.specialresource = &srov1alpha1.SpecialResource{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, r.specialresource)
+	specialresources := srov1alpha1.SpecialResourceList{}
+	opts := &client.ListOptions{}
+	opts.InNamespace(request.Namespace)
+
+	err := r.client.List(context.TODO(), opts, &specialresources)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -176,12 +179,40 @@ func (r *ReconcileSpecialResource) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	if err := ReconcileHardwareConfigurations(r); err != nil {
-		// We do not want a stacktrace here, errs.Wrap already created
-		// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
-		log.Info("Could not reconcile hardware configurations", "error", fmt.Sprintf("%v", err))
-		return reconcile.Result{}, errs.New("Reconciling failed")
+	for _, specialresource := range specialresources.Items {
+
+		log.Info("Reconciling", "SpecialResource", specialresource.Name)
+		log.Info("SpecialResurce", "DependsOn", specialresource.Spec.DependsOn.Name)
+
+		// Only one level dependency support for now
+		for _, dependency := range specialresource.Spec.DependsOn.Name {
+			r.specialresource = getSpecialResourceByName(dependency, &specialresources)
+			if err := ReconcileHardwareConfigurations(r); err != nil {
+				// We do not want a stacktrace here, errs.Wrap already created
+				// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
+				log.Info("Could not reconcile hardware configurations", "error", fmt.Sprintf("%v", err))
+				return reconcile.Result{}, errs.New("Reconciling failed")
+			}
+		}
+
+		r.specialresource = specialresource
+		if err := ReconcileHardwareConfigurations(r); err != nil {
+			// We do not want a stacktrace here, errs.Wrap already created
+			// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
+			log.Info("Could not reconcile hardware configurations", "error", fmt.Sprintf("%v", err))
+			return reconcile.Result{}, errs.New("Reconciling failed")
+		}
+
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func getSpecialResourceByName(name string, list *srov1alpha1.SpecialResourceList) srov1alpha1.SpecialResource {
+	for _, specialresource := range list.Items {
+		if specialresource.Name == name {
+			return specialresource
+		}
+	}
+	return srov1alpha1.SpecialResource{}
 }

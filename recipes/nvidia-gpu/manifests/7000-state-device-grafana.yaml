@@ -1,28 +1,28 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
   labels:
-    metrics-infra: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
-    name: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
+    metrics-infra: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
+    name: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
 spec:
   ports:
-  - name: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
+  - name: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
     port: 3000
     protocol: TCP
     targetPort: 3000
   selector:
-    app: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
+    app: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
 ---
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
 spec:
   host: ""
   to:
     kind: Service
-    name: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
+    name: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
     weight: 100
   port:
     targetPort: 3000
@@ -30,7 +30,7 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
   annotations:
     specialresource.openshift.io/callback: {{.GroupName.DeviceGrafana}}-configmap
 data:
@@ -55,7 +55,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{.GroupName.DeviceGrafana}}-dashboards-{{.HardwareResource}}
+  name: {{.GroupName.DeviceGrafana}}-dashboards-{{.SpecialResource.Name}}
 data:
   dashboards.yaml: |-
     {
@@ -76,7 +76,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{.GroupName.DeviceGrafana}}-dashboard-{{.HardwareResource}}
+  name: {{.GroupName.DeviceGrafana}}-dashboard-{{.SpecialResource.Name}}
 data:
   gpu.json: |-
     {
@@ -647,51 +647,51 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
-  name: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
+    app: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
+      app: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
   template:
     metadata:
       labels:
-        app: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
-      name: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
+        app: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
+      name: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
     spec:
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: {{.StateName.DeviceMonitoring}}-{{.HardwareResource}}
+              - key: {{.StateName.DeviceMonitoring}}-{{.SpecialResource.Name}}
                 operator: In 
                 values:
                 - ready 
       containers:
-      - name: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
+      - name: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
         image: docker.io/grafana/grafana:master
         ports:
         - name: sc-grafana-http
           containerPort: 3000
         volumeMounts:
         - mountPath: /etc/grafana/provisioning/datasources
-          name: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
+          name: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
         - mountPath: /etc/grafana/provisioning/dashboards
-          name: {{.GroupName.DeviceGrafana}}-dashboards-{{.HardwareResource}}
+          name: {{.GroupName.DeviceGrafana}}-dashboards-{{.SpecialResource.Name}}
 
         - mountPath: /grafana-dashboard-definitions/0/gpu
-          name: {{.GroupName.DeviceGrafana}}-dashboard-{{.HardwareResource}}
+          name: {{.GroupName.DeviceGrafana}}-dashboard-{{.SpecialResource.Name}}
           readOnly: false
 
       volumes:
-      - name: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
+      - name: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
         configMap:
-          name: {{.HardwareResource}}-{{.GroupName.DeviceGrafana}}
-      - name: {{.GroupName.DeviceGrafana}}-dashboards-{{.HardwareResource}}
+          name: {{.SpecialResource.Name}}-{{.GroupName.DeviceGrafana}}
+      - name: {{.GroupName.DeviceGrafana}}-dashboards-{{.SpecialResource.Name}}
         configMap:
-          name: {{.GroupName.DeviceGrafana}}-dashboards-{{.HardwareResource}}
-      - name: {{.GroupName.DeviceGrafana}}-dashboard-{{.HardwareResource}}
+          name: {{.GroupName.DeviceGrafana}}-dashboards-{{.SpecialResource.Name}}
+      - name: {{.GroupName.DeviceGrafana}}-dashboard-{{.SpecialResource.Name}}
         configMap:
-          name: {{.GroupName.DeviceGrafana}}-dashboard-{{.HardwareResource}}
+          name: {{.GroupName.DeviceGrafana}}-dashboard-{{.SpecialResource.Name}}

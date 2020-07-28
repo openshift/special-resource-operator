@@ -1,12 +1,12 @@
 nvidia-vran: 
-	-kubectl delete configmap -n $(NAMESPACE) 0000-$@-mofed
-	kubectl create configmap 0000-$@-mofed -n $(NAMESPACE) --from-file=recipes/$@/manifests/mofed
-	kubectl patch configmap 0000-$@-mofed -n $(NAMESPACE)  --patch '$(shell cat recipes/$@/config/mofed-patch.json)'
+	-kubectl delete configmap -n $(NAMESPACE) $@-mofed  2>/dev/null | true
+	kubectl create configmap $@-mofed -n $(NAMESPACE) --from-file=recipes/$@/manifests/mofed
+	@$(TEMPLATE_CMD) recipes/$@/config/$@-mofed_specialresource_cr.yaml | kubectl apply -f - 
 
-	-kubectl delete configmap -n $(NAMESPACE) 1000-$@-gpudirect
-	kubectl create configmap 1000-$@-gpudirect -n $(NAMESPACE) --from-file=recipes/$@/manifests/gpudirect
-	kubectl patch configmap 1000-$@-gpudirect -n $(NAMESPACE)  --patch '$(shell cat recipes/$@/config/gpudirect-patch.json)'
+	-kubectl delete configmap -n $(NAMESPACE) $@-gpudirect  2>/dev/null | true
+	kubectl create configmap $@-gpudirect -n $(NAMESPACE) --from-file=recipes/$@/manifests/gpudirect
+	@$(TEMPLATE_CMD) recipes/$@/config/$@-gpudirect_specialresource_cr.yaml | kubectl apply -f - 
 
-	-kubectl delete configmap -n $(NAMESPACE) 2000-$@-gdrdrv
-	kubectl create configmap 2000-$@-gdrdrv -n $(NAMESPACE) --from-file=recipes/$@/manifests/gdrdrv
-	kubectl patch configmap 2000-$@-gdrdrv -n $(NAMESPACE)  --patch '$(shell cat recipes/$@/config/gdrdrv-patch.json)'
+	-kubectl delete configmap -n $(NAMESPACE) $@-gdrdrv  2>/dev/null | true
+	kubectl create configmap $@-gdrdrv -n $(NAMESPACE) --from-file=recipes/$@/manifests/gdrdrv
+	@$(TEMPLATE_CMD) recipes/$@/config/$@-gdrdrv_specialresource_cr.yaml | kubectl apply -f - 

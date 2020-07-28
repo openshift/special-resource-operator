@@ -2,9 +2,14 @@ module github.com/openshift-psap/special-resource-operator
 
 require (
 	github.com/coreos/prometheus-operator v0.29.0
+	github.com/docker/go-connections v0.4.0 // indirect
+	github.com/docker/go-metrics v0.0.1 // indirect
+	github.com/docker/go-units v0.4.0 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-openapi/spec v0.19.0
-	github.com/openshift/api v3.9.0+incompatible
+	github.com/opencontainers/image-spec v1.0.1 // indirect
+	github.com/openshift/api v0.0.0-20190508214137-81d064c11ff2
+	github.com/openshift/client-go v0.0.0-20190412095722-0255926f5393
 	github.com/operator-framework/operator-sdk v0.10.1-0.20190916192541-244ae8692d2d
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.1.0 // indirect

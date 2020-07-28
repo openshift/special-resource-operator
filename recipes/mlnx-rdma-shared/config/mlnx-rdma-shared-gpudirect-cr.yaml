@@ -1,0 +1,10 @@
+apiVersion: sro.openshift.io/v1alpha1
+kind: SpecialResource
+metadata:
+  name: mlnx-rdma-shared-gpudirect
+  namespace: REPLACE_NAMESPACE
+spec:
+  node:
+    selector: "feature.node.kubernetes.io/pci-10de.present"
+  dependsOn:  
+    name: ["mlnx-rdma-shared-mofed"]

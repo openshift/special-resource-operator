@@ -30,6 +30,147 @@ spec:
           type: object
         spec:
           description: SpecialResourceSpec defines the desired state of SpecialResource
+          properties:
+            dependsOn:
+              description: SpecialResourceDependsOn defines the desired state of SpecialResource
+              properties:
+                name:
+                  items:
+                    type: string
+                  type: array
+              required:
+              - name
+              type: object
+            driverContainer:
+              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                Important: Run "operator-sdk generate k8s" to regenerate code after
+                modifying this file Add custom validation using kubebuilder tags:
+                https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html'
+              properties:
+                artifacts:
+                  description: SpecialResourceArtifacts defines the observed state
+                    of SpecialResource
+                  properties:
+                    claims:
+                      items:
+                        description: SpecialResourceClaims defines the observed state
+                          of SpecialResource
+                        properties:
+                          mountPath:
+                            type: string
+                          name:
+                            type: string
+                        required:
+                        - mountPath
+                        - name
+                        type: object
+                      type: array
+                    hostPaths:
+                      items:
+                        description: SpecialResourcePaths defines the observed state
+                          of SpecialResource
+                        properties:
+                          destinationDir:
+                            type: string
+                          sourcePath:
+                            type: string
+                        required:
+                        - destinationDir
+                        - sourcePath
+                        type: object
+                      type: array
+                    images:
+                      items:
+                        description: SpecialResourceImages defines the observed state
+                          of SpecialResource
+                        properties:
+                          kind:
+                            type: string
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                          path:
+                            items:
+                              description: SpecialResourcePaths defines the observed
+                                state of SpecialResource
+                              properties:
+                                destinationDir:
+                                  type: string
+                                sourcePath:
+                                  type: string
+                              required:
+                              - destinationDir
+                              - sourcePath
+                              type: object
+                            type: array
+                          pullsecret:
+                            type: string
+                        required:
+                        - kind
+                        - name
+                        - namespace
+                        - path
+                        - pullsecret
+                        type: object
+                      type: array
+                  type: object
+                buildArgs:
+                  items:
+                    description: SpecialResourceBuilArgs defines the observed state
+                      of SpecialResource
+                    properties:
+                      name:
+                        type: string
+                      value:
+                        type: string
+                    required:
+                    - name
+                    - value
+                    type: object
+                  type: array
+                runArgs:
+                  items:
+                    description: SpecialResourceRunArgs defines the observed state
+                      of SpecialResource
+                    properties:
+                      name:
+                        type: string
+                      value:
+                        type: string
+                    required:
+                    - name
+                    - value
+                    type: object
+                  type: array
+                source:
+                  description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                    Important: Run "operator-sdk generate k8s" to regenerate code
+                    after modifying this file Add custom validation using kubebuilder
+                    tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html'
+                  properties:
+                    git:
+                      description: SpecialResourceGit defines the observed state of
+                        SpecialResource
+                      properties:
+                        ref:
+                          type: string
+                        uri:
+                          type: string
+                      required:
+                      - ref
+                      - uri
+                      type: object
+                  type: object
+              type: object
+            node:
+              description: SpecialResourceNode defines the observed state of SpecialResource
+              properties:
+                selector:
+                  type: string
+              required:
+              - selector
+              type: object
           type: object
         status:
           description: SpecialResourceStatus defines the observed state of SpecialResource

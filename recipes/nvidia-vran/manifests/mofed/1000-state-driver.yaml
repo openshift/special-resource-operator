@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 rules:
 - apiGroups:
   - security.openshift.io
@@ -20,27 +20,27 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 subjects:
 - kind: ServiceAccount
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 userNames:
-- system:serviceaccount:{{.OperatorNamespace}}:{{.HardwareResource}}-{{.GroupName.DriverContainer}}
+- system:serviceaccount:{{.SpecialResource.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}-entrypoint
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}-entrypoint
 data:
   entrypoint.sh: |-
     #!/bin/bash -x
 
     mount_rootfs() {
-      echo "Mounting {{.HardwareResource}} driver rootfs..."
+      echo "Mounting {{.SpecialResource.Name}} driver rootfs..."
       mount --make-runbindable /sys
       mount --make-private /sys
       mkdir -p /run/mofed/driver
@@ -48,7 +48,7 @@ data:
     }
 
     unmount_rootfs() {
-      echo "Unmounting {{.HardwareResource}} driver rootfs..."
+      echo "Unmounting {{.SpecialResource.Name}} driver rootfs..."
       if findmnt -r -o TARGET | grep "/run/mofed/driver" > /dev/null; then
         umount -l -R /run/mofed/driver
       fi
@@ -103,7 +103,7 @@ metadata:
       any SELinux context.  WARNING: this is the most relaxed SCC and should be used
       only for cluster administration. Grant with caution.'
 
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 priority: null
 readOnlyRootFilesystem: false
 requiredDropCapabilities: null
@@ -116,7 +116,7 @@ seccompProfiles:
 supplementalGroups:
   type: RunAsAny
 users:
-- system:serviceaccount:{{.OperatorNamespace}}:{{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+- system:serviceaccount:{{.SpecialResource.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 volumes:
 - '*'
 ---
@@ -124,18 +124,18 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
-    app: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
-  name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+    app: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
   annotations:
-    openshift.io/scc: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+    openshift.io/scc: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
     specialresource.openshift.io/wait: "true"
-    specialresrouce.openshift.io/wait-for-logs: "\\+ sleep infinity"
+    specialResource.openshift.io/wait-for-logs: "\\+ sleep infinity"
     specialresource.openshift.io/state: "driver-container"
-    specialresource.openshift.io/driver-container-vendor: {{.NodeFeature}}    
+    specialresource.openshift.io/driver-container-vendor: {{.SpecialResource.Spec.Node.Selector}}    
 spec:
   selector:
     matchLabels:
-      app: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+      app: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
   template:
     metadata:
       # Mark this pod as a critical add-on; when enabled, the critical add-on scheduler
@@ -144,42 +144,52 @@ spec:
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
-        app: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+        app: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
     spec:
       tolerations:
       - operator: Exists
       - key: nvidia.com/gpu
         operator: Exists
         effect: NoSchedule
-      serviceAccount: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
-      serviceAccountName: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
-      hostPID: true
+      serviceAccount: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+      serviceAccountName: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+      hostNetwork: true
       containers:
-      - image: image-registry.openshift-image-registry.svc:5000/{{.OperatorNamespace}}/{{.HardwareResource}}-{{.GroupName.DriverContainer}}:v{{.KernelVersion}}
+      - image: image-registry.openshift-image-registry.svc:5000/{{.SpecialResource.Namespace}}/{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}:v{{.KernelVersion}}
         imagePullPolicy: Always
-        name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+        name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
         command: ["/bin/entrypoint.sh"]
         securityContext:
           privileged: true
           seLinuxOptions:
             level: "s0"
         volumeMounts:
-          - name: run-{{.HardwareResource}}
+          - name: run-{{.SpecialResource.Name}}
             mountPath: /run/mofed
             mountPropagation: Bidirectional
           - name: entrypoint
             mountPath: /bin/entrypoint.sh
             readOnly: true
             subPath: entrypoint.sh
+          - name: devices
+            mountPath: /dev
+          - name: sysfs
+            mountPath: /sys
       volumes:
-        - name: run-{{.HardwareResource}}
+        - name: sysfs
+          hostPath:
+            path: /sys
+        - name: devices
+          hostPath: 
+            path: /dev
+        - name: run-{{.SpecialResource.Name}}
           hostPath:
             path: /run/mofed
         - name: entrypoint
           configMap:
             defaultMode: 0700
-            name: {{.HardwareResource}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}-entrypoint
+            name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}-entrypoint
       nodeSelector:
         node-role.kubernetes.io/worker: ""
-        {{.NodeFeature}}: "true"
+        {{.SpecialResource.Spec.Node.Selector}}: "true"
         feature.node.kubernetes.io/kernel-version.full: "{{.KernelVersion}}"

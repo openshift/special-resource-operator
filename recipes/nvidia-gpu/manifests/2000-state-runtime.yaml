@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
 rules:
 - apiGroups:
   - security.openshift.io
@@ -20,21 +20,21 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
 subjects:
 - kind: ServiceAccount
-  name: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
 userNames:
-- system:serviceaccount:{{.OperatorNamespace}}:{{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}
+- system:serviceaccount:{{.SpecialResource.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}-entrypoint
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}-entrypoint
 data:
   entrypoint.sh: |-
     #!/bin/bash
@@ -46,7 +46,7 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}-init-entrypoint
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}-init-entrypoint
 data:
   entrypoint.sh: |-
     #!/bin/bash
@@ -56,34 +56,34 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
-    app: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}
-  name: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}
+    app: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
   annotations:
     specialresource.openshift.io/state: "runtime-enablement"
     specialresource.openshift.io/wait: "true"
 spec:
   selector:
     matchLabels:
-      app: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}
+      app: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
   template:
     metadata:
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
-        app: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}
+        app: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
     spec:
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: {{.StateName.DriverContainer}}-{{.HardwareResource}}
+              - key: {{.StateName.DriverContainer}}-{{.SpecialResource.Name}}
                 operator: In 
                 values:
                 - ready 
       initContainers: 
       - image: quay.io/openshift-psap/ubi8-kmod
-        name: specialresource-driver-validation-{{.HardwareResource}}
+        name: {{.SpecialResource.Name}}-driver-validation
         command: ["/bin/entrypoint.sh"]
         volumeMounts:
         - name: init-entrypoint
@@ -99,7 +99,7 @@ spec:
         - name: RUNTIME
           value: crio
         imagePullPolicy: IfNotPresent
-        name: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}-ctr
+        name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}-ctr
         resources: {}
         securityContext:
           privileged: true
@@ -125,11 +125,11 @@ spec:
           mountPath: /usr/local/nvidia
       hostPID: true
       nodeSelector:
-        {{.NodeFeature}}: "true"
+        {{.SpecialResource.Spec.Node.Selector}}: "true"
       restartPolicy: Always
       securityContext: {}
-      serviceAccount: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}
-      serviceAccountName: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}
+      serviceAccount: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
+      serviceAccountName: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
       tolerations:
       - key: CriticalAddonsOnly
         operator: Exists
@@ -140,11 +140,11 @@ spec:
       - name: entrypoint
         configMap:
           defaultMode: 0700
-          name: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}-entrypoint
+          name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}-entrypoint
       - name: init-entrypoint
         configMap:
           defaultMode: 0700
-          name: {{.HardwareResource}}-{{.GroupName.RuntimeEnablement}}-init-entrypoint
+          name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}-init-entrypoint
       - hostPath:
           path: /var/run/docker.sock
           type: ""

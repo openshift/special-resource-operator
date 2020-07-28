@@ -3,6 +3,7 @@ package specialresource
 import (
 	"os"
 
+	configv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -18,6 +19,15 @@ func AddKubeClient(cfg *rest.Config) error {
 		return err
 	}
 	kubeclient = clientSet
+	return nil
+}
+
+func AddConfiglient(cfg *rest.Config) error {
+	clientSet, err := configv1.NewForConfig(cfg)
+	if err != nil {
+		return err
+	}
+	configclient = clientSet
 	return nil
 }
 

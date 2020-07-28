@@ -10,7 +10,6 @@ TEMPLATE_CMD      = sed 's+REPLACE_IMAGE+$(IMAGE)+g; s+REPLACE_NAMESPACE+$(NAMES
 DEPLOY_NAMESPACE  = namespace.yaml
 DEPLOY_OBJECTS    = service_account.yaml role.yaml role_binding.yaml operator.yaml
 DEPLOY_CRD        = crds/sro.openshift.io_specialresources_crd.yaml 
-DEPLOY_CR         = crds/sro_v1alpha1_specialresource_cr.yaml
 
 PACKAGE           = github.com/openshift-psap/special-resource-operator
 MAIN_PACKAGE      = $(PACKAGE)/cmd/manager
@@ -56,20 +55,18 @@ $(DEPLOY_NAMESPACE): deploy-crd
 
 
 deploy-objects: deploy-crd
-	@for obj in $(DEPLOY_OBJECTS) $(DEPLOY_CR); do               \
+	@for obj in $(DEPLOY_OBJECTS); do               \
 		$(TEMPLATE_CMD) deploy/$$obj | kubectl apply -f - ; \
 	done 
 
-
-deploy: $(DEPLOY_NAMESPACE) $(SPECIALRESOURCE) deploy-objects
-	@$(TEMPLATE_CMD) deploy/$(DEPLOY_CR) | kubectl apply -f -
-
 include recipes/$(SPECIALRESOURCE)/config/Makefile
 
-undeploy:
-	@for obj in $(DEPLOY_CRD) $(DEPLOY_CR) $(DEPLOY_OBJECTS) $(DEPLOY_NAMESPACE); do  \
-		$(TEMPLATE_CMD) deploy/$$obj | kubectl delete -f - ; \
-	done	
+deploy: $(DEPLOY_NAMESPACE) deploy-objects $(SPECIALRESOURCE) 
+
+undeploy: 
+	@for obj in $(DEPLOY_CRD) $(DEPLOY_OBJECTS) $(DEPLOY_NAMESPACE); do  \
+		$(TEMPLATE_CMD) deploy/$$obj | kubectl delete -f - 2>/dev/null ; \
+	done | true
 
 verify:	verify-gofmt
 

@@ -18,7 +18,7 @@ func labelNodesAccordingToState(obj *unstructured.Unstructured, r *ReconcileSpec
 
 	cacheNodes(r, true)
 
-	hw := runInfo.HardwareResource
+	hw := r.specialresource.Name
 	st := runInfo.StateName
 
 	var stateLabels = map[string]map[string]string{

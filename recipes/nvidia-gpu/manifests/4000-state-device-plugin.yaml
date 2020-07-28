@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: specialresource-driver-validation-entrypoint-{{.HardwareResource}}
+  name: {{.SpecialResource.Name}}-driver-validation-entrypoint
 data:
   entrypoint.sh: |-
     #!/bin/bash
@@ -21,12 +21,12 @@ data:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
 rules:
 - apiGroups:
   - security.openshift.io
@@ -40,23 +40,23 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
 subjects:
 - kind: ServiceAccount
-  name: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
 userNames:
-- system:serviceaccount:{{.OperatorNamespace}}:{{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+- system:serviceaccount:{{.SpecialResource.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
 ---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
-    app: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
-  name: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+    app: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
   annotations:
     openshift.io/scc: hostmount-anyuid
     specialresource.openshift.io/state: "device-plugin"
@@ -64,7 +64,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+      app: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
   template:
     metadata:
       # Mark this pod as a critical add-on; when enabled, the critical add-on scheduler
@@ -73,14 +73,14 @@ spec:
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
-        app: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+        app: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
     spec:
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: {{.StateName.RuntimeEnablement}}-{{.HardwareResource}}
+              - key: {{.StateName.RuntimeEnablement}}-{{.SpecialResource.Name}}
                 operator: In 
                 values:
                 - ready 
@@ -93,11 +93,11 @@ spec:
       - key: nvidia.com/gpu
         operator: Exists
         effect: NoSchedule
-      serviceAccount: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}
+      serviceAccount: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
       initContainers:
       - image: nvidia/samples:cuda10.2-vectorAdd
         imagePullPolicy: Always
-        name: specialresource-runtime-validation-{{.HardwareResource}}
+        name: {{.SpecialResource.Name}}-runtime-validation
         command: ["/bin/entrypoint.sh"]
         securityContext:
           allowPrivilegeEscalation: false
@@ -110,24 +110,24 @@ spec:
           subPath: entrypoint.sh
       containers:
       - image: nvidia/k8s-device-plugin:1.11 
-        name: {{.HardwareResource}}-{{.GroupName.DevicePlugin}}-ctr
+        name: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}-ctr
         securityContext:
           privileged: true
         env:
           - name: NVIDIA_VISIBLE_DEVICES
             value: all
         volumeMounts:
-          - name: device-plugin-{{.HardwareResource}}
+          - name: device-plugin-{{.SpecialResource.Name}}
             mountPath: /var/lib/kubelet/device-plugins
       volumes:
-        - name: device-plugin-{{.HardwareResource}}
+        - name: device-plugin-{{.SpecialResource.Name}}
           hostPath:
             path: /var/lib/kubelet/device-plugins
         - name: init-entrypoint
           configMap:
             defaultMode: 0700
-            name: specialresource-driver-validation-entrypoint-{{.HardwareResource}}
+            name: {{.SpecialResource.Name}}-driver-validation-entrypoint
 
       nodeSelector:
         node-role.kubernetes.io/worker: ""
-        {{.NodeFeature}}: "true"
+        {{.SpecialResource.Spec.Node.Selector}}: "true"

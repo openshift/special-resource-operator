@@ -118,6 +118,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := specialresource.AddConfiglient(cfg); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
 		log.Error(err, "")

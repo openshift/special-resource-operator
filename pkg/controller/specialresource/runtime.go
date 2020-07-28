@@ -4,7 +4,9 @@ import (
 	"strconv"
 	"strings"
 
+	srov1alpha1 "github.com/openshift-psap/special-resource-operator/pkg/apis/sro/v1alpha1"
 	errs "github.com/pkg/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type resourceGroupName struct {
@@ -36,12 +38,10 @@ type runtimeInformation struct {
 	KernelVersion             string
 	ClusterVersion            string
 	UpdateVendor              string
-	NodeFeature               string
-	HardwareResource          string
-	OperatorNamespace         string
 
-	GroupName resourceGroupName
-	StateName resourceStateName
+	GroupName       resourceGroupName
+	StateName       resourceStateName
+	SpecialResource srov1alpha1.SpecialResource
 }
 
 var runInfo = runtimeInformation{
@@ -63,13 +63,11 @@ var runInfo = runtimeInformation{
 }
 
 func logRuntimeInformation() {
-	log.Info("Runtime Information", "OperatorNamespace", runInfo.OperatorNamespace)
 	log.Info("Runtime Information", "OperatingSystemMajor", runInfo.OperatingSystemMajor)
 	log.Info("Runtime Information", "OperatingSystemMajorMinor", runInfo.OperatingSystemMajorMinor)
 	log.Info("Runtime Information", "KernelVersion", runInfo.KernelVersion)
 	log.Info("Runtime Information", "ClusterVersion", runInfo.ClusterVersion)
 	log.Info("Runtime Information", "UpdateVendor", runInfo.UpdateVendor)
-	log.Info("Runtime Information", "NodeFeature", runInfo.NodeFeature)
 }
 
 func getRuntimeInformation(r *ReconcileSpecialResource) {
@@ -84,7 +82,10 @@ func getRuntimeInformation(r *ReconcileSpecialResource) {
 	runInfo.ClusterVersion, err = getClusterVersion()
 	exitOnError(errs.Wrap(err, "Failed to get cluster version"))
 
-	runInfo.OperatorNamespace = r.specialresource.GetNamespace()
+	log.Info("DEBUG", "LOG", r.specialresource.Spec.DriverContainer.Source.Git.Ref)
+	log.Info("DEBUG", "LOG", r.specialresource.Spec.DriverContainer.Source.Git.Uri)
+
+	r.specialresource.DeepCopyInto(&runInfo.SpecialResource)
 }
 
 func getOperatingSystem() (string, string, error) {
@@ -165,5 +166,19 @@ func getKernelVersion() (string, error) {
 }
 
 func getClusterVersion() (string, error) {
-	return "", nil
+
+	version, err := configclient.ClusterVersions().Get("version", metav1.GetOptions{})
+	if err != nil {
+		return "", errs.Wrap(err, "ConfigClient unable to get ClusterVersions")
+	}
+
+	for _, condition := range version.Status.History {
+		if condition.State != "Completed" {
+			continue
+		}
+
+		return condition.Version, nil
+	}
+
+	return "", errs.New("Undefined Cluster Version")
 }

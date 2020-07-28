@@ -1,14 +1,14 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{.OperatorNamespace}}
+  name: {{.SpecialResource.Namespace}}
   labels:
     openshift.io/cluster-monitoring: "true"
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{.GroupName.DevicePlugin}}-validation-entrypoint-{{.HardwareResource}}
+  name: {{.GroupName.DevicePlugin}}-validation-entrypoint-{{.SpecialResource.Name}}
 data:
   entrypoint.sh: |-
     #!/bin/bash
@@ -27,12 +27,12 @@ data:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
 rules:
 - apiGroups:
   - security.openshift.io
@@ -46,16 +46,16 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
 subjects:
 - kind: ServiceAccount
-  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
 userNames:
-- system:serviceaccount:{{.OperatorNamespace}}:{{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+- system:serviceaccount:{{.SpecialResource.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -89,12 +89,12 @@ subjects:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
   labels:
-    app: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+    app: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
 spec:
   selector:
-    app: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+    app: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
   type: ClusterIP
   ports:
   - name: dcgm
@@ -105,17 +105,17 @@ spec:
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
 spec:
   endpoints:
   - port: dcgm 
   jobLabel: app
   namespaceSelector:
     matchNames:
-    - {{.OperatorNamespace}}
+    - {{.SpecialResource.Namespace}}
   selector:
     matchLabels:
-      app: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+      app: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
 ---
 # Node exporter collecting only GPU metrics from dcgm-exporter.
 # Except textfile collector, all other collectors that are enabled by default are disabled.
@@ -124,27 +124,27 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels: 
-    app: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
-  name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+    app: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
   annotations: 
     specialresource.openshift.io/state: "device-monitoring"
     specialresource.openshift.io/wait: "true"
 spec:
   selector:
     matchLabels:
-      app: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+      app: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
   template:
     metadata:
       labels:
-        app: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
-      name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+        app: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
+      name: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
     spec:
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: {{.StateName.DevicePlugin}}-{{.HardwareResource}}
+              - key: {{.StateName.DevicePlugin}}-{{.SpecialResource.Name}}
                 operator: In 
                 values:
                 - ready 
@@ -153,12 +153,12 @@ spec:
       - key: nvidia.com/gpu
         operator: Exists
         effect: NoSchedule
-      serviceAccount: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
-      serviceAccountName: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+      serviceAccount: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
+      serviceAccountName: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
       initContainers:
       - image: quay.io/openshift-psap/cuda-vector-add:v0.1
         imagePullPolicy: Always
-        name: {{.GroupName.DevicePlugin}}-validation-{{.HardwareResource}}
+        name: {{.GroupName.DevicePlugin}}-validation-{{.SpecialResource.Name}}
         command: ["/bin/entrypoint.sh"]
         securityContext:
           allowPrivilegeEscalation: false
@@ -231,7 +231,7 @@ spec:
           readOnly: true
           mountPath: /run/prometheus
       - image: nvidia/dcgm-exporter:1.4.6
-        name: {{.HardwareResource}}-{{.GroupName.DeviceMonitoring}}
+        name: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
         securityContext:
           runAsNonRoot: false
           runAsUser: 0
@@ -255,11 +255,11 @@ spec:
       - name: init-entrypoint
         configMap:
           defaultMode: 0700
-          name: {{.GroupName.DevicePlugin}}-validation-entrypoint-{{.HardwareResource}}
+          name: {{.GroupName.DevicePlugin}}-validation-entrypoint-{{.SpecialResource.Name}}
 
       nodeSelector:
         node-role.kubernetes.io/worker: ""
-        {{.NodeFeature}}: "true"
+        {{.SpecialResource.Spec.Node.Selector}}: "true"
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
@@ -267,7 +267,7 @@ metadata:
   labels:
     prometheus: example
     role: alert-rules
-  name: specialresource-prometheus-rules-{{.HardwareResource}}
+  name: {{.SpecialResource.Name}}-prometheus-rules
 spec:
   groups:
   - name: nvidia_gpu.rules
