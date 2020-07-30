@@ -1,12 +1,16 @@
 package specialresource
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
 	srov1alpha1 "github.com/openshift-psap/special-resource-operator/pkg/apis/sro/v1alpha1"
+	"github.com/pkg/errors"
 	errs "github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type resourceGroupName struct {
@@ -38,6 +42,7 @@ type runtimeInformation struct {
 	KernelVersion             string
 	ClusterVersion            string
 	UpdateVendor              string
+	PushSecretName            string
 
 	GroupName       resourceGroupName
 	StateName       resourceStateName
@@ -68,6 +73,7 @@ func logRuntimeInformation() {
 	log.Info("Runtime Information", "KernelVersion", runInfo.KernelVersion)
 	log.Info("Runtime Information", "ClusterVersion", runInfo.ClusterVersion)
 	log.Info("Runtime Information", "UpdateVendor", runInfo.UpdateVendor)
+	log.Info("Runtime Information", "PushSecretName", runInfo.PushSecretName)
 }
 
 func getRuntimeInformation(r *ReconcileSpecialResource) {
@@ -82,8 +88,8 @@ func getRuntimeInformation(r *ReconcileSpecialResource) {
 	runInfo.ClusterVersion, err = getClusterVersion()
 	exitOnError(errs.Wrap(err, "Failed to get cluster version"))
 
-	log.Info("DEBUG", "LOG", r.specialresource.Spec.DriverContainer.Source.Git.Ref)
-	log.Info("DEBUG", "LOG", r.specialresource.Spec.DriverContainer.Source.Git.Uri)
+	runInfo.PushSecretName, err = getPushSecretName(r)
+	exitOnError(errs.Wrap(err, "Failed to get push secret name"))
 
 	r.specialresource.DeepCopyInto(&runInfo.SpecialResource)
 }
@@ -103,6 +109,9 @@ func getOperatingSystem() (string, string, error) {
 		nodeOSrel = labels[os+".ID"]
 		nodeOSmaj = labels[os+".VERSION_ID.major"]
 		nodeOSmin = labels[os+".VERSION_ID.minor"]
+
+		log.Info("DEBUG", "LOG", labels[os+".ID"])
+		log.Info("DEBUG", "LOG", labels[os+".VERSION_ID.major"])
 
 		if len(nodeOSrel) == 0 || len(nodeOSmaj) == 0 {
 			return "", "", errs.New("Cannot extract " + os + ".*, is NFD running? Check node labels")
@@ -130,8 +139,19 @@ func renderOperatingSystem(rel string, maj string, min string) (string, string, 
 			maj := "8"
 			return rel + maj, rel + maj + ".0", nil
 		}
+
+		if strings.Compare(maj, "4") == 0 && strings.Compare(min, "4") == 0 {
+			maj := "8"
+			return rel + maj, rel + maj + ".1", nil
+		}
+
+		if strings.Compare(maj, "4") == 0 && strings.Compare(min, "5") == 0 {
+			maj := "8"
+			return rel + maj, rel + maj + ".2", nil
+		}
+
 		maj := "8"
-		return rel + maj, rel + maj + ".1", nil
+		return rel + maj, rel + maj + ".2", nil
 	}
 
 	// A Fedora system has no min yet, so if min is empty
@@ -181,4 +201,34 @@ func getClusterVersion() (string, error) {
 	}
 
 	return "", errs.New("Undefined Cluster Version")
+}
+
+func getPushSecretName(r *ReconcileSpecialResource) (string, error) {
+
+	secrets := &unstructured.UnstructuredList{}
+
+	secrets.SetAPIVersion("v1")
+	secrets.SetKind("SecretList")
+
+	opts := &client.ListOptions{}
+	opts.InNamespace(r.specialresource.GetNamespace())
+
+	err := r.client.List(context.TODO(), opts, secrets)
+	if err != nil {
+		return "", errors.Wrap(err, "Client cannot get SecretList")
+	}
+
+	log.Info("DEBUG", "SECRET LEN", len(secrets.Items))
+
+	for _, secret := range secrets.Items {
+		secretName := secret.GetName()
+
+		log.Info("DEBUG", "SECRET", secretName)
+
+		if strings.Contains(secretName, "builder-dockercfg") {
+			return secretName, nil
+		}
+	}
+
+	return "", errors.Wrap(err, "Cannot find Secret builder-dockercfg")
 }

@@ -12,7 +12,6 @@ require (
 	github.com/openshift/client-go v0.0.0-20190412095722-0255926f5393
 	github.com/operator-framework/operator-sdk v0.10.1-0.20190916192541-244ae8692d2d
 	github.com/pkg/errors v0.8.1
-	github.com/prometheus/client_golang v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.3
 	// CVE-2020-14040
 	golang.org/x/text v0.3.3 // indirect

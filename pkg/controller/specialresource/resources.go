@@ -91,7 +91,15 @@ func cacheNodes(r *ReconcileSpecialResource, force bool) (*unstructured.Unstruct
 	node.list.SetKind("NodeList")
 
 	opts := &client.ListOptions{}
-	opts.SetLabelSelector(r.specialresource.Spec.Node.Selector + "=true")
+
+	// Only filter if we have a selector set, otherwise zero nodes will be
+	// returned and no labels can be extracted. Set the default worker label
+	// otherwise.
+	if len(r.specialresource.Spec.Node.Selector) > 0 {
+		opts.SetLabelSelector(r.specialresource.Spec.Node.Selector + "=true")
+	} else {
+		opts.SetLabelSelector("node-role.kubernetes.io/worker=")
+	}
 
 	err := r.client.List(context.TODO(), opts, node.list)
 	if err != nil {
@@ -303,9 +311,11 @@ func CRUD(obj *unstructured.Unstructured, r *ReconcileSpecialResource) error {
 	if err != nil {
 		return errs.Wrap(err, "Unexpected error")
 	}
-
+	// Not updating Pod because we can only update image and some other
+	// specific minor fields.
+	//
 	// ServiceAccounts cannot be updated, maybe delete and create?
-	if obj.GetKind() == "ServiceAccount" {
+	if obj.GetKind() == "ServiceAccount" || obj.GetKind() == "Pod" {
 		logger.Info("TODO: Found, not updating, does not work, why? Secret accumulation?")
 		return nil
 	}
