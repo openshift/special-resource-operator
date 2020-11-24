@@ -1,47 +1,24 @@
 module github.com/openshift-psap/special-resource-operator
 
+go 1.14
+
 require (
-	github.com/coreos/prometheus-operator v0.29.0
-	github.com/docker/go-connections v0.4.0 // indirect
-	github.com/docker/go-metrics v0.0.1 // indirect
-	github.com/docker/go-units v0.4.0 // indirect
-	github.com/ghodss/yaml v1.0.0
-	github.com/go-openapi/spec v0.19.0
-	github.com/opencontainers/image-spec v1.0.1 // indirect
-	github.com/openshift/api v0.0.0-20190508214137-81d064c11ff2
-	github.com/openshift/client-go v0.0.0-20190412095722-0255926f5393
-	github.com/operator-framework/operator-sdk v0.10.1-0.20190916192541-244ae8692d2d
-	github.com/pkg/errors v0.8.1
-	github.com/spf13/pflag v1.0.3
-	// CVE-2020-14040
-	golang.org/x/text v0.3.3 // indirect
-	k8s.io/api v0.0.0-20190612125737-db0771252981
-	k8s.io/apimachinery v0.0.0-20190612125636-6a5db36e93ad
-	k8s.io/client-go v11.0.0+incompatible
-	k8s.io/kube-openapi v0.0.0-20190603182131-db7b694dc208
-	sigs.k8s.io/controller-runtime v0.1.12
-	sigs.k8s.io/controller-tools v0.1.10
-	sigs.k8s.io/yaml v1.1.0
+	github.com/go-logr/logr v0.2.1
+	github.com/google/gofuzz v1.2.0 // indirect
+	github.com/onsi/ginkgo v1.12.1
+	github.com/onsi/gomega v1.10.1
+	github.com/openshift/api v0.0.0-20201005153912-821561a7f2a2
+	github.com/openshift/client-go v0.0.0-20200827190008-3062137373b5
+	github.com/openshift/cluster-node-tuning-operator v0.0.0-20201026145914-c8b2ed8012aa // indirect
+	github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible // indirect
+	github.com/pkg/errors v0.9.1
+	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.42.1
+	github.com/prometheus/common v0.14.0 // indirect
+	go4.org v0.0.0-20200411211856-f5505b9728dd // indirect
+	golang.org/x/net v0.0.0-20201009032441-dbdefad45b89 // indirect
+	k8s.io/api v0.19.2
+	k8s.io/apimachinery v0.19.2
+	k8s.io/client-go v0.19.0
+	sigs.k8s.io/controller-runtime v0.6.3
+	sigs.k8s.io/yaml v1.2.0
 )
-
-// Pinned to kubernetes-1.13.4
-replace (
-	k8s.io/api => k8s.io/api v0.0.0-20190222213804-5cb15d344471
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.0.0-20190228180357-d002e88f6236
-	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20190221213512-86fb29eff628
-	k8s.io/client-go => k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4
-)
-
-replace (
-	github.com/coreos/prometheus-operator => github.com/coreos/prometheus-operator v0.29.0
-	// Pinned to v2.9.2 (kubernetes-1.13.1) so https://proxy.golang.org can
-	// resolve it correctly.
-	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.0.0-20190424153033-d3245f150225
-	k8s.io/kube-state-metrics => k8s.io/kube-state-metrics v1.6.0
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.1.12
-	sigs.k8s.io/controller-tools => sigs.k8s.io/controller-tools v0.1.11-0.20190411181648-9d55346c2bde
-)
-
-replace github.com/operator-framework/operator-sdk => github.com/operator-framework/operator-sdk v0.10.0
-
-go 1.13

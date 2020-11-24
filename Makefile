@@ -1,99 +1,152 @@
-SPECIALRESOURCE  ?= nvidia-gpu
-
+SPECIALRESOURCE  ?= driver-container-base
+NAMESPACE        ?= openshift-sro
+PULLPOLICY       ?= IfNotPresent
 REGISTRY         ?= quay.io
 ORG              ?= openshift-psap
 TAG              ?= $(shell git branch | grep \* | cut -d ' ' -f2)
 IMAGE            ?= $(REGISTRY)/$(ORG)/special-resource-operator:$(TAG)
-NAMESPACE        ?= openshift-sro
-PULLPOLICY       ?= IfNotPresent
-TEMPLATE_CMD      = sed 's+REPLACE_IMAGE+$(IMAGE)+g; s+REPLACE_NAMESPACE+$(NAMESPACE)+g; s+Always+$(PULLPOLICY)+; s+REPLACE_SPECIALRESOURCE+$(SPECIALRESOURCE)+'
 
-DEPLOY_NAMESPACE  = namespace.yaml
-DEPLOY_OBJECTS    = service_account.yaml role.yaml role_binding.yaml operator.yaml
-DEPLOY_CRD        = crds/sro.openshift.io_specialresources_crd.yaml 
+export PATH := go/bin:$(PATH)
+include config/recipes/Makefile
 
-PACKAGE           = github.com/openshift-psap/special-resource-operator
-MAIN_PACKAGE      = $(PACKAGE)/cmd/manager
-DOCKERFILE        = Dockerfile
-ENVVAR            = GOOS=linux CGO_ENABLED=0
-GOOS              = linux
-GO111MODULE       = auto
-GO_BUILD_RECIPE   = GO111MODULE=$(GO111MODULE) GOOS=$(GOOS) go build -mod=vendor -o $(BIN) $(MAIN_PACKAGE)
+verify: fmt
+unit: 
+	@echo "##################### TODO UNIT TEST"
 
-TEST_RESOURCES  = $(shell mktemp -d)/test-init.yaml
-
-BIN=$(lastword $(subst /, ,$(PACKAGE)))
-
-GOFMT_CHECK=$(shell find . -not \( \( -wholename './.*' -o -wholename '*/vendor/*' \) -prune \) -name '*.go' | sort -u | xargs gofmt -s -l)
-
-all: build
-
-build:
-	$(GO_BUILD_RECIPE)
-
-test: verify
-	go test ./cmd/... ./pkg/... -coverprofile cover.out
-
-test-e2e: 
-	@$(TEMPLATE_CMD) manifests/service_account.yaml > $(TEST_RESOURCES)
-	echo -e "\n---\n" >> $(TEST_RESOURCES)
-	@$(TEMPLATE_CMD) manifests/role.yaml >> $(TEST_RESOURCES)
-	echo -e "\n---\n" >> $(TEST_RESOURCES)
-	@$(TEMPLATE_CMD) manifests/role_binding.yaml >> $(TEST_RESOURCES)
-	echo -e "\n---\n" >> $(TEST_RESOURCES)
-	@$(TEMPLATE_CMD) manifests/operator.yaml >> $(TEST_RESOURCES)
-
-	go test -v ./test/e2e/... -root $(PWD) -kubeconfig=$(KUBECONFIG) -tags e2e  -globalMan $(DEPLOY_CRD) -namespacedMan $(TEST_RESOURCES)
-
-$(DEPLOY_CRD):
-	@$(TEMPLATE_CMD) deploy/$@ | kubectl apply -f -
-
-deploy-crd: $(DEPLOY_CRD) 
-	@sleep 1 
-
-$(DEPLOY_NAMESPACE): deploy-crd 
-	@$(TEMPLATE_CMD) deploy/$@ | kubectl apply -f -
+test-e2e:
+	for d in basic; do \
+	  KUBERNETES_CONFIG="$(KUBECONFIG)" go test -v -timeout 40m ./test/e2e/$$d -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit; \
+	done
 
 
-deploy-objects: deploy-crd
-	@for obj in $(DEPLOY_OBJECTS); do               \
-		$(TEMPLATE_CMD) deploy/$$obj | kubectl apply -f - ; \
-	done 
+# Current Operator version
+VERSION ?= v0.0.1
+# Default bundle image tag
+BUNDLE_IMG ?= controller-bundle:$(VERSION)
+# Options for 'bundle-build'
+ifneq ($(origin CHANNELS), undefined)
+BUNDLE_CHANNELS := --channels=$(CHANNELS)
+endif
+ifneq ($(origin DEFAULT_CHANNEL), undefined)
+BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
+endif
+BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
-include recipes/$(SPECIALRESOURCE)/config/Makefile
+# Image URL to use all building/pushing image targets
+IMG ?= $(IMAGE)
+# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
+CRD_OPTIONS ?= "crd:crdVersions=v1,trivialVersions=true"
 
-specialresource: $(SPECIALRESOURCE) 
-
-deploy: $(DEPLOY_NAMESPACE) deploy-objects 
-
-undeploy: 
-	@for obj in $(DEPLOY_CRD) $(DEPLOY_OBJECTS) $(DEPLOY_NAMESPACE); do  \
-		$(TEMPLATE_CMD) deploy/$$obj | kubectl delete -f - 2>/dev/null ; \
-	done | true
-
-verify:	verify-gofmt
-
-verify-gofmt:
-ifeq (, $(GOFMT_CHECK))
-	@echo "verify-gofmt: OK"
+# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
+ifeq (,$(shell go env GOBIN))
+GOBIN=$(shell go env GOPATH)/bin
 else
-	@echo "verify-gofmt: ERROR: gofmt failed on the following files:"
-	@echo "$(GOFMT_CHECK)"
-	@echo ""
-	@echo "For details, run: gofmt -d -s $(GOFMT_CHECK)"
-	@echo ""
-	@exit 1
+GOBIN=$(shell go env GOBIN)
 endif
 
-clean:
-	go clean
-	rm -f $(BIN)
+# GENERATED all: manager
+all: $(SPECIALRESOURCE)
 
-local-image:
-	@rm -f special-resource-operator
-	podman build --no-cache -t $(IMAGE) -f $(DOCKERFILE) .
 
+
+# Run tests
+test: # generate fmt vet manifests
+	go test ./... -coverprofile cover.out
+
+# Build manager binary
+manager: generate fmt vet
+	go build -mod=vendor -o bin/manager main.go
+
+# Run against the configured Kubernetes cluster in ~/.kube/config
+run: generate fmt vet manifests
+	go run -mod=vendor ./main.go
+
+# Install CRDs into a cluster
+install: manifests kustomize
+	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+
+# Uninstall CRDs from a cluster
+uninstall: manifests kustomize
+	$(KUSTOMIZE) build config/crd | kubectl delete -f -
+
+# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+deploy: manifests kustomize
+	# TODO kustomize cannot set name of namespace according to settings, hack TODO
+	cd config/namespace && sed -i 's/name: .*/name: ${NAMESPACE}/g' namespace.yaml
+	cd config/namespace && $(KUSTOMIZE) edit set namespace ${NAMESPACE}
+	#cd config/default && $(KUSTOMIZE) edit set namespace ${NAMESPACE}
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/namespace | kubectl apply -f -
+
+undeploy: kustomize
+	$(KUSTOMIZE) build config/default | kubectl delete -f -
+
+
+# Generate manifests e.g. CRD, RBAC etc.
+manifests: controller-gen
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+
+# Run go fmt against code
+fmt:
+	go fmt ./...
+
+# Run go vet against code
+vet:
+	go vet --mod=vendor ./...
+
+# Generate code
+generate: controller-gen
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+# Build the docker image
+local-image-build: test
+	podman build . -t ${IMG}
+
+# Push the docker image
 local-image-push:
-	podman push $(IMAGE) 
+	podman push ${IMG}
 
-.PHONY: all build generate verify verify-gofmt clean test test-e2e local-image local-image-push $(DEPLOY_CRDS) grafana
+# find or download controller-gen
+# download controller-gen if necessary
+controller-gen:
+ifeq (, $(shell which controller-gen))
+	@{ \
+	set -e ;\
+	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$CONTROLLER_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0 ;\
+	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+	}
+CONTROLLER_GEN=$(GOBIN)/controller-gen
+else
+CONTROLLER_GEN=$(shell which controller-gen)
+endif
+
+kustomize:
+ifeq (, $(shell which kustomize))
+	@{ \
+	set -e ;\
+	KUSTOMIZE_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$KUSTOMIZE_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get sigs.k8s.io/kustomize/kustomize/v3@v3.5.4 ;\
+	rm -rf $$KUSTOMIZE_GEN_TMP_DIR ;\
+	}
+KUSTOMIZE=$(GOBIN)/kustomize
+else
+KUSTOMIZE=$(shell which kustomize)
+endif
+
+# Generate bundle manifests and metadata, then validate generated files.
+.PHONY: bundle
+bundle: manifests
+	operator-sdk generate kustomize manifests -q
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	operator-sdk bundle validate ./bundle
+
+# Build the bundle image.
+.PHONY: bundle-build
+bundle-build:
+	podman build -f bundle.Dockerfile -t $(BUNDLE_IMG) .

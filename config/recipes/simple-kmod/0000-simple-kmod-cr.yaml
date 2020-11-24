@@ -1,0 +1,22 @@
+apiVersion: sro.openshift.io/v1beta1
+kind: SpecialResource
+metadata:
+  name: simple-kmod
+spec: 
+  metadata:
+    namespace: simple-kmod
+  driverContainer:
+    source:
+      git:
+        ref: "master"
+        uri: "https://github.com/openshift-psap/kvc-simple-kmod.git"
+    buildArgs:
+    - name: "KVER"
+      value: "{{.KernelVersion}}"
+    - name: "KMODVER"
+      value: "SRO"
+
+  dependsOn: 
+  - name: "driver-container-base"
+    imageReference: "true"
+    

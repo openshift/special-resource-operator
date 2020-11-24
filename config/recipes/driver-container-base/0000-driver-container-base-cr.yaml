@@ -1,0 +1,13 @@
+apiVersion: sro.openshift.io/v1beta1
+kind: SpecialResource
+metadata:
+  name: driver-container-base
+spec:
+  metadata:
+    namespace: driver-container-base
+  driverContainer:
+    source:
+      git:
+        ref: "master"
+        uri: "https://github.com/kmods-via-containers/kmods-via-containers"
+    

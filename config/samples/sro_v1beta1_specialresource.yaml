@@ -1,0 +1,7 @@
+apiVersion: sro.openshift.io/v1beta1
+kind: SpecialResource
+metadata:
+  name: specialresource-sample
+spec:
+  # Add fields here
+  foo: bar

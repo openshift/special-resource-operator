@@ -1,0 +1,24 @@
+# permissions for end users to edit specialresources.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: specialresource-editor-role
+rules:
+- apiGroups:
+  - sro.openshift.io
+  resources:
+  - specialresources
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sro.openshift.io
+  resources:
+  - specialresources/status
+  verbs:
+  - get

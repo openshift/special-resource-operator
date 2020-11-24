@@ -1,0 +1,88 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  labels:
+    app: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
+spec: {}
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  labels:
+    app: {{.SpecialResource.Name}}-{{.GroupName.DriverBuild}} 
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverBuild}}
+  annotations:
+    specialresource.openshift.io/wait: "true"
+    specialresource.openshift.io/driver-container-vendor: simple-kmod
+spec:
+  nodeSelector:
+    node-role.kubernetes.io/worker: ""
+#    {{.SpecialResource.Spec.Node.Selector}}: "true"
+  runPolicy: "Serial"
+  triggers:
+    - type: "ConfigChange"
+    - type: "ImageChange"
+  source:
+    git:
+      ref: {{.SpecialResource.Spec.DriverContainer.Source.Git.Ref}}
+      uri: {{.SpecialResource.Spec.DriverContainer.Source.Git.Uri}}
+#    contextDir: {{.OperatingSystemMajor}}
+    type: Git
+    dockerfile: |
+      FROM image-registry.openshift-image-registry.svc:5000/driver-container-base/driver-container-base:v{{.KernelVersion}}
+      MAINTAINER "coreos@lists.fedoraproject.org"
+      WORKDIR /build/
+
+      # First update the base container to latest versions of everything
+      # This is done in the driver-container-base
+      # RUN yum update -y --setopt=install_weak_deps=False --best
+
+      RUN yum -y install git --setopt=install_weak_deps=False --best
+
+      # Expecting kmod software version as an input to the build
+      ARG KMODVER
+
+      # Grab the software from upstream
+      RUN git clone https://github.com/kmods-via-containers/simple-kmod.git
+      WORKDIR simple-kmod 
+
+      # Expecting kernel version as an input to the build
+      ARG KVER
+
+      # Note, your host must have access to repos where kernel developement
+      # packages can be installed. If it doesn't the following steps will
+      # fail
+
+      # Prep and build the module
+      RUN yum install -y make sudo --setopt=install_weak_deps=False --best
+      RUN make buildprep KVER=${KVER} KMODVER=${KMODVER}
+      RUN make all       KVER=${KVER} KMODVER=${KMODVER}
+      RUN make install   KVER=${KVER} KMODVER=${KMODVER}
+
+
+      # Add the helper tools
+      WORKDIR /root/kvc-simple-kmod
+      ADD Makefile . 
+      ADD simple-kmod-lib.sh . 
+      ADD simple-kmod-wrapper.sh . 
+      ADD simple-kmod.conf .
+      RUN mkdir -p /usr/lib/kvc/
+      RUN mkdir -p /etc/kvc/
+      RUN make install
+
+  strategy:
+    dockerStrategy:
+      from:
+        kind: "ImageStreamTag"
+        name: "driver-container-base:v{{.KernelVersion}}"
+        namespace: "driver-container-base"
+      buildArgs: 
+        {{ range .SpecialResource.Spec.DriverContainer.BuildArgs }}
+        - name: {{.Name}}
+          value: {{.Value}}
+        {{end}}
+  output:
+    to:
+      kind: ImageStreamTag
+      name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}:v{{.KernelVersion}}
