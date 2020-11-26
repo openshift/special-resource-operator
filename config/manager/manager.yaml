@@ -1,9 +1,10 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    control-plane: controller-manager
-  name: system
+# PLACEHODLER UNTIL KUSTOMIZE CAN UPDATE NAMESPACES
+#apiVersion: v1
+#kind: Namespace
+#metadata:
+#  labels:
+#    control-plane: controller-manager
+#  name: system
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -23,25 +24,29 @@ spec:
         control-plane: controller-manager
     spec:
       containers:
-      - imagePullPolicy: Always # TODO 
-        env:
-          - name: OPERATOR_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
-        command:
-        - /manager
-        args:
-        - "--enable-leader-election"
-        - "--zap-encoder=console"
-        - "--zap-log-level=debug"
-        image: controller:latest
-        name: manager
-#        resources:
-#          limits:
-#            cpu: 200m
-#            memory: 60Mi
-#          requests:
-#            cpu: 200m
-#            memory: 40Mi
+        - imagePullPolicy: Always # TODO
+          env:
+            - name: OPERATOR_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          command:
+            - /manager
+          args:
+            - "--enable-leader-election"
+            - "--zap-encoder=console"
+            - "--zap-log-level=debug"
+          image: controller:latest
+          name: manager
+          resources:
+            limits:
+              cpu: 200m
+              memory: 100Mi
+            requests:
+              cpu: 200m
+              memory: 100Mi
+      volumes:
+        - name: special-resource-operator-tls
+          secret:
+            secretName: special-resource-operator-tls
       terminationGracePeriodSeconds: 10
