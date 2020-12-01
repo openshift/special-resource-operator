@@ -1,0 +1,285 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  labels:
+    app: {{.SpecialResource.Name}}
+  name: {{.SpecialResource.Name}}
+spec: {}
+--- 
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.SpecialResource.Name}}-buildah-helper
+data:
+  buildah-helper.sh: |-
+    #!/bin/bash -x 
+
+    CNT=
+    MNT=
+
+    MOUNT_MACHINE_OS_CONTENT() { export MOC=$(buildah --authfile /var/lib/kubelet/config.json  --storage-driver vfs from {{.OSImageURL}}); export MOCMNT=$(buildah --storage-driver vfs mount $MOC); }
+    UMOUNT_MACHINE_OS_CONTENT() { buildah --storage-driver vfs umount $MOC;  }
+
+
+    FROM() { export CNT=$(buildah --storage-driver vfs from $1); }
+
+    MOUNT() { export MNT=$(buildah --storage-driver vfs mount $CNT); }
+    UMOUNT() { buildah --storage-driver vfs umount $CNT; }
+
+    ENV() { buildah config --env $@; }
+    RUN() { buildah --storage-driver vfs --isolation chroot run --user 0 $CNT -- $@; }
+    RUNV() { buildah --storage-driver vfs --isolation chroot run --volume /etc/pki/entitlement-host:/etc/pki/entitlement:z --volume ${MOCMNT}:/extensions:z --user 0 $CNT -- $@; }
+    COPY() { buildah --storage-driver vfs copy $CNT $@; }
+    COMMIT() { buildah --storage-driver vfs commit $CNT $1; }
+    ENTRYPOINT() { buildah config --entrypoint $1 $CNT; }
+    WORKINGDIR() { buildah --storage-driver vfs config --workingdir $1 $CNT; }
+    PUSH() { buildah --storage-driver vfs push --tls-verify=false --authfile /root/.dockercfg  $@; }
+
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.SpecialResource.Name}}-install-dependencies
+data:
+  install-dependencies.sh: |-
+    #!/bin/bash -x
+    
+    set -e 
+
+    kernel_version=$(uname -r)
+
+    # Adding the full name here so we can use one function 
+    # to install from EUS, base and machine-os-content (MOC)
+    kernel_rpms=( 
+      kernel-core-${kernel_version}
+      kernel-devel-${kernel_version}
+      kernel-headers-${kernel_version}
+      kernel-modules-${kernel_version}
+      kernel-modules-extra-${kernel_version}
+    )
+
+    function enable_repo() {
+      yum config-manager --set-enabled "${1}" || true
+      if ! dnf makecache; then
+        yum config-manager --set-disabled "${1}"
+        echo "${1} not enabled"
+      fi
+      echo "${1} enabled"
+    }
+
+    function install_kernel_rpms() {
+      for rpm in "$@"
+      do 
+        echo "Installing ${rpm}"
+        if ! yum -y --best install ${rpm}; then
+          echo "Cannot install ${rpm}, aborting EUS installation"
+          return 1
+        fi
+      done
+    }
+
+    echo "Setting the correct releasever for all following yum comamnds..."
+    echo {{.OperatingSystemDecimal}} > /etc/yum/vars/releasever
+
+    echo "Setting install_weak_deps=False globally for yum..."
+    yum config-manager --setopt=install_weak_deps=False --save
+
+    echo "Enabling RHOCP and EUS RPM repos..."
+    enable_repo rhocp-{{.ClusterVersionMajorMinor}}-for-rhel-8-x86_64-rpms
+    enable_repo rhel-8-for-x86_64-baseos-eus-rpms || true
+    # PLACEHOLDER FOR RT KERNEL -- enable_repo rhel-8-for-x86_64-nfv-rpms
+
+    # First update the base container to latest versions of everything
+    yum update -y 
+
+    # Additional packages that are mandatory for driver-containers
+    yum -y --best install elfutils-libelf-devel kmod binutils kabi-dw kernel-abi-whitelists
+
+    # Try to enable EUS and try to install kernel-devel and kernel-headers RPMs
+    if install_kernel_rpms "${kernel_rpms[@]}"; then
+      echo "EUS - kernel rpms ${kernel_rpms[@]} installed"
+      exit 0
+    fi
+
+    # If EUS fails get kernel-devel and kernel-headers from machine-os-content
+    echo "EUS and/or rhocp-{{.ClusterVersionMajorMinor}} FAILED - installing from machine-os-content"
+
+    # Installation order is important leave this as is 
+    kernel_rpms=(
+      $(find /extensions -name kernel-core-${UNAME}.rpm -exec ls {} \; | tail -n1)
+      $(find /extensions -name kernel-devel-${UNAME}.rpm -exec ls {} \; | tail -n1)
+      $(find /extensions -name kernel-headers-${UNAME}.rpm -exec ls {} \; | tail -n1) 
+      $(find /extensions -name kernel-modules-${UNAME}.rpm -exec ls {} \; | tail -n1)
+      $(find /extensions -name kernel-modules-extra-${UNAME}.rpm -exec ls {} \; | tail -n1)
+    )
+    # On a 4.5 cluster we only have a subset of these available
+    # If they are empty yum will fail anyway, so I do not see the purpose of checking ! -z ...
+    # [ ! -z $KERNEL_DEVEL ]
+    # [ ! -z $KERNEL_HEADERS ]
+    # [ ! -z $KERNEL_CORE ]
+    # [ ! -z $KERNEL_MODULES ]
+    # [ ! -z $KERNEL_MODULES_EXTRA ]
+
+    if install_kernel_rpms "${kernel_rpms[@]}"; then
+      echo "MOC - kernel rpms ${kernel_rpms[@]} installed"
+      exit 0
+    fi
+
+    # Install realtime kernel TODO
+    ls /extensions/kernel-rt*
+
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.SpecialResource.Name}}-entrypoint
+data:
+  entrypoint.sh: |-
+    #!/bin/bash -x 
+    set -e
+    cd /tmp
+
+    yum -y install buildah git make --setopt=install_weak_deps=False
+
+    git clone {{.SpecialResource.Spec.DriverContainer.Source.Git.Uri}}
+
+    source /bin/buildah-helper.sh
+
+    UNAME=$(uname -r)
+    SCRIPT_NAME=install-dependencies.sh
+    TAG={{.SpecialResource.Spec.Namespace}}/{{.SpecialResource.Name}}:v${UNAME}
+
+   
+    # --------- Container instructions START ----------------------------------
+ 
+    MOUNT_MACHINE_OS_CONTENT
+
+    FROM registry.access.redhat.com/ubi8/ubi
+
+    WORKINGDIR /tmp
+ 
+    COPY /bin/${SCRIPT_NAME} .
+    RUNV bash -c $(pwd)/${SCRIPT_NAME}
+ 
+    # Install directly into the chroot, this way we do not have to install
+    # additinoal packages like git into the container to install from a git repo
+    # The deps are resolved by the outer image. 
+    MOUNT
+    cd kmods-via-containers
+    make install DESTDIR=${MNT}/usr/local CONFDIR=${MNT}/etc/
+    UMOUNT
+
+    COMMIT ${TAG}
+    PUSH   ${TAG} image-registry.openshift-image-registry.svc:5000/${TAG}
+
+    UMOUNT_MACHINE_OS_CONTENT
+
+    # --------- Container instructions END ------------------------------------
+
+    # startupprobe readonlyfilesystem would prevent writing to /
+    touch /tmp/ready
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+rules:
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+  resourceNames:
+  - hostaccess
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+subjects:
+- kind: ServiceAccount
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+userNames:
+- system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  annotations: 
+    specialresource.openshift.io/proxy: "true"
+    specialresource.openshift.io/wait: "true"
+    specialresource.openshift.io/wait-for-logs: "touch /tmp/ready"
+
+  labels:
+    app: {{.SpecialResource.Name}}
+  name: {{.SpecialResource.Name}}
+spec:
+  #serviceAccount: builder
+  #serviceAccountName: builder
+  serviceAccount: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  serviceAccountName: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  restartPolicy: OnFailure
+  containers:
+  - name: {{.SpecialResource.Name}}-ctr
+    image: registry.access.redhat.com/ubi8:latest
+    command: [/bin/entrypoint.sh]
+    securityContext:
+      seLinuxOptions:
+        type: spc_t
+    volumeMounts:
+        - name: entrypoint
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+        - name: install-dependencies
+          mountPath: /bin/install-dependencies.sh
+          readOnly: true
+          subPath: install-dependencies.sh
+        - name: buildah-helper
+          mountPath: /bin/buildah-helper.sh
+          readOnly: true
+          subPath: buildah-helper.sh
+        - name: authfile
+          mountPath: /var/lib/kubelet
+          readOnly: true
+        - name: dockercfg
+          mountPath: /root
+          readOnly: true
+    startupProbe:
+      exec:
+        command: [sh, -c, 'ls /tmp/ready']
+      initialDelaySeconds: 10
+      failureThreshold: 60
+      successThreshold: 1
+      periodSeconds: 5
+  volumes:
+    - name: dockercfg
+      secret:
+        secretName: {{.PushSecretName}}
+    - name: authfile
+      hostPath:
+        path: /var/lib/kubelet
+    - name: entrypoint
+      configMap:
+        defaultMode: 0700
+        name: {{.SpecialResource.Name}}-entrypoint
+    - name: install-dependencies
+      configMap:
+        defaultMode: 0700
+        name: {{.SpecialResource.Name}}-install-dependencies
+    - name: buildah-helper
+      configMap:
+        defaultMode: 0700
+        name: {{.SpecialResource.Name}}-buildah-helper

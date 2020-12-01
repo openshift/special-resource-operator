@@ -1,0 +1,136 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.SpecialResource.Name}}-driver-validation-entrypoint
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    NUM_GPUS=$(nvidia-smi -L | wc -l)
+    if [ $NUM_GPUS -eq 0 ]; then
+      echo "ERROR No GPUs found"
+      exit 1
+    fi
+
+    cd /usr/local/cuda-10.2/cuda-samples/Samples/vectorAdd_nvrtc
+    ./vectorAdd_nvrtc
+
+    if [ ! $? -eq 0 ]; then
+      exit 1
+    fi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
+rules:
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+  resourceNames:
+  - privileged
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
+subjects:
+- kind: ServiceAccount
+  name: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
+userNames:
+- system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
+  annotations:
+    openshift.io/scc: hostmount-anyuid
+    specialresource.openshift.io/state: "device-plugin"
+    specialresource.openshift.io/wait: "true"
+spec:
+  selector:
+    matchLabels:
+      app: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
+  template:
+    metadata:
+      # Mark this pod as a critical add-on; when enabled, the critical add-on scheduler
+      # reserves resources for critical add-on pods so that they can be rescheduled after
+      # a failure.  This annotation works in tandem with the toleration below.
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+      labels:
+        app: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: {{.StateName.RuntimeEnablement}}-{{.SpecialResource.Name}}
+                operator: In 
+                values:
+                - ready 
+      tolerations:
+      - operator: Exists
+      # Allow this pod to be rescheduled while the node is in "critical add-ons only" mode.
+      # This, along with the annotation above marks this pod as a critical add-on.
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+      serviceAccount: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}
+      initContainers:
+      - image: nvidia/samples:cuda10.2-vectorAdd
+        imagePullPolicy: Always
+        name: {{.SpecialResource.Name}}-runtime-validation
+        command: ["/bin/entrypoint.sh"]
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        volumeMounts:
+        - name: init-entrypoint
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+      containers:
+      - image: nvidia/k8s-device-plugin:v0.7.0-ubi8
+        name: {{.SpecialResource.Name}}-{{.GroupName.DevicePlugin}}-ctr
+        command: ["nvidia-device-plugin"]
+        args:
+        - "--{{(index .SpecialResource.Spec.Environment 0).Key}}={{(index .SpecialResource.Spec.Environment 0).Value}}"
+        - "--pass-device-specs=false"
+        - "--fail-on-init-error=true"
+        - "--device-list-strategy=envvar"
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - name: device-plugin-{{.SpecialResource.Name}}
+            mountPath: /var/lib/kubelet/device-plugins
+      volumes:
+        - name: device-plugin-{{.SpecialResource.Name}}
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: init-entrypoint
+          configMap:
+            defaultMode: 0700
+            name: {{.SpecialResource.Name}}-driver-validation-entrypoint
+
+      nodeSelector:
+        node-role.kubernetes.io/worker: ""
+        {{.SpecialResource.Spec.Node.Selector}}: "true"

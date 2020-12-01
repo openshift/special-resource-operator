@@ -1,0 +1,13 @@
+namespace: simple-kmod
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+- files:
+  - 0000-buildconfig..yaml
+  - 1000-driver-container.yaml
+  name: simple-kmod

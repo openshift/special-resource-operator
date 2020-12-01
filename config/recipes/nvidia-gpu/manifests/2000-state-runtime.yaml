@@ -1,0 +1,168 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
+rules:
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+  resourceNames:
+  - privileged
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
+subjects:
+- kind: ServiceAccount
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
+userNames:
+- system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}-entrypoint
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+
+    chcon -t container_file_t /run/nvidia/driver/dev/*
+
+    /work/nvidia-toolkit  /usr/local/nvidia
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}-init-entrypoint
+data:
+  entrypoint.sh: |-
+    #!/bin/bash
+    lsmod | grep nvidia
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
+  annotations:
+    specialresource.openshift.io/state: "runtime-enablement"
+    specialresource.openshift.io/wait: "true"
+spec:
+  selector:
+    matchLabels:
+      app: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
+  template:
+    metadata:
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ""
+      labels:
+        app: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: {{.StateName.DriverContainer}}-{{.SpecialResource.Name}}
+                operator: In 
+                values:
+                - ready 
+      initContainers: 
+      - image: quay.io/openshift-psap/ubi8-kmod
+        name: {{.SpecialResource.Name}}-driver-validation
+        command: ["/bin/entrypoint.sh"]
+        volumeMounts:
+        - name: init-entrypoint
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+
+      containers:
+      - image: nvidia/container-toolkit:1.3.0-ubi8 
+        command: ["/bin/entrypoint.sh"]
+        env:
+        - name: RUNTIME_ARGS
+        - name: RUNTIME
+          value: crio
+        imagePullPolicy: IfNotPresent
+        name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}-ctr
+        resources: {}
+        securityContext:
+          privileged: true
+          seLinuxOptions:
+            level: s0
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - name: entrypoint
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+        - mountPath: /var/run/docker.sock
+          name: docker-socket
+        - mountPath: /run/nvidia
+          mountPropagation: Bidirectional
+          name: nvidia-install-path
+        - mountPath: /etc/docker
+          name: docker-config
+        - mountPath: /usr/share/containers/oci/hooks.d
+          name: crio-hooks
+        - name: nvidia-local
+          mountPath: /usr/local/nvidia
+      hostPID: true
+      nodeSelector:
+        {{.SpecialResource.Spec.Node.Selector}}: "true"
+      restartPolicy: Always
+      securityContext: {}
+      serviceAccount: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
+      serviceAccountName: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - effect: NoSchedule
+        key: nvidia.com/gpu
+        operator: Exists
+      volumes:
+      - name: entrypoint
+        configMap:
+          defaultMode: 0700
+          name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}-entrypoint
+      - name: init-entrypoint
+        configMap:
+          defaultMode: 0700
+          name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}-init-entrypoint
+      - hostPath:
+          path: /var/run/docker.sock
+          type: ""
+        name: docker-socket
+      - hostPath:
+          path: /run/nvidia
+          type: ""
+        name: nvidia-install-path
+      - hostPath:
+          path: /etc/docker
+          type: ""
+        name: docker-config
+      - hostPath:
+          path: /usr/local/nvidia
+          type: ""
+        name: nvidia-local
+      - hostPath:
+          path: /etc/containers/oci/hooks.d
+          type: ""
+        name: crio-hooks
+

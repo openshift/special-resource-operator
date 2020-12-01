@@ -1,0 +1,18 @@
+namespace: nvidia-gpu
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+- files:
+  - 0000-state-driver-buildconfig.yaml
+  - 1000-state-driver.yaml
+  - 2000-state-runtime.yaml
+  - 4000-state-device-plugin.yaml
+  - 6000-state-device-monitoring.yaml
+  - 7000-state-device-grafana.yaml
+  - 8000-state-device-feature-discovery.yaml
+  name: nvidia-gpu

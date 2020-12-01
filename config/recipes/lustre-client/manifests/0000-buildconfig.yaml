@@ -1,0 +1,56 @@
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  labels:
+    app: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
+spec: {}
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  labels:
+    app: {{.SpecialResource.Name}}-{{.GroupName.DriverBuild}} 
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverBuild}}
+  annotations:
+    specialresource.openshift.io/wait: "true"
+    specialresource.openshift.io/driver-container-vendor: lustre-client
+spec:
+  nodeSelector:
+    node-role.kubernetes.io/worker: ""
+#    {{.SpecialResource.Spec.Node.Selector}}: "true"
+  runPolicy: "Serial"
+  triggers:
+    - type: "ConfigChange"
+    - type: "ImageChange"
+  source:
+    dockerfile: |
+      FROM image-registry.openshift-image-registry.svc:5000/driver-container-base/driver-container-base:v{{.KernelVersion}}
+      MAINTAINER "coreos@lists.fedoraproject.org"
+
+      ARG RELEASEVER
+
+      RUN yum -y install --releasever=${RELEASEVER} wget git --setopt=install_weak_deps=False --best
+
+      
+      RUN wget https://fsx-lustre-client-repo-public-keys.s3.amazonaws.com/fsx-rpm-public-key.asc -O /tmp/fsx-rpm-public-key.asc \
+          && rpm --import /tmp/fsx-rpm-public-key.asc \
+          && wget https://fsx-lustre-client-repo.s3.amazonaws.com/el/8/fsx-lustre-client.repo -O /etc/yum.repos.d/aws-fsx.repo
+
+      RUN yum -y install --releasever=${RELEASEVER} kmod-lustre-client lustre-client --setopt=install_weak_deps=False --best
+      
+  strategy:
+    dockerStrategy:
+      from:
+        kind: "ImageStreamTag"
+        name: "driver-container-base:v{{.KernelVersion}}"
+        namespace: "driver-container-base"
+      buildArgs: 
+        {{ range .SpecialResource.Spec.DriverContainer.BuildArgs }}
+        - name: {{.Name}}
+          value: "{{.Value}}"
+        {{end}}
+  output:
+    to:
+      kind: ImageStreamTag
+      name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}:v{{.KernelVersion}}
