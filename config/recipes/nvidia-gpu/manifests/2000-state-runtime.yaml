@@ -29,7 +29,7 @@ subjects:
 - kind: ServiceAccount
   name: {{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
 userNames:
-- system:serviceaccount:{{.SpecialResource.Spec.Metadata.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
+- system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.RuntimeEnablement}}
 ---
 apiVersion: v1
 kind: ConfigMap

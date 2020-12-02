@@ -149,7 +149,7 @@ func waitForBuild(obj *unstructured.Unstructured, r *SpecialResourceReconciler) 
 	builds.SetKind("build")
 
 	opts := []client.ListOption{
-		client.InNamespace(r.specialresource.Spec.Metadata.Namespace),
+		client.InNamespace(r.specialresource.Spec.Namespace),
 	}
 	if err := r.List(context.TODO(), builds, opts...); err != nil {
 		return errs.Wrap(err, "Could not get BuildList")
@@ -225,7 +225,7 @@ func waitForDaemonSetLogs(obj *unstructured.Unstructured, r *SpecialResourceReco
 	label["app"] = selector
 
 	opts := []client.ListOption{
-		client.InNamespace(r.specialresource.Spec.Metadata.Namespace),
+		client.InNamespace(r.specialresource.Spec.Namespace),
 		client.MatchingLabels(label),
 	}
 

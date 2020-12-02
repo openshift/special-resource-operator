@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: {{.SpecialResource.Spec.Metadata.Namespace}}
+  name: {{.SpecialResource.Spec.Namespace}}
   labels:
     openshift.io/cluster-monitoring: "true"
 ---
@@ -55,7 +55,7 @@ subjects:
 - kind: ServiceAccount
   name: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
 userNames:
-- system:serviceaccount:{{.SpecialResource.Spec.Metadata.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
+- system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -112,7 +112,7 @@ spec:
   jobLabel: app
   namespaceSelector:
     matchNames:
-    - {{.SpecialResource.Spec.Metadata.Namespace}}
+    - {{.SpecialResource.Spec.Namespace}}
   selector:
     matchLabels:
       app: {{.SpecialResource.Name}}-{{.GroupName.DeviceMonitoring}}

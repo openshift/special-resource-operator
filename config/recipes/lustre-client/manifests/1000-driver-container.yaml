@@ -29,7 +29,7 @@ subjects:
 - kind: ServiceAccount
   name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 userNames:
-- system:serviceaccount:{{.SpecialResource.Spec.Metadata.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
+- system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -107,7 +107,7 @@ seccompProfiles:
 supplementalGroups:
   type: RunAsAny
 users:
-- system:serviceaccount:{{.SpecialResource.Spec.Metadata.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+- system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 volumes:
 - '*'
 ---
@@ -141,7 +141,7 @@ spec:
       serviceAccountName: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 #      hostPID: true
       containers:
-      - image: image-registry.openshift-image-registry.svc:5000/{{.SpecialResource.Spec.Metadata.Namespace}}/{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}:v{{.KernelVersion}}
+      - image: image-registry.openshift-image-registry.svc:5000/{{.SpecialResource.Spec.Namespace}}/{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}:v{{.KernelVersion}}
         imagePullPolicy: Always
         name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
         command: ["/bin/entrypoint.sh"]

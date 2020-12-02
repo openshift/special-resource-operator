@@ -94,10 +94,10 @@ func checkForImagePullBackOff(obj *unstructured.Unstructured, r *SpecialResource
 	pods.SetAPIVersion("v1")
 	pods.SetKind("PodList")
 
-	log.Info("checkForImagePullBackOff get PodList from: " + r.specialresource.Spec.Metadata.Namespace)
+	log.Info("checkForImagePullBackOff get PodList from: " + r.specialresource.Spec.Namespace)
 
 	opts := []client.ListOption{
-		client.InNamespace(r.specialresource.Spec.Metadata.Namespace),
+		client.InNamespace(r.specialresource.Spec.Namespace),
 		client.MatchingLabels(find),
 	}
 

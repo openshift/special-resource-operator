@@ -181,8 +181,8 @@ spec:
                   - value
                   type: object
                 type: array
-              metadata:
-                type: object
+              namespace:
+                type: string
               node:
                 description: SpecialResourceNode defines the observed state of SpecialResource
                 properties:

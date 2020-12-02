@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: {{.SpecialResource.Name}}-{{.GroupName.CSIDriver}}-node
-  namespace: {{.SpecialResource.Spec.Metadata.Namespace}}
+  namespace: {{.SpecialResource.Spec.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -30,13 +30,13 @@ subjects:
 - kind: ServiceAccount
   name: {{.SpecialResource.Name}}-{{.GroupName.CSIDriver}}-node
 userNames:
-- system:serviceaccount:{{.SpecialResource.Spec.Metadata.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.CSIDriver}}-node
+- system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.CSIDriver}}-node
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: {{.SpecialResource.Name}}-{{.GroupName.CSIDriver}}-controller
-  namespace: {{.SpecialResource.Spec.Metadata.Namespace}}
+  namespace: {{.SpecialResource.Spec.Namespace}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -64,7 +64,7 @@ subjects:
 - kind: ServiceAccount
   name: {{.SpecialResource.Name}}-{{.GroupName.CSIDriver}}-controller
 userNames:
-- system:serviceaccount:{{.SpecialResource.Spec.Metadata.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.CSIDriver}}-controller
+- system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.CSIDriver}}-controller
 ---
 allowHostDirVolumePlugin: true
 allowHostIPC: false
@@ -96,7 +96,7 @@ seLinuxContext:
 supplementalGroups:
   type: RunAsAny
 users:
-- system:serviceaccount:{{.SpecialResource.Spec.Metadata.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.CSIDriver}}-controller
+- system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.CSIDriver}}-controller
 volumes:
 - configMap
 - downwardAPI
@@ -188,7 +188,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{.SpecialResource.Name}}-{{.GroupName.CSIDriver}}-controller
-  namespace: {{.SpecialResource.Spec.Metadata.Namespace}}
+  namespace: {{.SpecialResource.Spec.Namespace}}
 ---
 apiVersion: apps/v1
 kind: Deployment

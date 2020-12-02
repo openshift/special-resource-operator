@@ -47,43 +47,72 @@ data:
     
     set -e 
 
-    UNAME=$(uname -r)
+    kernel_version=$(uname -r)
+
+    # Adding the full name here so we can use one function 
+    # to install from EUS, base and MOC (machine-os-content)
+    kernel_rpms=( 
+      kernel-core-${kernel_version}
+      kernel-devel-${kernel_version}
+      kernel-headers-${kernel_version}
+      kernel-modules-${kernel_version}
+      kernel-modules-extra-${kernel_version}
+    )
+
+    function enable_repo() {
+      yum config-manager --set-enabled "${1}" || true
+      if ! dnf makecache; then
+        yum config-manager --set-disabled "${1}"
+        echo "${1} not enabled"
+      fi
+      echo "${1} enabled"
+    }
+
+    function install_kernel_rpms() {
+      for rpm in "$@"
+      do 
+        echo "Installing ${rpm}"
+        if ! yum -y --best install ${rpm}; then
+          echo "Cannot install ${rpm}, aborting EUS installation"
+          return 1
+        fi
+      done
+    }
+
+    echo "Setting the correct releasever for all following yum comamnds..."
+    echo {{.OperatingSystemDecimal}} > /etc/yum/vars/releasever
+
+    echo "Setting install_weak_deps=False globally for yum..."
+    yum config-manager --setopt=install_weak_deps=False --save
 
     echo "Enabling RHOCP and EUS RPM repos..."
-    yum config-manager --set-enabled rhocp-{{.ClusterVersionMajorMinor}}-for-rhel-8-x86_64-rpms || true
-    if ! yum makecache  --releasever={{.OperatingSystemDecimal}}; then 
-      yum config-manager --set-disabled rhocp-{{.ClusterVersionMajorMinor}}-for-rhel-8-x86_64-rpms 
-    fi 
-
-    yum config-manager --set-enabled rhel-8-for-x86_64-baseos-eus-rpms || true
-    if ! yum makecache  --releasever={{.OperatingSystemDecimal}}; then 
-      yum config-manager --set-disabled rhel-8-for-x86_64-baseos-eus-rpms
-    fi 
+    enable_repo rhocp-{{.ClusterVersionMajorMinor}}-for-rhel-8-x86_64-rpms
+    enable_repo rhel-8-for-x86_64-baseos-eus-rpms || true
+    # PLACEHOLDER FOR RT KERNEL -- enable_repo rhel-8-for-x86_64-nfv-rpms
 
     # First update the base container to latest versions of everything
-    yum update -y --releasever={{.OperatingSystemDecimal}}
+    yum update -y 
 
     # Additional packages that are mandatory for driver-containers
-    yum -y --releasever={{.OperatingSystemDecimal}} --setopt=install_weak_deps=False --best install elfutils-libelf-devel kmod binutils
+    yum -y --best install elfutils-libelf-devel kmod binutils
 
     # Try to enable EUS and try to install kernel-devel and kernel-headers RPMs
-    if yum -y --releasever={{.OperatingSystemDecimal}} --setopt=install_weak_deps=False --best install \
-      kernel-devel-${UNAME} kernel-headers-${UNAME} kernel-core-${UNAME} kernel-modules-${UNAME} \
-      kernel-modules-extra-${UNAME}
-    then
-      echo "EUS - kernel-devel kernel-headers kernel-core kernel-modules kernel-modules-extra installed"
+    if install_kernel_rpms "${kernel_rpms[@]}"; then
+      echo "EUS - kernel rpms ${kernel_rpms[@]} installed"
       exit 0
     fi
 
     # If EUS fails get kernel-devel and kernel-headers from machine-os-content
     echo "EUS and/or rhocp-{{.ClusterVersionMajorMinor}} FAILED - installing from machine-os-content"
 
-    KERNEL_DEVEL=$(find /extensions -name kernel-devel-${UNAME}.rpm -exec ls {} \; | tail -n1)
-    KERNEL_HEADERS=$(find /extensions -name kernel-headers-${UNAME}.rpm -exec ls {} \; | tail -n1) 
-    KERNEL_CORE=$(find /extensions -name kernel-core-${UNAME}.rpm -exec ls {} \; | tail -n1)
-    KERNEL_MODULES=$(find /extensions -name kernel-modules-${UNAME}.rpm -exec ls {} \; | tail -n1)
-    KERNEL_MODULES_EXTRA=$(find /extensions -name kernel-modules-extra-${UNAME}.rpm -exec ls {} \; | tail -n1)
-    
+    # Installation order is important leave this as is 
+    kernel_rpms=(
+      $(find /extensions -name kernel-core-${UNAME}.rpm -exec ls {} \; | tail -n1)
+      $(find /extensions -name kernel-devel-${UNAME}.rpm -exec ls {} \; | tail -n1)
+      $(find /extensions -name kernel-headers-${UNAME}.rpm -exec ls {} \; | tail -n1) 
+      $(find /extensions -name kernel-modules-${UNAME}.rpm -exec ls {} \; | tail -n1)
+      $(find /extensions -name kernel-modules-extra-${UNAME}.rpm -exec ls {} \; | tail -n1)
+    )
     # On a 4.5 cluster we only have a subset of these available
     # If they are empty yum will fail anyway, so I do not see the purpose of checking ! -z ...
     # [ ! -z $KERNEL_DEVEL ]
@@ -92,15 +121,14 @@ data:
     # [ ! -z $KERNEL_MODULES ]
     # [ ! -z $KERNEL_MODULES_EXTRA ]
 
-    # Installation order is important leave this as is 
-    yum -y --releasever={{.OperatingSystemDecimal}} --setopt=install_weak_deps=False --best install $KERNEL_CORE 
-    yum -y --releasever={{.OperatingSystemDecimal}} --setopt=install_weak_deps=False --best install $KERNEL_DEVEL
-    yum -y --releasever={{.OperatingSystemDecimal}} --setopt=install_weak_deps=False --best install $KERNEL_HEADERS
-    yum -y --releasever={{.OperatingSystemDecimal}} --setopt=install_weak_deps=False --best install $KERNEL_MODULES
-    yum -y --releasever={{.OperatingSystemDecimal}} --setopt=install_weak_deps=False --best install $KERNEL_MODULES_EXTRA  
+    if install_kernel_rpms "${kernel_rpms[@]}"; then
+      echo "MOC - kernel rpms ${kernel_rpms[@]} installed"
+      exit 0
+    fi
 
     # Install realtime kernel TODO
     ls /extensions/kernel-rt*
+
 
 ---
 apiVersion: v1
@@ -121,7 +149,7 @@ data:
 
     UNAME=$(uname -r)
     SCRIPT_NAME=install-dependencies.sh
-    TAG={{.SpecialResource.Spec.Metadata.Namespace}}/{{.SpecialResource.Name}}:v${UNAME}
+    TAG={{.SpecialResource.Spec.Namespace}}/{{.SpecialResource.Name}}:v${UNAME}
 
    
     # --------- Container instructions START ----------------------------------
@@ -184,7 +212,7 @@ subjects:
 - kind: ServiceAccount
   name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 userNames:
-- system:serviceaccount:{{.SpecialResource.Spec.Metadata.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
+- system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 ---
 apiVersion: v1
 kind: Pod

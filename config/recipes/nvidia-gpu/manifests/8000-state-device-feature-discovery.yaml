@@ -30,7 +30,7 @@ subjects:
 - kind: ServiceAccount
   name: {{.SpecialResource.Name}}-{{.GroupName.DeviceFeatureDiscovery}}
 userNames:
-- system:serviceaccount:{{.SpecialResource.Spec.Metadata.Namespace}}:{.HardwareResource}}-{{.GroupName.DeviceFeatureDiscovery}}
+- system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{.HardwareResource}}-{{.GroupName.DeviceFeatureDiscovery}}
 --- 
 apiVersion: apps/v1
 kind: DaemonSet

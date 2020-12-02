@@ -92,7 +92,7 @@ func getHardwareConfiguration(r *SpecialResourceReconciler) (*unstructured.Unstr
 	cm.SetAPIVersion("v1")
 	cm.SetKind("ConfigMap")
 
-	namespacedName := types.NamespacedName{Namespace: r.specialresource.Spec.Metadata.Namespace, Name: r.specialresource.Name}
+	namespacedName := types.NamespacedName{Namespace: r.specialresource.Spec.Namespace, Name: r.specialresource.Name}
 	err := r.Get(context.TODO(), namespacedName, cm)
 
 	if apierrors.IsNotFound(err) {
@@ -140,7 +140,7 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 	rb.SetAPIVersion("rbac.authorization.k8s.io/v1")
 	rb.SetKind("RoleBinding")
 
-	namespacedName := types.NamespacedName{Namespace: r.specialresource.Spec.Metadata.Namespace, Name: "system:image-puller"}
+	namespacedName := types.NamespacedName{Namespace: r.specialresource.Spec.Namespace, Name: "system:image-puller"}
 	err := r.Get(context.TODO(), namespacedName, rb)
 
 	newSubject := make(map[string]interface{})
@@ -148,13 +148,13 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 
 	newSubject["kind"] = "ServiceAccount"
 	newSubject["name"] = "builder"
-	newSubject["namespace"] = r.parent.Spec.Metadata.Namespace
+	newSubject["namespace"] = r.parent.Spec.Namespace
 
 	if apierrors.IsNotFound(err) {
 
 		log.Info("ImageReference RoleBinding not found, creating")
 		rb.SetName("system:image-puller")
-		rb.SetNamespace(r.specialresource.Spec.Metadata.Namespace)
+		rb.SetNamespace(r.specialresource.Spec.Namespace)
 		err := unstructured.SetNestedField(rb.Object, "rbac.authorization.k8s.io", "roleRef", "apiGroup")
 		exitOnError(err)
 		err = unstructured.SetNestedField(rb.Object, "ClusterRole", "roleRef", "kind")
@@ -194,9 +194,9 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 			exitOnError(err)
 
 			log.Info("ImageReference", "namespace", namespace)
-			log.Info("ImageReference", "r.namespace", r.parent.Spec.Metadata.Namespace)
+			log.Info("ImageReference", "r.namespace", r.parent.Spec.Namespace)
 
-			if namespace == r.parent.Spec.Metadata.Namespace {
+			if namespace == r.parent.Spec.Namespace {
 				log.Info("ImageReference ServiceAccount found, returning")
 				return nil
 			}
@@ -253,7 +253,7 @@ func ReconcileHardwareStates(r *SpecialResourceReconciler, config unstructured.U
 
 		log.Info("Executing", "State", state)
 		namespacedYAML := []byte(manifests[state].(string))
-		if err := createFromYAML(namespacedYAML, r, r.specialresource.Spec.Metadata.Namespace); err != nil {
+		if err := createFromYAML(namespacedYAML, r, r.specialresource.Spec.Namespace); err != nil {
 			return errs.Wrap(err, "Failed to create resources")
 		}
 	}
@@ -270,12 +270,12 @@ metadata:
     specialresource.openshift.io/wait: "true"
   name: `)
 
-	if r.specialresource.Spec.Metadata.Namespace != "" {
-		add := []byte(r.specialresource.Spec.Metadata.Namespace)
+	if r.specialresource.Spec.Namespace != "" {
+		add := []byte(r.specialresource.Spec.Namespace)
 		ns = append(ns, add...)
 	} else {
-		r.specialresource.Spec.Metadata.Namespace = r.specialresource.Name
-		add := []byte(r.specialresource.Spec.Metadata.Namespace)
+		r.specialresource.Spec.Namespace = r.specialresource.Name
+		add := []byte(r.specialresource.Spec.Namespace)
 		ns = append(ns, add...)
 	}
 	if err := createFromYAML(ns, r, ""); err != nil {

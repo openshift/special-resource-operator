@@ -147,7 +147,7 @@ func createSpecialResourceFrom(r *SpecialResourceReconciler, name string) (srov1
 
 		log.Info("Creating", "manifest", manifest.name)
 
-		if err := createFromYAML(manifest.content, r, r.specialresource.Spec.Metadata.Namespace); err != nil {
+		if err := createFromYAML(manifest.content, r, r.specialresource.Spec.Namespace); err != nil {
 			log.Info("Cannot create, something went horribly wrong")
 			exitOnError(err)
 		}

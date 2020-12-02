@@ -2,21 +2,20 @@ apiVersion: sro.openshift.io/v1beta1
 kind: SpecialResource
 metadata:
   name: lustre-client
-spec: 
-  metadata:
-    namespace: lustre-client
+spec:
+  namespace: lustre-client
   environment:
-  - key: "key_id"
-    value: "AWS_ACCESS_KEY_ID"
-  - key: "access_key"
-    value: "AWS_SECRET_ACCESS_KEY"
+    - key: "key_id"
+      value: "AWS_ACCESS_KEY_ID"
+    - key: "access_key"
+      value: "AWS_SECRET_ACCESS_KEY"
   driverContainer:
     buildArgs:
-    - name: "KVER"
-      value: "{{.KernelVersion}}"
-    - name: "RELEASEVER"
-      value: "{{.OperatingSystemDecimal}}"
+      - name: "KVER"
+        value: "{{.KernelVersion}}"
+      - name: "RELEASEVER"
+        value: "{{.OperatingSystemDecimal}}"
 
-  dependsOn: 
-  - name: "driver-container-base"
-    imageReference: "true"
+  dependsOn:
+    - name: "driver-container-base"
+      imageReference: "true"

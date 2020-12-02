@@ -38,7 +38,7 @@ spec:
       # This is done in the driver-container-base
       # RUN yum update -y --setopt=install_weak_deps=False --best
 
-      RUN yum -y install git --setopt=install_weak_deps=False --best
+      RUN yum -y install git 
 
       # Expecting kmod software version as an input to the build
       ARG KMODVER
@@ -55,7 +55,7 @@ spec:
       # fail
 
       # Prep and build the module
-      RUN yum install -y make sudo --setopt=install_weak_deps=False --best
+      RUN yum install -y make sudo
       RUN make buildprep KVER=${KVER} KMODVER=${KMODVER}
       RUN make all       KVER=${KVER} KMODVER=${KMODVER}
       RUN make install   KVER=${KVER} KMODVER=${KMODVER}
@@ -71,6 +71,7 @@ spec:
       RUN mkdir -p /etc/kvc/
       RUN make install
 
+      RUN systemctl enable kmods-via-containers@simple-kmod
   strategy:
     dockerStrategy:
       from:

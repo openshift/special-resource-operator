@@ -107,7 +107,8 @@ type SpecialResourceDependency struct {
 
 // SpecialResourceSpec defines the desired state of SpecialResource
 type SpecialResourceSpec struct {
-	Metadata metav1.ObjectMeta `json:"metadata,omitempty"`
+	// +kubebuilder:validation:Required
+	Namespace string `json:"namespace,omitempty"`
 	// +kubebuilder:validation:Optional
 	Environment []SpecialResourceEnvironment `json:"environment,omitempty"`
 	// +kubebuilder:validation:Optional
@@ -131,7 +132,7 @@ type SpecialResourceStatus struct {
 type SpecialResource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
+	// +kubebuilder:validation:Required
 	Spec   SpecialResourceSpec   `json:"spec,omitempty"`
 	Status SpecialResourceStatus `json:"status,omitempty"`
 }
