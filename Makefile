@@ -5,7 +5,7 @@ REGISTRY         ?= quay.io
 ORG              ?= openshift-psap
 TAG              ?= $(shell git branch | grep \* | cut -d ' ' -f2)
 IMAGE            ?= $(REGISTRY)/$(ORG)/special-resource-operator:$(TAG)
-
+CSPLIT           ?= csplit - --prefix="" --suppress-matched --suffix-format="%04d_specialresource_cvo_manifest.yaml"  /---/ '{*}' 1>/dev/null
 export PATH := go/bin:$(PATH)
 include config/recipes/Makefile
 
@@ -47,8 +47,6 @@ endif
 # GENERATED all: manager
 all: $(SPECIALRESOURCE)
 
-
-
 # Run tests
 test: # generate fmt vet manifests
 	go test ./... -coverprofile cover.out
@@ -69,13 +67,18 @@ install: manifests kustomize
 uninstall: manifests kustomize
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
-# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests kustomize
+configure: 
 	# TODO kustomize cannot set name of namespace according to settings, hack TODO
 	cd config/namespace && sed -i 's/name: .*/name: ${NAMESPACE}/g' namespace.yaml
 	cd config/namespace && $(KUSTOMIZE) edit set namespace ${NAMESPACE}
 	#cd config/default && $(KUSTOMIZE) edit set namespace ${NAMESPACE}
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+
+cvo-manifests: manifests kustomize configure 
+	cd $@; $(KUSTOMIZE) build ../config/namespace | $(CSPLIT)
+	
+# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+deploy: cvo-manifests
 	$(KUSTOMIZE) build config/namespace | kubectl apply -f -
 
 undeploy: kustomize
@@ -99,7 +102,7 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
-local-image-build: test
+local-image-build: test cvo-manifests
 	podman build --no-cache . -t ${IMG}
 
 # Push the docker image
@@ -137,6 +140,9 @@ KUSTOMIZE=$(GOBIN)/kustomize
 else
 KUSTOMIZE=$(shell which kustomize)
 endif
+
+csplit:
+
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
