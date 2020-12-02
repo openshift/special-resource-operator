@@ -1,8 +1,0 @@
-kind: ImageStream
-apiVersion: image.openshift.io/v1
-spec:
-  tags:
-  - name: special-resource-operator
-    from:
-      kind: DockerImage
-      name: registry.svc.ci.openshift.org/openshift/origin-v4.0:special-resource-operator
