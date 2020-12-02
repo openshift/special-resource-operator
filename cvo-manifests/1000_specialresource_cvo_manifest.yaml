@@ -1,0 +1,11 @@
+apiVersion: config.openshift.io/v1
+kind: ClusterOperator
+metadata:
+  annotations:
+    include.release.openshift.io/single-node-developer: "true"
+  name: special-resource
+spec: {}
+status:
+  versions:
+    - name: operator
+      version: "0.0.1"
