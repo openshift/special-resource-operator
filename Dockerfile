@@ -28,7 +28,7 @@ WORKDIR /
 COPY --from=builder /workspace/manager .
 
 COPY config/recipes/ /opt/sro/recipes/
-COPY cvo-manifests /manifests
+COPY manifests /manifests
 
 USER nonroot:nonroot
 ENTRYPOINT ["/manager"]

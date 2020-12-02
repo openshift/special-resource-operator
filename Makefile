@@ -56,15 +56,15 @@ manager: generate fmt vet
 	go build -mod=vendor -o bin/manager main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet manifests
+run: generate fmt vet manifests-gen
 	go run -mod=vendor ./main.go
 
 # Install CRDs into a cluster
-install: manifests kustomize
+install: manifests-gen kustomize
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
 # Uninstall CRDs from a cluster
-uninstall: manifests kustomize
+uninstall: manifests-gen kustomize
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 configure: 
@@ -74,11 +74,11 @@ configure:
 	#cd config/default && $(KUSTOMIZE) edit set namespace ${NAMESPACE}
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 
-cvo-manifests: manifests kustomize configure 
+manifests: manifests-gen kustomize configure 
 	cd $@; $(KUSTOMIZE) build ../config/namespace | $(CSPLIT)
 	
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: cvo-manifests
+deploy: manifests
 	$(KUSTOMIZE) build config/namespace | kubectl apply -f -
 
 undeploy: kustomize
@@ -86,7 +86,7 @@ undeploy: kustomize
 
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen
+manifests-gen: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
@@ -102,7 +102,7 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
-local-image-build: test cvo-manifests
+local-image-build: test manifests
 	podman build --no-cache . -t ${IMG}
 
 # Push the docker image
@@ -141,12 +141,9 @@ else
 KUSTOMIZE=$(shell which kustomize)
 endif
 
-csplit:
-
-
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle: manifests
+bundle: manifests-gen
 	operator-sdk generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
