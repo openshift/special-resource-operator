@@ -8,4 +8,4 @@ spec:
     source:
       git:
         ref: "master"
-        uri: "https://github.com/kmods-via-containers/kmods-via-containers"
+        uri: "https://github.com/openshift-psap/kmods-via-containers"

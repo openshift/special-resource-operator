@@ -40,7 +40,6 @@ metadata:
   annotations:
     openshift.io/scc: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
     specialresource.openshift.io/wait: "true"
-#    specialresource.openshift.io/wait-for-logs: "\\+ wait \\d+"
     specialresource.openshift.io/state: "driver-container"
     specialresource.openshift.io/driver-container-vendor: simple-kmod
 spec:
@@ -66,8 +65,6 @@ spec:
         command: ["/sbin/init"]
         securityContext:
           privileged: true
-          seLinuxOptions:
-            level: "s0"
       nodeSelector:
         node-role.kubernetes.io/worker: ""
         feature.node.kubernetes.io/kernel-version.full: "{{.KernelVersion}}"

@@ -5,7 +5,7 @@ metadata:
     app: {{.SpecialResource.Name}}
   name: {{.SpecialResource.Name}}
 spec: {}
----
+--- 
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -50,7 +50,7 @@ data:
     kernel_version=$(uname -r)
 
     # Adding the full name here so we can use one function 
-    # to install from EUS, base and MOC (machine-os-content)
+    # to install from EUS, base and machine-os-content (MOC)
     kernel_rpms=( 
       kernel-core-${kernel_version}
       kernel-devel-${kernel_version}
@@ -94,7 +94,7 @@ data:
     yum update -y 
 
     # Additional packages that are mandatory for driver-containers
-    yum -y --best install elfutils-libelf-devel kmod binutils
+    yum -y --best install elfutils-libelf-devel kmod binutils kabi-dw kernel-abi-whitelists
 
     # Try to enable EUS and try to install kernel-devel and kernel-headers RPMs
     if install_kernel_rpms "${kernel_rpms[@]}"; then

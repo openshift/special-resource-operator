@@ -4,6 +4,9 @@ metadata:
   name: simple-kmod
 spec:
   namespace: simple-kmod
+  configuration:
+    - name: "KMOD_NAMES"
+      value: ["simple-kmod", "simple-procfs-kmod"]
   driverContainer:
     source:
       git:

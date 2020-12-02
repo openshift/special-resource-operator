@@ -44,7 +44,6 @@ func init() {
 	controllers.AddKubeClient(ctrl.GetConfigOrDie())
 
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
 	utilruntime.Must(srov1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
@@ -74,7 +73,7 @@ func main() {
 
 	if err = (&controllers.SpecialResourceReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("SpecialResource"),
+		Log:    ctrl.Log,
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")

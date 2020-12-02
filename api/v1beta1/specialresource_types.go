@@ -68,10 +68,10 @@ type SpecialResourceBuildArgs struct {
 	Value string `json:"value"`
 }
 
-// SpecialResourceEnvironment defines the observed state of SpecialResource
-type SpecialResourceEnvironment struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
+// SpecialResourceConfiguration defines the observed state of SpecialResource
+type SpecialResourceConfiguration struct {
+	Name  string   `json:"name"`
+	Value []string `json:"value"`
 }
 
 // SpecialResourceGit defines the observed state of SpecialResource
@@ -110,7 +110,7 @@ type SpecialResourceSpec struct {
 	// +kubebuilder:validation:Required
 	Namespace string `json:"namespace,omitempty"`
 	// +kubebuilder:validation:Optional
-	Environment []SpecialResourceEnvironment `json:"environment,omitempty"`
+	Configuration []SpecialResourceConfiguration `json:"configuration,omitempty"`
 	// +kubebuilder:validation:Optional
 	DriverContainer SpecialResourceDriverContainer `json:"driverContainer,omitempty"`
 	// +kubebuilder:validation:Optional

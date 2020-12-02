@@ -36,6 +36,22 @@ spec:
           spec:
             description: SpecialResourceSpec defines the desired state of SpecialResource
             properties:
+              configuration:
+                items:
+                  description: SpecialResourceConfiguration defines the observed state
+                    of SpecialResource
+                  properties:
+                    name:
+                      type: string
+                    value:
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - name
+                  - value
+                  type: object
+                type: array
               dependsOn:
                 items:
                   description: SpecialResourceDependency is a SpecialResource that
@@ -167,20 +183,6 @@ spec:
                         type: object
                     type: object
                 type: object
-              environment:
-                items:
-                  description: SpecialResourceEnvironment defines the observed state
-                    of SpecialResource
-                  properties:
-                    key:
-                      type: string
-                    value:
-                      type: string
-                  required:
-                  - key
-                  - value
-                  type: object
-                type: array
               namespace:
                 type: string
               node:

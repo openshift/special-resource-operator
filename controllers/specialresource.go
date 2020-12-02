@@ -49,7 +49,7 @@ import (
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheusrules,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
-
+// ReconcilerSpecialResources Takes care of all specialresources in the cluster
 func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
 
 	r.Log.Info("Reconciling SpecialResource(s) in all Namespaces")
@@ -70,13 +70,15 @@ func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) 
 
 	for _, r.parent = range specialresources.Items {
 
-		log = r.Log.WithValues("specialresource", r.parent.Name)
-		log.Info("Reconciling Dependencies of")
+		//log = r.Log.WithValues("specialresource", r.parent.Name)
+		log = r.Log.WithName(prettyPrint(r.parent.Name, Green))
+		log.Info("Resolving Dependencies")
 
 		// Only one level dependency support for now
 		for _, r.dependency = range r.parent.Spec.DependsOn {
 
-			log = r.Log.WithValues("specialresource", r.dependency.Name)
+			//log = r.Log.WithValues("specialresource", r.dependency.Name)
+			log = r.Log.WithName(prettyPrint(r.dependency.Name, Purple))
 			log.Info("Getting Dependency")
 
 			// Assign the specialresource to the reconciler object
@@ -101,7 +103,8 @@ func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) 
 			}
 		}
 
-		log = r.Log.WithValues("specialresource", r.parent.Name)
+		//log = r.Log.WithValues("specialresource", r.parent.Name)
+		log = r.Log.WithName(prettyPrint(r.parent.Name, Green))
 		log.Info("Reconciling")
 
 		r.specialresource = r.parent

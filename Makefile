@@ -100,7 +100,7 @@ generate: controller-gen
 
 # Build the docker image
 local-image-build: test
-	podman build . -t ${IMG}
+	podman build --no-cache . -t ${IMG}
 
 # Push the docker image
 local-image-push:

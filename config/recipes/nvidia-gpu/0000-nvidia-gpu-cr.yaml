@@ -3,22 +3,20 @@ kind: SpecialResource
 metadata:
   name: nvidia-gpu
 spec:
-  metadata:
-    namespace: nvidia-gpu
+  namespace: nvidia-gpu
   environment:
-  - key: "mig-strategy"
-    value: "none"
+    - key: "mig-strategy"
+      value: "none"
   driverContainer:
     source:
       git:
         ref: "master"
         uri: "https://gitlab.com/openshift-psap/driver.git"
-    buildArgs: 
-    - name: "DRIVER_VERSION"
-      value: "450.80.02"
+    buildArgs:
+      - name: "DRIVER_VERSION"
+        value: "450.80.02"
   node:
     selector: "feature.node.kubernetes.io/pci-10de.present"
-  dependsOn: 
-  - name: "driver-container-base"
-    imageReference: "true"
-    
+  dependsOn:
+    - name: "driver-container-base"
+      imageReference: "true"
