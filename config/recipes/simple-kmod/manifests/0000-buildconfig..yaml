@@ -18,7 +18,6 @@ metadata:
 spec:
   nodeSelector:
     node-role.kubernetes.io/worker: ""
-#    {{.SpecialResource.Spec.Node.Selector}}: "true"
   runPolicy: "Serial"
   triggers:
     - type: "ConfigChange"
@@ -27,7 +26,6 @@ spec:
     git:
       ref: {{.SpecialResource.Spec.DriverContainer.Source.Git.Ref}}
       uri: {{.SpecialResource.Spec.DriverContainer.Source.Git.Uri}}
-#    contextDir: {{.OperatingSystemMajor}}
     type: Git
   strategy:
     dockerStrategy:
