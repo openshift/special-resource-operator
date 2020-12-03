@@ -5,7 +5,7 @@ REGISTRY         ?= quay.io
 ORG              ?= openshift-psap
 TAG              ?= $(shell git branch | grep \* | cut -d ' ' -f2)
 IMAGE            ?= $(REGISTRY)/$(ORG)/special-resource-operator:$(TAG)
-CSPLIT           ?= csplit - --prefix="" --suppress-matched --suffix-format="%04d_specialresource_cvo_manifest.yaml"  /---/ '{*}' 1>/dev/null
+CSPLIT           ?= csplit - --prefix="" --suppress-matched --suffix-format="%04d.yaml"  /---/ '{*}' --silent
 export PATH := go/bin:$(PATH)
 include config/recipes/Makefile
 
@@ -76,7 +76,8 @@ configure:
 
 manifests: manifests-gen kustomize configure 
 	cd $@; $(KUSTOMIZE) build ../config/namespace | $(CSPLIT)
-	
+	cd $@; bash ../scripts/rename.sh 
+
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
 	$(KUSTOMIZE) build config/namespace | kubectl apply -f -
