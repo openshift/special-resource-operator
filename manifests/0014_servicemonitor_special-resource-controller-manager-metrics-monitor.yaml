@@ -1,9 +1,13 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
   labels:
     control-plane: controller-manager
-  name: special-resource-operator-controller-manager-metrics-monitor
+  name: special-resource-controller-manager-metrics-monitor
   namespace: openshift-sro
 spec:
   endpoints:

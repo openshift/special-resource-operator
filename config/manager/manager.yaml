@@ -23,6 +23,9 @@ spec:
       labels:
         control-plane: controller-manager
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 499
       containers:
         - imagePullPolicy: Always # TODO
           env:
@@ -38,6 +41,9 @@ spec:
             - "--zap-log-level=debug"
           image: controller:latest
           name: manager
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           resources:
             limits:
               cpu: 200m

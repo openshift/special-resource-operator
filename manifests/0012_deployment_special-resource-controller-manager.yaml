@@ -1,9 +1,13 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  annotations:
+    include.release.openshift.io/ibm-cloud-managed: "true"
+    include.release.openshift.io/self-managed-high-availability: "true"
+    include.release.openshift.io/single-node-developer: "true"
   labels:
     control-plane: controller-manager
-  name: special-resource-operator-controller-manager
+  name: special-resource-controller-manager
   namespace: openshift-sro
 spec:
   replicas: 1
@@ -12,6 +16,10 @@ spec:
       control-plane: controller-manager
   template:
     metadata:
+      annotations:
+        include.release.openshift.io/ibm-cloud-managed: "true"
+        include.release.openshift.io/self-managed-high-availability: "true"
+        include.release.openshift.io/single-node-developer: "true"
       labels:
         control-plane: controller-manager
     spec:
@@ -42,7 +50,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: quay.io/openshift-psap/special-resource-operator:cvo
+        image: quay.io/openshift-psap/special-resource-operator:cvo-enhancements
         imagePullPolicy: Always
         name: manager
         resources:
@@ -52,6 +60,13 @@ spec:
           requests:
             cpu: 200m
             memory: 100Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+      securityContext:
+        runAsGroup: 499
+        runAsNonRoot: true
+        runAsUser: 499
       terminationGracePeriodSeconds: 10
       volumes:
       - name: special-resource-operator-tls
