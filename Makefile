@@ -74,7 +74,7 @@ configure:
 	#cd config/default && $(KUSTOMIZE) edit set namespace ${NAMESPACE}
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 
-manifests: manifests-gen kustomize configure 
+manifests: manifests-gen kustomize configure yq
 	cd $@; $(KUSTOMIZE) build ../config/namespace | $(CSPLIT)
 	cd $@; bash ../scripts/rename.sh 
 
@@ -127,6 +127,13 @@ else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
+yq: 
+ifeq (, $(shell which yq))
+	@{ \
+	set -e ;\
+	pip3 install yq ;\
+	}
+endif
 kustomize:
 ifeq (, $(shell which kustomize))
 	@{ \
