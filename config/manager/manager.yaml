@@ -26,7 +26,6 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 499
-        runAsGroup: 499
       containers:
         - imagePullPolicy: Always # TODO
           env:
