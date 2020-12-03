@@ -60,6 +60,13 @@ spec:
           requests:
             cpu: 200m
             memory: 100Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+      securityContext:
+        runAsGroup: 499
+        runAsNonRoot: true
+        runAsUser: 499
       terminationGracePeriodSeconds: 10
       volumes:
       - name: special-resource-operator-tls

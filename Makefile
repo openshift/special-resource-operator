@@ -74,10 +74,10 @@ configure:
 	#cd config/default && $(KUSTOMIZE) edit set namespace ${NAMESPACE}
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 
-manifests: manifests-gen kustomize configure yq
+manifests: manifests-gen kustomize configure 
 	cd $@; $(KUSTOMIZE) build ../config/namespace | $(CSPLIT)
-	cd $@; bash ../scripts/rename.sh 
-
+	cd $@; bash ../scripts/rename.sh
+	
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
 	$(KUSTOMIZE) build config/namespace | kubectl apply -f -
@@ -127,13 +127,6 @@ else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
-yq: 
-ifeq (, $(shell which yq))
-	@{ \
-	set -e ;\
-	pip3 install yq ;\
-	}
-endif
 kustomize:
 ifeq (, $(shell which kustomize))
 	@{ \
