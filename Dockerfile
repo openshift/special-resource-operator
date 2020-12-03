@@ -31,7 +31,6 @@ COPY config/recipes/ /opt/sro/recipes/
 COPY manifests /manifests
 
 RUN useradd -r -u 499 nonroot
-RUN groupadd   -g 499 nonroot
 
 ENTRYPOINT ["/manager"]
 
