@@ -52,7 +52,7 @@ spec:
               fieldPath: metadata.namespace
         - name: RELEASE_VERSION
           value: 0.0.1-snapshot
-        image: quay.io/openshift-psap/special-resource-operator:cvo-enhancements
+        image: quay.io/openshift-psap/special-resource-operator:conditions
         imagePullPolicy: Always
         name: manager
         resources:
