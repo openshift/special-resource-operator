@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"github.com/go-logr/logr"
+	configv1 "github.com/openshift/api/config/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,17 +36,21 @@ var (
 // SpecialResourceReconciler reconciles a SpecialResource object
 type SpecialResourceReconciler struct {
 	client.Client
-	Log             logr.Logger
-	Scheme          *runtime.Scheme
+	Log    logr.Logger
+	Scheme *runtime.Scheme
+
 	specialresource srov1beta1.SpecialResource
 	parent          srov1beta1.SpecialResource
 	dependency      srov1beta1.SpecialResourceDependency
+	clusterOperator configv1.ClusterOperator
 }
 
+// Reconcile Reconiliation entry point
 func (r *SpecialResourceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ReconcilerSpecialResources(r, req)
 }
 
+// SetupWithManager main initalization for manager
 func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&srov1beta1.SpecialResource{}).

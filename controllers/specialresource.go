@@ -12,6 +12,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+// GetName of the special resource operator
+func (r *SpecialResourceReconciler) GetName() string {
+	return "special-resource-operator"
+}
+
 // +kubebuilder:rbac:groups=sro.openshift.io,resources=specialresources,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=sro.openshift.io,resources=specialresources/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=sro.openshift.io,resources=specialresources/finalizers,verbs=get;update;patch
@@ -49,12 +54,23 @@ import (
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheusrules,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=config.openshift.io,resources=clusteroperators,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=config.openshift.io,resources=clusteroperators/status,verbs=get;list;watch;create;update;patch;delete
+
 // ReconcilerSpecialResources Takes care of all specialresources in the cluster
 func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
 
-	r.Log.Info("Reconciling SpecialResource(s) in all Namespaces")
+	log = r.Log.WithName(prettyPrint("preamble", Purple))
 
+	log.Info("Reconcling ClusterOperator")
+	if err := r.clusterOperatorStatusReconcile(); err != nil {
+		log.Info("Reconcling ClusterOperator failed", "error", fmt.Sprintf("%v", err))
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	log.Info("Reconciling SpecialResource(s) in all Namespaces")
 	specialresources := &srov1beta1.SpecialResourceList{}
+
 	opts := []client.ListOption{}
 	err := r.List(context.TODO(), specialresources, opts...)
 	if err != nil {

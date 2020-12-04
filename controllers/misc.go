@@ -46,7 +46,7 @@ func exitOnErrorOrNotFound(found bool, err error) {
 
 func exitOnError(err error) {
 	if err != nil {
-		log.Info("Exiting On Error", "error", err)
+		log.Info("Exiting On", "error", err)
 		os.Exit(1)
 	}
 }
