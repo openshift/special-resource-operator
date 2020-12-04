@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/yamlutil"
 	buildV1 "github.com/openshift/api/build/v1"
+	ocpconfigv1 "github.com/openshift/api/config/v1"
 	imageV1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
@@ -46,6 +47,7 @@ var (
 // Add3dpartyResourcesToScheme Adds 3rd party resources To the operator
 func Add3dpartyResourcesToScheme(scheme *runtime.Scheme) {
 
+	utilruntime.Must(ocpconfigv1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(secv1.AddToScheme(scheme))
 	utilruntime.Must(buildV1.AddToScheme(scheme))

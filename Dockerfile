@@ -19,7 +19,7 @@ COPY vendor/ vendor/
 
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -mod=vendor -a -o manager main.go
+RUN CGO_ENABLED=0 GOOS=$(go env GOOS) GOARCH=$(go env GOARCH) GO111MODULE=on go build -mod=vendor -a -o manager main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
@@ -30,8 +30,8 @@ COPY --from=builder /workspace/manager .
 COPY config/recipes/ /opt/sro/recipes/
 COPY manifests /manifests
 
-RUN useradd -r -u 499 nonroot
-
+RUN useradd  -r -u 499 nonroot
+RUN getent group nonroot || groupadd -o -g 499 nonroot 
 ENTRYPOINT ["/manager"]
 
 LABEL io.k8s.display-name="OpenShift special-resource-operator" \

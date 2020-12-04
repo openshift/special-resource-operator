@@ -483,6 +483,7 @@ github.com/openshift/client-go v3.9.0+incompatible h1:13k3Ok0B7TA2hA3bQW2aFqn6y0
 github.com/openshift/cluster-node-tuning-operator v0.0.0-20201026145914-c8b2ed8012aa h1:0x8TR/SKNlPqnt8LAfDEf1TUiTZKxdS/wvenijL1c5E=
 github.com/openshift/cluster-node-tuning-operator v0.0.0-20201026145914-c8b2ed8012aa/go.mod h1:/K6Sy7v6WDn6CmDwuKkl/ApHwtq93PGrDULzNg+YmwQ=
 github.com/openshift/crd-schema-gen v1.0.0/go.mod h1:jTmSmtfJzK2emb3ucPkHqvoOe//PuNhR3aBiUBbg/rc=
+github.com/openshift/library-go v0.0.0-20200911100307-610c6e9e90b8 h1:wQgtJIqixx80XT+m1YhT8aq2ztr8/xYtyVLb59FnPV0=
 github.com/openshift/library-go v0.0.0-20200911100307-610c6e9e90b8/go.mod h1:NI6xOQGuTnLXeHW8Z2glKSFhF7X+YxlAlqlBMaK0zEM=
 github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible h1:07wx8hlASE4jsL3kJDEHeTG2qxwEiyVbg+z30yNVRCE=
 github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible/go.mod h1:4IzikyGmUVQwlohScKeaAr5n2YzcWXkZvTMGGxDcU2Q=

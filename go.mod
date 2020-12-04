@@ -10,6 +10,7 @@ require (
 	github.com/openshift/api v0.0.0-20201005153912-821561a7f2a2
 	github.com/openshift/client-go v0.0.0-20200827190008-3062137373b5
 	github.com/openshift/cluster-node-tuning-operator v0.0.0-20201026145914-c8b2ed8012aa // indirect
+	github.com/openshift/library-go v0.0.0-20200911100307-610c6e9e90b8
 	github.com/openshift/machine-config-operator v4.2.0-alpha.0.0.20190917115525-033375cbe820+incompatible // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.42.1
