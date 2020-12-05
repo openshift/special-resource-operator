@@ -44,7 +44,7 @@ func labelNodesAccordingToState(obj *unstructured.Unstructured, r *SpecialResour
 			_, found := labels[k]
 			if found {
 				log.Info("Label", "found", stateLabel, "on ", node.GetName())
-				updateStatus(obj, r, stateLabel)
+				operatorStatusUpdate(obj, r, stateLabel)
 				continue
 			}
 			// Label missing update the Node to advance to the next state
@@ -70,7 +70,7 @@ func labelNodesAccordingToState(obj *unstructured.Unstructured, r *SpecialResour
 
 			log.Info("NODE", "Setting Label ", stateLabel, "on ", updated.GetName())
 
-			updateStatus(obj, r, stateLabel)
+			operatorStatusUpdate(obj, r, stateLabel)
 		}
 	}
 	return nil

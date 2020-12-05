@@ -30,8 +30,8 @@ COPY --from=builder /workspace/manager .
 COPY config/recipes/ /opt/sro/recipes/
 COPY manifests /manifests
 
-RUN useradd -r -u 499 nonroot
-
+RUN useradd  -r -u 499 nonroot
+RUN getent group nonroot || groupadd -o -g 499 nonroot 
 ENTRYPOINT ["/manager"]
 
 LABEL io.k8s.display-name="OpenShift special-resource-operator" \
