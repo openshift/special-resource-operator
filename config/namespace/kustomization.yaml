@@ -1,4 +1,4 @@
-namespace: openshift-sro
+namespace: openshift-special-resource-operator
 
 # CVO Annotations
 commonAnnotations:

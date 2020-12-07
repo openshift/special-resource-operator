@@ -90,6 +90,11 @@ func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) 
 		log = r.Log.WithName(prettyPrint(r.parent.Name, Green))
 		log.Info("Resolving Dependencies")
 
+		if r.parent.Name == "special-resource-preamble" {
+			log.Info("Preamble done, waiting for driver-container requests")
+			return reconcile.Result{}, nil
+		}
+
 		// Only one level dependency support for now
 		for _, r.dependency = range r.parent.Spec.DependsOn {
 

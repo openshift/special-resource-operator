@@ -1,5 +1,5 @@
 SPECIALRESOURCE  ?= driver-container-base
-NAMESPACE        ?= openshift-sro
+NAMESPACE        ?= openshift-special-resource-operator
 PULLPOLICY       ?= IfNotPresent
 REGISTRY         ?= quay.io
 ORG              ?= openshift-psap

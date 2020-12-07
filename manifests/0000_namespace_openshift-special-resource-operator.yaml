@@ -8,4 +8,4 @@ metadata:
   labels:
     control-plane: controller-manager
     openshift.io/cluster-monitoring: "true"
-  name: openshift-sro
+  name: openshift-special-resource-operator
