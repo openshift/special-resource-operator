@@ -62,12 +62,6 @@ func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) 
 
 	log = r.Log.WithName(prettyPrint("preamble", Purple))
 
-	log.Info("Reconcling ClusterOperator")
-	if err := r.clusterOperatorStatusReconcile(); err != nil {
-		log.Info("Reconcling ClusterOperator failed", "error", fmt.Sprintf("%v", err))
-		return reconcile.Result{Requeue: true}, nil
-	}
-
 	log.Info("Reconciling SpecialResource(s) in all Namespaces")
 	specialresources := &srov1beta1.SpecialResourceList{}
 
@@ -92,7 +86,7 @@ func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) 
 
 		if r.parent.Name == "special-resource-preamble" {
 			log.Info("Preamble done, waiting for driver-container requests")
-			return reconcile.Result{}, nil
+			continue
 		}
 
 		// Only one level dependency support for now
