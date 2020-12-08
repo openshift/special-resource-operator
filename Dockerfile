@@ -35,5 +35,4 @@ RUN getent group nonroot || groupadd -o -g 499 nonroot
 ENTRYPOINT ["/manager"]
 
 LABEL io.k8s.display-name="OpenShift special-resource-operator" \
-        io.k8s.description="This is a component of OpenShift and manages the lifecycle of out-of-tree drivers with enablement stack." \
-        io.openshift.release.operator=true
+        io.k8s.description="This is a component of OpenShift and manages the lifecycle of out-of-tree drivers with enablement stack." 
