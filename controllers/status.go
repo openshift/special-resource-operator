@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -9,7 +10,9 @@ import (
 	errs "github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	ctrl "sigs.k8s.io/controller-runtime"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // Operator Status
@@ -59,45 +62,10 @@ func (r *SpecialResourceReconciler) clusterOperotarStatusSet() error {
 	return nil
 }
 
-func (r *SpecialResourceReconciler) clusterOperatorConditionsDefault() {
-	available := configv1.ClusterOperatorStatusCondition{
-		Type:               configv1.OperatorAvailable,
-		Status:             configv1.ConditionTrue,
-		Reason:             "AsExpected",
-		Message:            "Reconciled all special resources",
-		LastTransitionTime: metav1.Now(),
-	}
-	progressing := configv1.ClusterOperatorStatusCondition{
-		Type:               configv1.OperatorProgressing,
-		Status:             configv1.ConditionFalse,
-		Reason:             "Reconciled",
-		Message:            "SpecialResources up to date",
-		LastTransitionTime: metav1.Now(),
-	}
-	degraded := configv1.ClusterOperatorStatusCondition{
-		Type:               configv1.OperatorDegraded,
-		Status:             configv1.ConditionFalse,
-		Reason:             "Reconciled",
-		Message:            "SpecialResources up to date",
-		LastTransitionTime: metav1.Now(),
-	}
-	conditions := []configv1.ClusterOperatorStatusCondition{}
-
-	conditions = append(conditions, available)
-	conditions = append(conditions, progressing)
-	conditions = append(conditions, degraded)
+func (r *SpecialResourceReconciler) clusterOperatorStatusReconcile(
+	conditions []configv1.ClusterOperatorStatusCondition) error {
 
 	r.clusterOperator.Status.Conditions = conditions
-
-}
-
-func (r *SpecialResourceReconciler) clusterOperatorStatusReconcile() error {
-
-	if err := r.clusterOperatorStatusGetOrCreate(); err != nil {
-		return errs.Wrap(err, "Cannot get or create ClusterOperator")
-	}
-
-	r.clusterOperatorConditionsDefault()
 
 	if err := r.clusterOperotarStatusSet(); err != nil {
 		return errs.Wrap(err, "Cannot update the ClusterOperator status")
@@ -116,4 +84,45 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusUpdate() error {
 		return err
 	}
 	return nil
+}
+
+// ReportSpecialResourcesStatus Depdending on what error we're getting from the
+// reconciliation loop we're updating the status
+// nil -> All things good and default conditiions can be applied
+func ReportSpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
+
+	conditions := conditionsNotAvailableProgressingNotDegraded(
+		"Reconciling "+req.Name,
+		"Reconciling "+req.Name,
+		conditionDegradedDefaultMsg,
+	)
+
+	log = r.Log.WithName(prettyPrint("status", Blue))
+	if err := r.clusterOperatorStatusGetOrCreate(); err != nil {
+		return reconcile.Result{Requeue: true}, errs.Wrap(err, "Cannot get or create ClusterOperator")
+	}
+
+	log.Info("Reconcling ClusterOperator")
+	if err := r.clusterOperatorStatusReconcile(conditions); err != nil {
+		log.Info("Reconcling ClusterOperator failed", "error", fmt.Sprintf("%v", err))
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	ctrlResult, err := ReconcilerSpecialResources(r, req)
+
+	log = r.Log.WithName(prettyPrint("status", Blue))
+	if err := r.clusterOperatorStatusGetOrCreate(); err != nil {
+		return reconcile.Result{Requeue: true}, errs.Wrap(err, "Cannot get or create ClusterOperator")
+	}
+	if err == nil {
+		conditions = conditionsAvailableNotProgressingNotDegraded()
+	}
+
+	log.Info("Reconcling ClusterOperator")
+	if err := r.clusterOperatorStatusReconcile(conditions); err != nil {
+		log.Info("Reconcling ClusterOperator failed", "error", fmt.Sprintf("%v", err))
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	return ctrlResult, err
 }

@@ -6,7 +6,7 @@ metadata:
     include.release.openshift.io/self-managed-high-availability: "true"
     include.release.openshift.io/single-node-developer: "true"
   name: special-resource-leader-election-rolebinding
-  namespace: openshift-sro
+  namespace: openshift-special-resource-operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -14,4 +14,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: default
-  namespace: openshift-sro
+  namespace: openshift-special-resource-operator

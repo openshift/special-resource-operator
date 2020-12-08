@@ -249,7 +249,7 @@ func getPushSecretName(r *SpecialResourceReconciler) (string, error) {
 	secrets.SetAPIVersion("v1")
 	secrets.SetKind("SecretList")
 
-	log.Info("Getting SecretList")
+	log.Info("Getting SecretList in Namespace: " + r.specialresource.Spec.Namespace)
 	opts := []client.ListOption{
 		client.InNamespace(r.specialresource.Spec.Namespace),
 	}

@@ -9,7 +9,7 @@ metadata:
   labels:
     control-plane: controller-manager
   name: special-resource-controller-manager-metrics-service
-  namespace: openshift-sro
+  namespace: openshift-special-resource-operator
 spec:
   ports:
   - name: https

@@ -41,4 +41,5 @@ resources:
   - ../manager
   - ../prometheus
   - ../clusteroperator
+  - ../cr
 namespace: openshift-sro
