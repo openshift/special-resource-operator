@@ -7,7 +7,8 @@ import (
 	"sort"
 
 	"github.com/go-logr/logr"
-	"github.com/openshift-psap/special-resource-operator/yamlutil"
+	"github.com/openshift-psap/special-resource-operator/pkg/assets"
+	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
 	buildV1 "github.com/openshift/api/build/v1"
 	ocpconfigv1 "github.com/openshift/api/config/v1"
 	imageV1 "github.com/openshift/api/image/v1"
@@ -113,12 +114,12 @@ func getLocalHardwareConfiguration(path string, specialresource string) (*unstru
 	cm.SetKind("ConfigMap")
 	cm.SetName(specialresource)
 
-	manifests := getAssetsFrom(path)
+	manifests := assets.GetFrom(path)
 
 	data := map[string]string{}
 
 	for _, manifest := range manifests {
-		data[string(manifest.name)] = string(manifest.content)
+		data[string(manifest.Name)] = string(manifest.Content)
 	}
 
 	if err := unstructured.SetNestedStringMap(cm.Object, data, "data"); err != nil {

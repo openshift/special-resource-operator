@@ -1,19 +1,22 @@
 SPECIALRESOURCE  ?= driver-container-base
 NAMESPACE        ?= openshift-special-resource-operator
 PULLPOLICY       ?= IfNotPresent
-REGISTRY         ?= quay.io
-ORG              ?= openshift-psap
 TAG              ?= $(shell git branch | grep \* | cut -d ' ' -f2)
-IMAGE            ?= $(REGISTRY)/$(ORG)/special-resource-operator:$(TAG)
+IMAGE            ?= quay.io/openshift-psap/special-resource-operator:$(TAG)
 CSPLIT           ?= csplit - --prefix="" --suppress-matched --suffix-format="%04d.yaml"  /---/ '{*}' --silent
 export PATH := go/bin:$(PATH)
 include config/recipes/Makefile
 
+lint: golangci-lint
+	-$(GOLANGCILINT) run -v
+
 verify: fmt
 unit: 
-	@echo "##################### TODO UNIT TEST"
+	@echo "TODO UNIT TEST"
 
 test-e2e:
+	go run test/deploy/deploy.go -path ./manifests
+
 	for d in basic; do \
 	  KUBERNETES_CONFIG="$(KUBECONFIG)" go test -v -timeout 40m ./test/e2e/$$d -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit; \
 	done
@@ -32,8 +35,6 @@ BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
-# Image URL to use all building/pushing image targets
-IMG ?= $(IMAGE)
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:crdVersions=v1,trivialVersions=true"
 
@@ -59,31 +60,26 @@ manager: generate fmt vet
 run: generate fmt vet manifests-gen
 	go run -mod=vendor ./main.go
 
-# Install CRDs into a cluster
-install: manifests-gen kustomize
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
-
-# Uninstall CRDs from a cluster
-uninstall: manifests-gen kustomize
-	$(KUSTOMIZE) build config/crd | kubectl delete -f -
-
 configure: 
 	# TODO kustomize cannot set name of namespace according to settings, hack TODO
-	cd config/namespace && sed -i 's/name: .*/name: ${NAMESPACE}/g' namespace.yaml
-	cd config/namespace && $(KUSTOMIZE) edit set namespace ${NAMESPACE}
-	#cd config/default && $(KUSTOMIZE) edit set namespace ${NAMESPACE}
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	cd config/namespace && sed -i 's/name: .*/name: $(NAMESPACE)/g' namespace.yaml
+	cd config/namespace && $(KUSTOMIZE) edit set namespace $(NAMESPACE)
+	cd config/default && $(KUSTOMIZE) edit set namespace $(NAMESPACE)
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMAGE)
 
 manifests: manifests-gen kustomize configure 
 	cd $@; $(KUSTOMIZE) build ../config/namespace | $(CSPLIT)
 	cd $@; bash ../scripts/rename.sh
+	cd $@; $(KUSTOMIZE) build ../config/cr > 0015_specialresource_special-resource-preamble.yaml
 	
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
 	$(KUSTOMIZE) build config/namespace | kubectl apply -f -
+	$(shell sleep 5) 
+	$(KUSTOMIZE) build config/cr | kubectl apply -f -
 
 undeploy: kustomize
-	$(KUSTOMIZE) build config/default | kubectl delete -f -
+	$(KUSTOMIZE) build config/namespace | kubectl delete --ignore-not-found -f -
 
 
 # Generate manifests e.g. CRD, RBAC etc.
@@ -104,11 +100,11 @@ generate: controller-gen
 
 # Build the docker image
 local-image-build: test manifests
-	podman build --no-cache . -t ${IMG}
+	podman build -f Dockerfile.ubi8 --no-cache . -t $(IMAGE)
 
 # Push the docker image
 local-image-push:
-	podman push ${IMG}
+	podman push $(IMAGE)
 
 # find or download controller-gen
 # download controller-gen if necessary
@@ -142,11 +138,28 @@ else
 KUSTOMIZE=$(shell which kustomize)
 endif
 
+
+golangci-lint:
+ifeq (, $(shell which golangci-lint))
+	@{ \
+	set -e ;\
+	GOLINT_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$GOLINT_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.33.0 ;\
+	rm -rf $$GOLINT_GEN_TMP_DIR ;\
+	}
+GOLANGCILINT=$(GOBIN)/golangci-lint
+else
+GOLANGCILINT=$(shell which golangci-lint)
+endif
+
+
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
 bundle: manifests-gen
 	operator-sdk generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMAGE)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
 

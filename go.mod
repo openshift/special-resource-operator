@@ -4,9 +4,10 @@ go 1.14
 
 require (
 	github.com/go-logr/logr v0.2.1
+	github.com/golangci/golangci-lint v1.33.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/onsi/ginkgo v1.12.1
-	github.com/onsi/gomega v1.10.1
+	github.com/onsi/ginkgo v1.14.1
+	github.com/onsi/gomega v1.10.2
 	github.com/openshift/api v0.0.0-20201005153912-821561a7f2a2
 	github.com/openshift/client-go v0.0.0-20200827190008-3062137373b5
 	github.com/openshift/cluster-node-tuning-operator v0.0.0-20201026145914-c8b2ed8012aa // indirect

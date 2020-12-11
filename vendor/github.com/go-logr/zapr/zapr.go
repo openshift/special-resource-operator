@@ -43,6 +43,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// noopInfoLogger is a logr.InfoLogger that's always disabled, and does nothing.
+type noopInfoLogger struct{}
+
 func (l *noopInfoLogger) Error(err error, msg string, keysAndValues ...interface{}) {}
 func (l *noopInfoLogger) V(level int) logr.Logger                                   { return &noopInfoLogger{} }
 func (l *noopInfoLogger) WithValues(keysAndValues ...interface{}) logr.Logger {
@@ -56,9 +59,6 @@ func (l *infoLogger) WithValues(keysAndValues ...interface{}) logr.Logger {
 	return &infoLogger{}
 }
 func (l *infoLogger) WithName(name string) logr.Logger { return &infoLogger{} }
-
-// noopInfoLogger is a logr.InfoLogger that's always disabled, and does nothing.
-type noopInfoLogger struct{}
 
 func (l *noopInfoLogger) Enabled() bool                   { return false }
 func (l *noopInfoLogger) Info(_ string, _ ...interface{}) {}

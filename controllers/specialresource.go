@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
+	"github.com/openshift-psap/special-resource-operator/pkg/assets"
+	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	errs "github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -60,7 +62,7 @@ func (r *SpecialResourceReconciler) GetName() string {
 // ReconcilerSpecialResources Takes care of all specialresources in the cluster
 func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
 
-	log = r.Log.WithName(prettyPrint("preamble", Purple))
+	log = r.Log.WithName(color.PrettyPrint("preamble", color.Purple))
 
 	log.Info("Reconciling SpecialResource(s) in all Namespaces")
 	specialresources := &srov1beta1.SpecialResourceList{}
@@ -81,7 +83,7 @@ func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) 
 	for _, r.parent = range specialresources.Items {
 
 		//log = r.Log.WithValues("specialresource", r.parent.Name)
-		log = r.Log.WithName(prettyPrint(r.parent.Name, Green))
+		log = r.Log.WithName(color.PrettyPrint(r.parent.Name, color.Green))
 		log.Info("Resolving Dependencies")
 
 		if r.parent.Name == "special-resource-preamble" {
@@ -93,7 +95,7 @@ func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) 
 		for _, r.dependency = range r.parent.Spec.DependsOn {
 
 			//log = r.Log.WithValues("specialresource", r.dependency.Name)
-			log = r.Log.WithName(prettyPrint(r.dependency.Name, Purple))
+			log = r.Log.WithName(color.PrettyPrint(r.dependency.Name, color.Purple))
 			log.Info("Getting Dependency")
 
 			// Assign the specialresource to the reconciler object
@@ -119,7 +121,7 @@ func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) 
 		}
 
 		//log = r.Log.WithValues("specialresource", r.parent.Name)
-		log = r.Log.WithName(prettyPrint(r.parent.Name, Green))
+		log = r.Log.WithName(color.PrettyPrint(r.parent.Name, color.Green))
 		log.Info("Reconciling")
 
 		r.specialresource = r.parent
@@ -155,7 +157,7 @@ func createSpecialResourceFrom(r *SpecialResourceReconciler, name string) (srov1
 	specialresource := srov1beta1.SpecialResource{}
 
 	crpath := "/opt/sro/recipes/" + name
-	manifests := getAssetsFrom(crpath)
+	manifests := assets.GetFrom(crpath)
 
 	if len(manifests) == 0 {
 		exitOnError(errs.New("Could not read CR " + name + "from lokal path"))
@@ -163,9 +165,9 @@ func createSpecialResourceFrom(r *SpecialResourceReconciler, name string) (srov1
 
 	for _, manifest := range manifests {
 
-		log.Info("Creating", "manifest", manifest.name)
+		log.Info("Creating", "manifest", manifest.Name)
 
-		if err := createFromYAML(manifest.content, r, r.specialresource.Spec.Namespace); err != nil {
+		if err := createFromYAML(manifest.Content, r, r.specialresource.Spec.Namespace); err != nil {
 			log.Info("Cannot create, something went horribly wrong")
 			exitOnError(err)
 		}

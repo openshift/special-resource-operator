@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 	errs "github.com/pkg/errors"
@@ -50,7 +51,7 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusGetOrCreate() error {
 	}
 	// If we land here there is no clusteroperator object for SRO
 	// Unsure if we need to create a clusteroperator object ...
-	log.Info(prettyPrint("TOOD: Do we need to create a ClusterOperator Object? ", Red))
+	log.Info(color.PrettyPrint("TOOD: Do we need to create a ClusterOperator Object? ", color.Red))
 	return errs.New("ClusterOperator can not be found")
 }
 
@@ -97,7 +98,7 @@ func ReportSpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request
 		conditionDegradedDefaultMsg,
 	)
 
-	log = r.Log.WithName(prettyPrint("status", Blue))
+	log = r.Log.WithName(color.PrettyPrint("status", color.Blue))
 	if err := r.clusterOperatorStatusGetOrCreate(); err != nil {
 		return reconcile.Result{Requeue: true}, errs.Wrap(err, "Cannot get or create ClusterOperator")
 	}
@@ -110,7 +111,7 @@ func ReportSpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request
 
 	ctrlResult, err := ReconcilerSpecialResources(r, req)
 
-	log = r.Log.WithName(prettyPrint("status", Blue))
+	log = r.Log.WithName(color.PrettyPrint("status", color.Blue))
 	if err := r.clusterOperatorStatusGetOrCreate(); err != nil {
 		return reconcile.Result{Requeue: true}, errs.Wrap(err, "Cannot get or create ClusterOperator")
 	}

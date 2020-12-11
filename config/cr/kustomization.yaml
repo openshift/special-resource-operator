@@ -1,2 +1,4 @@
+namePrefix: special-resource-
+
 resources:
   - specialresource_preamble.yaml
