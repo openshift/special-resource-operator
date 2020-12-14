@@ -1,4 +1,4 @@
-name: OpenShift - Tests
+name: OpenShift
 
 env:
   REGISTRY: quay.io/openshift-psap
@@ -12,7 +12,7 @@ on: push
 
 jobs: 
   openshift-ci-cd:
-    name: Build and Deploy to OpenShift
+    name: test-e2e
     runs-on: [self-hosted, Linux, X64]
     steps:
     - uses: actions/checkout@v2
