@@ -18,15 +18,16 @@ package controllers
 
 import (
 	"github.com/go-logr/logr"
+	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	configv1 "github.com/openshift/api/config/v1"
+	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-
-	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 )
 
 var (
@@ -36,6 +37,9 @@ var (
 // SpecialResourceReconciler reconciles a SpecialResource object
 type SpecialResourceReconciler struct {
 	client.Client
+	kubernetes.Clientset
+	clientconfigv1.ConfigV1Client
+
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 

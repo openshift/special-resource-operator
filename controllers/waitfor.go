@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	errs "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -44,7 +45,7 @@ func makeStatusCallback(obj *unstructured.Unstructured, status interface{}, fiel
 		case int64:
 			expected := _status.(int64)
 			current, found, err := unstructured.NestedInt64(obj.Object, _fields...)
-			exitOnErrorOrNotFound(found, err)
+			exit.OnErrorOrNotFound(found, err)
 
 			if current == int64(expected) {
 				return true
@@ -54,7 +55,7 @@ func makeStatusCallback(obj *unstructured.Unstructured, status interface{}, fiel
 		case int:
 			expected := _status.(int)
 			current, found, err := unstructured.NestedInt64(obj.Object, _fields...)
-			exitOnErrorOrNotFound(found, err)
+			exit.OnErrorOrNotFound(found, err)
 
 			if int(current) == int(expected) {
 				return true
@@ -64,7 +65,7 @@ func makeStatusCallback(obj *unstructured.Unstructured, status interface{}, fiel
 		case string:
 			expected := _status.(string)
 			current, found, err := unstructured.NestedString(obj.Object, _fields...)
-			exitOnErrorOrNotFound(found, err)
+			exit.OnErrorOrNotFound(found, err)
 
 			if stat := strings.Compare(current, expected); stat == 0 {
 				return true
@@ -114,7 +115,7 @@ func waitForDaemonSetCallback(obj *unstructured.Unstructured) bool {
 	callback = func(obj *unstructured.Unstructured) bool { return false }
 
 	node.count, found, err = unstructured.NestedInt64(obj.Object, "status", "desiredNumberScheduled")
-	exitOnErrorOrNotFound(found, err)
+	exit.OnErrorOrNotFound(found, err)
 
 	_, found, err = unstructured.NestedInt64(obj.Object, "status", "numberUnavailable")
 	if found {
@@ -237,7 +238,7 @@ func waitForDaemonSetLogs(obj *unstructured.Unstructured, r *SpecialResourceReco
 	for _, pod := range pods.Items {
 		log.Info("WaitForDaemonSetLogs", "Pod", pod.GetName())
 		podLogOpts := corev1.PodLogOptions{}
-		req := kubeclient.CoreV1().Pods(pod.GetNamespace()).GetLogs(pod.GetName(), &podLogOpts)
+		req := r.CoreV1().Pods(pod.GetNamespace()).GetLogs(pod.GetName(), &podLogOpts)
 		podLogs, err := req.Stream(context.TODO())
 		if err != nil {
 			return errs.Wrap(err, "Error in opening stream")

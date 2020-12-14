@@ -35,7 +35,7 @@ func Color(colorString string) ShellColor {
 	return sprint
 }
 
-// PrettyPrint prints colored strings to the console
-func PrettyPrint(msg string, color ShellColor) string {
+// Print prints colored strings to the console
+func Print(msg string, color ShellColor) string {
 	return color(fmt.Sprintf("%s  ", msg))
 }

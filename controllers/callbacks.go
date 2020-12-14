@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	errs "github.com/pkg/errors"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -122,7 +123,7 @@ func checkForImagePullBackOff(obj *unstructured.Unstructured, r *SpecialResource
 
 		if containerStatuses, found, err = unstructured.NestedSlice(pod.Object, "status", "containerStatuses"); !found || err != nil {
 			phase, found, err := unstructured.NestedString(pod.Object, "status", "phase")
-			exitOnErrorOrNotFound(found, err)
+			exit.OnErrorOrNotFound(found, err)
 			log.Info("Pod is in phase: " + phase)
 			continue
 		}

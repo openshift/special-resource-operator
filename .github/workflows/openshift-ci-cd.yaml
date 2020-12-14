@@ -56,9 +56,3 @@ jobs:
     - name: make test-e2e
       run: make test-e2e
   
-    - name: make undeploy
-      run: make undeploy
-
-#    - name: SPECIALRESROUCE=driver-container-base make
-#             run:  
-#        SPECIALRESROUCE=driver-container-base make

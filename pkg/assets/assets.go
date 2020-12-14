@@ -17,7 +17,7 @@ var (
 )
 
 func init() {
-	log = zap.New(zap.UseDevMode(true)).WithName(color.PrettyPrint("manifests", color.Brown))
+	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("manifests", color.Brown))
 }
 
 // Metadata manifests filename and content

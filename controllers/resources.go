@@ -8,22 +8,13 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/assets"
+	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
-	buildV1 "github.com/openshift/api/build/v1"
-	ocpconfigv1 "github.com/openshift/api/config/v1"
-	imageV1 "github.com/openshift/api/image/v1"
-	routev1 "github.com/openshift/api/route/v1"
-	secv1 "github.com/openshift/api/security/v1"
-	configv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	"github.com/pkg/errors"
 	errs "github.com/pkg/errors"
-	monitoringV1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/yaml"
@@ -35,26 +26,11 @@ type nodes struct {
 }
 
 var (
-	manifests    = "/etc/kubernetes/special-resource/nvidia-gpu"
-	kubeclient   *kubernetes.Clientset
-	configclient *configv1.ConfigV1Client
-
 	node = nodes{
 		list:  &unstructured.UnstructuredList{},
 		count: 0xDEADBEEF,
 	}
 )
-
-// Add3dpartyResourcesToScheme Adds 3rd party resources To the operator
-func Add3dpartyResourcesToScheme(scheme *runtime.Scheme) {
-
-	utilruntime.Must(ocpconfigv1.AddToScheme(scheme))
-	utilruntime.Must(routev1.AddToScheme(scheme))
-	utilruntime.Must(secv1.AddToScheme(scheme))
-	utilruntime.Must(buildV1.AddToScheme(scheme))
-	utilruntime.Must(imageV1.AddToScheme(scheme))
-	utilruntime.Must(monitoringV1.AddToScheme(scheme))
-}
 
 func cacheNodes(r *SpecialResourceReconciler, force bool) (*unstructured.UnstructuredList, error) {
 
@@ -159,16 +135,16 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 		rb.SetName("system:image-puller")
 		rb.SetNamespace(r.specialresource.Spec.Namespace)
 		err := unstructured.SetNestedField(rb.Object, "rbac.authorization.k8s.io", "roleRef", "apiGroup")
-		exitOnError(err)
+		exit.OnError(err)
 		err = unstructured.SetNestedField(rb.Object, "ClusterRole", "roleRef", "kind")
-		exitOnError(err)
+		exit.OnError(err)
 		err = unstructured.SetNestedField(rb.Object, "system:image-puller", "roleRef", "name")
-		exitOnError(err)
+		exit.OnError(err)
 
 		newSubjects = append(newSubjects, newSubject)
 
 		unstructured.SetNestedSlice(rb.Object, newSubjects, "subjects")
-		exitOnError(err)
+		exit.OnError(err)
 
 		if err := r.Create(context.TODO(), rb); err != nil {
 			return errs.Wrap(err, "Couldn't Create Resource")
@@ -188,13 +164,13 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 	log.Info("ImageReference RoleBinding found, updating")
 
 	oldSubjects, _, err := unstructured.NestedSlice(rb.Object, "subjects")
-	exitOnError(err)
+	exit.OnError(err)
 
 	for _, subject := range oldSubjects {
 		switch subject := subject.(type) {
 		case map[string]interface{}:
 			namespace, _, err := unstructured.NestedString(subject, "namespace")
-			exitOnError(err)
+			exit.OnError(err)
 
 			log.Info("ImageReference", "namespace", namespace)
 			log.Info("ImageReference", "r.namespace", r.parent.Spec.Namespace)
@@ -211,7 +187,7 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 	oldSubjects = append(oldSubjects, newSubject)
 
 	unstructured.SetNestedSlice(rb.Object, oldSubjects, "subjects")
-	exitOnError(err)
+	exit.OnError(err)
 
 	if err := r.Update(context.TODO(), rb); err != nil {
 		return errs.Wrap(err, "Couldn't Update Resource")
@@ -219,21 +195,6 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 
 	return nil
 }
-
-/* apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: system:image-puller
-  namespace: driver-container-base
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: system:image-puller
-subjects:
-- kind: ServiceAccount
-  name: default
-  namespace: simple-kmod
-*/
 
 // ReconcileHardwareStates Reconcile Hardware States
 func ReconcileHardwareStates(r *SpecialResourceReconciler, config unstructured.Unstructured) error {
@@ -243,7 +204,7 @@ func ReconcileHardwareStates(r *SpecialResourceReconciler, config unstructured.U
 	var found bool
 
 	manifests, found, err = unstructured.NestedMap(config.Object, "data")
-	exitOnErrorOrNotFound(found, err)
+	exit.OnErrorOrNotFound(found, err)
 
 	states := make([]string, 0, len(manifests))
 	for key := range manifests {
@@ -283,7 +244,7 @@ metadata:
 	}
 	if err := createFromYAML(ns, r, ""); err != nil {
 		log.Info("Cannot reconcile specialresource namespace, something went horribly wrong")
-		exitOnError(err)
+		exit.OnError(err)
 	}
 }
 
@@ -313,7 +274,7 @@ func ReconcileHardwareConfigurations(r *SpecialResourceReconciler) error {
 	log.Info("Found Hardware Configuration States", "Name", config.GetName())
 
 	node.list, err = cacheNodes(r, false)
-	exitOnError(errs.Wrap(err, "Failed to cache Nodes"))
+	exit.OnError(errs.Wrap(err, "Failed to cache Nodes"))
 
 	getRuntimeInformation(r)
 	logRuntimeInformation()
@@ -364,7 +325,7 @@ func createFromYAML(yamlFile []byte, r *SpecialResourceReconciler, namespace str
 		}
 
 		err = obj.UnmarshalJSON(jsonSpec)
-		exitOnError(errs.Wrap(err, "Cannot unmarshall json spec, check your manifests"))
+		exit.OnError(errs.Wrap(err, "Cannot unmarshall json spec, check your manifests"))
 
 		if resourceNamespaced(obj.GetKind()) {
 			obj.SetNamespace(namespace)
@@ -384,7 +345,7 @@ func createFromYAML(yamlFile []byte, r *SpecialResourceReconciler, namespace str
 		}
 		// Create Update Delete Patch resources
 		err = CRUD(obj, r)
-		exitOnError(errs.Wrap(err, "CRUD exited non-zero"))
+		exit.OnError(errs.Wrap(err, "CRUD exited non-zero"))
 
 		// Callbacks after CRUD will wait for ressource and check status
 		if err := afterCRUDhooks(obj, r); err != nil {
@@ -421,7 +382,7 @@ func updateResourceVersion(req *unstructured.Unstructured, found *unstructured.U
 
 	if needToUpdateResourceVersion(kind) {
 		version, fnd, err := unstructured.NestedString(found.Object, "metadata", "resourceVersion")
-		exitOnErrorOrNotFound(fnd, err)
+		exit.OnErrorOrNotFound(fnd, err)
 
 		if err := unstructured.SetNestedField(req.Object, version, "metadata", "resourceVersion"); err != nil {
 			return errs.Wrap(err, "Couldn't update ResourceVersion")
@@ -430,7 +391,7 @@ func updateResourceVersion(req *unstructured.Unstructured, found *unstructured.U
 	}
 	if kind == "Service" {
 		clusterIP, fnd, err := unstructured.NestedString(found.Object, "spec", "clusterIP")
-		exitOnErrorOrNotFound(fnd, err)
+		exit.OnErrorOrNotFound(fnd, err)
 
 		if err := unstructured.SetNestedField(req.Object, clusterIP, "spec", "clusterIP"); err != nil {
 			return errs.Wrap(err, "Couldn't update clusterIP")

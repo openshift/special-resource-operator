@@ -20,15 +20,16 @@ import (
 	"flag"
 	"os"
 
+	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
+	"github.com/openshift-psap/special-resource-operator/controllers"
+	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/controllers"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -39,10 +40,7 @@ var (
 
 func init() {
 
-	controllers.Add3dpartyResourcesToScheme(scheme)
-	controllers.AddConfigClient(ctrl.GetConfigOrDie())
-	controllers.AddKubeClient(ctrl.GetConfigOrDie())
-
+	utilruntime.Must(sroscheme.AddToScheme(scheme))
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(srov1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
@@ -72,9 +70,11 @@ func main() {
 	}
 
 	if err = (&controllers.SpecialResourceReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log,
-		Scheme: mgr.GetScheme(),
+		Client:         mgr.GetClient(),
+		Clientset:      clients.GetKubeClientSetOrDie(mgr.GetConfig()),
+		ConfigV1Client: clients.GetConfigClientOrDie(mgr.GetConfig()),
+		Log:            ctrl.Log,
+		Scheme:         mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
 		os.Exit(1)

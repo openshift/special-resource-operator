@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
+	"github.com/openshift-psap/special-resource-operator/pkg/exit"
+	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"github.com/pkg/errors"
 	errs "github.com/pkg/errors"
 
@@ -102,27 +104,27 @@ func getRuntimeInformation(r *SpecialResourceReconciler) {
 	var err error
 	log.Info("Get Operating System")
 	runInfo.OperatingSystemMajor, runInfo.OperatingSystemMajorMinor, runInfo.OperatingSystemDecimal, err = getOperatingSystem()
-	exitOnError(errs.Wrap(err, "Failed to get operating system"))
+	exit.OnError(errs.Wrap(err, "Failed to get operating system"))
 
 	log.Info("Get Kernel Version")
 	runInfo.KernelVersion, err = getKernelVersion()
-	exitOnError(errs.Wrap(err, "Failed to get kernel version"))
+	exit.OnError(errs.Wrap(err, "Failed to get kernel version"))
 
 	log.Info("Get Cluster Version")
-	runInfo.ClusterVersion, runInfo.ClusterVersionMajorMinor, err = getClusterVersion()
-	exitOnError(errs.Wrap(err, "Failed to get cluster version"))
+	runInfo.ClusterVersion, runInfo.ClusterVersionMajorMinor, err = getClusterVersion(r)
+	exit.OnError(errs.Wrap(err, "Failed to get cluster version"))
 
 	log.Info("Get Push Secret Name")
 	runInfo.PushSecretName, err = getPushSecretName(r)
-	exitOnError(errs.Wrap(err, "Failed to get push secret name"))
+	exit.OnError(errs.Wrap(err, "Failed to get push secret name"))
 
 	log.Info("Get OS Image URL")
 	runInfo.OSImageURL, err = getOSImageURL(r)
-	exitOnError(errs.Wrap(err, "Failed to get OSImageURL"))
+	exit.OnError(errs.Wrap(err, "Failed to get OSImageURL"))
 
 	log.Info("Get Proxy Configuration")
 	runInfo.Proxy, err = getProxyConfiguration(r)
-	exitOnError(errs.Wrap(err, "Failed to get Proxy Configuration"))
+	exit.OnError(errs.Wrap(err, "Failed to get Proxy Configuration"))
 
 	r.specialresource.DeepCopyInto(&runInfo.SpecialResource)
 }
@@ -215,9 +217,9 @@ func getKernelVersion() (string, error) {
 	return kernelVersion, nil
 }
 
-func getClusterVersion() (string, string, error) {
+func getClusterVersion(r *SpecialResourceReconciler) (string, string, error) {
 
-	version, err := configclient.ClusterVersions().Get(context.TODO(), "version", metav1.GetOptions{})
+	version, err := r.ClusterVersions().Get(context.TODO(), "version", metav1.GetOptions{})
 	if err != nil {
 		return "", "", errs.Wrap(err, "ConfigClient unable to get ClusterVersions")
 	}
@@ -284,7 +286,7 @@ func getOSImageURL(r *SpecialResourceReconciler) (string, error) {
 	}
 
 	osImageURL, found, err := unstructured.NestedString(cm.Object, "data", "osImageURL")
-	exitOnErrorOrNotFound(found, err)
+	exit.OnErrorOrNotFound(found, err)
 
 	return osImageURL, nil
 
@@ -314,22 +316,22 @@ func getProxyConfiguration(r *SpecialResourceReconciler) (proxyConfiguration, er
 		// and initialized the Proxy struct with zero sized strings
 		if strings.Contains(cfgName, "cluster") {
 			if proxy.HttpProxy, fnd, err = unstructured.NestedString(cfg.Object, "spec", "httpProxy"); err != nil {
-				warnOnErrorOrNotFound(fnd, err)
+				warn.OnErrorOrNotFound(fnd, err)
 				proxy.HttpProxy = ""
 			}
 
 			if proxy.HttpsProxy, fnd, err = unstructured.NestedString(cfg.Object, "spec", "httpsProxy"); err != nil {
-				warnOnErrorOrNotFound(fnd, err)
+				warn.OnErrorOrNotFound(fnd, err)
 				proxy.HttpsProxy = ""
 			}
 
 			if proxy.NoProxy, fnd, err = unstructured.NestedString(cfg.Object, "spec", "noProxy"); err != nil {
-				warnOnErrorOrNotFound(fnd, err)
+				warn.OnErrorOrNotFound(fnd, err)
 				proxy.NoProxy = ""
 			}
 
 			if proxy.TrustedCA, fnd, err = unstructured.NestedString(cfg.Object, "spec", "trustedCA", "name"); err != nil {
-				warnOnErrorOrNotFound(fnd, err)
+				warn.OnErrorOrNotFound(fnd, err)
 				proxy.TrustedCA = ""
 			}
 		}
@@ -359,7 +361,7 @@ func setupProxy(obj *unstructured.Unstructured, r *SpecialResourceReconciler) er
 // path... -> Pod, DaemonSet, BuildConfig, etc.
 func setupDaemonSetProxy(obj *unstructured.Unstructured, r *SpecialResourceReconciler) error {
 	containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
-	exitOnErrorOrNotFound(found, err)
+	exit.OnErrorOrNotFound(found, err)
 
 	if err := setupContainersProxy(containers); err != nil {
 		return errs.Wrap(err, "Cannot set proxy for Pod")
@@ -371,7 +373,7 @@ func setupDaemonSetProxy(obj *unstructured.Unstructured, r *SpecialResourceRecon
 func setupPodProxy(obj *unstructured.Unstructured, r *SpecialResourceReconciler) error {
 
 	containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "containers")
-	exitOnErrorOrNotFound(found, err)
+	exit.OnErrorOrNotFound(found, err)
 
 	if err := setupContainersProxy(containers); err != nil {
 		return errs.Wrap(err, "Cannot set proxy for Pod")
@@ -386,7 +388,7 @@ func setupContainersProxy(containers []interface{}) error {
 		switch container := container.(type) {
 		case map[string]interface{}:
 			env, found, err := unstructured.NestedSlice(container, "env")
-			exitOnError(err)
+			exit.OnError(err)
 
 			// If env not found we are creating a new env slice
 			// otherwise we're appending it to the existing env slice

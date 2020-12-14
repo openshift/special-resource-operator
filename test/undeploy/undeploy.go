@@ -24,7 +24,7 @@ import (
 
 var (
 	scheme = runtime.NewScheme()
-	log    = ctrl.Log.WithName(color.Print("deploy", color.Blue))
+	log    = ctrl.Log.WithName(color.Print("undeploy", color.Blue))
 )
 
 func init() {
@@ -56,11 +56,11 @@ func main() {
 	manifests := assets.GetFrom(*path)
 
 	for _, manifest := range manifests {
-		createFromYAML(manifest.Content, cl)
+		deleteFromYAML(manifest.Content, cl)
 	}
 
 }
-func createFromYAML(yamlFile []byte, cl client.Client) {
+func deleteFromYAML(yamlFile []byte, cl client.Client) {
 
 	scanner := yamlutil.NewYAMLScanner(yamlFile)
 
@@ -74,9 +74,14 @@ func createFromYAML(yamlFile []byte, cl client.Client) {
 		err = obj.UnmarshalJSON(jsonSpec)
 		exit.OnError(errs.Wrap(err, "Cannot unmarshall json spec, check your manifests"))
 
-		err = cl.Create(context.TODO(), obj)
+		// CRD is deleted so CR deletion will fail since already gone
+		if obj.GetKind() == "SpecialResource" {
+			continue
+		}
+
+		err = cl.Delete(context.TODO(), obj)
 		exit.OnError(err)
 
-		log.Info("Created", "Kind", obj.GetKind(), "Name", obj.GetName())
+		log.Info("Deleted", "Kind", obj.GetKind(), "Name", obj.GetName())
 	}
 }

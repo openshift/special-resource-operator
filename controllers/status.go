@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
+	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 	errs "github.com/pkg/errors"
@@ -41,7 +42,7 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusGetOrCreate() error {
 
 	opts := []client.ListOption{}
 	err := r.List(context.TODO(), clusterOperators, opts...)
-	exitOnError(err)
+	exit.OnError(err)
 
 	for _, clusterOperator := range clusterOperators.Items {
 		if clusterOperator.GetName() == r.GetName() {
@@ -51,7 +52,7 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusGetOrCreate() error {
 	}
 	// If we land here there is no clusteroperator object for SRO
 	// Unsure if we need to create a clusteroperator object ...
-	log.Info(color.PrettyPrint("TOOD: Do we need to create a ClusterOperator Object? ", color.Red))
+	log.Info(color.Print("TOOD: Do we need to create a ClusterOperator Object? ", color.Red))
 	return errs.New("ClusterOperator can not be found")
 }
 
@@ -81,7 +82,7 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusReconcile(
 
 func (r *SpecialResourceReconciler) clusterOperatorStatusUpdate() error {
 
-	if _, err := configclient.ClusterOperators().UpdateStatus(context.TODO(), &r.clusterOperator, metav1.UpdateOptions{}); err != nil {
+	if _, err := r.ClusterOperators().UpdateStatus(context.TODO(), &r.clusterOperator, metav1.UpdateOptions{}); err != nil {
 		return err
 	}
 	return nil
@@ -98,7 +99,7 @@ func ReportSpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request
 		conditionDegradedDefaultMsg,
 	)
 
-	log = r.Log.WithName(color.PrettyPrint("status", color.Blue))
+	log = r.Log.WithName(color.Print("status", color.Blue))
 	if err := r.clusterOperatorStatusGetOrCreate(); err != nil {
 		return reconcile.Result{Requeue: true}, errs.Wrap(err, "Cannot get or create ClusterOperator")
 	}
@@ -111,7 +112,7 @@ func ReportSpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request
 
 	ctrlResult, err := ReconcilerSpecialResources(r, req)
 
-	log = r.Log.WithName(color.PrettyPrint("status", color.Blue))
+	log = r.Log.WithName(color.Print("status", color.Blue))
 	if err := r.clusterOperatorStatusGetOrCreate(); err != nil {
 		return reconcile.Result{Requeue: true}, errs.Wrap(err, "Cannot get or create ClusterOperator")
 	}

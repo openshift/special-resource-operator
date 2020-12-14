@@ -21,6 +21,7 @@ test-e2e:
 	  KUBERNETES_CONFIG="$(KUBECONFIG)" go test -v -timeout 40m ./test/e2e/$$d -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit; \
 	done
 
+	go run test/undeploy/undeploy.go -path ./manifests
 
 # Current Operator version
 VERSION ?= v0.0.1
@@ -54,7 +55,7 @@ test: # generate fmt vet manifests
 
 # Build manager binary
 manager: generate fmt vet
-	go build -mod=vendor -o bin/manager main.go
+	go build -mod=vendor -o /tmp/bin/manager main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests-gen
