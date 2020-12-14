@@ -1,0 +1,17 @@
+name: lint
+
+on: push
+
+jobs: 
+  lint:
+    name: Lint the code 
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: add go path
+      run: echo '~/go/bin' >> "$GITHUB_PATH"
+
+    - name: make lint
+      run: make lint
+

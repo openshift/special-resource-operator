@@ -8,7 +8,7 @@ export PATH := go/bin:$(PATH)
 include config/recipes/Makefile
 
 lint: golangci-lint
-	-$(GOLANGCILINT) run -v
+	$(GOLANGCILINT) run -v
 
 verify: fmt
 unit: 
