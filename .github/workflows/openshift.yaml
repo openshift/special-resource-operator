@@ -10,8 +10,8 @@ env:
 
 on: 
   repository_dispatch:
-    types: [my-event]
-    
+    types: [image-build]
+
 jobs: 
   openshift:
     name: test-e2e
