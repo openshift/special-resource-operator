@@ -3,8 +3,8 @@ name: verify
 on: push
 
 jobs: 
-  go-lint:
-    name: fmt/vet
+  verify:
+    name: fmt-vet
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2

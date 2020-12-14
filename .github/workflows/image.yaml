@@ -1,0 +1,34 @@
+name: image
+
+on: push
+
+jobs: 
+  build:
+    name: build
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: add go path
+      run: echo '~/go/bin' >> "$GITHUB_PATH"
+
+    - name: make local-image-build 
+      run: make local-image-build
+    
+    - name: auth.json
+      run: |
+        [ -d ~/.docker ] || mkdir ~/.docker
+        cat > ~/.docker/config.json <<'EOF'
+        ${{ secrets.AUTH_JSON }}
+        EOF
+    
+    - name: make local-image-push
+      run: make local-image-push
+  
+    - name: dispatch
+      uses: peter-evans/repository-dispatch@v1
+      with:
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        repository: username/my-repo
+        event-type: my-event
+        client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
