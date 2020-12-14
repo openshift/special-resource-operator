@@ -1,4 +1,4 @@
-name: OpenShift
+name: openshift
 
 env:
   REGISTRY: quay.io/openshift-psap
@@ -8,30 +8,19 @@ env:
   OPENSHIFT_SERVER: ${{ secrets.OPENSHIFT_SERVER }}
   OPENSHIFT_TOKEN: ${{ secrets.OPENSHIFT_TOKEN }}
 
-on: push
-
+on: 
+  repository_dispatch:
+    types: [my-event]
+    
 jobs: 
-  openshift-ci-cd:
+  openshift:
     name: test-e2e
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
 
     - name: add go path
       run: echo '~/go/bin' >> "$GITHUB_PATH"
-
-    - name: make local-image-build 
-      run: make local-image-build
-    
-    - name: auth.json
-      run: |
-        [ -d ~/.docker ] || mkdir ~/.docker
-        cat > ~/.docker/config.json <<'EOF'
-        ${{ secrets.AUTH_JSON }}
-        EOF
-    
-    - name: make local-image-push
-      run: make local-image-push
     
     - name: oc login 
       uses: redhat-actions/oc-login@v1
@@ -40,9 +29,6 @@ jobs:
         openshift_token: ${{ env.OPENSHIFT_TOKEN }}
         insecure_skip_tls_verify: true
         namespace: default
-
-    - name: make undeploy
-      run: make undeploy
 
     - name: make test-e2e
       run: make test-e2e
