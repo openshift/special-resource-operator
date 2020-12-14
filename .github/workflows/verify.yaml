@@ -4,7 +4,7 @@ on: push
 
 jobs: 
   go-lint:
-    name: Run golangci-lint
+    name: fmt/vet
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -12,6 +12,6 @@ jobs:
     - name: add go path
       run: echo '~/go/bin' >> "$GITHUB_PATH"
 
-    - name: make lint
-      run: make lint
+    - name: make verify
+      run: make verify
 

@@ -10,7 +10,7 @@ include config/recipes/Makefile
 lint: golangci-lint
 	$(GOLANGCILINT) run -v
 
-verify: fmt
+verify: fmt vet
 unit: 
 	@echo "TODO UNIT TEST"
 

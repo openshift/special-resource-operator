@@ -20,9 +20,6 @@ jobs:
     - name: add go path
       run: echo '~/go/bin' >> "$GITHUB_PATH"
 
-    - name: make unit
-      run: make unit
-
     - name: make local-image-build 
       run: make local-image-build
     
