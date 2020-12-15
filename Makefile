@@ -8,9 +8,9 @@ export PATH := go/bin:$(PATH)
 include config/recipes/Makefile
 
 lint: golangci-lint
-	-$(GOLANGCILINT) run -v
+	$(GOLANGCILINT) run -v --timeout 5m0s
 
-verify: fmt
+verify: fmt vet
 unit: 
 	@echo "TODO UNIT TEST"
 

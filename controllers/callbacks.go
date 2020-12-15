@@ -131,7 +131,7 @@ func checkForImagePullBackOff(obj *unstructured.Unstructured, r *SpecialResource
 		for _, containerStatus := range containerStatuses {
 			switch containerStatus := containerStatus.(type) {
 			case map[string]interface{}:
-				reason, found, err = unstructured.NestedString(containerStatus, "state", "waiting", "reason")
+				reason, _, _ = unstructured.NestedString(containerStatus, "state", "waiting", "reason")
 				log.Info("Reason", "reason", reason)
 			default:
 				log.Info("checkForImagePullBackOff", "DEFAULT NOT THE CORRECT TYPE", containerStatus)

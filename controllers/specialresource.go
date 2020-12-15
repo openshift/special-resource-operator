@@ -158,23 +158,25 @@ func createSpecialResourceFrom(r *SpecialResourceReconciler, name string) (srov1
 	specialresource := srov1beta1.SpecialResource{}
 
 	crpath := "/opt/sro/recipes/" + name
-	manifests := assets.GetFrom(crpath)
+	crfile := assets.GetFrom(crpath)
 
-	if len(manifests) == 0 {
+	if len(crfile) == 0 {
 		exit.OnError(errs.New("Could not read CR " + name + "from lokal path"))
 	}
 
-	for _, manifest := range manifests {
+	if len(crfile) > 1 {
+		log.Info("More than one default CR provided, taking the first one")
+	}
 
-		log.Info("Creating", "manifest", manifest.Name)
+	// Only one CR creation if they are more ignore all others
+	// makes no sense to create multiple CRs for the same specialresource
+	cryaml := crfile[0:1][0]
 
-		if err := createFromYAML(manifest.Content, r, r.specialresource.Spec.Namespace); err != nil {
-			log.Info("Cannot create, something went horribly wrong")
-			exit.OnError(err)
-		}
-		// Only one CR creation if they are more ignore all others
-		// makes no sense to create multiple CRs for the same specialresource
-		break
+	log.Info("Creating SpecialResource: " + cryaml.Name)
+
+	if err := createFromYAML(cryaml.Content, r, r.specialresource.Spec.Namespace); err != nil {
+		log.Info("Cannot create, something went horribly wrong")
+		exit.OnError(err)
 	}
 
 	return specialresource, errs.New("Created new SpecialResource we need to Reconcile")

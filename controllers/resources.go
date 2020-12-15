@@ -143,7 +143,7 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 
 		newSubjects = append(newSubjects, newSubject)
 
-		unstructured.SetNestedSlice(rb.Object, newSubjects, "subjects")
+		err = unstructured.SetNestedSlice(rb.Object, newSubjects, "subjects")
 		exit.OnError(err)
 
 		if err := r.Create(context.TODO(), rb); err != nil {
@@ -186,7 +186,7 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 
 	oldSubjects = append(oldSubjects, newSubject)
 
-	unstructured.SetNestedSlice(rb.Object, oldSubjects, "subjects")
+	err = unstructured.SetNestedSlice(rb.Object, oldSubjects, "subjects")
 	exit.OnError(err)
 
 	if err := r.Update(context.TODO(), rb); err != nil {

@@ -1,0 +1,46 @@
+name: openshift
+
+on: 
+  push:
+    paths-ignore:
+      - "**/README.md"
+
+jobs: 
+  openshift:
+    name: test-e2e
+    runs-on: ubuntu-latest
+    steps:
+    - name: wait for build to succeed
+      uses: fountainhead/action-wait-for-check@v1.0.0
+      id: wait-for-build
+      with:
+        intervalSeconds: 15
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        checkName: build
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+    - name: check for successfull build
+      if: steps.wait-for-build.outputs.conclusion != 'success'
+      run: exit 1
+
+    - name: checkout
+      uses: actions/checkout@v2
+
+    - name: add go path
+      run: echo '~/go/bin' >> "$GITHUB_PATH"
+    
+    - name: oc login 
+      uses: redhat-actions/oc-login@v1
+      with:
+        openshift_server_url: ${{ secrets.OPENSHIFT_SERVER }}
+        openshift_username: ${{ secrets.OPENSHIFT_USERNAME }}
+        openshift_password: ${{ secrets.OPENSHIFT_PASSWORD }}
+        insecure_skip_tls_verify: true
+        namespace: default
+      
+    - name: make undeploy
+      run: make undeploy
+
+    - name: make test-e2e
+      run: make test-e2e
+  
