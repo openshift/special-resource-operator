@@ -8,16 +8,27 @@ env:
   OPENSHIFT_SERVER: ${{ secrets.OPENSHIFT_SERVER }}
   OPENSHIFT_TOKEN: ${{ secrets.OPENSHIFT_TOKEN }}
 
-on: 
-  repository_dispatch:
-    types: [image-build]
+on: push
 
 jobs: 
-  openshift:
-    name: test-e2e
+  wait-for-build:
+    name: wait-for-build
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - name: wait for build to succeed
+      uses: fountainhead/action-wait-for-check@v1.0.0
+      id: wait-for-build
+      with:
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        checkName: build
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+  openshift:
+    runs-on: ubuntu-latest
+    if: steps.wait-for-build.outputs.conclusion == 'success'
+    steps:
+    - name: checkout 
+      uses: actions/checkout@v2
 
     - name: add go path
       run: echo '~/go/bin' >> "$GITHUB_PATH"

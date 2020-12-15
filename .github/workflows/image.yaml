@@ -25,9 +25,3 @@ jobs:
     - name: make local-image-push
       run: make local-image-push
   
-    - name: dispatch
-      uses: peter-evans/repository-dispatch@v1
-      with:
-        token: ${{ secrets.REPO_ACCESS_TOKEN }}
-        event-type: image-build
-        client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
