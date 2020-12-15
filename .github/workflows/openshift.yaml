@@ -11,8 +11,8 @@ env:
 on: push
 
 jobs: 
-  wait-for-build:
-    name: wait-for-build
+  openshift:
+    name: test-e2e
     runs-on: ubuntu-latest
     steps:
     - name: wait for build to succeed
@@ -23,11 +23,8 @@ jobs:
         checkName: build
         ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-  openshift:
-    runs-on: ubuntu-latest
-    if: steps.wait-for-build.outputs.conclusion == 'success'
-    steps:
-    - name: checkout 
+    - name: Do something with a failing build
+      if: steps.wait-for-build.outputs.conclusion == 'success'
       uses: actions/checkout@v2
 
     - name: add go path
