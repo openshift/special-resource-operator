@@ -23,8 +23,11 @@ jobs:
         checkName: build
         ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-    - name: Do something with a failing build
-      if: steps.wait-for-build.outputs.conclusion == 'success'
+    - name: check for successfull build
+      if: steps.wait-for-build.outputs.conclusion != 'success'
+      run: exit 1
+
+    - name: checkout
       uses: actions/checkout@v2
 
     - name: add go path
@@ -34,7 +37,8 @@ jobs:
       uses: redhat-actions/oc-login@v1
       with:
         openshift_server_url: ${{ env.OPENSHIFT_SERVER }}
-        openshift_token: ${{ env.OPENSHIFT_TOKEN }}
+        openshift_username: ${{ env.OPENSHIFT_USERNAME }}
+        openshift_password: ${{ env.OPENSHIFT_PASSWORD }}
         insecure_skip_tls_verify: true
         namespace: default
 
