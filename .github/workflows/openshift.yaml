@@ -37,6 +37,9 @@ jobs:
         openshift_password: ${{ secrets.OPENSHIFT_PASSWORD }}
         insecure_skip_tls_verify: true
         namespace: default
+      
+    - name: make undeploy
+      run: make undeploy
 
     - name: make test-e2e
       run: make test-e2e
