@@ -79,13 +79,11 @@ func makeStatusCallback(obj *unstructured.Unstructured, status interface{}, fiel
 	}
 }
 
-var waitCallback resourceCallbacks
-
 func waitForResource(obj *unstructured.Unstructured, r *SpecialResourceReconciler) error {
 
 	log.Info("WaitForResource", "Kind", obj.GetKind())
 
-	var err error = nil
+	var err error
 	// Wait for general availability, Pods Complete, Running
 	// DaemonSet NumberUnavailable == 0, etc
 	if wait, ok := waitFor[obj.GetKind()]; ok {
@@ -117,12 +115,12 @@ func waitForDaemonSetCallback(obj *unstructured.Unstructured) bool {
 	node.count, found, err = unstructured.NestedInt64(obj.Object, "status", "desiredNumberScheduled")
 	exit.OnErrorOrNotFound(found, err)
 
-	_, found, err = unstructured.NestedInt64(obj.Object, "status", "numberUnavailable")
+	_, found, _ = unstructured.NestedInt64(obj.Object, "status", "numberUnavailable")
 	if found {
 		callback = makeStatusCallback(obj, 0, "status", "numberUnavailable")
 	}
 
-	_, found, err = unstructured.NestedInt64(obj.Object, "status", "numberAvailable")
+	_, found, _ = unstructured.NestedInt64(obj.Object, "status", "numberAvailable")
 	if found {
 		callback = makeStatusCallback(obj, node.count, "status", "numberAvailable")
 	}
@@ -219,7 +217,7 @@ func waitForDaemonSetLogs(obj *unstructured.Unstructured, r *SpecialResourceReco
 	var selector string
 
 	if selector, found = obj.GetLabels()["app"]; !found {
-		errs.New("Cannot find Label app=, missing take a look at the manifests")
+		return errs.New("Cannot find Label app=, missing take a look at the manifests")
 	}
 
 	log.Info("Looking for Pods with label app=" + selector)
@@ -263,8 +261,6 @@ func waitForDaemonSetLogs(obj *unstructured.Unstructured, r *SpecialResourceReco
 		if match, _ := regexp.MatchString(pattern, lastBytes); !match {
 			return errs.New("Not yet done. Not matched against: " + pattern)
 		}
-		// We're only checking one Pod not all of them
-		break
 	}
 
 	return nil

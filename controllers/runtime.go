@@ -148,7 +148,6 @@ func getOperatingSystem() (string, string, string, error) {
 		if len(nodeOSrel) == 0 || len(nodeOSmaj) == 0 {
 			return "", "", "", errs.New("Cannot extract " + os + ".*, is NFD running? Check node labels")
 		}
-		break
 	}
 
 	return renderOperatingSystem(nodeOSrel, nodeOSmaj, nodeOSmin)
@@ -211,7 +210,6 @@ func getKernelVersion() (string, error) {
 		if kernelVersion, found = labels[short]; !found {
 			return "", errs.New("Label " + short + " not found is NFD running? Check node labels")
 		}
-		break
 	}
 
 	return kernelVersion, nil
@@ -414,7 +412,7 @@ func setupContainersProxy(containers []interface{}) error {
 			env = append(env, noproxy)
 
 			if err := unstructured.SetNestedSlice(container, env, "env"); err != nil {
-				errs.Wrap(err, "Cannot set env for container")
+				return errs.Wrap(err, "Cannot set env for container")
 			}
 
 		default:

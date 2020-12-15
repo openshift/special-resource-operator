@@ -5,6 +5,7 @@ import (
 
 	"fmt"
 
+	errs "github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -17,7 +18,11 @@ func labelNodesAccordingToState(obj *unstructured.Unstructured, r *SpecialResour
 		return nil
 	}
 
-	cacheNodes(r, true)
+	var err error
+
+	if node.list, err = cacheNodes(r, true); err != nil {
+		return errs.Wrap(err, "Could not cache nodes for state change")
+	}
 
 	hw := r.specialresource.Name
 	st := runInfo.StateName
@@ -59,7 +64,12 @@ func labelNodesAccordingToState(obj *unstructured.Unstructured, r *SpecialResour
 				return fmt.Errorf("Forbidden check Role, ClusterRole and Bindings for operator %s", err)
 			}
 			if apierrors.IsConflict(err) {
-				cacheNodes(r, true)
+				var err error
+
+				if _, err = cacheNodes(r, true); err != nil {
+					return errs.Wrap(err, "Could not cache nodes for api conflict")
+				}
+
 				return fmt.Errorf("Node Conflict Label %s err %s", stateLabel, err)
 			}
 
