@@ -14,6 +14,7 @@ jobs:
       uses: fountainhead/action-wait-for-check@v1.0.0
       id: wait-for-build
       with:
+        intervalSeconds: 15
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
         checkName: build
         ref: ${{ github.event.pull_request.head.sha || github.sha }}
