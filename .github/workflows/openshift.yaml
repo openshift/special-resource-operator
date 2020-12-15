@@ -1,14 +1,9 @@
 name: openshift
 
-env:
-  REGISTRY: quay.io/openshift-psap
-  REGISTRY_USER: ${{ secrets.QUAY_USERNAME }}
-  REGISTRY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
-
-  OPENSHIFT_SERVER: ${{ secrets.OPENSHIFT_SERVER }}
-  OPENSHIFT_TOKEN: ${{ secrets.OPENSHIFT_TOKEN }}
-
-on: push
+on: 
+  push:
+    paths-ignore:
+      - "**/README.md"
 
 jobs: 
   openshift:
@@ -36,9 +31,9 @@ jobs:
     - name: oc login 
       uses: redhat-actions/oc-login@v1
       with:
-        openshift_server_url: ${{ env.OPENSHIFT_SERVER }}
-        openshift_username: ${{ env.OPENSHIFT_USERNAME }}
-        openshift_password: ${{ env.OPENSHIFT_PASSWORD }}
+        openshift_server_url: ${{ secrets.OPENSHIFT_SERVER }}
+        openshift_username: ${{ secrets.OPENSHIFT_USERNAME }}
+        openshift_password: ${{ secrets.OPENSHIFT_PASSWORD }}
         insecure_skip_tls_verify: true
         namespace: default
 
