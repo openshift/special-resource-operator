@@ -164,7 +164,7 @@ func createSpecialResourceFrom(r *SpecialResourceReconciler, name string) (srov1
 		exit.OnError(errs.New("Could not read CR " + name + "from lokal path"))
 	}
 
-	if len(crfile) > 0 {
+	if len(crfile) > 1 {
 		log.Info("More than one default CR provided, taking the first one")
 	}
 
@@ -172,7 +172,7 @@ func createSpecialResourceFrom(r *SpecialResourceReconciler, name string) (srov1
 	// makes no sense to create multiple CRs for the same specialresource
 	cryaml := crfile[0:1][0]
 
-	log.Info("Creating SpecialResource: ", cryaml.Name)
+	log.Info("Creating SpecialResource: " + cryaml.Name)
 
 	if err := createFromYAML(cryaml.Content, r, r.specialresource.Spec.Namespace); err != nil {
 		log.Info("Cannot create, something went horribly wrong")
