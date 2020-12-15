@@ -1,6 +1,11 @@
 
 # Supporting out-of-tree drivers on OpenShift
 
+[![hackmd-github-sync-badge](https://hackmd.io/fhy-X3G5TJKEbJBJ4_4rNw/badge)](https://hackmd.io/fhy-X3G5TJKEbJBJ4_4rNw)
+
+## CI/CD Status
+[](https://github.com/openshift-psap/special-resorce-operator/workflows/openshift/badge.svg)
+
 ## Summary
 
 OpenShift will support out-of-tree and third-party kernel drivers and the support software for the underlying operating systems via containers.
