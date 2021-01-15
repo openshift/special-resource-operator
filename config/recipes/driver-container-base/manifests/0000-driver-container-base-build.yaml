@@ -79,6 +79,17 @@ data:
       done
     }
 
+    function install_kernel_rpms_nodeps() {
+      for rpm in "$@"
+      do
+        echo "Installing ${rpm}"
+        if ! rpm -ivh --nodeps ${rpm}; then
+          echo "Cannot install ${rpm} with rpm -i --nodeps"
+          return 1
+        fi
+      done
+    }
+
     echo "Setting the correct releasever for all following yum comamnds..."
     echo {{.OperatingSystemDecimal}} > /etc/yum/vars/releasever
 
@@ -107,12 +118,14 @@ data:
 
     # Installation order is important leave this as is 
     kernel_rpms=(
-      $(find /extensions -name kernel-core-${UNAME}.rpm -exec ls {} \; | tail -n1)
-      $(find /extensions -name kernel-devel-${UNAME}.rpm -exec ls {} \; | tail -n1)
-      $(find /extensions -name kernel-headers-${UNAME}.rpm -exec ls {} \; | tail -n1) 
-      $(find /extensions -name kernel-modules-${UNAME}.rpm -exec ls {} \; | tail -n1)
-      $(find /extensions -name kernel-modules-extra-${UNAME}.rpm -exec ls {} \; | tail -n1)
+      $(find /extensions -name kernel-core-${kernel_version}.rpm -exec ls {} \; | tail -n1)
+      $(find /extensions -name kernel-devel-${kernel_version}.rpm -exec ls {} \; | tail -n1)
+      $(find /extensions -name kernel-headers-${kernel_version}.rpm -exec ls {} \; | tail -n1) 
+      $(find /extensions -name kernel-modules-${kernel_version}.rpm -exec ls {} \; | tail -n1)
+      $(find /extensions -name kernel-modules-extra-${kernel_version}.rpm -exec ls {} \; | tail -n1)
     )
+
+
     # On a 4.5 cluster we only have a subset of these available
     # If they are empty yum will fail anyway, so I do not see the purpose of checking ! -z ...
     # [ ! -z $KERNEL_DEVEL ]
@@ -121,7 +134,7 @@ data:
     # [ ! -z $KERNEL_MODULES ]
     # [ ! -z $KERNEL_MODULES_EXTRA ]
 
-    if install_kernel_rpms "${kernel_rpms[@]}"; then
+    if install_kernel_rpms_nodeps "${kernel_rpms[@]}"; then
       echo "MOC - kernel rpms ${kernel_rpms[@]} installed"
       exit 0
     fi
