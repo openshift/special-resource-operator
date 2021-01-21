@@ -4,11 +4,11 @@ metadata:
   name: lustre-client
 spec:
   namespace: lustre-client
-  environment:
-    - key: "key_id"
-      value: "AWS_ACCESS_KEY_ID"
-    - key: "access_key"
-      value: "AWS_SECRET_ACCESS_KEY"
+  configuration:
+    - name: "key_id"
+      value: ["AWS_ACCESS_KEY_ID"]
+    - name: "access_key"
+      value: ["AWS_SECRET_ACCESS_KEY"]
   driverContainer:
     buildArgs:
       - name: "KVER"
@@ -16,6 +16,3 @@ spec:
       - name: "RELEASEVER"
         value: "{{.OperatingSystemDecimal}}"
 
-  dependsOn:
-    - name: "driver-container-base"
-      imageReference: "true"

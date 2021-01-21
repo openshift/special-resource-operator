@@ -14,14 +14,18 @@ verify: fmt vet
 unit: 
 	@echo "TODO UNIT TEST"
 
-test-e2e:
+go-deploy-manifests:
 	go run test/deploy/deploy.go -path ./manifests
 
-	for d in basic; do \
-	  KUBERNETES_CONFIG="$(KUBECONFIG)" go test -v -timeout 40m ./test/e2e/$$d -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit; \
-	done
-
+go-undeploy-manifests:
 	go run test/undeploy/undeploy.go -path ./manifests
+
+test-e2e-upgrade: go-deploy-manifests 
+
+test-e2e:
+	for d in basic; do \
+          KUBERNETES_CONFIG="$(KUBECONFIG)" go test -v -timeout 40m ./test/e2e/$$d -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit; \
+        done
 
 # Current Operator version
 VERSION ?= v0.0.1
