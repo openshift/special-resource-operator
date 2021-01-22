@@ -50,13 +50,22 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusGetOrCreate() error {
 			return nil
 		}
 	}
-	// If we land here there is no clusteroperator object for SRO
-	// Unsure if we need to create a clusteroperator object ...
-	log.Info(color.Print("TOOD: Do we need to create a ClusterOperator Object? ", color.Red))
-	return errs.New("ClusterOperator can not be found")
+
+	// If we land here there is no clusteroperator object for SRO, create it.
+	log = r.Log.WithName(color.Print("status", color.Blue))
+	log.Info("No ClusterOperator found... Creating ClusterOperator for SRO")
+
+	co := &configv1.ClusterOperator{ObjectMeta: metav1.ObjectMeta{Name: r.GetName()}}
+
+	co, err = r.ClusterOperators().Create(context.TODO(), co, metav1.CreateOptions{})
+	if err != nil {
+		return errs.Wrap(err, "Failed to create ClusterOperator " + co.Name)
+	}
+	co.DeepCopyInto(&r.clusterOperator)
+	return nil
 }
 
-func (r *SpecialResourceReconciler) clusterOperotarStatusSet() error {
+func (r *SpecialResourceReconciler) clusterOperatorStatusSet() error {
 
 	if releaseVersion := os.Getenv("RELEASE_VERSION"); len(releaseVersion) > 0 {
 		operatorv1helpers.SetOperandVersion(&r.clusterOperator.Status.Versions, configv1.OperandVersion{Name: "operator", Version: releaseVersion})
@@ -69,7 +78,7 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusReconcile(
 
 	r.clusterOperator.Status.Conditions = conditions
 
-	if err := r.clusterOperotarStatusSet(); err != nil {
+	if err := r.clusterOperatorStatusSet(); err != nil {
 		return errs.Wrap(err, "Cannot update the ClusterOperator status")
 	}
 
@@ -104,9 +113,9 @@ func ReportSpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request
 		return reconcile.Result{Requeue: true}, errs.Wrap(err, "Cannot get or create ClusterOperator")
 	}
 
-	log.Info("Reconcling ClusterOperator")
+	log.Info("Reconciling ClusterOperator")
 	if err := r.clusterOperatorStatusReconcile(conditions); err != nil {
-		log.Info("Reconcling ClusterOperator failed", "error", fmt.Sprintf("%v", err))
+		log.Info("Reconciling ClusterOperator failed", "error", fmt.Sprintf("%v", err))
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -120,9 +129,9 @@ func ReportSpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request
 		conditions = conditionsAvailableNotProgressingNotDegraded()
 	}
 
-	log.Info("Reconcling ClusterOperator")
+	log.Info("Reconciling ClusterOperator")
 	if err := r.clusterOperatorStatusReconcile(conditions); err != nil {
-		log.Info("Reconcling ClusterOperator failed", "error", fmt.Sprintf("%v", err))
+		log.Info("Reconciling ClusterOperator failed", "error", fmt.Sprintf("%v", err))
 		return reconcile.Result{Requeue: true}, nil
 	}
 
