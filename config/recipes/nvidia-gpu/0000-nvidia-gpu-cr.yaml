@@ -4,7 +4,7 @@ metadata:
   name: nvidia-gpu
 spec:
   namespace: nvidia-gpu
-  environment:
+  configuration:
     - key: "mig-strategy"
       value: "none"
   driverContainer:
