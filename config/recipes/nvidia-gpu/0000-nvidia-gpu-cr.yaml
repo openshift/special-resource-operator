@@ -5,8 +5,8 @@ metadata:
 spec:
   namespace: nvidia-gpu
   configuration:
-    - key: "mig-strategy"
-      value: "none"
+    - name: "mig-strategy"
+      value: ["none"]
   driverContainer:
     source:
       git:
