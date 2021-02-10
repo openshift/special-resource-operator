@@ -141,7 +141,7 @@ spec:
       serviceAccountName: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
 #      hostPID: true
       containers:
-      - image: image-registry.openshift-image-registry.svc:5000/{{.SpecialResource.Spec.Namespace}}/{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}:v{{.KernelVersion}}
+      - image: image-registry.openshift-image-registry.svc:5000/{{.SpecialResource.Spec.Namespace}}/{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}:v{{.KernelFullVersion}}
         imagePullPolicy: Always
         name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
         command: ["/bin/entrypoint.sh"]
@@ -173,4 +173,4 @@ spec:
             name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}-entrypoint
       nodeSelector:
         node-role.kubernetes.io/worker: ""
-        feature.node.kubernetes.io/kernel-version.full: "{{.KernelVersion}}"
+        feature.node.kubernetes.io/kernel-version.full: "{{.KernelFullVersion}}"

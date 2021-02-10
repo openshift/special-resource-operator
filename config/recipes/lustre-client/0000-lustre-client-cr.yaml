@@ -12,7 +12,7 @@ spec:
   driverContainer:
     buildArgs:
       - name: "KVER"
-        value: "{{.KernelVersion}}"
+        value: "{{.KernelFullVersion}}"
       - name: "RELEASEVER"
         value: "{{.OperatingSystemDecimal}}"
 
