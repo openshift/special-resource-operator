@@ -6,18 +6,15 @@ import (
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/assets"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
 	"github.com/openshift-psap/special-resource-operator/test/framework"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var (
 	scheme = runtime.NewScheme()
-	log    = ctrl.Log.WithName(color.Print("deploy", color.Blue))
 )
 
 func init() {

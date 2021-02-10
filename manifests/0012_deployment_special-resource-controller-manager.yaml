@@ -52,7 +52,7 @@ spec:
               fieldPath: metadata.namespace
         - name: RELEASE_VERSION
           value: 0.0.1-snapshot
-        image: quay.io/openshift-psap/special-resource-operator:parallel-workflow
+        image: quay.io/openshift-psap/special-resource-operator:add-metrics
         imagePullPolicy: Always
         name: manager
         resources:

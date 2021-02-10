@@ -8,6 +8,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/assets"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
+	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	errs "github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -72,7 +73,7 @@ func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) 
 	err := r.List(context.TODO(), specialresources, opts...)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
+			// Requested object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
 			return reconcile.Result{}, nil
@@ -80,6 +81,9 @@ func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) 
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+
+	// set specialResourcesCreated metric to the number of specialresources
+	metrics.SetSpecialResourcesCreated(len(specialresources.Items))
 
 	for _, r.parent = range specialresources.Items {
 
@@ -121,11 +125,26 @@ func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) 
 			}
 		}
 
-		//log = r.Log.WithValues("specialresource", r.parent.Name)
-		log = r.Log.WithName(color.Print(r.parent.Name, color.Green))
+		r.specialresource = r.parent
+		log = r.Log.WithName(color.Print(r.specialresource.Name, color.Green))
 		log.Info("Reconciling")
 
-		r.specialresource = r.parent
+		// Execute finalization logic if CR is being deleted
+		isMarkedToBeDeleted := r.specialresource.GetDeletionTimestamp() != nil
+		if isMarkedToBeDeleted {
+			log.Info("Marked to be deleted, reconciling finalizer")
+			err = reconcileFinalizers(r)
+			return reconcile.Result{}, err
+		}
+
+		// Add a finalizer to CR if it does not already have one
+		if !contains(r.specialresource.GetFinalizers(), specialresourceFinalizer) {
+			if err := addFinalizer(r); err != nil {
+				log.Info("Failed to add finalizer", "error", fmt.Sprintf("%v", err))
+				return reconcile.Result{}, err
+			}
+		}
+
 		if err := ReconcileHardwareConfigurations(r); err != nil {
 			// We do not want a stacktrace here, errs.Wrap already created
 			// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
@@ -161,7 +180,7 @@ func createSpecialResourceFrom(r *SpecialResourceReconciler, name string) (srov1
 	crfile := assets.GetFrom(crpath)
 
 	if len(crfile) == 0 {
-		exit.OnError(errs.New("Could not read CR " + name + "from lokal path"))
+		exit.OnError(errs.New("Could not read CR " + name + "from local path"))
 	}
 
 	if len(crfile) > 1 {

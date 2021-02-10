@@ -13,19 +13,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/onsi/ginkgo"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/test/framework"
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-
 	//srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
-
-	ctrl "sigs.k8s.io/controller-runtime"
-)
-
-var (
-	log = ctrl.Log.WithName(color.Print("deploy", color.Blue))
 )
 
 // GetNodesByRole returns a list of nodes that match a given role.
@@ -75,8 +67,11 @@ func execCommand(log bool, name string, args ...string) (bytes.Buffer, bytes.Buf
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if log {
-		Logf("run command '%s %v':\n  out=%s\n  err=%s\n  ret=%v",
+		_, err := Logf("run command '%s %v':\n  out=%s\n  err=%s\n  ret=%v",
 			name, args, strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()), err)
+		if err != nil {
+			return stdout, stderr, err
+		}
 	}
 
 	return stdout, stderr, err

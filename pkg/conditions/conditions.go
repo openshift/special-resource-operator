@@ -1,13 +1,15 @@
-package controllers
+package conditions
 
 import (
 	configv1 "github.com/openshift/api/config/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const conditionDegradedDefaultMsg string = "Special Resource Operator reconciling special resources"
+// DegradedDefaultMsg DegradedDefaultMsg
+const DegradedDefaultMsg string = "Special Resource Operator reconciling special resources"
 
-func conditionsAvailableNotProgressingNotDegraded() []configv1.ClusterOperatorStatusCondition {
+// AvailableNotProgressingNotDegraded AvailableNotProgressingNotDegraded
+func AvailableNotProgressingNotDegraded() []configv1.ClusterOperatorStatusCondition {
 	available := configv1.ClusterOperatorStatusCondition{
 		Type:               configv1.OperatorAvailable,
 		Status:             configv1.ConditionTrue,
@@ -26,7 +28,7 @@ func conditionsAvailableNotProgressingNotDegraded() []configv1.ClusterOperatorSt
 		Type:               configv1.OperatorDegraded,
 		Status:             configv1.ConditionFalse,
 		Reason:             "AsExpected",
-		Message:            conditionDegradedDefaultMsg,
+		Message:            DegradedDefaultMsg,
 		LastTransitionTime: metav1.Now(),
 	}
 	conditions := []configv1.ClusterOperatorStatusCondition{}
@@ -38,7 +40,8 @@ func conditionsAvailableNotProgressingNotDegraded() []configv1.ClusterOperatorSt
 	return conditions
 }
 
-func conditionsNotAvailableProgressingNotDegraded(
+// NotAvailableProgressingNotDegraded NotAvailableProgressingNotDegraded
+func NotAvailableProgressingNotDegraded(
 	msgAvailable string,
 	msgProgressing string,
 	msgDegradded string) []configv1.ClusterOperatorStatusCondition {

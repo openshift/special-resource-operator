@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
+	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -59,7 +60,7 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusGetOrCreate() error {
 
 	co, err = r.ClusterOperators().Create(context.TODO(), co, metav1.CreateOptions{})
 	if err != nil {
-		return errs.Wrap(err, "Failed to create ClusterOperator " + co.Name)
+		return errs.Wrap(err, "Failed to create ClusterOperator "+co.Name)
 	}
 	co.DeepCopyInto(&r.clusterOperator)
 	return nil
@@ -97,15 +98,15 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusUpdate() error {
 	return nil
 }
 
-// ReportSpecialResourcesStatus Depdending on what error we're getting from the
+// ReportSpecialResourcesStatus Depending on what error we're getting from the
 // reconciliation loop we're updating the status
-// nil -> All things good and default conditiions can be applied
+// nil -> All things good and default conditions can be applied
 func ReportSpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
 
-	conditions := conditionsNotAvailableProgressingNotDegraded(
+	newConditions := conditions.NotAvailableProgressingNotDegraded(
 		"Reconciling "+req.Name,
 		"Reconciling "+req.Name,
-		conditionDegradedDefaultMsg,
+		conditions.DegradedDefaultMsg,
 	)
 
 	log = r.Log.WithName(color.Print("status", color.Blue))
@@ -114,23 +115,25 @@ func ReportSpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request
 	}
 
 	log.Info("Reconciling ClusterOperator")
-	if err := r.clusterOperatorStatusReconcile(conditions); err != nil {
+	if err := r.clusterOperatorStatusReconcile(newConditions); err != nil {
 		log.Info("Reconciling ClusterOperator failed", "error", fmt.Sprintf("%v", err))
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	//Reconcile all specialresources
+	//TODO err not used here? Do we need to check this?
 	ctrlResult, err := ReconcilerSpecialResources(r, req)
+	if err == nil {
+		newConditions = conditions.AvailableNotProgressingNotDegraded()
+	}
 
 	log = r.Log.WithName(color.Print("status", color.Blue))
 	if err := r.clusterOperatorStatusGetOrCreate(); err != nil {
 		return reconcile.Result{Requeue: true}, errs.Wrap(err, "Cannot get or create ClusterOperator")
 	}
-	if err == nil {
-		conditions = conditionsAvailableNotProgressingNotDegraded()
-	}
 
 	log.Info("Reconciling ClusterOperator")
-	if err := r.clusterOperatorStatusReconcile(conditions); err != nil {
+	if err := r.clusterOperatorStatusReconcile(newConditions); err != nil {
 		log.Info("Reconciling ClusterOperator failed", "error", fmt.Sprintf("%v", err))
 		return reconcile.Result{Requeue: true}, nil
 	}

@@ -14,7 +14,7 @@ verify: fmt vet
 unit: 
 	@echo "TODO UNIT TEST"
 
-go-deploy-manifests:
+go-deploy-manifests: manifests
 	go run test/deploy/deploy.go -path ./manifests
 
 go-undeploy-manifests:

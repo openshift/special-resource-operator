@@ -29,7 +29,7 @@ var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", fu
 	var explain string
 
 	// Check that operator deployment has 1 available pod
-	ginkgo.It(fmt.Sprintf("Can create driver-container-base and deploy simple-kmod"), func() {
+	ginkgo.It("Can create driver-container-base and deploy simple-kmod", func() {
 
 		buffer, err := ioutil.ReadFile("../../../config/recipes/simple-kmod/0000-simple-kmod-cr.yaml")
 		if err != nil {
@@ -37,10 +37,13 @@ var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", fu
 		}
 		framework.CreateFromYAML(buffer, cl)
 
-		ginkgo.By(fmt.Sprintf("driver-container-base is completed"))
+		ginkgo.By("driver-container-base is completed")
 		err = wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
 
 			dcbPods, err := cs.Pods("driver-container-base").List(context.TODO(), metav1.ListOptions{})
+			if err != nil {
+				return false, fmt.Errorf("Error getting list of pods, %v", err)
+			}
 
 			if len(dcbPods.Items) < 1 {
 				return false, nil
@@ -60,7 +63,7 @@ var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", fu
 		})
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
 
-		ginkgo.By(fmt.Sprintf("simple-kmod is ready"))
+		ginkgo.By("simple-kmod is ready")
 		err = wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
 			skDaemonSets, err := cs.DaemonSets("simple-kmod").List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
@@ -104,7 +107,7 @@ var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", fu
 		_, err = WaitForCmdOutputInPod(pollInterval, waitDuration, pod, &valExp, true, cmd...)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		ginkgo.By(fmt.Sprintf("deleting simple-kmod"))
+		ginkgo.By("deleting simple-kmod")
 		framework.DeleteFromYAMLWithCR(buffer, cl)
 		err = wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
 			namespaces, err := cs.Namespaces().List(context.TODO(), metav1.ListOptions{})

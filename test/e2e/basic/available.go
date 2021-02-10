@@ -27,8 +27,8 @@ var _ = ginkgo.Describe("[basic][available] Special Resource Operator availabili
 	var explain string
 
 	// Check that operator deployment has 1 available pod
-	ginkgo.It(fmt.Sprintf("Operator pod is running"), func() {
-		ginkgo.By(fmt.Sprintf("Wait for deployment/special-resource-controller-manager to have 1 ready replica"))
+	ginkgo.It("Operator pod is running", func() {
+		ginkgo.By("Wait for deployment/special-resource-controller-manager to have 1 ready replica")
 		err := wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
 			operatorDeployment, err := cs.Deployments("openshift-special-resource-operator").Get(context.TODO(), "special-resource-controller-manager", metav1.GetOptions{})
 			if err != nil {
@@ -44,12 +44,12 @@ var _ = ginkgo.Describe("[basic][available] Special Resource Operator availabili
 	})
 
 	// Check that operator is reporting status to ClusterOperator
-	ginkgo.It(fmt.Sprintf("clusteroperator/special-resource-operator available and not degraded"), func() {
-		ginkgo.By(fmt.Sprintf("wait for clusteroperator/special-resource-operator available"))
+	ginkgo.It("clusteroperator/special-resource-operator available and not degraded", func() {
+		ginkgo.By("wait for clusteroperator/special-resource-operator available")
 		err := WaitForClusterOperatorCondition(cs, pollInterval, waitDuration, configv1.OperatorAvailable, configv1.ConditionTrue)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
 
-		ginkgo.By(fmt.Sprintf("wait for clusteroperator/special-resource-operator not degraded"))
+		ginkgo.By("wait for clusteroperator/special-resource-operator not degraded")
 		err = WaitForClusterOperatorCondition(cs, pollInterval, waitDuration, configv1.OperatorDegraded, configv1.ConditionFalse)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
 	})

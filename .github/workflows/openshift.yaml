@@ -4,7 +4,11 @@ on:
   push:
     paths-ignore:
       - "**/README.md"
+  pull_request:
+    paths-ignore:
+      - "**/README.md"
   workflow_dispatch:
+
 
 jobs: 
   openshift:
@@ -16,7 +20,7 @@ jobs:
       id: wait-for-build
       with:
         intervalSeconds: 15
-        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}
         checkName: build
         ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
@@ -26,6 +30,10 @@ jobs:
 
     - name: checkout
       uses: actions/checkout@v2
+    - run: |
+        GIT_PR_SHA=${{github.event.pull_request.head.sha}}
+        echo TAG=pr-${GIT_PR_SHA:0:10} >> $GITHUB_ENV
+
 
     - name: add go path
       run: echo '~/go/bin' >> "$GITHUB_PATH"
@@ -42,8 +50,8 @@ jobs:
     - name: make undeploy
       run: make undeploy
 
-    - name: make go-deploy-manifests
-    - run: make go-deploy-manifests
+    - name: TAG=${{ env.TAG }} make go-deploy-manifests
+    - run:  TAG=${{ env.TAG }} make go-deploy-manifests
 
     - name: make test-e2e
       run: make test-e2e
