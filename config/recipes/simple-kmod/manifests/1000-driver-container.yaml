@@ -59,7 +59,7 @@ spec:
       serviceAccount: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
       serviceAccountName: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
       containers:
-      - image: image-registry.openshift-image-registry.svc:5000/{{.SpecialResource.Spec.Namespace}}/{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}:v{{.KernelVersion}}
+      - image: image-registry.openshift-image-registry.svc:5000/{{.SpecialResource.Spec.Namespace}}/{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}:v{{.KernelFullVersion}}
         imagePullPolicy: Always
         name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
         command: ["/sbin/init"]
@@ -67,4 +67,4 @@ spec:
           privileged: true
       nodeSelector:
         node-role.kubernetes.io/worker: ""
-        feature.node.kubernetes.io/kernel-version.full: "{{.KernelVersion}}"
+        feature.node.kubernetes.io/kernel-version.full: "{{.KernelFullVersion}}"

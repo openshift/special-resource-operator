@@ -25,7 +25,7 @@ spec:
     - type: "ImageChange"
   source:
     dockerfile: |
-      FROM image-registry.openshift-image-registry.svc:5000/driver-container-base/driver-container-base:v{{.KernelVersion}}
+      FROM image-registry.openshift-image-registry.svc:5000/driver-container-base/driver-container-base:v{{.KernelFullVersion}}
       MAINTAINER "coreos@lists.fedoraproject.org"
 
       ARG RELEASEVER
@@ -43,7 +43,7 @@ spec:
     dockerStrategy:
       from:
         kind: "ImageStreamTag"
-        name: "driver-container-base:v{{.KernelVersion}}"
+        name: "driver-container-base:v{{.KernelFullVersion}}"
         namespace: "driver-container-base"
       buildArgs: 
         {{ range .SpecialResource.Spec.DriverContainer.BuildArgs }}
@@ -53,4 +53,4 @@ spec:
   output:
     to:
       kind: ImageStreamTag
-      name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}:v{{.KernelVersion}}
+      name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}:v{{.KernelFullVersion}}

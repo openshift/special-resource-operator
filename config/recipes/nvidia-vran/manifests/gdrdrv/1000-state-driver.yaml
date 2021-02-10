@@ -205,4 +205,4 @@ spec:
       nodeSelector:
         node-role.kubernetes.io/worker: ""
         {{.SpecialResource.Spec.Node.Selector}}: "true"
-        feature.node.kubernetes.io/kernel-version.full: "{{.KernelVersion}}"
+        feature.node.kubernetes.io/kernel-version.full: "{{.KernelFullVersion}}"

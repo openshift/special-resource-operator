@@ -54,7 +54,8 @@ type runtimeInformation struct {
 	OperatingSystemMajor      string
 	OperatingSystemMajorMinor string
 	OperatingSystemDecimal    string
-	KernelVersion             string
+	KernelFullVersion         string
+	KernelPatchVersion        string
 	ClusterVersion            string
 	ClusterVersionMajorMinor  string
 	UpdateVendor              string
@@ -90,7 +91,8 @@ func logRuntimeInformation() {
 	log.Info("Runtime Information", "OperatingSystemMajor", runInfo.OperatingSystemMajor)
 	log.Info("Runtime Information", "OperatingSystemMajorMinor", runInfo.OperatingSystemMajorMinor)
 	log.Info("Runtime Information", "OperatingSystemDecimal", runInfo.OperatingSystemDecimal)
-	log.Info("Runtime Information", "KernelVersion", runInfo.KernelVersion)
+	log.Info("Runtime Information", "KernelFullVersion", runInfo.KernelFullVersion)
+	log.Info("Runtime Information", "KernelPatchVersion", runInfo.KernelPatchVersion)
 	log.Info("Runtime Information", "ClusterVersion", runInfo.ClusterVersion)
 	log.Info("Runtime Information", "ClusterVersionMajorMinor", runInfo.ClusterVersionMajorMinor)
 	log.Info("Runtime Information", "UpdateVendor", runInfo.UpdateVendor)
@@ -106,9 +108,13 @@ func getRuntimeInformation(r *SpecialResourceReconciler) {
 	runInfo.OperatingSystemMajor, runInfo.OperatingSystemMajorMinor, runInfo.OperatingSystemDecimal, err = getOperatingSystem()
 	exit.OnError(errs.Wrap(err, "Failed to get operating system"))
 
-	log.Info("Get Kernel Version")
-	runInfo.KernelVersion, err = getKernelVersion()
+	log.Info("Get Kernel Full Version")
+	runInfo.KernelFullVersion, err = getKernelFullVersion()
 	exit.OnError(errs.Wrap(err, "Failed to get kernel version"))
+
+	log.Info("Get Kernel Patch Version")
+	runInfo.KernelPatchVersion, err = getKernelPatchVersion()
+	exit.OnError(errs.Wrap(err, "Failed to get kernel patch version"))
 
 	log.Info("Get Cluster Version")
 	runInfo.ClusterVersion, runInfo.ClusterVersionMajorMinor, err = getClusterVersion(r)
@@ -195,10 +201,10 @@ func renderOperatingSystem(rel string, maj string, min string) (string, string, 
 
 }
 
-func getKernelVersion() (string, error) {
+func getKernelFullVersion() (string, error) {
 
 	var found bool
-	var kernelVersion string
+	var kernelFullVersion string
 	// Assuming all nodes are running the same kernel version,
 	// one could easily add driver-kernel-versions for each node.
 	for _, node := range node.list.Items {
@@ -207,12 +213,31 @@ func getKernelVersion() (string, error) {
 		// We only need to check for the key, the value
 		// is available if the key is there
 		short := "feature.node.kubernetes.io/kernel-version.full"
-		if kernelVersion, found = labels[short]; !found {
+		if kernelFullVersion, found = labels[short]; !found {
 			return "", errs.New("Label " + short + " not found is NFD running? Check node labels")
 		}
 	}
 
-	return kernelVersion, nil
+	return kernelFullVersion, nil
+}
+
+// Using w.xx.y-zzz and looking at the fourth file listed /boot/vmlinuz-4.4.0-45 we can say:
+// w = Kernel Version = 4
+// xx= Major Revision = 4
+// y = Minor Revision = 0
+// zzz=Patch number = 45
+func getKernelPatchVersion() (string, error) {
+
+	version := strings.Split(runInfo.KernelFullVersion, "-")
+	// Happens only if kernel full version has no patch version sep by "-"
+	if len(version) == 1 {
+		short := strings.Split(runInfo.KernelFullVersion, ".")
+		return short[0] + "." + short[1] + "." + short[2], nil
+	}
+
+	patch := strings.Split(version[1], ".")
+	// version.major.minor-patch
+	return version[0] + "-" + patch[0], nil
 }
 
 func getClusterVersion(r *SpecialResourceReconciler) (string, string, error) {

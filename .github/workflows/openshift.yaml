@@ -1,9 +1,6 @@
 name: openshift
 
 on: 
-  push:
-    paths-ignore:
-      - "**/README.md"
   pull_request:
     paths-ignore:
       - "**/README.md"
@@ -19,7 +16,7 @@ jobs:
       uses: fountainhead/action-wait-for-check@v1.0.0
       id: wait-for-build
       with:
-        intervalSeconds: 15
+        intervalSeconds: 30
         token: ${{ secrets.GITHUB_TOKEN }}
         checkName: build
         ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -30,10 +27,11 @@ jobs:
 
     - name: checkout
       uses: actions/checkout@v2
-    - run: |
+
+    - name: get correct image tag  
+      run: |
         GIT_PR_SHA=${{github.event.pull_request.head.sha}}
         echo TAG=pr-${GIT_PR_SHA:0:10} >> $GITHUB_ENV
-
 
     - name: add go path
       run: echo '~/go/bin' >> "$GITHUB_PATH"
@@ -51,10 +49,10 @@ jobs:
       run: make undeploy
 
     - name: TAG=${{ env.TAG }} make go-deploy-manifests
-    - run:  TAG=${{ env.TAG }} make go-deploy-manifests
+      run:  TAG=${{ env.TAG }} make go-deploy-manifests
 
     - name: make test-e2e
       run: make test-e2e
   
     - name: make go-undeploy-manifests
-    - run: make go-undeploy-manifests
+      run: make go-undeploy-manifests
