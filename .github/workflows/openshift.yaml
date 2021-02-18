@@ -4,13 +4,17 @@ on:
   pull_request:
     paths-ignore:
       - "**/README.md"
+  pull_request_target:
+    paths-ignore:
+      - "**/README.md"
   workflow_dispatch:
-
 
 jobs: 
   openshift:
     name: test-e2e
     runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'ok-to-test') || 
+        contains(github.repository, 'openshift-psap/special-resource-operator')
     steps:
     - name: wait for build to succeed
       uses: fountainhead/action-wait-for-check@v1.0.0
@@ -20,39 +24,24 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         checkName: build
         ref: ${{ github.event.pull_request.head.sha || github.sha }}
-
-    - name: check for successfull build
-      if: steps.wait-for-build.outputs.conclusion != 'success'
+    - if: steps.wait-for-build.outputs.conclusion != 'success'
       run: exit 1
-
-    - name: checkout
-      uses: actions/checkout@v2
-
-    - name: get correct image tag  
-      run: |
-        GIT_PR_SHA=${{github.event.pull_request.head.sha}}
-        echo TAG=pr-${GIT_PR_SHA:0:10} >> $GITHUB_ENV
-
-    - name: add go path
-      run: echo '~/go/bin' >> "$GITHUB_PATH"
-    
-    - name: oc login 
-      uses: redhat-actions/oc-login@v1
+    - uses: actions/checkout@v2
+      with:
+        persist-credentials: false
+    - uses: actions/setup-go@v2
+    - uses: benjlevesque/short-sha@v1.2
+      id: short-sha 
+      with:
+        length: 10
+    - uses: redhat-actions/oc-login@v1
       with:
         openshift_server_url: ${{ secrets.OPENSHIFT_SERVER }}
         openshift_username: ${{ secrets.OPENSHIFT_USERNAME }}
         openshift_password: ${{ secrets.OPENSHIFT_PASSWORD }}
         insecure_skip_tls_verify: true
         namespace: default
-      
-    - name: make undeploy
-      run: make undeploy
-
-    - name: TAG=${{ env.TAG }} make go-deploy-manifests
-      run:  TAG=${{ env.TAG }} make go-deploy-manifests
-
-    - name: make test-e2e
-      run: make test-e2e
-  
-    - name: make go-undeploy-manifests
-      run: make go-undeploy-manifests
+    - run: make undeploy
+    - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make go-deploy-manifests
+    - run: make test-e2e
+    - run: make go-undeploy-manifests

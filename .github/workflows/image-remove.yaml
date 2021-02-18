@@ -1,0 +1,44 @@
+name: image-remove
+
+on: 
+  pull_request:
+    types: [ closed ]
+  pull_request_target:
+    types: [ closed ]
+  workflow_dispatch:
+
+jobs: 
+  merge_job:
+    if: github.event.pull_request.merged == true && 
+        (contains(github.event.pull_request.labels.*.name, 'ok-to-test') || 
+        contains(github.repository, 'openshift-psap/special-resource-operator'))
+    name: remove-pr-image-on-merge
+    runs-on: ubuntu-latest
+    steps:
+    - uses: benjlevesque/short-sha@v1.2
+      id: short-sha 
+      with:
+        length: 10
+    - run: |
+        echo PR #${{ github.event.number }} has been merged
+    - run: |
+        curl -s -X GET -H "Authorization: Bearer ${{ secrets.QUAY_API_TOKEN }}" https://quay.io/api/v1/repository/openshift-psap/special-resource-operator/tag/?specificTag=pr-${{ steps.short-sha.outputs.sha }}
+    - run: |
+        curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.QUAY_API_TOKEN }}" https://quay.io/api/v1/repository/openshift-psap/special-resource-operator/tag/pr-${{ steps.short-sha.outputs.sha }}
+
+  close_job:
+    if: github.event.pull_request.merged == false && 
+        (contains(github.event.pull_request.labels.*.name, 'ok-to-test') || 
+        contains(github.repository, 'openshift-psap/special-resource-operator'))
+    runs-on: ubuntu-latest
+    steps:
+    - uses: benjlevesque/short-sha@v1.2
+      id: short-sha 
+      with:
+        length: 10
+    - run: |
+        echo PR #${{ github.event.number }} has been closed without being merged
+    - run: |
+        curl -s -X GET -H "Authorization: Bearer ${{ secrets.QUAY_API_TOKEN }}" https://quay.io/api/v1/repository/openshift-psap/special-resource-operator/tag/?specificTag=pr-${{ steps.short-sha.outputs.sha }}
+    - run: |
+        curl -s -X DELETE -H "Authorization: Bearer ${{ secrets.QUAY_API_TOKEN }}" https://quay.io/api/v1/repository/openshift-psap/special-resource-operator/tag/pr-${{ steps.short-sha.outputs.sha }}

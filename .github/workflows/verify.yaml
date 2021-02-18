@@ -6,17 +6,12 @@ on:
       - "**/README.md"
   workflow_dispatch:
 
-
 jobs: 
   verify:
     name: fmt-vet
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-
-    - name: add go path
-      run: echo '~/go/bin' >> "$GITHUB_PATH"
-
-    - name: make verify
-      run: make verify
+    - uses: actions/setup-go@v2
+    - run: make verify
 

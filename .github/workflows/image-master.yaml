@@ -3,31 +3,36 @@ name: image-master
 on: 
   pull_request:
     types: [ closed ]
+  pull_request_target:
+    types: [ closed ]
   workflow_dispatch:
 
 jobs: 
   merge_job:
-    if: github.event.pull_request.merged == true
     name: build-master
-    runs-on: [self-hosted, Linux, X64]
+    runs-on: ubuntu-20.04
+    if: github.event.pull_request.merged == true && 
+        (contains(github.event.pull_request.labels.*.name, 'ok-to-test') || 
+        contains(github.repository, 'openshift-psap/special-resource-operator'))
     steps:
     - uses: actions/checkout@v2
       with: 
         ref: "master"
+        persist-credentials: false
+    - uses: actions/setup-go@v2
+    - run:  TAG=master make local-image-build
+    - uses: docker/login-action@v1
+      with: 
+        registry: quay.io
+        username: ${{ secrets.QUAY_USERNAME }}
+        password: ${{ secrets.QUAY_PASSWORD}}
+    - run: TAG=master make local-image-push
 
-    - name: add go path
-      run: echo '~/go/bin' >> "$GITHUB_PATH"
 
-    - name: TAG=master make local-image-build 
-      run:  TAG=master make local-image-build
-    
-    - name: make local-image-push
-      run: make local-image-push
-  
-  close_job:
+#  close_job:
     # this job will only run if the PR has been closed without being merged
-    if: github.event.pull_request.merged == false
-    runs-on: ubuntu-latest
-    steps:
-    - run: |
-        echo PR #${{ github.event.number }} has been closed without being merged
+#    if: github.event.pull_request.merged == false
+#    runs-on: ubuntu-20.04
+#    steps:
+#    - run: |
+#        echo PR #${{ github.event.number }} has been closed without being merged

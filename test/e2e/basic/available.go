@@ -18,7 +18,7 @@ import (
 
 var _ = ginkgo.Describe("[basic][available] Special Resource Operator availability", func() {
 	const (
-		pollInterval = 5 * time.Second
+		pollInterval = 10 * time.Second
 		waitDuration = 5 * time.Minute
 	)
 

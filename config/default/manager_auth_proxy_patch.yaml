@@ -25,6 +25,15 @@ spec:
           volumeMounts:
             - name: special-resource-operator-tls
               mountPath: /etc/secrets
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "250m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          securityContext:
+            readOnlyRootFilesystem: true
         - name: manager
           args:
             - "--metrics-addr=127.0.0.1:8080"

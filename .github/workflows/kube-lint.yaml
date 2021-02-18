@@ -1,17 +1,17 @@
-name: unit
+name: kube-lint
 
-on: 
+on:
   pull_request:
     paths-ignore:
       - "**/README.md"
   workflow_dispatch:
 
-jobs: 
-  unit:
-    name: tests
+jobs:
+  lint:
+    name: kube-linter
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
-    - run: make unit
+    - run: make kube-lint
 

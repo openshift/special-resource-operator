@@ -1,23 +1,17 @@
-name: lint
+name: go-lint
 
-on: 
+on:
   pull_request:
     paths-ignore:
       - "**/README.md"
   workflow_dispatch:
 
-
-
-jobs: 
+jobs:
   lint:
     name: golangci
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-
-    - name: add go path
-      run: echo '~/go/bin' >> "$GITHUB_PATH"
-
-    - name: make lint
-      run: make lint
+    - uses: actions/setup-go@v2
+    - run: make lint
 

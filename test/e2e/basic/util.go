@@ -77,6 +77,35 @@ func execCommand(log bool, name string, args ...string) (bytes.Buffer, bytes.Buf
 	return stdout, stderr, err
 }
 
+func GetRecentPodLogs(name string, namespace string, interval time.Duration) error {
+	var (
+		stdout bytes.Buffer
+		stderr bytes.Buffer
+	)
+
+	commandName := "oc"
+	args := []string{"logs", "--since", fmt.Sprint(interval), name, "-n", namespace}
+	cmd := exec.Command(commandName, args...)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		_, err = Logf("Error running command '%s %v':\n  out=%s\n err=%s\n  ret=%v", commandName, args, strings.TrimSpace(stdout.String()), strings.TrimSpace(stderr.String()), err)
+		return err
+	}
+
+	_, err = Logf(strings.TrimSpace(stdout.String()))
+	return err
+}
+
+// ExecAndLogCommand executes command 'name' with arguments 'args' and logs
+// the output.  Returns captured standard output, standard error and the error
+// returned.
+func ExecAndLogCommand(name string, args ...string) (bytes.Buffer, bytes.Buffer, error) {
+	return execCommand(true, name, args...)
+}
+
 // ExecCmdInPod executes command with arguments 'cmd' in Pod 'pod'.
 func ExecCmdInPod(pod *corev1.Pod, cmd ...string) (string, error) {
 	ocArgs := []string{"rsh", "-n", pod.ObjectMeta.Namespace, pod.Name}
