@@ -1,19 +1,16 @@
 name: openshift
 
-on: 
-  pull_request:
-    paths-ignore:
-      - "**/README.md"
+on:
   pull_request_target:
     paths-ignore:
       - "**/README.md"
   workflow_dispatch:
 
-jobs: 
+jobs:
   openshift:
     name: test-e2e
     runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.labels.*.name, 'ok-to-test') || 
+    if: contains(toJSON(github.event.pull_request.labels), '"ok-to-test",') || 
         contains(github.repository, 'openshift-psap/special-resource-operator')
     steps:
     - name: wait for build to succeed
@@ -31,7 +28,7 @@ jobs:
         persist-credentials: false
     - uses: actions/setup-go@v2
     - uses: benjlevesque/short-sha@v1.2
-      id: short-sha 
+      id: short-sha
       with:
         length: 10
     - uses: redhat-actions/oc-login@v1
