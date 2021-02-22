@@ -11,7 +11,7 @@ jobs:
     name: build
     runs-on: ubuntu-20.04
     if: contains(toJSON(github.event.pull_request.labels), '"ok-to-test",') ||
-        contains(github.repository, 'openshift-psap/special-resource-operator')
+        contains(github.event.pull_request.head.repo.full_name, 'openshift-psap/special-resource-operator')
     steps:
     - name: Dump GitHub context
       env:

@@ -10,8 +10,8 @@ jobs:
   openshift:
     name: test-e2e
     runs-on: ubuntu-latest
-    if: contains(toJSON(github.event.pull_request.labels), '"ok-to-test",') || 
-        contains(github.repository, 'openshift-psap/special-resource-operator')
+    if: contains(toJSON(github.event.pull_request.labels), '"ok-to-test",') ||
+        contains(github.event.pull_request.head.repo.full_name, 'openshift-psap/special-resource-operator')
     steps:
     - name: wait for build to succeed
       uses: fountainhead/action-wait-for-check@v1.0.0
