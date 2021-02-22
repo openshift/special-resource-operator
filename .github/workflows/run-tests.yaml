@@ -6,10 +6,11 @@ on:
     paths-ignore:
       - "**/README.md"
   workflow_dispatch:
+
 jobs:
   unlabel:
     runs-on: ubuntu-20.04
-    if: github.event.action == 'synchronize'
+    if: contains(github.event.action, 'synchronize')
     steps:
     - name: removelabel
         uses: buildsville/add-remove-label@v1
@@ -20,7 +21,7 @@ jobs:
   run:
     name: run
     runs-on: ubuntu-20.04
-    if: github.event.action == 'labeled' && github.event.label.name == 'ok-to-test'
+    if: contains(github.event.action, 'labeled') && contains(github.event.label.name, 'ok-to-test')
     steps:
     - name: Invoke workflow without inputs
       uses: benc-uk/workflow-dispatch@v1
