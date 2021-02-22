@@ -9,9 +9,7 @@ jobs:
   merge_job:
     name: build-master
     runs-on: ubuntu-20.04
-        if: github.event.pull_request.merged == true &&
-        (contains(toJSON(github.event.pull_request.labels), '"ok-to-test",') ||
-        contains(github.event.pull_request.head.repo.full_name, 'openshift-psap/special-resource-operator'))
+        if: github.event.pull_request.merged == true
     steps:
     - uses: actions/checkout@v2
       with:

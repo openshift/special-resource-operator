@@ -1,0 +1,59 @@
+name: run-test
+
+on:
+  pull_request_target:
+    types: [synchronize, labeled]
+      - "**/README.md"
+  workflow_dispatch:
+jobs:
+  unlabel:
+    runs-on: ubuntu-20.04
+    if: github.event.action == 'synchronize'
+    steps:
+    - name: removelabel
+        uses: buildsville/add-remove-label@v1
+        with:
+          token: ${{secrets.REPO_ACCESS_TOKEN}}
+          label: ok-to-test
+          type: remove
+  run:
+    name: run
+    runs-on: ubuntu-20.04
+    if: github.event.action == 'labeled' && github.event.label.name == 'ok-to-test'
+    steps:
+    - name: Invoke workflow without inputs
+      uses: benc-uk/workflow-dispatch@v1
+      with:
+        workflow: go-lint
+        ref: ${{ github.event.pull_request.head.ref }}
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+    - name: Invoke workflow without inputs
+      uses: benc-uk/workflow-dispatch@v1
+      with:
+        workflow: kube-lint
+        ref: ${{ github.event.pull_request.head.ref }}
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+    - name: Invoke workflow without inputs
+      uses: benc-uk/workflow-dispatch@v1
+      with:
+        workflow: image
+        ref: ${{ github.event.pull_request.head.ref }}
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+    - name: Invoke workflow without inputs
+      uses: benc-uk/workflow-dispatch@v1
+      with:
+        workflow: unit
+        ref: ${{ github.event.pull_request.head.ref }}
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+    - name: Invoke workflow without inputs
+      uses: benc-uk/workflow-dispatch@v1
+      with:
+        workflow: verify
+        ref: ${{ github.event.pull_request.head.ref }}
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
+    - name: Invoke workflow without inputs
+      uses: benc-uk/workflow-dispatch@v1
+      with:
+        workflow: openshift
+        ref: ${{ github.event.pull_request.head.ref }}
+        token: ${{ secrets.REPO_ACCESS_TOKEN }}
