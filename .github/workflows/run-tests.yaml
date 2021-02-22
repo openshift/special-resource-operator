@@ -3,6 +3,7 @@ name: run-test
 on:
   pull_request_target:
     types: [synchronize, labeled]
+    paths-ignore:
       - "**/README.md"
   workflow_dispatch:
 jobs:
