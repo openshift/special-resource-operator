@@ -13,11 +13,11 @@ jobs:
     if: contains(github.event.action, 'synchronize')
     steps:
     - name: removelabel
-        uses: buildsville/add-remove-label@v1
-        with:
-          token: ${{secrets.REPO_ACCESS_TOKEN}}
-          label: ok-to-test
-          type: remove
+      uses: buildsville/add-remove-label@v1
+      with:
+        token: ${{secrets.REPO_ACCESS_TOKEN}}
+        label: ok-to-test
+        type: remove
   run:
     name: run
     runs-on: ubuntu-20.04
