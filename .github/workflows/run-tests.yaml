@@ -21,7 +21,7 @@ jobs:
   run:
     name: run
     runs-on: ubuntu-20.04
-    if: contains(github.event.action, 'labeled') && contains(github.event.label.name, 'ok-to-test')
+    if: contains(github.event.action, 'labeled') && contains(github.event.label.name, 'ok-to-test') && ! contains(github.event.pull_request.head.repo.full_name, 'openshift-psap/special-resource-operator')
     steps:
     - name: Invoke workflow without inputs
       uses: benc-uk/workflow-dispatch@v1
