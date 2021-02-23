@@ -1,10 +1,10 @@
 name: openshift
 
 on:
-  pull_request_target:
-    types: [opened, synchronize, reopened, labeled]
-    paths-ignore:
-      - "**/README.md"
+  workflow_run:
+    workflows: ["image"]
+    types:
+      - completed
   workflow_dispatch:
 
 jobs:
@@ -14,16 +14,6 @@ jobs:
     if: (github.event.action == 'labeled' && github.event.label.name == 'ok-to-test') ||
         (github.event.pull_request.head.repo.full_name == 'openshift-psap/special-resource-operator')
     steps:
-    - name: wait for build to succeed
-      uses: fountainhead/action-wait-for-check@v1.0.0
-      id: wait-for-build
-      with:
-        intervalSeconds: 30
-        token: ${{ secrets.GITHUB_TOKEN }}
-        checkName: build
-        ref: ${{ github.event.pull_request.head.sha || github.sha }}
-    - if: steps.wait-for-build.outputs.conclusion != 'success'
-      run: exit 1
     - uses: actions/checkout@v2
       with:
         persist-credentials: false
