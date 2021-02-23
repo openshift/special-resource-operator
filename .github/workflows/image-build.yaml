@@ -11,7 +11,7 @@ jobs:
   build:
     name: build
     runs-on: ubuntu-20.04
-    if: (github.event.action == 'labeled' && contains(toJSON(github.event.pull_request.labels), '"ok-to-test",')) ||
+    if: (github.event.action == 'labeled' && github.event.label.name == 'ok-to-test') ||
         (github.event.pull_request.head.repo.full_name == 'openshift-psap/special-resource-operator')
     steps:
     - name: Dump GitHub context
