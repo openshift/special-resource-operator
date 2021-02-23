@@ -41,15 +41,15 @@ jobs:
     - name: Invoke workflow without inputs	
       uses: benc-uk/workflow-dispatch@v1	
       with:	
-        workflow: unit	
+        workflow: unit
         token: ${{ secrets.REPO_ACCESS_TOKEN }}	
     - name: Invoke workflow without inputs	
       uses: benc-uk/workflow-dispatch@v1	
       with:	
-        workflow: verify	
+        workflow: verify
         token: ${{ secrets.REPO_ACCESS_TOKEN }}	
     - name: Invoke workflow without inputs	
       uses: benc-uk/workflow-dispatch@v1	
       with:	
-        workflow: openshift	
+        workflow: openshift
         token: ${{ secrets.REPO_ACCESS_TOKEN }}	
