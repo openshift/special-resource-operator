@@ -1,4 +1,4 @@
-name: unlabel
+name: run-tests
 
 on:
   pull_request_target:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  ok-to-test:
+  remove-label:
     runs-on: ubuntu-latest
     if: contains(github.event.action, 'synchronize')
     steps:
