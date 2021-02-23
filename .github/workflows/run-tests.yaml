@@ -29,33 +29,39 @@ jobs:
         workflow: go-lint
         ref: ${{ github.event.pull_request.head.ref }}
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        repo: openshift-psap/special-resource-operator
     - name: Invoke workflow without inputs
       uses: benc-uk/workflow-dispatch@v1
       with:
         workflow: kube-lint
         ref: ${{ github.event.pull_request.head.ref }}
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        repo: openshift-psap/special-resource-operator
     - name: Invoke workflow without inputs
       uses: benc-uk/workflow-dispatch@v1
       with:
         workflow: image
         ref: ${{ github.event.pull_request.head.ref }}
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        repo: openshift-psap/special-resource-operator
     - name: Invoke workflow without inputs
       uses: benc-uk/workflow-dispatch@v1
       with:
         workflow: unit
         ref: ${{ github.event.pull_request.head.ref }}
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        repo: openshift-psap/special-resource-operator
     - name: Invoke workflow without inputs
       uses: benc-uk/workflow-dispatch@v1
       with:
         workflow: verify
         ref: ${{ github.event.pull_request.head.ref }}
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        repo: openshift-psap/special-resource-operator
     - name: Invoke workflow without inputs
       uses: benc-uk/workflow-dispatch@v1
       with:
         workflow: openshift
         ref: ${{ github.event.pull_request.head.ref }}
         token: ${{ secrets.REPO_ACCESS_TOKEN }}
+        repo: openshift-psap/special-resource-operator
