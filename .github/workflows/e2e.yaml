@@ -1,4 +1,4 @@
-name: image
+name: e2e
 
 on:
   pull_request_target:
@@ -30,3 +30,29 @@ jobs:
         username: ${{ secrets.QUAY_USERNAME }}
         password: ${{ secrets.QUAY_PASSWORD}}
     - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make local-image-push
+  e2e:
+    name: test-e2e
+    needs: build
+    runs-on: ubuntu-latest
+    if: (github.event.action == 'labeled' && github.event.label.name == 'ok-to-test') ||
+        (github.event.pull_request.head.repo.full_name == 'openshift-psap/special-resource-operator')
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        persist-credentials: false
+    - uses: actions/setup-go@v2
+    - uses: benjlevesque/short-sha@v1.2
+      id: short-sha
+      with:
+        length: 10
+    - uses: redhat-actions/oc-login@v1
+      with:
+        openshift_server_url: ${{ secrets.OPENSHIFT_SERVER }}
+        openshift_username: ${{ secrets.OPENSHIFT_USERNAME }}
+        openshift_password: ${{ secrets.OPENSHIFT_PASSWORD }}
+        insecure_skip_tls_verify: true
+        namespace: default
+    - run: make undeploy
+    - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make go-deploy-manifests
+    - run: make test-e2e
+    - run: make go-undeploy-manifests
