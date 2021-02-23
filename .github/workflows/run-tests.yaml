@@ -38,7 +38,8 @@ jobs:
       with:	
         workflow: image	
         token: ${{ secrets.REPO_ACCESS_TOKEN }}	
-        ref: ${{ github.event.pull_request.head.label }}
+        ref: ${{ github.event.pull_request.head.ref }}
+        repo: ${{ github.event.pull_request.head.repo.full_name }}
     - name: Invoke workflow without inputs
       uses: benc-uk/workflow-dispatch@v1
       with:
