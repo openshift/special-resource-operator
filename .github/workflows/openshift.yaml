@@ -2,6 +2,7 @@ name: openshift
 
 on:
   pull_request_target:
+    types: [opened, synchronize, reopened, labeled]
     paths-ignore:
       - "**/README.md"
   workflow_dispatch:
@@ -10,8 +11,8 @@ jobs:
   openshift:
     name: test-e2e
     runs-on: ubuntu-latest
-    if: contains(toJSON(github.event.pull_request.labels), '"ok-to-test",') ||
-        contains(github.event.pull_request.head.repo.full_name, 'openshift-psap/special-resource-operator')
+    if: if: (github.event_name == 'labeled' && contains(toJSON(github.event.pull_request.labels), '"ok-to-test",')) ||
+        (github.event.pull_request.head.repo.full_name == 'openshift-psap/special-resource-operator')
     steps:
     - name: wait for build to succeed
       uses: fountainhead/action-wait-for-check@v1.0.0

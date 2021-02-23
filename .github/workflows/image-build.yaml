@@ -2,6 +2,7 @@ name: image
 
 on:
   pull_request_target:
+    types: [opened, synchronize, reopened, labeled]
     paths-ignore:
       - "**/README.md"
   workflow_dispatch:
@@ -10,8 +11,8 @@ jobs:
   build:
     name: build
     runs-on: ubuntu-20.04
-    if: contains(github.event_name, 'workflow_dispatch') ||
-        contains(github.event.pull_request.head.repo.full_name, 'openshift-psap/special-resource-operator')
+    if: (github.event_name == 'labeled' && contains(toJSON(github.event.pull_request.labels), '"ok-to-test",')) ||
+        (github.event.pull_request.head.repo.full_name == 'openshift-psap/special-resource-operator')
     steps:
     - name: Dump GitHub context
       env:
