@@ -24,7 +24,7 @@ var _ = ginkgo.Describe("[basic][available] Special Resource Operator availabili
 
 	cs := framework.NewClientSet()
 
-	var explain string
+	var explain error
 
 	// Check that operator deployment has 1 available pod
 	ginkgo.It("Operator pod is running", func() {
@@ -52,6 +52,26 @@ var _ = ginkgo.Describe("[basic][available] Special Resource Operator availabili
 		ginkgo.By("wait for clusteroperator/special-resource-operator not degraded")
 		err = WaitForClusterOperatorCondition(cs, pollInterval, waitDuration, configv1.OperatorDegraded, configv1.ConditionFalse)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
+
+		ginkgo.By("verify clusteroperator has the operator namespace in relatedObjects")
+		err = wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
+			co, err := cs.ClusterOperators().Get(context.TODO(), "special-resource-operator", metav1.GetOptions{})
+			if err != nil {
+				explain = err
+				return false, nil
+			}
+
+			for _, relatedObject := range co.Status.RelatedObjects {
+				if relatedObject.Resource == "namespaces" &&
+					relatedObject.Name == "openshift-special-resource-operator" {
+					return true, nil
+				}
+			}
+
+			return false, nil
+		})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
+
 	})
 
 	// TODO Check that operator is setting the upgradeable condition

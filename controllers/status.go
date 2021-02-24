@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
@@ -79,6 +80,10 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusReconcile(
 
 	r.clusterOperator.Status.Conditions = conditions
 
+	if err := r.clusterOperatorUpdateRelatedObjects(); err != nil {
+		return errs.Wrap(err, "Cannot set ClusterOperator related objects")
+	}
+
 	if err := r.clusterOperatorStatusSet(); err != nil {
 		return errs.Wrap(err, "Cannot update the ClusterOperator status")
 	}
@@ -98,7 +103,34 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusUpdate() error {
 	return nil
 }
 
-// ReportSpecialResourcesStatus Depending on what error we're getting from the
+func (r *SpecialResourceReconciler) clusterOperatorUpdateRelatedObjects() error {
+	relatedObjects := []configv1.ObjectReference{
+		{Group: "", Resource: "namespaces", Name: "openshift-special-resource-operator"},
+		{Group: "sro.openshift.io", Resource: "specialresources", Name: ""},
+	}
+
+	// Get all specialresource objects
+	specialresources := &srov1beta1.SpecialResourceList{}
+	err := r.List(context.TODO(), specialresources, []client.ListOption{}...)
+	if err != nil {
+		return err
+	}
+
+	//Add namespace for each specialresource to related objects
+	for _, sr := range specialresources.Items {
+		if sr.Spec.Namespace != "" { // preamble specialresource has no namespace
+			log.Info("Adding to relatedObjects", "namespace", sr.Spec.Namespace)
+			relatedObjects = append(relatedObjects, configv1.ObjectReference{Group: "", Resource: "namespaces", Name: sr.Spec.Namespace})
+		}
+	}
+
+	r.clusterOperator.Status.RelatedObjects = relatedObjects
+
+	return nil
+}
+
+// ReportSpecialResourcesStatus 
+// Depending on what error we're getting from the
 // reconciliation loop we're updating the status
 // nil -> All things good and default conditions can be applied
 func ReportSpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
