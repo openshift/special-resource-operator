@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"time"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
@@ -121,7 +122,7 @@ func getRuntimeInformation(r *SpecialResourceReconciler) {
 	exit.OnError(errs.Wrap(err, "Failed to get cluster version"))
 
 	log.Info("Get Push Secret Name")
-	runInfo.PushSecretName, err = getPushSecretName(r)
+	runInfo.PushSecretName, err = retryGetPushSecretName(r)
 	exit.OnError(errs.Wrap(err, "Failed to get push secret name"))
 
 	log.Info("Get OS Image URL")
@@ -265,6 +266,22 @@ func getClusterVersion(r *SpecialResourceReconciler) (string, string, error) {
 	}
 
 	return "", "", errs.New("Undefined Cluster Version")
+}
+
+func retryGetPushSecretName(r *SpecialResourceReconciler) (string, error) {
+	for i := 0; i < 3; i++ {
+		time.Sleep(2 * time.Second)
+		pushSecretName, err := getPushSecretName(r)
+		if err != nil {
+			log.Info("Cannot find Secret builder-dockercfg " + r.specialresource.Spec.Namespace)
+			continue
+		} else {
+			return pushSecretName, err
+		}
+	}
+
+	return "", errors.New("Cannot find Secret builder-dockercfg")
+
 }
 
 func getPushSecretName(r *SpecialResourceReconciler) (string, error) {

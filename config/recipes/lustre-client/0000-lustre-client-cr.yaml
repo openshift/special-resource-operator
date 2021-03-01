@@ -16,3 +16,6 @@ spec:
       - name: "RELEASEVER"
         value: "{{.OperatingSystemDecimal}}"
 
+  dependsOn:
+    - name: "driver-container-base"
+      imageReference: "true"
