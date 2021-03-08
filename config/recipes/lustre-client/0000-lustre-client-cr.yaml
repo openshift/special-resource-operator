@@ -10,11 +10,15 @@ spec:
     - name: "access_key"
       value: ["AWS_SECRET_ACCESS_KEY"]
   driverContainer:
+    source:
+      git:
+        ref: "master"
+        uri: "https://github.com/openshift-psap/kvc-lustre-client.git"
     buildArgs:
       - name: "KVER"
         value: "{{.KernelFullVersion}}"
-      - name: "RELEASEVER"
-        value: "{{.OperatingSystemDecimal}}"
+      - name: "KMODVER"
+        value: "SRO"
 
   dependsOn:
     - name: "driver-container-base"

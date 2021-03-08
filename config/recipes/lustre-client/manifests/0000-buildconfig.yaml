@@ -18,29 +18,18 @@ metadata:
 spec:
   nodeSelector:
     node-role.kubernetes.io/worker: ""
-#    {{.SpecialResource.Spec.Node.Selector}}: "true"
   runPolicy: "Serial"
   triggers:
     - type: "ConfigChange"
     - type: "ImageChange"
   source:
-    dockerfile: |
-      FROM image-registry.openshift-image-registry.svc:5000/driver-container-base/driver-container-base:v{{.KernelFullVersion}}
-      MAINTAINER "coreos@lists.fedoraproject.org"
-
-      ARG RELEASEVER
-
-      RUN yum -y install --releasever=${RELEASEVER} wget git --setopt=install_weak_deps=False --best
-
-      
-      RUN wget https://fsx-lustre-client-repo-public-keys.s3.amazonaws.com/fsx-rpm-public-key.asc -O /tmp/fsx-rpm-public-key.asc \
-          && rpm --import /tmp/fsx-rpm-public-key.asc \
-          && wget https://fsx-lustre-client-repo.s3.amazonaws.com/el/8/fsx-lustre-client.repo -O /etc/yum.repos.d/aws-fsx.repo
-
-      RUN yum -y install --releasever=${RELEASEVER} kmod-lustre-client lustre-client --setopt=install_weak_deps=False --best
-      
+    git:
+      ref: {{.SpecialResource.Spec.DriverContainer.Source.Git.Ref}}
+      uri: {{.SpecialResource.Spec.DriverContainer.Source.Git.Uri}}
+    type: Git 
   strategy:
     dockerStrategy:
+      dockerfilePath: Dockerfile.SRO
       from:
         kind: "ImageStreamTag"
         name: "driver-container-base:v{{.KernelFullVersion}}"

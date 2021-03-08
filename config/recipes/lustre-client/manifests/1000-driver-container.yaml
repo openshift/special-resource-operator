@@ -31,38 +31,6 @@ subjects:
 userNames:
 - system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}-entrypoint
-data:
-  entrypoint.sh: |-
-    #!/bin/bash -x
-
-    unmount() {
-        modprobe -r lustre
-        modprobe -r osc
-        modprobe -r mgc
-        lnetctl lnet unconfigure
-        modprobe -r ksocklnd
-        modprobe -r lnet
-        lustre_rmmod
-    }
-
-    modprobe -v lnet
-    modprobe -v ksocklnd
-    modprobe -v mgc
-    modprobe -v osc
-    lnetctl lnet configure --all
-    modprobe -v lustre
-
-    mkdir -p /mnt/fsx
-
-    trap "echo 'Caught signal'; exit 1" HUP INT QUIT PIPE TERM
-    trap "unmount" EXIT
-
-    sleep infinity
----
 # Please edit the object below. Lines beginning with a '#' will be ignored,
 # and an empty file will abort the edit. If an error occurs while saving this file will be
 # reopened with the relevant failures.
@@ -144,7 +112,7 @@ spec:
       - image: image-registry.openshift-image-registry.svc:5000/{{.SpecialResource.Spec.Namespace}}/{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}:v{{.KernelFullVersion}}
         imagePullPolicy: Always
         name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
-        command: ["/bin/entrypoint.sh"]
+        command: ["/sbin/init"]
         securityContext:
           privileged: true
           hostNetwork: true
@@ -153,10 +121,6 @@ spec:
         volumeMounts:
           - name: devices
             mountPath: /dev
-          - name: entrypoint
-            mountPath: /bin/entrypoint.sh
-            readOnly: true
-            subPath: entrypoint.sh
           - name: overlay
             mountPath: /tmp/overlay
             readOnly: true
@@ -167,10 +131,6 @@ spec:
         - name: devices
           hostPath:
             path: /dev
-        - name: entrypoint
-          configMap:
-            defaultMode: 0700
-            name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}-entrypoint
       nodeSelector:
         node-role.kubernetes.io/worker: ""
         feature.node.kubernetes.io/kernel-version.full: "{{.KernelFullVersion}}"
