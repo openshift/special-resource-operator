@@ -112,7 +112,7 @@ func waitForDaemonSetCallback(obj *unstructured.Unstructured) bool {
 
 	callback = func(obj *unstructured.Unstructured) bool { return false }
 
-	node.count, found, err = unstructured.NestedInt64(obj.Object, "status", "desiredNumberScheduled")
+	runInfo.Node.count, found, err = unstructured.NestedInt64(obj.Object, "status", "desiredNumberScheduled")
 	exit.OnErrorOrNotFound(found, err)
 
 	_, found, _ = unstructured.NestedInt64(obj.Object, "status", "numberUnavailable")
@@ -122,7 +122,7 @@ func waitForDaemonSetCallback(obj *unstructured.Unstructured) bool {
 
 	_, found, _ = unstructured.NestedInt64(obj.Object, "status", "numberAvailable")
 	if found {
-		callback = makeStatusCallback(obj, node.count, "status", "numberAvailable")
+		callback = makeStatusCallback(obj, runInfo.Node.count, "status", "numberAvailable")
 	}
 
 	return callback(obj)

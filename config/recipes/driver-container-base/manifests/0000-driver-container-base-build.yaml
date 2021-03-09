@@ -5,14 +5,14 @@ metadata:
     app: {{.SpecialResource.Name}}
   name: {{.SpecialResource.Name}}
 spec: {}
---- 
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{.SpecialResource.Name}}-buildah-helper
 data:
   buildah-helper.sh: |-
-    #!/bin/bash -x 
+    #!/bin/bash -x
 
     CNT=
     MNT=
@@ -26,7 +26,7 @@ data:
     MOUNT() { export MNT=$(buildah --storage-driver vfs mount $CNT); }
     UMOUNT() { buildah --storage-driver vfs umount $CNT; }
 
-    ENV() { buildah config --env $@; }
+    ENV() { buildah --storage-driver vfs config --env $@ $CNT; }
     RUN() { buildah --storage-driver vfs --isolation chroot run --user 0 $CNT -- $@; }
     RUNV() { buildah --storage-driver vfs --isolation chroot run --volume /etc/pki/entitlement-host:/etc/pki/entitlement:z --volume ${MOCMNT}:/extensions:z --user 0 $CNT -- $@; }
     COPY() { buildah --storage-driver vfs copy $CNT $@; }
@@ -34,8 +34,6 @@ data:
     ENTRYPOINT() { buildah config --entrypoint $1 $CNT; }
     WORKINGDIR() { buildah --storage-driver vfs config --workingdir $1 $CNT; }
     PUSH() { buildah --storage-driver vfs push --tls-verify=false --authfile /root/.dockercfg  $@; }
-
-
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -44,14 +42,14 @@ metadata:
 data:
   install-dependencies.sh: |-
     #!/bin/bash -x
-    
-    set -e 
 
-    kernel_version=$(uname -r)
+    set -e
 
-    # Adding the full name here so we can use one function 
+    kernel_version=${KERNEL_VERSION}
+
+    # Adding the full name here so we can use one function
     # to install from EUS, base and machine-os-content (MOC)
-    kernel_rpms=( 
+    kernel_rpms=(
       kernel-core-${kernel_version}
       kernel-devel-${kernel_version}
       kernel-headers-${kernel_version}
@@ -70,7 +68,7 @@ data:
 
     function install_kernel_rpms() {
       for rpm in "$@"
-      do 
+      do
         echo "Installing ${rpm}"
         if ! yum -y --best install ${rpm}; then
           echo "Cannot install ${rpm}, aborting EUS installation"
@@ -91,18 +89,18 @@ data:
     }
 
     echo "Setting the correct releasever for all following yum comamnds..."
-    echo {{.OperatingSystemDecimal}} > /etc/yum/vars/releasever
+    echo ${RHEL_VERSION} > /etc/yum/vars/releasever
 
     echo "Setting install_weak_deps=False globally for yum..."
     yum config-manager --setopt=install_weak_deps=False --save
 
     echo "Enabling RHOCP and EUS RPM repos..."
-    enable_repo rhocp-{{.ClusterVersionMajorMinor}}-for-rhel-8-x86_64-rpms
+    enable_repo rhocp-${CLUSTER_VERSION}-for-rhel-8-x86_64-rpms
     enable_repo rhel-8-for-x86_64-baseos-eus-rpms || true
     # PLACEHOLDER FOR RT KERNEL -- enable_repo rhel-8-for-x86_64-nfv-rpms
 
     # First update the base container to latest versions of everything
-    yum update -y 
+    yum update -y
 
     # Additional packages that are mandatory for driver-containers
     yum -y --best install elfutils-libelf-devel kmod binutils kabi-dw kernel-abi-whitelists
@@ -114,13 +112,13 @@ data:
     fi
 
     # If EUS fails get kernel-devel and kernel-headers from machine-os-content
-    echo "EUS and/or rhocp-{{.ClusterVersionMajorMinor}} FAILED - installing from machine-os-content"
+    echo "EUS and/or rhocp-${CLUSTER_VERSION} FAILED - installing from machine-os-content"
 
-    # Installation order is important leave this as is 
+    # Installation order is important leave this as is
     kernel_rpms=(
       $(find /extensions -name kernel-core-${kernel_version}.rpm -exec ls {} \; | tail -n1)
       $(find /extensions -name kernel-devel-${kernel_version}.rpm -exec ls {} \; | tail -n1)
-      $(find /extensions -name kernel-headers-${kernel_version}.rpm -exec ls {} \; | tail -n1) 
+      $(find /extensions -name kernel-headers-${kernel_version}.rpm -exec ls {} \; | tail -n1)
       $(find /extensions -name kernel-modules-${kernel_version}.rpm -exec ls {} \; | tail -n1)
       $(find /extensions -name kernel-modules-extra-${kernel_version}.rpm -exec ls {} \; | tail -n1)
     )
@@ -150,7 +148,7 @@ metadata:
   name: {{.SpecialResource.Name}}-entrypoint
 data:
   entrypoint.sh: |-
-    #!/bin/bash -x 
+    #!/bin/bash -x
     set -e
     cd /tmp
 
@@ -160,25 +158,27 @@ data:
 
     source /bin/buildah-helper.sh
 
-    UNAME=$(uname -r)
     SCRIPT_NAME=install-dependencies.sh
-    TAG={{.SpecialResource.Spec.Namespace}}/{{.SpecialResource.Name}}:v${UNAME}
+    TAG={{.SpecialResource.Spec.Namespace}}/{{.SpecialResource.Name}}:v${KERNEL_VERSION}
 
-   
     # --------- Container instructions START ----------------------------------
- 
+
     MOUNT_MACHINE_OS_CONTENT
 
     FROM registry.access.redhat.com/ubi8/ubi
 
     WORKINGDIR /tmp
- 
+
+    ENV KERNEL_VERSION=${KERNEL_VERSION}
+    ENV RHEL_VERSION=${RHEL_VERSION}
+    ENV CLUSTER_VERSION=${CLUSTER_VERSION}
+
     COPY /bin/${SCRIPT_NAME} .
     RUNV bash -c $(pwd)/${SCRIPT_NAME}
- 
+
     # Install directly into the chroot, this way we do not have to install
     # additinoal packages like git into the container to install from a git repo
-    # The deps are resolved by the outer image. 
+    # The deps are resolved by the outer image.
     MOUNT
     cd kmods-via-containers
     make install DESTDIR=${MNT}/usr/local CONFDIR=${MNT}/etc/
@@ -197,12 +197,12 @@ data:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 rules:
 - apiGroups:
   - security.openshift.io
@@ -216,37 +216,42 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 subjects:
 - kind: ServiceAccount
-  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 userNames:
-- system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
+- system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{{.SpecialResource.Name}}
 ---
 apiVersion: v1
 kind: Pod
 metadata:
-  annotations: 
+  annotations:
     specialresource.openshift.io/proxy: "true"
     specialresource.openshift.io/wait: "true"
     specialresource.openshift.io/wait-for-logs: "touch /tmp/ready"
-
   labels:
     app: {{.SpecialResource.Name}}
   name: {{.SpecialResource.Name}}
 spec:
-  #serviceAccount: builder
-  #serviceAccountName: builder
-  serviceAccount: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
-  serviceAccountName: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  serviceAccount: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
+  serviceAccountName: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
   restartPolicy: OnFailure
   containers:
-  - name: {{.SpecialResource.Name}}-ctr
+  - name: {{.SpecialResource.Name}}
     image: registry.access.redhat.com/ubi8:latest
+    env:
+    - name: KERNEL_VERSION
+      value: "{{.KernelFullVersion}}"
+    - name: RHEL_VERSION
+      value: "{{.OperatingSystemDecimal}}"
+    - name: CLUSTER_VERSION
+      value: "{{.ClusterVersionMajorMinor}}"
+
     command: [/bin/entrypoint.sh]
     securityContext:
       seLinuxOptions:

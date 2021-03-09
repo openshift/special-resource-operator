@@ -129,11 +129,10 @@ func (r *SpecialResourceReconciler) clusterOperatorUpdateRelatedObjects() error 
 	return nil
 }
 
-// ReportSpecialResourcesStatus 
-// Depending on what error we're getting from the
+// SpecialResourcesStatusInit Depending on what error we're getting from the
 // reconciliation loop we're updating the status
 // nil -> All things good and default conditions can be applied
-func ReportSpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
+func SpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request, cond []configv1.ClusterOperatorStatusCondition) (ctrl.Result, error) {
 
 	newConditions := conditions.NotAvailableProgressingNotDegraded(
 		"Reconciling "+req.Name,
@@ -151,24 +150,5 @@ func ReportSpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request
 		log.Info("Reconciling ClusterOperator failed", "error", fmt.Sprintf("%v", err))
 		return reconcile.Result{Requeue: true}, nil
 	}
-
-	//Reconcile all specialresources
-	//TODO err not used here? Do we need to check this?
-	ctrlResult, err := ReconcilerSpecialResources(r, req)
-	if err == nil {
-		newConditions = conditions.AvailableNotProgressingNotDegraded()
-	}
-
-	log = r.Log.WithName(color.Print("status", color.Blue))
-	if err := r.clusterOperatorStatusGetOrCreate(); err != nil {
-		return reconcile.Result{Requeue: true}, errs.Wrap(err, "Cannot get or create ClusterOperator")
-	}
-
-	log.Info("Reconciling ClusterOperator")
-	if err := r.clusterOperatorStatusReconcile(newConditions); err != nil {
-		log.Info("Reconciling ClusterOperator failed", "error", fmt.Sprintf("%v", err))
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	return ctrlResult, err
+	return reconcile.Result{}, nil
 }

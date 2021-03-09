@@ -61,8 +61,8 @@ func (r *SpecialResourceReconciler) GetName() string {
 // +kubebuilder:rbac:groups=config.openshift.io,resources=clusteroperators,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=config.openshift.io,resources=clusteroperators/status,verbs=get;list;watch;create;update;patch;delete
 
-// ReconcilerSpecialResources Takes care of all specialresources in the cluster
-func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
+// SpecialResourcesReconcile Takes care of all specialresources in the cluster
+func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
 
 	log = r.Log.WithName(color.Print("preamble", color.Purple))
 

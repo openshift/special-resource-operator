@@ -19,8 +19,10 @@ package controllers
 import (
 	"github.com/go-logr/logr"
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
+	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
 	configv1 "github.com/openshift/api/config/v1"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	errs "github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -28,6 +30,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var (
@@ -51,7 +54,37 @@ type SpecialResourceReconciler struct {
 
 // Reconcile Reconiliation entry point
 func (r *SpecialResourceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	return ReportSpecialResourcesStatus(r, req)
+
+	var err error
+	var res reconcile.Result
+
+	conds := conditions.NotAvailableProgressingNotDegraded(
+		"Reconciling "+req.Name,
+		"Reconciling "+req.Name,
+		conditions.DegradedDefaultMsg,
+	)
+	// Do some preflight checks and get the cluster upgrade info
+	if res, err = SpecialResourceUpgrade(r, req); err != nil {
+		return res, errs.Wrap(err, "Cannot upgrade special resource")
+	}
+	// A resource is being reconciled set status to not available and only
+	// if the reconcilation succeeds we're updating the conditions
+	if res, err = SpecialResourcesStatus(r, req, conds); err != nil {
+		return res, errs.Wrap(err, "Cannot update special resource status")
+	}
+	//Reconcile all specialresources
+	if res, err = SpecialResourcesReconcile(r, req); err == nil {
+		conds = conditions.AvailableNotProgressingNotDegraded()
+	} else {
+		return res, err
+	}
+	// Only if we're successfull we're going to update the status to
+	// Available otherwise retunr the recondile error
+	if res, err = SpecialResourcesStatus(r, req, conds); err != nil {
+		return res, errs.Wrap(err, "Cannot update special resource status")
+	}
+
+	return reconcile.Result{}, nil
 }
 
 // SetupWithManager main initalization for manager

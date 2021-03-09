@@ -20,6 +20,10 @@ import (
 	//machineV1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 )
 
+type nodes struct {
+	list  *unstructured.UnstructuredList
+	count int64
+}
 type resourceGroupName struct {
 	DriverBuild            string
 	DriverContainer        string
@@ -59,17 +63,31 @@ type runtimeInformation struct {
 	KernelPatchVersion        string
 	ClusterVersion            string
 	ClusterVersionMajorMinor  string
+	ClusterUpgradeInfo        map[string]nodeUpgradeVersion
 	UpdateVendor              string
 	PushSecretName            string
 	OSImageURL                string
-
-	Proxy           proxyConfiguration
-	GroupName       resourceGroupName
-	StateName       resourceStateName
-	SpecialResource srov1beta1.SpecialResource
+	Node                      nodes
+	Proxy                     proxyConfiguration
+	GroupName                 resourceGroupName
+	StateName                 resourceStateName
+	SpecialResource           srov1beta1.SpecialResource
 }
 
 var runInfo = runtimeInformation{
+	OperatingSystemMajor:      "",
+	OperatingSystemMajorMinor: "",
+	OperatingSystemDecimal:    "",
+	KernelFullVersion:         "",
+	KernelPatchVersion:        "",
+	ClusterVersion:            "",
+	ClusterVersionMajorMinor:  "",
+	ClusterUpgradeInfo:        make(map[string]nodeUpgradeVersion),
+	UpdateVendor:              "",
+	PushSecretName:            "",
+	OSImageURL:                "",
+	Node:                      nodes{list: &unstructured.UnstructuredList{}, count: 0xDEADBEEF},
+	Proxy:                     proxyConfiguration{},
 	GroupName: resourceGroupName{
 		DriverBuild:            "driver-build",
 		DriverContainer:        "driver-container",
@@ -78,14 +96,13 @@ var runInfo = runtimeInformation{
 		DeviceMonitoring:       "device-monitoring",
 		DeviceGrafana:          "device-grafana",
 		DeviceFeatureDiscovery: "device-feature-discovery",
-		CSIDriver:              "csi-driver",
-	},
+		CSIDriver:              "csi-driver"},
 	StateName: resourceStateName{
 		DriverContainer:   "specialresource.openshift.io/driver-container",
 		RuntimeEnablement: "specialresource.openshift.io/runtime-enablement",
 		DevicePlugin:      "specialresource.openshift.io/device-plugin",
-		DeviceMonitoring:  "specialresource.openshift.io/device-monitoring",
-	},
+		DeviceMonitoring:  "specialresource.openshift.io/device-monitoring"},
+	SpecialResource: srov1beta1.SpecialResource{},
 }
 
 func logRuntimeInformation() {
@@ -96,6 +113,7 @@ func logRuntimeInformation() {
 	log.Info("Runtime Information", "KernelPatchVersion", runInfo.KernelPatchVersion)
 	log.Info("Runtime Information", "ClusterVersion", runInfo.ClusterVersion)
 	log.Info("Runtime Information", "ClusterVersionMajorMinor", runInfo.ClusterVersionMajorMinor)
+	log.Info("Runtime Information", "ClusterUpgradeInfo", runInfo.ClusterUpgradeInfo)
 	log.Info("Runtime Information", "UpdateVendor", runInfo.UpdateVendor)
 	log.Info("Runtime Information", "PushSecretName", runInfo.PushSecretName)
 	log.Info("Runtime Information", "OSImageURL", runInfo.OSImageURL)
@@ -105,6 +123,10 @@ func logRuntimeInformation() {
 func getRuntimeInformation(r *SpecialResourceReconciler) {
 
 	var err error
+	log.Info("Get Node List")
+	runInfo.Node.list, err = cacheNodes(r, false)
+	exit.OnError(errs.Wrap(err, "Failed to cache nodes"))
+
 	log.Info("Get Operating System")
 	runInfo.OperatingSystemMajor, runInfo.OperatingSystemMajorMinor, runInfo.OperatingSystemDecimal, err = getOperatingSystem()
 	exit.OnError(errs.Wrap(err, "Failed to get operating system"))
@@ -120,6 +142,10 @@ func getRuntimeInformation(r *SpecialResourceReconciler) {
 	log.Info("Get Cluster Version")
 	runInfo.ClusterVersion, runInfo.ClusterVersionMajorMinor, err = getClusterVersion(r)
 	exit.OnError(errs.Wrap(err, "Failed to get cluster version"))
+
+	log.Info("Get Upgrade Info")
+	runInfo.ClusterUpgradeInfo, err = getUpgradeInfo()
+	exit.OnError(errs.Wrap(err, "Failed to get upgrade info"))
 
 	log.Info("Get Push Secret Name")
 	runInfo.PushSecretName, err = retryGetPushSecretName(r)
@@ -143,10 +169,9 @@ func getOperatingSystem() (string, string, string, error) {
 	var nodeOSmin string
 
 	// Assuming all nodes are running the same os
-
 	os := "feature.node.kubernetes.io/system-os_release"
 
-	for _, node := range node.list.Items {
+	for _, node := range runInfo.Node.list.Items {
 		labels := node.GetLabels()
 		nodeOSrel = labels[os+".ID"]
 		nodeOSmaj = labels[os+".VERSION_ID.major"]
@@ -208,7 +233,7 @@ func getKernelFullVersion() (string, error) {
 	var kernelFullVersion string
 	// Assuming all nodes are running the same kernel version,
 	// one could easily add driver-kernel-versions for each node.
-	for _, node := range node.list.Items {
+	for _, node := range runInfo.Node.list.Items {
 		labels := node.GetLabels()
 
 		// We only need to check for the key, the value

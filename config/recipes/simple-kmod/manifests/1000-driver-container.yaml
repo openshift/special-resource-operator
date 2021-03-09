@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 rules:
 - apiGroups:
   - security.openshift.io
@@ -20,14 +20,14 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 subjects:
 - kind: ServiceAccount
-  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 userNames:
 - system:serviceaccount:{{.SpecialResource.Spec.Namespace}}:{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
 ---
@@ -35,17 +35,16 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
-    app: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
-  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+    app: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
+  name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
   annotations:
-    openshift.io/scc: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
     specialresource.openshift.io/wait: "true"
     specialresource.openshift.io/state: "driver-container"
     specialresource.openshift.io/driver-container-vendor: simple-kmod
 spec:
   selector:
     matchLabels:
-      app: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+      app: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
   template:
     metadata:
       # Mark this pod as a critical add-on; when enabled, the critical add-on scheduler
@@ -54,14 +53,14 @@ spec:
       annotations:
         scheduler.alpha.kubernetes.io/critical-pod: ""
       labels:
-        app: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+        app: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
     spec:
-      serviceAccount: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
-      serviceAccountName: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
+      serviceAccount: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
+      serviceAccountName: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
       containers:
       - image: image-registry.openshift-image-registry.svc:5000/{{.SpecialResource.Spec.Namespace}}/{{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}:v{{.KernelFullVersion}}
+        name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
         imagePullPolicy: Always
-        name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
         command: ["/sbin/init"]
         securityContext:
           privileged: true

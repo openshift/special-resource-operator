@@ -20,7 +20,7 @@ func labelNodesAccordingToState(obj *unstructured.Unstructured, r *SpecialResour
 
 	var err error
 
-	if node.list, err = cacheNodes(r, true); err != nil {
+	if runInfo.Node.list, err = cacheNodes(r, true); err != nil {
 		return errs.Wrap(err, "Could not cache nodes for state change")
 	}
 
@@ -34,7 +34,7 @@ func labelNodesAccordingToState(obj *unstructured.Unstructured, r *SpecialResour
 		"device-monitoring":  {st.DeviceMonitoring + "-" + hw: "ready"},
 	}
 
-	for _, node := range node.list.Items {
+	for _, node := range runInfo.Node.list.Items {
 		labels := node.GetLabels()
 
 		state := obj.GetAnnotations()["specialresource.openshift.io/state"]
