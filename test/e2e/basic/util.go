@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	errs "github.com/pkg/errors"
+
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,12 +16,54 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/onsi/ginkgo"
+	"github.com/openshift-psap/special-resource-operator/pkg/osversion"
 	"github.com/openshift-psap/special-resource-operator/test/framework"
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	//srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 )
+
+// Return kernel full version, os version, openshift version
+//                    feature.node.kubernetes.io/kernel-version.full=4.18.0-240.10.1.el8_3.x86_64
+//                    feature.node.kubernetes.io/system-os_release.RHEL_VERSION=8.3
+//                    feature.node.kubernetes.io/system-os_release.VERSION_ID=4.7
+func GetVersionTriplet(cs *framework.ClientSet) (string, string, string, error) {
+	nodes, err := GetNodesByRole(cs, "worker")
+	if err != nil {
+		return "", "", "", err
+	}
+	node := nodes[0]
+	labels := node.GetLabels()
+
+	// Assuming all nodes are running the same OS...
+	os := "feature.node.kubernetes.io/system-os_release"
+	nodeOSrel := labels[os+".ID"]
+	nodeKernelFullVersion := labels["feature.node.kubernetes.io/kernel-version.full"]
+	nodeOSVersion := labels[os+".RHEL_VERSION"]
+	nodeOCPVersion := labels[os+".VERSION_ID"]
+	if len(nodeKernelFullVersion) == 0 || len(nodeOSVersion) == 0 {
+		return "", "", "", errs.New("Cannot extract feature.node.kubernetes.io/system-os_release.*, is NFD running? Check node labels")
+	}
+
+	if nodeOSVersion == "" {
+		// Old NFD version without OSVersion -- try to render it
+		os := "feature.node.kubernetes.io/system-os_release"
+		nodeOSmaj := labels[os+".VERSION_ID.major"]
+		nodeOSmin := labels[os+".VERSION_ID.minor"]
+
+		_, _, nodeOSVersion, err = osversion.RenderOperatingSystem(nodeOSrel, nodeOSmaj, nodeOSmin)
+		if err != nil {
+			return "", "", "", errs.New("Could not determine operating system version")
+		}
+	}
+
+	if nodeOSrel != "rhcos" {
+		return nodeKernelFullVersion, nodeOSrel + nodeOSVersion, nodeOCPVersion, errs.New("Unexpected error, node not running rhcos")
+	}
+
+	return nodeKernelFullVersion, "rhel" + nodeOSVersion, nodeOCPVersion, nil
+}
 
 // GetNodesByRole returns a list of nodes that match a given role.
 func GetNodesByRole(cs *framework.ClientSet, role string) ([]corev1.Node, error) {

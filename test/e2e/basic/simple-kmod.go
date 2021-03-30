@@ -9,6 +9,7 @@ import (
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
+	"github.com/openshift-psap/special-resource-operator/pkg/hash"
 	"github.com/openshift-psap/special-resource-operator/test/framework"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,8 +29,28 @@ var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", fu
 
 	var explain string
 
+	var nodeKernelFullVersion string
+	var nodeOSVersion string
+	var nodeOCPVersion string
+
 	// Check that operator deployment has 1 available pod
 	ginkgo.It("Can create driver-container-base and deploy simple-kmod", func() {
+
+		ginkgo.By("Checking if NFD is running, getting kernel, os, ocp versions")
+		var err error
+		nodeKernelFullVersion, nodeOSVersion, nodeOCPVersion, err = GetVersionTriplet(cs)
+		_, _ = Logf("Info: KernelVersion: " + nodeKernelFullVersion)
+		_, _ = Logf("Info: OSVersion: " + nodeOSVersion)
+		_, _ = Logf("Info: OpenShift Version: " + nodeOCPVersion)
+
+		if err != nil {
+			explain = err.Error()
+		}
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
+
+		kernelVersion := strings.ReplaceAll(nodeKernelFullVersion, "_", "-")
+		hash64 := hash.FNV64a(nodeOSVersion + "-" + kernelVersion)
+		_, _ = Logf("Info: hash64 for object names: " + hash64)
 
 		buffer, err := ioutil.ReadFile("../../../config/recipes/simple-kmod/0000-simple-kmod-cr.yaml")
 		if err != nil {
@@ -49,8 +70,7 @@ var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", fu
 				return false, nil
 			}
 
-			driverContainerBase, err := cs.Pods("driver-container-base").Get(context.TODO(), "driver-container-base", metav1.GetOptions{})
-
+			driverContainerBase, err := cs.Pods("driver-container-base").Get(context.TODO(), "driver-container-base"+"-"+hash64, metav1.GetOptions{})
 			if err != nil {
 				return false, fmt.Errorf("Couldn't get driver-container-base pod, %v", err)
 			}
@@ -64,6 +84,9 @@ var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", fu
 
 			return false, nil
 		})
+		if err != nil {
+			explain = err.Error()
+		}
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
 
 		ginkgo.By("waiting for simple-kmod daemonset to be ready")
@@ -81,6 +104,9 @@ var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", fu
 			}
 			return false, nil
 		})
+		if err != nil {
+			explain = err.Error()
+		}
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
 
 		// Now check if module is actually running
@@ -95,9 +121,9 @@ var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", fu
 
 		//get driver container pod on worker node
 		ginkgo.By(fmt.Sprintf("getting a simple-kmod-driver-container Pod running on node %s", node.Name))
-		listOptions := metav1.ListOptions{
+		listOptions := metav1.ListOptions{ //TODO fix
 			FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": node.Name}).String(),
-			LabelSelector: labels.SelectorFromSet(labels.Set{"app": "simple-kmod-driver-container-rhel8"}).String(),
+			LabelSelector: labels.SelectorFromSet(labels.Set{"app": "simple-kmod-driver-container-" + hash64}).String(),
 		}
 
 		pod, err := GetPodForNode(cs, &node, "simple-kmod", listOptions)
@@ -127,6 +153,9 @@ var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", fu
 			return true, nil
 
 		})
+		if err != nil {
+			explain = err.Error()
+		}
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
 
 	})

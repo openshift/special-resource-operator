@@ -17,6 +17,8 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
+
 	"github.com/go-logr/logr"
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
@@ -81,7 +83,8 @@ func (r *SpecialResourceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 	// Only if we're successfull we're going to update the status to
 	// Available otherwise retunr the recondile error
 	if res, err = SpecialResourcesStatus(r, req, conds); err != nil {
-		return res, errs.Wrap(err, "Cannot update special resource status")
+		log.Info("Cannot update special resource status", "error", fmt.Sprintf("%v", err))
+		return res, nil
 	}
 
 	return reconcile.Result{}, nil

@@ -2,13 +2,14 @@ package controllers
 
 import (
 	"context"
-	"strconv"
 	"strings"
 	"time"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
+	"github.com/openshift-psap/special-resource-operator/pkg/osversion"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+
 	"github.com/pkg/errors"
 	errs "github.com/pkg/errors"
 
@@ -182,49 +183,7 @@ func getOperatingSystem() (string, string, string, error) {
 		}
 	}
 
-	return renderOperatingSystem(nodeOSrel, nodeOSmaj, nodeOSmin)
-}
-
-func renderOperatingSystem(rel string, maj string, min string) (string, string, string, error) {
-
-	log.Info("OS", "rel", rel)
-	log.Info("OS", "maj", maj)
-	log.Info("OS", "min", min) // this can be empty e.g fedora30
-
-	// rhcos version is the openshift version running need to translate
-	// into rhel major minor version
-	if strings.Compare(rel, "rhcos") == 0 {
-		rel := "rhel"
-
-		num, _ := strconv.Atoi(min)
-
-		if strings.Compare(maj, "4") == 0 && num < 4 {
-			maj := "8"
-			return rel + maj, rel + maj + ".0", maj + ".0", nil
-		}
-
-		if strings.Compare(maj, "4") == 0 && strings.Compare(min, "4") == 0 {
-			maj := "8"
-			return rel + maj, rel + maj + ".1", maj + ".1", nil
-		}
-
-		if strings.Compare(maj, "4") == 0 && strings.Compare(min, "5") == 0 {
-			maj := "8"
-			return rel + maj, rel + maj + ".2", maj + ".2", nil
-		}
-
-		maj := "8"
-		return rel + maj, rel + maj + ".2", maj + ".2", nil
-	}
-
-	// A Fedora system has no min yet, so if min is empty
-	// return fedora31 and not fedora31.
-	if min == "" {
-		return rel + maj, rel + maj, maj, nil
-	}
-
-	return rel + maj, rel + maj + "." + min, maj + "." + min, nil
-
+	return osversion.RenderOperatingSystem(nodeOSrel, nodeOSmaj, nodeOSmin)
 }
 
 func getKernelFullVersion() (string, error) {

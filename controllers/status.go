@@ -2,12 +2,10 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -133,22 +131,14 @@ func (r *SpecialResourceReconciler) clusterOperatorUpdateRelatedObjects() error 
 // reconciliation loop we're updating the status
 // nil -> All things good and default conditions can be applied
 func SpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request, cond []configv1.ClusterOperatorStatusCondition) (ctrl.Result, error) {
-
-	newConditions := conditions.NotAvailableProgressingNotDegraded(
-		"Reconciling "+req.Name,
-		"Reconciling "+req.Name,
-		conditions.DegradedDefaultMsg,
-	)
-
 	log = r.Log.WithName(color.Print("status", color.Blue))
 	if err := r.clusterOperatorStatusGetOrCreate(); err != nil {
 		return reconcile.Result{Requeue: true}, errs.Wrap(err, "Cannot get or create ClusterOperator")
 	}
 
 	log.Info("Reconciling ClusterOperator")
-	if err := r.clusterOperatorStatusReconcile(newConditions); err != nil {
-		log.Info("Reconciling ClusterOperator failed", "error", fmt.Sprintf("%v", err))
-		return reconcile.Result{Requeue: true}, nil
+	if err := r.clusterOperatorStatusReconcile(cond); err != nil {
+		return reconcile.Result{Requeue: true}, errs.Wrap(err, "Reconciling ClusterOperator failed")
 	}
 	return reconcile.Result{}, nil
 }

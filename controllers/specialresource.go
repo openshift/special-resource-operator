@@ -96,6 +96,15 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 			continue
 		}
 
+		// Execute finalization logic if CR is being deleted
+		isMarkedToBeDeleted := r.parent.GetDeletionTimestamp() != nil
+		if isMarkedToBeDeleted {
+			r.specialresource = r.parent
+			log.Info("Marked to be deleted, reconciling finalizer")
+			err = reconcileFinalizers(r)
+			return reconcile.Result{}, err
+		}
+
 		// Only one level dependency support for now
 		for _, r.dependency = range r.parent.Spec.DependsOn {
 
@@ -128,14 +137,6 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 		r.specialresource = r.parent
 		log = r.Log.WithName(color.Print(r.specialresource.Name, color.Green))
 		log.Info("Reconciling")
-
-		// Execute finalization logic if CR is being deleted
-		isMarkedToBeDeleted := r.specialresource.GetDeletionTimestamp() != nil
-		if isMarkedToBeDeleted {
-			log.Info("Marked to be deleted, reconciling finalizer")
-			err = reconcileFinalizers(r)
-			return reconcile.Result{}, err
-		}
 
 		// Add a finalizer to CR if it does not already have one
 		if !contains(r.specialresource.GetFinalizers(), specialresourceFinalizer) {
