@@ -394,7 +394,9 @@ func needToUpdateResourceVersion(kind string) bool {
 		kind == "BuildConfig" ||
 		kind == "ImageStream" ||
 		kind == "PrometheusRule" ||
-		kind == "CSIDriver" {
+		kind == "CSIDriver" ||
+		kind == "Issuer" ||
+		kind == "Certificate" {
 		return true
 	}
 	return false
