@@ -176,7 +176,7 @@ ifeq (, $(shell which kube-linter))
 	KUBELINTER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$KUBELINTER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get golang.stackrox.io/kube-linter/cmd/kube-linter ;\
+	go get golang.stackrox.io/kube-linter/cmd/kube-linter@v0.0.0-20210328011908-cb34f2cc447f ;\
 	rm -rf $$KUBELINTER_GEN_TMP_DIR ;\
 	}
 KUBELINTER=$(GOBIN)/kube-linter

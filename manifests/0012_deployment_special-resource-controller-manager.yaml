@@ -61,7 +61,7 @@ spec:
               fieldPath: metadata.namespace
         - name: RELEASE_VERSION
           value: 0.0.1-snapshot
-        image: quay.io/openshift-psap/special-resource-operator:rolling-upgrade
+        image: quay.io/openshift-psap/special-resource-operator:go-mod-1.16
         imagePullPolicy: Always
         name: manager
         resources:
