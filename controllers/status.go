@@ -75,6 +75,10 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusSet() error {
 
 func (r *SpecialResourceReconciler) clusterOperatorStatusReconcile(
 	conditions []configv1.ClusterOperatorStatusCondition) error {
+	// First get the latest clusterOperator before changing anything
+	if err := r.clusterOperatorGetLatest(); err != nil {
+		return errs.Wrap(err, "Failed to update clusterOperator with latest from API server")
+	}
 
 	r.clusterOperator.Status.Conditions = conditions
 
@@ -91,6 +95,12 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusReconcile(
 	}
 
 	return nil
+}
+
+func (r *SpecialResourceReconciler) clusterOperatorGetLatest() error {
+	co, err := r.ClusterOperators().Get(context.TODO(), r.GetName(), metav1.GetOptions{})
+	co.DeepCopyInto(&r.clusterOperator)
+	return err
 }
 
 func (r *SpecialResourceReconciler) clusterOperatorStatusUpdate() error {
