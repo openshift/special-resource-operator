@@ -164,6 +164,27 @@ func ExecCmdInPod(pod *corev1.Pod, cmd ...string) (string, error) {
 	return stdout.String(), nil
 }
 
+// WaitForDaemonsetReady waits for a duration, checking every interval,
+// for the desired number of DaemonSet pods to equal the number of Daemonset pods
+// that are ready for a given daemonset in a given namespace.
+func WaitForDaemonsetReady(cs *framework.ClientSet, interval, duration time.Duration, namespace string, name string) error {
+	err := wait.PollImmediate(interval, duration, func() (bool, error) {
+		ds, err := cs.DaemonSets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		if err != nil {
+			_, _ = Logf("Waiting for DaemonSet %s creation: %v", name, err)
+			return false, nil
+		}
+
+		if ds.Status.DesiredNumberScheduled == ds.Status.NumberAvailable {
+			return true, nil
+		}
+
+		return false, nil
+	})
+
+	return err
+}
+
 // waitForCmdOutputInPod runs command with arguments 'cmd' in Pod 'pod' at
 // an interval 'interval' and retries for at most the duration 'duration'.
 // If 'valExp' is not nil, it also expects standard output of the command with

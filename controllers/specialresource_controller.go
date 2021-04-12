@@ -75,11 +75,12 @@ func (r *SpecialResourceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, er
 		return res, errs.Wrap(err, "Cannot update special resource status")
 	}
 	//Reconcile all specialresources
-	if res, err = SpecialResourcesReconcile(r, req); err == nil {
+	if res, err = SpecialResourcesReconcile(r, req); err == nil && !res.Requeue {
 		conds = conditions.AvailableNotProgressingNotDegraded()
 	} else {
 		return res, err
 	}
+
 	// Only if we're successfull we're going to update the status to
 	// Available otherwise retunr the recondile error
 	if res, err = SpecialResourcesStatus(r, req, conds); err != nil {
