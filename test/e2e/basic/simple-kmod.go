@@ -142,6 +142,14 @@ var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", fu
 		}
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
 
+		//run command in pod
+		ginkgo.By("Ensuring that the simple-kmod is unloaded")
+		// || true at the end of grep command because we don't want grep to exit with an error code if no matches are found.
+		unloadCmd := []string{"/bin/sh", "-c", "/host/usr/sbin/lsmod | grep -c simple-kmod || true"}
+		unloadValExp := "0"
+		_, err = WaitForCmdOutputInDebugPod(pollInterval, waitDuration, workerNode.Name, &unloadValExp, true, unloadCmd...)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 		ginkgo.By("Creating simple-kmod again")
 		framework.CreateFromYAML(simpleKmodCrYAML, cl)
 

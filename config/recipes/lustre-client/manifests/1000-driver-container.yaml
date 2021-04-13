@@ -113,6 +113,10 @@ spec:
         imagePullPolicy: Always
         name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}-{{.OperatingSystemMajor}}
         command: ["/sbin/init"]
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "systemctl stop kmods-via-containers@lustre-client"]
         securityContext:
           privileged: true
           hostNetwork: true

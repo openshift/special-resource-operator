@@ -62,6 +62,10 @@ spec:
         name: {{.SpecialResource.Name}}-{{.GroupName.DriverContainer}}
         imagePullPolicy: Always
         command: ["/sbin/init"]
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "systemctl stop kmods-via-containers@simple-kmod"]
         securityContext:
           privileged: true
       nodeSelector:

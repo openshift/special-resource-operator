@@ -219,6 +219,46 @@ func WaitForCmdOutputInPod(interval, duration time.Duration, pod *corev1.Pod, va
 	return val, err
 }
 
+// waitForCmdOutputInDebugPod runs command with arguments 'cmd' in Pod 'pod' at
+// an interval 'interval' and retries for at most the duration 'duration'.
+// If 'valExp' is not nil, it also expects standard output of the command with
+// leading and trailing whitespace optionally ('trim') trimmed to match 'valExp'.
+// The function returns the retrieved standard output and an error returned when
+// running 'cmd'.  Non-nil error is also returned when standard output of 'cmd'
+// did not match non-nil 'valExp' by the time duration 'duration' elapsed.
+func WaitForCmdOutputInDebugPod(interval, duration time.Duration, nodename string, valExp *string, trim bool, cmd ...string) (string, error) {
+	var (
+		val          string
+		err, explain error
+	)
+	err = wait.PollImmediate(interval, duration, func() (bool, error) {
+		// Run oc debug  node/nodename -- cmd...
+		ocArgs := []string{"debug", "node/" + nodename, "--"}
+		ocArgs = append(ocArgs, cmd...)
+
+		stdout, stderr, err := execCommand(false, "oc", ocArgs...)
+		val = stdout.String()
+		if err != nil {
+			explain = fmt.Errorf("out=%s; stderr=%s, err=%s", val, stderr.String(), err.Error())
+			return false, nil
+		}
+
+		if trim {
+			val = strings.TrimSpace(val)
+		}
+
+		if valExp != nil && val != *valExp {
+			return false, nil
+		}
+		return true, nil
+	})
+	if valExp != nil && val != *valExp {
+		return val, fmt.Errorf("command %s outputs (leading/trailing whitespace trimmed) %s in debug pod on %s, expected %s: %v", cmd, val, nodename, *valExp, explain)
+	}
+
+	return val, err
+}
+
 // WaitForClusterOperatorCondition blocks until the SRO ClusterOperator status
 // condition 'conditionType' is equal to the value of 'conditionStatus'.
 // The execution interval to check the value is 'interval' and retries last

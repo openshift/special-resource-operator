@@ -8,6 +8,6 @@ generatorOptions:
 
 configMapGenerator:
 - files:
-  - 0000-buildconfig..yaml
+  - 0000-buildconfig.yaml
   - 1000-driver-container.yaml
   name: simple-kmod
