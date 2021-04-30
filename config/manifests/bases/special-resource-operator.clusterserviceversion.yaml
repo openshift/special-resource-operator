@@ -23,7 +23,7 @@ spec:
       displayName: Node Feature Discovery
       kind: NodeFeatureDiscovery
       name: nodefeaturediscoveries.nfd.openshift.io
-      version: v1alpha1
+      version: v1
   description: "## About the managed application \nThe SRO will deploy the complete stack for enabling the accelerator in a cluster. \nIt manages the drivers, device-plugin, node-exporter, grafana and feature discovery.\n## About this Operator\n README: [https://github.com/openshift-psap/special-resource-operator](https://github.com/openshift-psap/special-resource-operator)\n\n## Prerequisites for enabling this Operator\nThe SRO has a dependency on NFD (Node Feature Discovery)\n"
   displayName: Special Resource Operator
   icon:
