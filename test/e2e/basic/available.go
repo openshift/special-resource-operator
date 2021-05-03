@@ -30,6 +30,16 @@ var _ = ginkgo.Describe("[basic][available] Special Resource Operator availabili
 	ginkgo.It("Operator pod is running", func() {
 		ginkgo.By("Wait for deployment/special-resource-controller-manager to have 1 ready replica")
 		err := wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
+			deployments, err := cs.Deployments("openshift-special-resource-operator").List(context.TODO(), metav1.ListOptions{})
+			if err != nil {
+				return false, fmt.Errorf("Error getting list of deployments, %v", err)
+			}
+
+			if len(deployments.Items) < 1 {
+				_, _ = Logf("Waiting for 1 deployment in openshift-special-resource-operator namespace, currently: %d", len(deployments.Items))
+				return false, nil
+			}
+
 			operatorDeployment, err := cs.Deployments("openshift-special-resource-operator").Get(context.TODO(), "special-resource-controller-manager", metav1.GetOptions{})
 			if err != nil {
 				return false, fmt.Errorf("Couldn't get operator deployment %v", err)
