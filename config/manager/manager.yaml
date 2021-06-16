@@ -36,6 +36,8 @@ spec:
                   fieldPath: metadata.namespace
             - name: RELEASE_VERSION
               value: "0.0.1-snapshot"
+            - name: SSL_CERT_DIR
+              value: "/etc/pki/tls/certs"
           command:
             - /manager
           args:
@@ -49,13 +51,18 @@ spec:
             readOnlyRootFilesystem: true
           resources:
             limits:
-              cpu: 200m
-              memory: 100Mi
+              cpu: 300m
+              memory: 300Mi
             requests:
-              cpu: 200m
-              memory: 100Mi
+              cpu: 300m
+              memory: 300Mi
+          volumeMounts:
+          - name: cache-volume
+            mountPath: /cache
       volumes:
         - name: special-resource-operator-tls
           secret:
             secretName: special-resource-operator-tls
+        - name: cache-volume
+          emptyDir: {}
       terminationGracePeriodSeconds: 10

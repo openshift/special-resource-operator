@@ -17,7 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // SpecialResourceImages defines the observed state of SpecialResource
@@ -51,17 +53,6 @@ type SpecialResourceArtifacts struct {
 	Claims []SpecialResourceClaims `json:"claims,omitempty"`
 }
 
-// SpecialResourceNode defines the observed state of SpecialResource
-type SpecialResourceNode struct {
-	Selector string `json:"selector"`
-}
-
-// SpecialResourceRunArgs defines the observed state of SpecialResource
-type SpecialResourceRunArgs struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-}
-
 // SpecialResourceBuildArgs defines the observed state of SpecialResource
 type SpecialResourceBuildArgs struct {
 	Name  string `json:"name"`
@@ -87,36 +78,30 @@ type SpecialResourceSource struct {
 
 // SpecialResourceDriverContainer defines the desired state of SpecialResource
 type SpecialResourceDriverContainer struct {
-
 	// +kubebuilder:validation:Optional
 	Source SpecialResourceSource `json:"source,omitempty"`
 	// +kubebuilder:validation:Optional
-	BuildArgs []SpecialResourceBuildArgs `json:"buildArgs,omitempty"`
-	// +kubebuilder:validation:Optional
-	RunArgs []SpecialResourceRunArgs `json:"runArgs,omitempty"`
-	// +kubebuilder:validation:Optional
 	Artifacts SpecialResourceArtifacts `json:"artifacts,omitempty"`
-}
-
-// SpecialResourceDependency is a SpecialResource that needs to be Complete
-type SpecialResourceDependency struct {
-	Name string `json:"name"`
-	// +kubebuilder:validation:Optional
-	ImageReference string `json:"imageReference"`
 }
 
 // SpecialResourceSpec defines the desired state of SpecialResource
 type SpecialResourceSpec struct {
 	// +kubebuilder:validation:Required
-	Namespace string `json:"namespace,omitempty"`
+	Chart helmer.HelmChart `json:"chart"`
+	// +kubebuilder:validation:Required
+	Namespace string `json:"namespace"`
 	// +kubebuilder:validation:Optional
-	Configuration []SpecialResourceConfiguration `json:"configuration,omitempty"`
+	ForceUpgrade bool `json:"forceUpgrade"`
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:EmbeddedResource
+	Set unstructured.Unstructured `json:"set,omitempty"`
 	// +kubebuilder:validation:Optional
 	DriverContainer SpecialResourceDriverContainer `json:"driverContainer,omitempty"`
 	// +kubebuilder:validation:Optional
-	Node SpecialResourceNode `json:"node,omitempty"`
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// +kubebuilder:validation:Optional
-	DependsOn []SpecialResourceDependency `json:"dependsOn,omitempty"`
+	Dependencies []helmer.HelmChart `json:"dependencies"`
 }
 
 // SpecialResourceStatus defines the observed state of SpecialResource
@@ -129,6 +114,7 @@ type SpecialResourceStatus struct {
 
 // SpecialResource is the Schema for the specialresources API
 // +kubebuilder:resource:path=specialresources,scope=Cluster
+// +kubebuilder:resource:path=specialresources,scope=Cluster,shortName=sr
 type SpecialResource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

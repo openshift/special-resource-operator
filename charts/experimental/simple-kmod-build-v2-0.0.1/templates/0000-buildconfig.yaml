@@ -1,0 +1,35 @@
+
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  labels:
+    app: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}
+spec: {}
+---
+apiVersion: shipwright.io/v1alpha1
+kind: BuildRun
+metadata:
+  name: buildah-golang-buildrun
+spec:
+  buildRef:
+    name: buildah-golang-build
+---
+apiVersion: shipwright.io/v1alpha1
+kind: Build
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}
+annotations:
+  specialresource.openshift.io/wait: "true"
+  specialresource.openshift.io/driver-container-vendor: simple-kmod
+spec:
+  source:
+    url: {{.Values.specialresource.spec.driverContainer.source.git.uri}}
+    revision: {{.Values.specialresource.spec.driverContainer.source.git.ref}}
+  strategy:
+    name: buildah
+    kind: ClusterBuildStrategy
+  dockerfile: Dockerfile.SRO
+  output:
+    image: image-registry.openshift-image-registry.svc:5000/{{.Values.specialresource.metadata.namespace}}/{{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}

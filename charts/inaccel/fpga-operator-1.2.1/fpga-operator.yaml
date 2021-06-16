@@ -1,0 +1,36 @@
+apiVersion: sro.openshift.io/v1beta1
+kind: SpecialResource
+metadata:
+  name: inaccel-fgpa-operator
+spec:
+  chart:
+    name: fpga-operator
+    version: 2.1.1
+    repository:
+      name: inaccel
+      url: https://setup.inaccel.com/helm
+  namespace: inaccel-fpga-operator
+  nodeSelector: feature.node.kubernetes.io/pci-1d0f.present=true
+
+  set:
+    kind: Values
+    apiVersion: sro.openshift.io/v1beta1
+    coral:
+      image: inaccel/coral
+      pullPolicy: Always
+      # resources: ...
+      # tag: ...
+      #license:
+    monitor:
+      image: inaccel/monitor
+      # port: ...
+      # pullPolicy: ...
+      # resources: ...
+      tag: latest
+      # nodeSelector: feature.node.kubernetes.io/pci-1d0f.present=true
+  dependencies:
+  - name: fpga-xrt-driver
+    version: 4.7.11
+    repository:
+    - name: xilinx
+      url: file:///xilinx/fpga-xrt-driver

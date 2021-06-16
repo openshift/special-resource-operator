@@ -7,8 +7,6 @@ import (
 	"os/exec"
 	"strings"
 
-	errs "github.com/pkg/errors"
-
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +41,7 @@ func GetVersionTriplet(cs *framework.ClientSet) (string, string, string, error) 
 	nodeOSVersion := labels[os+".RHEL_VERSION"]
 	nodeOCPVersion := labels[os+".VERSION_ID"]
 	if len(nodeKernelFullVersion) == 0 || len(nodeOSVersion) == 0 {
-		return "", "", "", errs.New("Cannot extract feature.node.kubernetes.io/system-os_release.*, is NFD running? Check node labels")
+		return "", "", "", errors.New("Cannot extract feature.node.kubernetes.io/system-os_release.*, is NFD running? Check node labels")
 	}
 
 	if nodeOSVersion == "" {
@@ -54,12 +52,12 @@ func GetVersionTriplet(cs *framework.ClientSet) (string, string, string, error) 
 
 		_, _, nodeOSVersion, err = osversion.RenderOperatingSystem(nodeOSrel, nodeOSmaj, nodeOSmin)
 		if err != nil {
-			return "", "", "", errs.New("Could not determine operating system version")
+			return "", "", "", errors.New("Could not determine operating system version")
 		}
 	}
 
 	if nodeOSrel != "rhcos" {
-		return nodeKernelFullVersion, nodeOSrel + nodeOSVersion, nodeOCPVersion, errs.New("Unexpected error, node not running rhcos")
+		return nodeKernelFullVersion, nodeOSrel + nodeOSVersion, nodeOCPVersion, errors.New("Unexpected error, node not running rhcos")
 	}
 
 	return nodeKernelFullVersion, "rhel" + nodeOSVersion, nodeOCPVersion, nil

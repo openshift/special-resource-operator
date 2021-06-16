@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
-	errs "github.com/pkg/errors"
+	"github.com/openshift-psap/special-resource-operator/pkg/poll"
+	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
+	"github.com/pkg/errors"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -14,22 +17,22 @@ import (
 func init() {
 
 	customCallback = make(resourceCallbacks)
-	customCallback["specialresource-grafana-configmap"] = customGrafanaConfigMap
+	//customCallback["specialresource-grafana-configmap"] = customGrafanaConfigMap
 }
 
-type resourceCallbacks map[string]func(obj *unstructured.Unstructured, r *SpecialResourceReconciler) error
+type resourceCallbacks map[string]func(obj *unstructured.Unstructured, sr interface{}) error
 
 var customCallback resourceCallbacks
 
-func beforeCRUDhooks(obj *unstructured.Unstructured, r *SpecialResourceReconciler) error {
+func beforeCRUDhooks(obj *unstructured.Unstructured, sr interface{}) error {
 
 	var found bool
 	todo := ""
 	annotations := obj.GetAnnotations()
 
-	if proxy, found := annotations["specialresource.openshift.io/proxy"]; found && proxy == "true" {
-		if err := setupProxy(obj, r); err != nil {
-			return errs.Wrap(err, "Could not setup Proxy")
+	if valid, found := annotations["specialresource.openshift.io/proxy"]; found && valid == "true" {
+		if err := proxy.Setup(obj); err != nil {
+			return errors.Wrap(err, "Could not setup Proxy")
 		}
 	}
 
@@ -38,8 +41,8 @@ func beforeCRUDhooks(obj *unstructured.Unstructured, r *SpecialResourceReconcile
 	}
 
 	if prefix, ok := customCallback[todo]; ok {
-		if err := prefix(obj, r); err != nil {
-			return errs.Wrap(err, "Could not run prefix callback")
+		if err := prefix(obj, sr); err != nil {
+			return errors.Wrap(err, "Could not run prefix callback")
 		}
 	}
 	return nil
@@ -48,6 +51,8 @@ func beforeCRUDhooks(obj *unstructured.Unstructured, r *SpecialResourceReconcile
 func afterCRUDhooks(obj *unstructured.Unstructured, r *SpecialResourceReconciler) error {
 
 	annotations := obj.GetAnnotations()
+	clients.Namespace = r.specialresource.Spec.Namespace
+
 	for key, element := range annotations {
 		log.Info("Annotations", "Key:", key, "Element:", element)
 	}
@@ -55,21 +60,21 @@ func afterCRUDhooks(obj *unstructured.Unstructured, r *SpecialResourceReconciler
 	if state, found := annotations["specialresource.openshift.io/state"]; found && state == "driver-container" {
 		log.Info("specialresource.openshift.io/state")
 		if err := checkForImagePullBackOff(obj, r); err != nil {
-			return errs.Wrap(err, "Cannot check for ImagePullBackOff")
+			return errors.Wrap(err, "Cannot check for ImagePullBackOff")
 		}
 	}
 
 	if wait, found := annotations["specialresource.openshift.io/wait"]; found && wait == "true" {
 		log.Info("specialresource.openshift.io/wait")
-		if err := waitForResource(obj, r); err != nil {
-			return errs.Wrap(err, "Could not wait for resource")
+		if err := poll.ForResource(obj); err != nil {
+			return errors.Wrap(err, "Could not wait for resource")
 		}
 	}
 
 	if pattern, found := annotations["specialresource.openshift.io/wait-for-logs"]; found && len(pattern) > 0 {
 		log.Info("specialresource.openshift.io/wait-for-logs")
-		if err := waitForDaemonSetLogs(obj, r, pattern); err != nil {
-			return errs.Wrap(err, "Could not wait for DaemonSet logs")
+		if err := poll.ForDaemonSetLogs(obj, pattern); err != nil {
+			return errors.Wrap(err, "Could not wait for DaemonSet logs")
 		}
 	}
 
@@ -80,7 +85,7 @@ func afterCRUDhooks(obj *unstructured.Unstructured, r *SpecialResourceReconciler
 
 func checkForImagePullBackOff(obj *unstructured.Unstructured, r *SpecialResourceReconciler) error {
 
-	if err := waitForDaemonSet(obj, r); err == nil {
+	if err := poll.ForDaemonSet(obj); err == nil {
 		return nil
 	}
 
@@ -102,14 +107,14 @@ func checkForImagePullBackOff(obj *unstructured.Unstructured, r *SpecialResource
 		client.MatchingLabels(find),
 	}
 
-	err := r.List(context.TODO(), pods, opts...)
+	err := clients.Interface.List(context.TODO(), pods, opts...)
 	if err != nil {
 		log.Error(err, "Could not get PodList")
 		return err
 	}
 
 	if len(pods.Items) == 0 {
-		return fmt.Errorf("No Pods found, reconciling")
+		return fmt.Errorf("no Pods found, reconciling")
 	}
 
 	var reason string
@@ -142,15 +147,15 @@ func checkForImagePullBackOff(obj *unstructured.Unstructured, r *SpecialResource
 		if reason == "ImagePullBackOff" || reason == "ErrImagePull" {
 			annotations := obj.GetAnnotations()
 			if vendor, ok := annotations["specialresource.openshift.io/driver-container-vendor"]; ok {
-				runInfo.UpdateVendor = vendor
-				return errs.New("ImagePullBackOff need to rebuild" + runInfo.UpdateVendor + "driver-container")
+				RunInfo.UpdateVendor = vendor
+				return errors.New("ImagePullBackOff need to rebuild " + RunInfo.UpdateVendor + " driver-container")
 			}
 		}
 
 		log.Info("Unsetting updateVendor, Pods not in ImagePullBackOff or ErrImagePull")
-		runInfo.UpdateVendor = ""
+		RunInfo.UpdateVendor = ""
 		return nil
 	}
 
-	return errs.New("Unexpected Phase of Pods in DameonSet: " + obj.GetName())
+	return errors.New("Unexpected Phase of Pods in DameonSet: " + obj.GetName())
 }

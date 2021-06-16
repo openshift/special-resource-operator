@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{.Values.specialresource.metadata.name}}
+  template:
+    metadata:
+      labels:
+        app: {{.Values.specialresource.metadata.name}}
+    spec:
+      containers:
+      - name: {{.Values.specialresource.metadata.name}}-client
+        image: quay.io/dagray/pingpong:client
+        imagePullPolicy: Always
+        command: ["/client"]
+        args:
+          - "-server={{.Values.specialresource.metadata.name}}-service:12021"
+          - "-ca-file=/etc/pingpong/certs/ca.crt"
+          - "-key-file=/etc/pingpong/certs/tls.key"
+          - "-cert-file=/etc/pingpong/certs/tls.crt"
+        env:
+        - name: GRPC_TRACE
+          value: "all"
+        - name: GRPC_VERBOSITY
+          value: "DEBUG"
+        - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+          value: "99"
+        - name: GRPC_GO_LOG_SEVERITY_LEVEL
+          value: "info"
+        volumeMounts:
+          - name: {{.Values.specialresource.metadata.name}}-client-cert
+            mountPath: "/etc/pingpong/certs"
+            readOnly: true
+      volumes:
+        - name: {{.Values.specialresource.metadata.name}}-client-cert
+          secret:
+            secretName: {{.Values.specialresource.metadata.name}}-client-cert

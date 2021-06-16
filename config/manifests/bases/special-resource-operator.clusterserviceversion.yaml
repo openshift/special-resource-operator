@@ -2,7 +2,7 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: '["apiVersion":"sro.openshift.io/v1beta1","kind":"SpecialResource","metadata":{"name":"simple-kmod"},"spec":{"namespace":"simple-kmod","configuration":[{"name":"KMOD_NAMES","value":["simple-kmod","simple-procfs-kmod"]}],"driverContainer":{"source":{"git":{"ref":"master","uri":"https://github.com/openshift-psap/kvc-simple-kmod.git"}},"buildArgs":[{"name":"KVER","value":"{{.KernelFullVersion}}"},{"name":"KMODVER","value":"SRO"}]},"dependsOn":[{"name":"driver-container-base","imageReference":"true"}]}}]'
+    alm-examples: '["apiVersion":"sro.openshift.io/v1beta1","kind":"SpecialResource","metadata":{"name":"simple-kmod"},"spec":{"namespace":"simple-kmod","configuration":[{"name":"KMOD_NAMES","value":["simple-kmod","simple-procfs-kmod"]}],"driverContainer":{"source":{"git":{"ref":"master","uri":"https://github.com/openshift-psap/kvc-simple-kmod.git"}},"buildArgs":[{"name":"KVER","value":"{{.Values.kernelFullVersion}}"},{"name":"KMODVER","value":"SRO"}]},"dependsOn":[{"name":"driver-container-base","imageReference":"true"}]}}]'
     capabilities: Basic Install
     description: The special resource operator is an orchestrator for resources in a cluster required to deploy special hardware and software. Examples include hardware accelerators or software defined storage, where extra management or kernel modules are needed.
     operators.operatorframework.io/builder: operator-sdk-v1.2.0

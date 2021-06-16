@@ -18,7 +18,6 @@ COPY controllers/ controllers/
 COPY pkg/ pkg/
 COPY vendor/ vendor/
 
-
 # Build
 RUN CGO_ENABLED=0 GO111MODULE=on go build -mod=vendor -a -o manager main.go
 
@@ -26,12 +25,13 @@ FROM registry.svc.ci.openshift.org/ocp/4.8:base
 WORKDIR /
 COPY --from=builder /workspace/manager .
 
-COPY config/recipes/ /opt/sro/recipes/
+COPY charts/ /
 COPY manifests /manifests
 
 RUN useradd  -r -u 499 nonroot
-RUN getent group nonroot || groupadd -o -g 499 nonroot 
+RUN getent group nonroot || groupadd -o -g 499 nonroot
+
 ENTRYPOINT ["/manager"]
 
-LABEL io.k8s.display-name="OpenShift special-resource-operator" \
-        io.k8s.description="This is a component of OpenShift and manages the lifecycle of out-of-tree drivers with enablement stack." 
+LABEL io.k8s.display-name="OpenShift Special Resource Operator" \
+      io.k8s.description="This is a component of OpenShift and manages the lifecycle of out-of-tree drivers with enablement stack."

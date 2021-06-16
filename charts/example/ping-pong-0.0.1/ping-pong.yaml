@@ -1,0 +1,17 @@
+apiVersion: sro.openshift.io/v1beta1
+kind: SpecialResource
+metadata:
+  name: ping-pong
+spec:
+  namespace: ping-pong
+  chart:
+    name: ping-poing
+    version: 0.0.1
+    repository:
+      name: example
+      url: file:///charts/example
+  driverContainer:
+    source:
+      git:
+        ref: "master"
+        uri: "https://github.com/dagrayvid/pingpong"

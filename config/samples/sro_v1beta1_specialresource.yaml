@@ -14,7 +14,7 @@ spec:
         uri: "https://github.com/openshift-psap/kvc-simple-kmod.git"
     buildArgs:
       - name: "KVER"
-        value: "{{.KernelFullVersion}}"
+        value: "{{.Values.kernelFullVersion}}"
       - name: "KMODVER"
         value: "SRO"
 

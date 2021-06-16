@@ -69,12 +69,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.SpecialResourceReconciler{
+	clients.RestConfig = mgr.GetConfig()
+	clients.Interface = &clients.ClientsInterface{
 		Client:         mgr.GetClient(),
-		Clientset:      clients.GetKubeClientSetOrDie(mgr.GetConfig()),
-		ConfigV1Client: clients.GetConfigClientOrDie(mgr.GetConfig()),
-		Log:            ctrl.Log,
-		Scheme:         mgr.GetScheme(),
+		Clientset:      clients.GetKubeClientSetOrDie(),
+		ConfigV1Client: clients.GetConfigClientOrDie(),
+		EventRecorder:  mgr.GetEventRecorderFor("specialresource"),
+	}
+
+	if err = (&controllers.SpecialResourceReconciler{
+		Log:    ctrl.Log,
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
 		os.Exit(1)

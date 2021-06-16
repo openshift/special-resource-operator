@@ -8,7 +8,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
-	errs "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -37,7 +37,7 @@ func NewControllerRuntimeClient() client.Client {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 	})
-	exit.OnError(errs.Wrap(err, "unable to start manager"))
+	exit.OnError(errors.Wrap(err, "unable to start manager"))
 
 	return mgr.GetClient()
 }
@@ -115,10 +115,10 @@ func DeleteFromYAML(yamlFile []byte, cl client.Client) {
 func getObjFromYAMLSpec(yamlSpec []byte) *unstructured.Unstructured {
 	obj := &unstructured.Unstructured{}
 	jsonSpec, err := yaml.YAMLToJSON(yamlSpec)
-	exit.OnError(errs.Wrap(err, "Could not convert yaml file to json: "+string(yamlSpec)))
+	exit.OnError(errors.Wrap(err, "Could not convert yaml file to json: "+string(yamlSpec)))
 
 	err = obj.UnmarshalJSON(jsonSpec)
-	exit.OnError(errs.Wrap(err, "Cannot unmarshall json spec, check your manifests"))
+	exit.OnError(errors.Wrap(err, "Cannot unmarshall json spec, check your manifests"))
 
 	return obj
 }

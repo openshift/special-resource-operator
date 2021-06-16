@@ -5,7 +5,10 @@ import (
 
 	"fmt"
 
-	errs "github.com/pkg/errors"
+	"github.com/openshift-psap/special-resource-operator/pkg/cache"
+	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/pkg/state"
+	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -20,68 +23,44 @@ func labelNodesAccordingToState(obj *unstructured.Unstructured, r *SpecialResour
 
 	var err error
 
-	if runInfo.Node.list, err = cacheNodes(r, true); err != nil {
-		return errs.Wrap(err, "Could not cache nodes for state change")
+	if err = cache.Nodes(r.specialresource.Spec.NodeSelector, true); err != nil {
+		return errors.Wrap(err, "Could not cache nodes for state change")
 	}
 
-	hw := r.specialresource.Name
-	st := runInfo.StateName
+	for _, node := range cache.Node.List.Items {
 
-	var stateLabels = map[string]map[string]string{
-		"driver-container":   {st.DriverContainer + "-" + hw: "ready"},
-		"runtime-enablement": {st.RuntimeEnablement + "-" + hw: "ready"},
-		"device-plugin":      {st.DevicePlugin + "-" + hw: "ready"},
-		"device-monitoring":  {st.DeviceMonitoring + "-" + hw: "ready"},
-	}
-
-	for _, node := range runInfo.Node.list.Items {
 		labels := node.GetLabels()
 
-		state := obj.GetAnnotations()["specialresource.openshift.io/state"]
+		// Label missing update the Node to advance to the next state
+		updated := node.DeepCopy()
 
-		stateLabel, found := stateLabels[state]
-		if !found {
-			return nil
+		labels[state.CurrentName] = "Ready"
+
+		updated.SetLabels(labels)
+
+		err := clients.Interface.Update(context.TODO(), updated)
+		if apierrors.IsForbidden(err) {
+			return errors.Wrap(err, "forbidden check Role, ClusterRole and Bindings for operator %s")
+		}
+		if apierrors.IsConflict(err) {
+			var err error
+
+			if err = cache.Nodes(r.specialresource.Spec.NodeSelector, true); err != nil {
+				return errors.Wrap(err, "Could not cache nodes for api conflict")
+			}
+
+			return fmt.Errorf("node Conflict Label %s err %s", state.CurrentName, err)
 		}
 
-		for k := range stateLabel {
-
-			_, found := labels[k]
-			if found {
-				log.Info("Label", "found", stateLabel, "on ", node.GetName())
-				operatorStatusUpdate(obj, r, stateLabel)
-				continue
-			}
-			// Label missing update the Node to advance to the next state
-			updated := node.DeepCopy()
-
-			labels[k] = "ready"
-
-			updated.SetLabels(labels)
-
-			err := r.Update(context.TODO(), updated)
-			if apierrors.IsForbidden(err) {
-				return fmt.Errorf("Forbidden check Role, ClusterRole and Bindings for operator %s", err)
-			}
-			if apierrors.IsConflict(err) {
-				var err error
-
-				if _, err = cacheNodes(r, true); err != nil {
-					return errs.Wrap(err, "Could not cache nodes for api conflict")
-				}
-
-				return fmt.Errorf("Node Conflict Label %s err %s", stateLabel, err)
-			}
-
-			if err != nil {
-				log.Error(err, "Node Update", "label", stateLabel)
-				return fmt.Errorf("Couldn't Update Node")
-			}
-
-			log.Info("NODE", "Setting Label ", stateLabel, "on ", updated.GetName())
-
-			operatorStatusUpdate(obj, r, stateLabel)
+		if err != nil {
+			log.Error(err, "Node Update", "label", state.CurrentName)
+			return fmt.Errorf("couldn't Update Node")
 		}
+
+		log.Info("NODE", "Setting Label ", state.CurrentName, "on ", updated.GetName())
+
+		operatorStatusUpdate(obj, r, state.CurrentName)
+
 	}
 	return nil
 }
