@@ -62,10 +62,10 @@ jobs:
         SECS=$((10 + $RANDOM % 10))
         while true
         do
-            oc get cm -n kube-system github.actions.lock
-            if [ $? -eq 1 ]; then
+            lockstatus=$(oc get cm -n kube-system github.actions.lock || echo "nolock")
+            if [ "$lockstatus" == "nolock" ]; then
                 # lock does not exist
-                oc create cm -n  kube-system github.actions.lock
+                oc create cm -n kube-system github.actions.lock
 
                 echo "executing test-e2e"
 
