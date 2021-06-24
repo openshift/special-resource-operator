@@ -42,12 +42,18 @@ test-e2e:
 
 # Current Operator version
 VERSION ?= 0.0.1
+
+CHANNELS="4.9"
+
 # Default bundle image tag
-BUNDLE_IMG ?= sro-bundle:$(VERSION)
+BUNDLE_IMG ?= quay.io/openshift-psap/special-resource-operator-bundle:$(VERSION)
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
 endif
+
+DEFAULT_CHANNEL="4.9"
+
 ifneq ($(origin DEFAULT_CHANNEL), undefined)
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
@@ -137,9 +143,9 @@ local-image-push:
 # Generate bundle manifests-gen and metadata, then validate generated files.
 .PHONY: bundle
 bundle: manifests-gen
-	operator-sdk generate kustomize manifests-gen -q
+	operator-sdk generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMAGE)
-	$(KUSTOMIZE) build config/manifests-gen | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --verbose --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
 
 # Build the bundle image.

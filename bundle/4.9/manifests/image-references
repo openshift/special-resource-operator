@@ -1,0 +1,12 @@
+kind: ImageStream
+apiVersion: image.openshift.io/v1
+spec:
+  tags:
+  - name: special-resource-operator
+    from:
+      kind: DockerImage
+      name: quay.io/openshift/origin-special-resource-operator:4.9
+  - name: kube-rbac-proxy
+    from:
+      kind: DockerImage
+      name: registry.redhat.io/openshift4/ose-kube-rbac-proxy
