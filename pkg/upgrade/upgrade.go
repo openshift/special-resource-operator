@@ -10,6 +10,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
+	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -133,9 +134,13 @@ func DriverToolkitVersion(entries []string, info map[string]NodeVersion) (map[st
 		}
 		// For each entry we're fetching the cluster version and dtk URL
 		version, imageURL := registry.ReleaseManifests(layer)
+		if version == "" {
+			exit.OnError(errors.New("Could not extract version from payload"))
+		}
 
-		if version != "" {
-			log.Info("DTK", "version+imageURL", version+" : "+imageURL)
+		if imageURL == "" {
+			warn.OnError(errors.New("No DTK image found, DTK cannot be used in a Build"))
+			return info, nil
 		}
 
 		if layer = registry.LastLayer(imageURL); layer == nil {

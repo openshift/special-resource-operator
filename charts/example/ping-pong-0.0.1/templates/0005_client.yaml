@@ -19,9 +19,9 @@ spec:
         command: ["/client"]
         args:
           - "-server={{.Values.specialresource.metadata.name}}-service:12021"
-          - "-ca-file=/etc/pingpong/certs/ca.crt"
-          - "-key-file=/etc/pingpong/certs/tls.key"
-          - "-cert-file=/etc/pingpong/certs/tls.crt"
+          - {{.Values.clientArgs.caFile}}
+          - {{.Values.clientArgs.keyFile}}
+          - {{.Values.clientArgs.certFile}}
         env:
         - name: GRPC_TRACE
           value: "all"

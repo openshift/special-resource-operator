@@ -188,7 +188,7 @@ func OpenShiftInstallOrder() error {
 	return nil
 }
 
-func TemplateChart(ch chart.Chart, vals map[string]interface{}) ([]byte, error) {
+func TemplateChart(ch chart.Chart, vals map[string]interface{}, namespace string) ([]byte, error) {
 
 	actionConfig := action.Configuration{}
 
@@ -200,6 +200,7 @@ func TemplateChart(ch chart.Chart, vals map[string]interface{}) ([]byte, error) 
 	client.ClientOnly = true
 	client.APIVersions = []string{}
 	client.IncludeCRDs = true
+	client.Namespace = namespace
 
 	if client.Version == "" {
 		client.Version = ">0.0.0-0"

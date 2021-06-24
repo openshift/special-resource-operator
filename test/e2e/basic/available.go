@@ -32,7 +32,7 @@ var _ = ginkgo.Describe("[basic][available] Special Resource Operator availabili
 		err := wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
 			deployments, err := cs.Deployments("openshift-special-resource-operator").List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
-				return false, fmt.Errorf("Error getting list of deployments, %v", err)
+				return false, fmt.Errorf("error getting list of deployments, %v", err)
 			}
 
 			if len(deployments.Items) < 1 {
@@ -42,7 +42,7 @@ var _ = ginkgo.Describe("[basic][available] Special Resource Operator availabili
 
 			operatorDeployment, err := cs.Deployments("openshift-special-resource-operator").Get(context.TODO(), "special-resource-controller-manager", metav1.GetOptions{})
 			if err != nil {
-				return false, fmt.Errorf("Couldn't get operator deployment %v", err)
+				return false, fmt.Errorf("couldn't get operator deployment %v", err)
 			}
 
 			if operatorDeployment.Status.ReadyReplicas == 1 {

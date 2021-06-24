@@ -1,8 +1,6 @@
 package controllers
 
 import (
-	"fmt"
-
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
@@ -21,8 +19,6 @@ func SpecialResourceUpgrade(r *SpecialResourceReconciler, req ctrl.Request) (ctr
 
 	RunInfo.ClusterUpgradeInfo, err = upgrade.ClusterInfo()
 	exit.OnError(err)
-
-	fmt.Printf("DRIVERTOOLKITVERSION %+v\n", RunInfo.ClusterUpgradeInfo)
 
 	log.Info("TODO: preflight checks")
 

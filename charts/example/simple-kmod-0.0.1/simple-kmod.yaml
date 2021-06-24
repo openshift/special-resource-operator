@@ -17,7 +17,6 @@ spec:
     buildArgs:
     - name: "KMODVER"
       value: "SRO"
-
   driverContainer:
     source:
       git:

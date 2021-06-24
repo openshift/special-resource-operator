@@ -63,7 +63,7 @@ spec:
           value: 0.0.1-snapshot
         - name: SSL_CERT_DIR
           value: /etc/pki/tls/certs
-        image: quay.io/openshift-psap/special-resource-operator:inaccel-fpga
+        image: quay.io/openshift-psap/special-resource-operator:ping-ping
         imagePullPolicy: Always
         name: manager
         resources:

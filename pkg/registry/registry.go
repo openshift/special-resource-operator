@@ -196,9 +196,6 @@ func ReleaseManifests(layer v1.Layer) (key string, value string) {
 		}
 
 	}
-	if version == "" || imageURL == "" {
-		return "", ""
-	}
 
 	return version, imageURL
 }

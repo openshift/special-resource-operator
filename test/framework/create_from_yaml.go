@@ -7,8 +7,10 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
+	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
 	"github.com/pkg/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -52,6 +54,9 @@ func CreateFromYAML(yamlFile []byte, cl client.Client) {
 		obj := getObjFromYAMLSpec(yamlSpec)
 
 		err := cl.Create(context.TODO(), obj)
+		if apierrors.IsAlreadyExists(err) {
+			warn.OnError(err)
+		}
 		exit.OnError(err)
 
 		log.Info("Created", "Kind", obj.GetKind(), "Name", obj.GetName())
@@ -106,6 +111,9 @@ func DeleteFromYAML(yamlFile []byte, cl client.Client) {
 		}
 
 		err := cl.Delete(context.TODO(), obj)
+		if apierrors.IsNotFound(err) {
+			warn.OnError(err)
+		}
 		exit.OnError(err)
 
 		log.Info("Deleted", "Kind", obj.GetKind(), "Name", obj.GetName())

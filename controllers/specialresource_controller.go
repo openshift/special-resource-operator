@@ -25,7 +25,6 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
-	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	buildv1 "github.com/openshift/api/build/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	"github.com/pkg/errors"
@@ -38,6 +37,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -56,7 +56,8 @@ type SpecialResourceReconciler struct {
 	specialresource srov1beta1.SpecialResource
 	parent          srov1beta1.SpecialResource
 	chart           chart.Chart
-	dependency      helmer.HelmChart
+	values          unstructured.Unstructured
+	dependency      srov1beta1.SpecialResourceDependency
 	clusterOperator configv1.ClusterOperator
 }
 

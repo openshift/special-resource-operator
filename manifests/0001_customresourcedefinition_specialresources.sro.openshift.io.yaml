@@ -79,42 +79,50 @@ spec:
                 type: object
               dependencies:
                 items:
+                  description: SpecialResourceDependency a dependent helm chart
                   properties:
-                    name:
-                      type: string
-                    repository:
+                    chart:
                       properties:
-                        caFile:
-                          type: string
-                        certFile:
-                          type: string
-                        insecure_skip_tls_verify:
-                          default: false
-                          type: boolean
-                        keyFile:
-                          type: string
                         name:
                           type: string
-                        password:
-                          type: string
-                        url:
-                          type: string
-                        username:
+                        repository:
+                          properties:
+                            caFile:
+                              type: string
+                            certFile:
+                              type: string
+                            insecure_skip_tls_verify:
+                              default: false
+                              type: boolean
+                            keyFile:
+                              type: string
+                            name:
+                              type: string
+                            password:
+                              type: string
+                            url:
+                              type: string
+                            username:
+                              type: string
+                          required:
+                          - name
+                          - url
+                          type: object
+                        tags:
+                          items:
+                            type: string
+                          type: array
+                        version:
                           type: string
                       required:
                       - name
-                      - url
+                      - repository
+                      - version
                       type: object
-                    tags:
-                      items:
-                        type: string
-                      type: array
-                    version:
-                      type: string
-                  required:
-                  - name
-                  - repository
-                  - version
+                    set:
+                      type: object
+                      x-kubernetes-embedded-resource: true
+                      x-kubernetes-preserve-unknown-fields: true
                   type: object
                 type: array
               driverContainer:

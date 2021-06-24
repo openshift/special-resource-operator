@@ -41,6 +41,11 @@ func NeedsResourceVersionUpdate(kind string) bool {
 		kind == "Issuer" ||
 		kind == "CustomResourceDefinition" ||
 		kind == "Certificate" ||
+		kind == "SpecialResource" ||
+		kind == "OperatorGroup" ||
+		kind == "CertManager" ||
+		kind == "MutatingWebhookConfiguration" ||
+		kind == "ValidatingWebhookConfiguration" ||
 		kind == "Deployment" {
 		return true
 	}

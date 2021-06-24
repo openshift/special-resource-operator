@@ -19,12 +19,10 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chartutil"
-	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -211,7 +209,7 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 			}
 
 			var err error
-			step.Values, err = chartutil.CoalesceValues(&step, r.specialresource.Spec.Set.Object)
+			step.Values, err = chartutil.CoalesceValues(&step, r.values.Object)
 			exit.OnError(err)
 
 			rinfo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&RunInfo)
@@ -225,7 +223,7 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 			fmt.Printf("%s\n", d)
 			*/
 
-			yaml, err := helmer.TemplateChart(step, step.Values)
+			yaml, err := helmer.TemplateChart(step, step.Values, r.specialresource.Spec.Namespace)
 			exit.OnError(err)
 
 			// DO NOT REMOVE: fmt.Printf("--------------------------------------------------\n\n%s\n\n", yaml)
@@ -255,7 +253,7 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 	// We're done with states now execute the part of the chart without
 	// states we need to reconcile the nostate Chart
 	var err error
-	nostate.Values, err = chartutil.CoalesceValues(&nostate, r.specialresource.Spec.Set.Object)
+	nostate.Values, err = chartutil.CoalesceValues(&nostate, r.values.Object)
 	exit.OnError(err)
 
 	rinfo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&RunInfo)
@@ -264,7 +262,7 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 	nostate.Values, err = chartutil.CoalesceValues(&nostate, rinfo)
 	exit.OnError(err)
 
-	yaml, err := helmer.TemplateChart(nostate, nostate.Values)
+	yaml, err := helmer.TemplateChart(nostate, nostate.Values, r.specialresource.Spec.Namespace)
 	exit.OnError(err)
 
 	// If we only have SRO states, the nostate may be empty, just return
@@ -356,7 +354,10 @@ func createFromYAML(yamlFile []byte, r *SpecialResourceReconciler,
 
 		yamlSpec := scanner.Bytes()
 
-		obj := &unstructured.Unstructured{}
+		obj := &unstructured.Unstructured{
+			Object: map[string]interface{}{},
+		}
+
 		jsonSpec, err := yaml.YAMLToJSON(yamlSpec)
 		if err != nil {
 			return errors.Wrap(err, "Could not convert yaml file to json"+string(yamlSpec))
@@ -365,7 +366,9 @@ func createFromYAML(yamlFile []byte, r *SpecialResourceReconciler,
 		err = obj.UnmarshalJSON(jsonSpec)
 		exit.OnError(errors.Wrap(err, "Cannot unmarshall json spec, check your manifest: "+string(jsonSpec)))
 
-		if resource.IsNamespaced(obj.GetKind()) {
+		// Do not override the namespace if alreayd set
+		if resource.IsNamespaced(obj.GetKind()) && obj.GetNamespace() == "" {
+			log.Info("Namespace empty settting", "namespace", namespace)
 			obj.SetNamespace(namespace)
 		}
 
@@ -401,7 +404,7 @@ func createFromYAML(yamlFile []byte, r *SpecialResourceReconciler,
 		}
 		// Create Update Delete Patch resources
 		err = CRUD(obj, r)
-		exit.OnError(errors.Wrap(err, "CRUD exited non-zero"))
+		exit.OnError(errors.Wrapf(err, "CRUD exited non-zero on Object: %+v", obj))
 
 		// Callbacks after CRUD will wait for ressource and check status
 		if err := afterCRUDhooks(obj, r); err != nil {
@@ -426,14 +429,14 @@ func CRUD(obj *unstructured.Unstructured, r *SpecialResourceReconciler) error {
 		logger = log.WithValues("Kind", obj.GetKind()+": "+obj.GetName())
 	}
 
-	found := obj.DeepCopy()
-
 	// SpecialResource is the parent, all other objects are childs and need a reference
 	// but only set the ownerreference if created by SRO do not set ownerreference per default
-	if obj.GetKind() != "SpecialResource" {
+	if obj.GetKind() != "SpecialResource" && obj.GetKind() != "Namespace" {
 		err := controllerutil.SetControllerReference(&r.specialresource, obj, r.Scheme)
-		warn.OnError(err)
+		exit.OnError(err)
 	}
+
+	found := obj.DeepCopy()
 
 	err := clients.Interface.Get(context.TODO(), types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
 
@@ -442,8 +445,15 @@ func CRUD(obj *unstructured.Unstructured, r *SpecialResourceReconciler) error {
 
 		hash.Annotate(obj)
 
+		// If we create the resource set the owner reference
+		err := controllerutil.SetControllerReference(&r.specialresource, obj, r.Scheme)
+		exit.OnError(err)
+
 		if err := clients.Interface.Create(context.TODO(), obj); err != nil {
-			return errors.Wrap(err, "Couldn't create resource")
+			if apierrors.IsForbidden(err) {
+				return errors.Wrap(err, "API error is forbidden")
+			}
+			return errors.Wrap(err, "Unknown error")
 		}
 
 		return nil
@@ -462,10 +472,6 @@ func CRUD(obj *unstructured.Unstructured, r *SpecialResourceReconciler) error {
 	if resource.IsNotUpdateable(obj.GetKind()) {
 		log.Info("Not Updateable", "Resource", obj.GetKind())
 		return nil
-	}
-
-	if equality.Semantic.DeepEqual(found, obj) {
-		log.Info("equality.Semantic, equal")
 	}
 
 	if hash.AnnotationEqual(found, obj) {

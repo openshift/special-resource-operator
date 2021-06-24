@@ -158,7 +158,7 @@ func simpleKmodDelete(cs *framework.ClientSet, cl client.Client) {
 	err := wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
 		namespaces, err := cs.Namespaces().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
-			return false, fmt.Errorf("Couldn't get namespaces: %v", err)
+			return false, fmt.Errorf("couldn't get namespaces: %v", err)
 		}
 
 		for _, n := range namespaces.Items {

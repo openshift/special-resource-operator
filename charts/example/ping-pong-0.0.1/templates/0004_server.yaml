@@ -20,9 +20,9 @@ spec:
         imagePullPolicy: Always
         command:  ["/server"]
         args:
-          - "-ca-file=/etc/ping-pong/certs/ca.crt"
-          - "-key-file=/etc/ping-pong/certs/tls.key"
-          - "-cert-file=/etc/ping-pong/certs/tls.crt"
+          - {{.Values.serverArgs.caFile}}
+          - {{.Values.serverArgs.keyFile}}
+          - {{.Values.serverArgs.certFile}}
         env:
         - name: GRPC_TRACE
           value: "all"

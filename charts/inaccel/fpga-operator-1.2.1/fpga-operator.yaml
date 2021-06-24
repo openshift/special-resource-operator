@@ -32,5 +32,5 @@ spec:
   - name: fpga-xrt-driver
     version: 4.7.11
     repository:
-    - name: xilinx
-      url: file:///xilinx/fpga-xrt-driver
+      name: xilinx
+      url: file:///charts/xilinx/fpga-xrt-driver

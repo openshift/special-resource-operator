@@ -101,7 +101,16 @@ type SpecialResourceSpec struct {
 	// +kubebuilder:validation:Optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// +kubebuilder:validation:Optional
-	Dependencies []helmer.HelmChart `json:"dependencies"`
+	Dependencies []SpecialResourceDependency `json:"dependencies"`
+}
+
+// SpecialResourceDependency a dependent helm chart
+type SpecialResourceDependency struct {
+	helmer.HelmChart `json:"chart,omitempty"`
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:EmbeddedResource
+	Set unstructured.Unstructured `json:"set,omitempty"`
 }
 
 // SpecialResourceStatus defines the observed state of SpecialResource

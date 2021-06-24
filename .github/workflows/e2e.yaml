@@ -56,7 +56,31 @@ jobs:
         openshift_password: ${{ secrets.OPENSHIFT_PASSWORD }}
         insecure_skip_tls_verify: true
         namespace: default
-    - run: make undeploy
-    - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make go-deploy-manifests
-    - run: make test-e2e
-    - run: make go-undeploy-manifests
+
+    - run: |
+        # sleep random sec 10 + RAND, no interlock
+        SECS=$((10 + $RANDOM % 10))
+        while true
+        do
+            oc get cm -n kube-system github.actions.lock
+            if [ $? -eq 1 ]; then
+                # lock does not exist
+                oc create cm -n  kube-system github.actions.lock
+
+                echo "executing test-e2e"
+
+                make undeploy                                                      || oc delete cm -n kube-system github.actions.lock; exit 1
+                TAG=pr-${{ steps.short-sha.outputs.sha }} make go-deploy-manifests || oc delete cm -n kube-system github.actions.lock; exit 1
+                make test-e2e                                                      || oc delete cm -n kube-system github.actions.lock; exit 1
+                make go-undeploy-manifests                                         || oc delete cm -n kube-system github.actions.lock; exit 1
+
+                oc delete cm -n kube-system github.actions.lock
+                break
+            fi
+            echo "waiting for lock"
+            sleep $SECS
+        done
+#    - run: make undeploy
+#    - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make go-deploy-manifests
+#    - run: make test-e2e
+#    - run: make go-undeploy-manifests
