@@ -69,10 +69,10 @@ jobs:
 
                 echo "executing test-e2e"
 
-                make undeploy                                                      || oc delete cm -n kube-system github.actions.lock; exit 1
-                TAG=pr-${{ steps.short-sha.outputs.sha }} make go-deploy-manifests || oc delete cm -n kube-system github.actions.lock; exit 1
-                make test-e2e                                                      || oc delete cm -n kube-system github.actions.lock; exit 1
-                make go-undeploy-manifests                                         || oc delete cm -n kube-system github.actions.lock; exit 1
+                make undeploy                                                      || { oc delete cm -n kube-system github.actions.lock; exit 1; }
+                TAG=pr-${{ steps.short-sha.outputs.sha }} make go-deploy-manifests || { oc delete cm -n kube-system github.actions.lock; exit 1; }
+                make test-e2e                                                      || { oc delete cm -n kube-system github.actions.lock; exit 1; }
+                make go-undeploy-manifests                                         || { oc delete cm -n kube-system github.actions.lock; exit 1; }
 
                 oc delete cm -n kube-system github.actions.lock
                 break
