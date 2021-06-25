@@ -17,6 +17,9 @@ jobs:
     - uses: styfle/cancel-workflow-action@0.9.0
       with:
         access_token: ${{ github.token }}
+    - uses: softprops/turnstyle@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - uses: actions/checkout@v2
       with:
         ref: ${{ github.event.pull_request.head.sha }}
@@ -59,31 +62,7 @@ jobs:
         openshift_password: ${{ secrets.OPENSHIFT_PASSWORD }}
         insecure_skip_tls_verify: true
         namespace: default
-
-    - run: |
-        # sleep random sec 10 + RAND, no interlock
-        SECS=$((10 + $RANDOM % 10))
-        while true
-        do
-            lockstatus=$(oc get cm -n kube-system github.actions.lock || echo "nolock")
-            if [ "$lockstatus" == "nolock" ]; then
-                # lock does not exist
-                oc create cm -n kube-system github.actions.lock
-
-                echo "executing test-e2e"
-
-                make undeploy                                                      || { oc delete cm -n kube-system github.actions.lock; exit 1; }
-                TAG=pr-${{ steps.short-sha.outputs.sha }} make go-deploy-manifests || { oc delete cm -n kube-system github.actions.lock; exit 1; }
-                make test-e2e                                                      || { oc delete cm -n kube-system github.actions.lock; exit 1; }
-                make go-undeploy-manifests                                         || { oc delete cm -n kube-system github.actions.lock; exit 1; }
-
-                oc delete cm -n kube-system github.actions.lock
-                break
-            fi
-            echo "waiting for lock"
-            sleep $SECS
-        done
-#    - run: make undeploy
-#    - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make go-deploy-manifests
-#    - run: make test-e2e
-#    - run: make go-undeploy-manifests
+    - run: make undeploy
+    - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make go-deploy-manifests
+    - run: make test-e2e
+    - run: make go-undeploy-manifests
