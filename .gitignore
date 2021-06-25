@@ -84,3 +84,14 @@ tags
 .vscode/*
 .history
 # End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
+
+# ignore github actions from upstream
+.github/workflows/helm-lint.yaml
+.github/workflows/e2e.yaml
+.github/workflows/image-remove.yaml
+.github/workflows/go-lint.yaml
+.github/workflows/kube-lint.yaml
+.github/workflows/unit.yaml
+.github/workflows/image-master.yaml
+.github/workflows/remove-label.yaml
+.github/workflows/verify.yaml
