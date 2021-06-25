@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-server
+  labels:
+    app: {{.Values.specialresource.metadata.name}}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{.Values.specialresource.metadata.name}}
+  template:
+    metadata:
+      labels:
+        app: {{.Values.specialresource.metadata.name}}
+    spec:
+      containers:
+      - name: {{.Values.specialresource.metadata.name}}-server
+        image: quay.io/dagray/pingpong:server
+        imagePullPolicy: Always
+        command:  ["/server"]
+        args:
+          - {{.Values.serverArgs.caFile}}
+          - {{.Values.serverArgs.keyFile}}
+          - {{.Values.serverArgs.certFile}}
+        env:
+        - name: GRPC_TRACE
+          value: "all"
+        - name: GRPC_VERBOSITY
+          value: "DEBUG"
+        - name: GRPC_GO_LOG_VERBOSITY_LEVEL
+          value: "99"
+        - name: GRPC_GO_LOG_SEVERITY_LEVEL
+          value: "info"
+        volumeMounts:
+          - name: {{.Values.specialresource.metadata.name}}-server-cert
+            mountPath: "/etc/ping-pong/certs"
+            readOnly: true
+      volumes:
+        - name: {{.Values.specialresource.metadata.name}}-server-cert
+          secret:
+            secretName: {{.Values.specialresource.metadata.name}}-server-cert
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-service
+spec:
+  type: ClusterIP
+  selector:
+    app: {{.Values.specialresource.metadata.name}}
+  ports:
+  - protocol: TCP
+    port: 12021
+    targetPort: 12021

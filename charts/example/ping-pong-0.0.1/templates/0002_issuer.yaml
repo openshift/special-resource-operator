@@ -1,0 +1,7 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-ca-issuer
+spec:
+  ca:
+    secretName: {{.Values.specialresource.metadata.name}}-ca-key-pair

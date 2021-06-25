@@ -1,0 +1,17 @@
+apiVersion: sro.openshift.io/v1beta1
+kind: SpecialResource
+metadata:
+  name: driver-container-base
+spec:
+  chart:
+    name: driver-container-base
+    version: 0.1.0
+    repository:
+      name: example
+      url: file:///charts/example
+  namespace: driver-container-base
+  driverContainer:
+    source:
+      git:
+        ref: "master"
+        uri: "https://github.com/openshift-psap/kmods-via-containers"

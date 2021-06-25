@@ -1,0 +1,34 @@
+name: image-master
+
+on:
+  pull_request_target:
+    types: [ closed ]
+  workflow_dispatch:
+
+jobs:
+  merge_job:
+    name: build-master
+    runs-on: ubuntu-20.04
+    if: github.event.pull_request.merged == true
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: "master"
+        persist-credentials: false
+    - uses: actions/setup-go@v2
+    - run:  TAG=master make local-image-build
+    - uses: docker/login-action@v1
+      with:
+        registry: quay.io
+        username: ${{ secrets.QUAY_USERNAME }}
+        password: ${{ secrets.QUAY_PASSWORD}}
+    - run: TAG=master make local-image-push
+
+
+#  close_job:
+    # this job will only run if the PR has been closed without being merged
+#    if: github.event.pull_request.merged == false
+#    runs-on: ubuntu-20.04
+#    steps:
+#    - run: |
+#        echo PR #${{ github.event.number }} has been closed without being merged

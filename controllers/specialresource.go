@@ -5,8 +5,20 @@ import (
 	"fmt"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	errs "github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/openshift-psap/special-resource-operator/pkg/cache"
+	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/pkg/color"
+	"github.com/openshift-psap/special-resource-operator/pkg/dependencies"
+	"github.com/openshift-psap/special-resource-operator/pkg/exit"
+	"github.com/openshift-psap/special-resource-operator/pkg/filter"
+	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
+	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
+	"github.com/openshift-psap/special-resource-operator/pkg/slice"
+	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
+	"github.com/pkg/errors"
+	"helm.sh/helm/v3/pkg/chart"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	controllerruntime "sigs.k8s.io/controller-runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -17,162 +29,197 @@ func (r *SpecialResourceReconciler) GetName() string {
 	return "special-resource-operator"
 }
 
-// +kubebuilder:rbac:groups=sro.openshift.io,resources=specialresources,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=sro.openshift.io,resources=specialresources/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=sro.openshift.io,resources=specialresources/finalizers,verbs=get;update;patch
-// +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=pods/log,verbs=get
-// +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get
-// +kubebuilder:rbac:groups=config.openshift.io,resources=proxies,verbs=get;list
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=security.openshift.io,resources=securitycontextconstraints,verbs=use;get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams/finalizers,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=image.openshift.io,resources=imagestreams/layers,verbs=get
-// +kubebuilder:rbac:groups=core,resources=imagestreams/layers,verbs=get
-// +kubebuilder:rbac:groups=build.openshift.io,resources=buildconfigs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=build.openshift.io,resources=builds,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=events,verbs=list;watch;create;update;patch
-// +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch;update;
-// +kubebuilder:rbac:groups=core,resources=persistentvolumes,verbs=get;list;watch;create;delete
-// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;delete
-// +kubebuilder:rbac:groups=storage.k8s.io,resources=csinodes,verbs=get;list;watch
-// +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=watch
-// +kubebuilder:rbac:groups=storage.k8s.io,resources=csidrivers,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=endpoints,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=prometheusrules,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=config.openshift.io,resources=clusteroperators,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=config.openshift.io,resources=clusteroperators/status,verbs=get;list;watch;create;update;patch;delete
+// SpecialResourcesReconcile Takes care of all specialresources in the cluster
+func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
 
-// ReconcilerSpecialResources Takes care of all specialresources in the cluster
-func ReconcilerSpecialResources(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
-
-	log = r.Log.WithName(prettyPrint("preamble", Purple))
+	log = r.Log.WithName(color.Print("reconcile: "+filter.Mode, color.Purple))
 
 	log.Info("Reconciling SpecialResource(s) in all Namespaces")
+
 	specialresources := &srov1beta1.SpecialResourceList{}
 
 	opts := []client.ListOption{}
-	err := r.List(context.TODO(), specialresources, opts...)
+	err := clients.Interface.List(context.TODO(), specialresources, opts...)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
-		}
 		// Error reading the object - requeue the request.
+		// This should never happen
 		return reconcile.Result{}, err
 	}
 
-	for _, r.parent = range specialresources.Items {
+	// Set specialResourcesCreated metric to the number of specialresources
+	metrics.SetSpecialResourcesCreated(len(specialresources.Items))
 
-		//log = r.Log.WithValues("specialresource", r.parent.Name)
-		log = r.Log.WithName(prettyPrint(r.parent.Name, Green))
-		log.Info("Resolving Dependencies")
-
-		if r.parent.Name == "special-resource-preamble" {
-			log.Info("Preamble done, waiting for driver-container requests")
-			continue
+	// Do not reconcile all SRs everytime, get the one were the request
+	// came from, use the List for metrics and dashboard, we also need the
+	// List to find the dependency
+	var request int
+	var found bool
+	if request, found = FindSR(specialresources.Items, req.Name, "Name"); !found {
+		// If we do not find the specialresource it might be deleted,
+		// if it is a depdendency of another specialresource assign the
+		// parent specialresource for processing.
+		parent := dependencies.CheckConfigMap(req.Name)
+		request, found = FindSR(specialresources.Items, parent, "Name")
+		if !found {
+			return reconcile.Result{}, nil
 		}
+	}
 
-		// Only one level dependency support for now
-		for _, r.dependency = range r.parent.Spec.DependsOn {
+	r.parent = specialresources.Items[request]
 
-			//log = r.Log.WithValues("specialresource", r.dependency.Name)
-			log = r.Log.WithName(prettyPrint(r.dependency.Name, Purple))
-			log.Info("Getting Dependency")
+	// Execute finalization logic if CR is being deleted
+	isMarkedToBeDeleted := r.parent.GetDeletionTimestamp() != nil
+	if isMarkedToBeDeleted {
+		r.specialresource = r.parent
+		log.Info("Marked to be deleted, reconciling finalizer")
+		err = reconcileFinalizers(r)
+		return reconcile.Result{}, err
+	}
 
-			// Assign the specialresource to the reconciler object
-			if r.specialresource, err = getDependencyFrom(specialresources, r.dependency.Name); err != nil {
-				log.Info("Could not get SpecialResource dependency", "error", fmt.Sprintf("%v", err))
-				if r.specialresource, err = createSpecialResourceFrom(r, r.dependency.Name); err != nil {
-					//return reconcile.Result{}, errs.New("Dependency creation failed")
-					log.Info("Dependency creation failed", "error", fmt.Sprintf("%v", err))
-					return reconcile.Result{Requeue: true}, nil
-				}
-				// We need to fetch the newly created SpecialResources, reconciling
-				return reconcile.Result{}, nil
-			}
+	log = r.Log.WithName(color.Print(r.parent.Name, color.Green))
 
-			log.Info("Reconciling Dependency")
-			if err := ReconcileHardwareConfigurations(r); err != nil {
-				// We do not want a stacktrace here, errs.Wrap already created
-				// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
-				log.Info("Could not reconcile hardware configurations", "error", fmt.Sprintf("%v", err))
-				//return reconcile.Result{}, errs.New("Reconciling failed")
+	if r.parent.Name == "special-resource-preamble" {
+		log.Info("Preamble done, waiting for specialresource requests")
+		return reconcile.Result{}, nil
+	}
+
+	log.Info("Resolving Dependencies")
+
+	pchart, err := helmer.Load(r.parent.Spec.Chart)
+	exit.OnError(err)
+
+	// Only one level dependency support for now
+	for _, r.dependency = range r.parent.Spec.Dependencies {
+
+		log = r.Log.WithName(color.Print(r.dependency.Name, color.Purple))
+		log.Info("Getting Dependency")
+
+		cchart, err := helmer.Load(r.dependency.HelmChart)
+		exit.OnError(err)
+
+		// We save the dependency chain so we can restore specialresources
+		// if one is deleted that is a dependency of another
+		dependencies.UpdateConfigMap(r.parent.Name, r.dependency.Name)
+
+		var child srov1beta1.SpecialResource
+		// Assign the specialresource to the reconciler object
+		if child, err = getDependencyFrom(specialresources, r.dependency.Name); err != nil {
+			log.Info("Could not get SpecialResource dependency", "error", fmt.Sprintf("%v", err))
+			if err = createSpecialResourceFrom(r, cchart, r.dependency.HelmChart); err != nil {
+				log.Info("RECONCILE REQUEUE: Dependency creation failed ", "error", fmt.Sprintf("%v", err))
 				return reconcile.Result{Requeue: true}, nil
 			}
+			// We need to fetch the newly created SpecialResources, reconciling
+			return reconcile.Result{}, nil
 		}
-
-		//log = r.Log.WithValues("specialresource", r.parent.Name)
-		log = r.Log.WithName(prettyPrint(r.parent.Name, Green))
-		log.Info("Reconciling")
-
-		r.specialresource = r.parent
-		if err := ReconcileHardwareConfigurations(r); err != nil {
-			// We do not want a stacktrace here, errs.Wrap already created
+		if err := ReconcileSpecialResourceChart(r, child, cchart, r.dependency.Set); err != nil {
+			// We do not want a stacktrace here, errors.Wrap already created
 			// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
-			log.Info("Could not reconcile hardware configurations", "error", fmt.Sprintf("%v", err))
-			//return reconcile.Result{}, errs.New("Reconciling failed")
+			log.Info("RECONCILE REQUEUE: Could not reconcile chart", "error", fmt.Sprintf("%v", err))
+			//return reconcile.Result{}, errors.New("Reconciling failed")
 			return reconcile.Result{Requeue: true}, nil
 		}
 
 	}
 
-	return reconcile.Result{}, nil
+	log.Info("Reconciling Parent")
+	if err := ReconcileSpecialResourceChart(r, r.parent, pchart, r.parent.Spec.Set); err != nil {
+		// We do not want a stacktrace here, errors.Wrap already created
+		// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
+		log.Info("RECONCILE REQUEUE: Could not reconcile chart", "error", fmt.Sprintf("%v", err))
+		//return reconcile.Result{}, errors.New("Reconciling failed")
+		return reconcile.Result{Requeue: true}, nil
+	}
 
+	log.Info("RECONCILE SUCCESS: All resources done")
+	return reconcile.Result{}, nil
+}
+
+func ReconcileSpecialResourceChart(r *SpecialResourceReconciler, sr srov1beta1.SpecialResource, chart *chart.Chart, values unstructured.Unstructured) error {
+
+	r.specialresource = sr
+	r.chart = *chart
+	r.values = values
+
+	log = r.Log.WithName(color.Print(r.specialresource.Name, color.Green))
+	log.Info("Reconciling")
+
+	// This is specific for the specialresource we need to update the nodes
+	// and the upgradeinfo
+	err := cache.Nodes(r.specialresource.Spec.NodeSelector, true)
+	exit.OnError(errors.Wrap(err, "Failed to cache nodes"))
+
+	RunInfo.ClusterUpgradeInfo, err = upgrade.ClusterInfo()
+	exit.OnError(errors.Wrap(err, "Failed to get upgrade info"))
+
+	// Add a finalizer to CR if it does not already have one
+	if !contains(r.specialresource.GetFinalizers(), specialresourceFinalizer) {
+		if err := addFinalizer(r); err != nil {
+			log.Info("Failed to add finalizer", "error", fmt.Sprintf("%v", err))
+			return err
+		}
+	}
+
+	// Reconcile the special resource chart
+	return ReconcileChart(r)
+}
+
+func FindSR(a []srov1beta1.SpecialResource, x string, by string) (int, bool) {
+	for i, n := range a {
+		if by == "Name" {
+			if x == n.GetName() {
+				return i, true
+			}
+		}
+	}
+	return -1, false
 }
 
 func getDependencyFrom(specialresources *srov1beta1.SpecialResourceList, name string) (srov1beta1.SpecialResource, error) {
 
-	log.Info("Looking for")
-
-	for _, specialresource := range specialresources.Items {
-		if specialresource.Name == name {
-			return specialresource, nil
-		}
+	log.Info("Looking for SpecialResource in fetched List (all namespaces)")
+	if idx, found := FindSR(specialresources.Items, name, "Name"); found {
+		return specialresources.Items[idx], nil
 	}
 
-	return srov1beta1.SpecialResource{}, errs.New("Not found")
+	return srov1beta1.SpecialResource{}, errors.New("Not found")
 }
 
-func createSpecialResourceFrom(r *SpecialResourceReconciler, name string) (srov1beta1.SpecialResource, error) {
+func noop() error {
+	return nil
+}
 
-	specialresource := srov1beta1.SpecialResource{}
+func createSpecialResourceFrom(r *SpecialResourceReconciler, ch *chart.Chart, dp helmer.HelmChart) error {
 
-	crpath := "/opt/sro/recipes/" + name
-	manifests := getAssetsFrom(crpath)
+	vals := unstructured.Unstructured{}
+	vals.SetKind("Values")
+	vals.SetAPIVersion("sro.openshift.io/v1beta1")
 
-	if len(manifests) == 0 {
-		exitOnError(errs.New("Could not read CR " + name + "from lokal path"))
+	sr := srov1beta1.SpecialResource{}
+	sr.Name = ch.Metadata.Name
+	sr.Spec.Namespace = sr.Name
+	sr.Spec.Chart.Name = sr.Name
+	sr.Spec.Chart.Version = ch.Metadata.Version
+	sr.Spec.Chart.Repository.Name = dp.Repository.Name
+	sr.Spec.Chart.Repository.URL = dp.Repository.URL
+	sr.Spec.Chart.Tags = make([]string, 0)
+	sr.Spec.Set = vals
+	sr.Spec.Dependencies = make([]srov1beta1.SpecialResourceDependency, 0)
+
+	var idx int
+	if idx = slice.FindCRFile(ch.Files, r.dependency.Name); idx == -1 {
+		log.Info("Creating SpecialResource from template, cannot find it in charts directory")
+		res, err := controllerruntime.CreateOrUpdate(context.TODO(), clients.Interface, &sr, noop)
+		exit.OnError(errors.Wrap(err, string(res)))
+		return errors.New("Created new SpecialResource we need to Reconcile")
 	}
 
-	for _, manifest := range manifests {
+	log.Info("Creating SpecialResource: " + ch.Files[idx].Name)
 
-		log.Info("Creating", "manifest", manifest.name)
-
-		if err := createFromYAML(manifest.content, r, r.specialresource.Spec.Namespace); err != nil {
-			log.Info("Cannot create, something went horribly wrong")
-			exitOnError(err)
-		}
-		// Only one CR creation if they are more ignore all others
-		// makes no sense to create multiple CRs for the same specialresource
-		break
+	if err := createFromYAML(ch.Files[idx].Data, r, r.specialresource.Spec.Namespace, "", ""); err != nil {
+		log.Info("Cannot create, something went horribly wrong")
+		exit.OnError(err)
 	}
 
-	return specialresource, errs.New("Created new SpecialResource we need to Reconcile")
+	return errors.New("Created new SpecialResource we need to Reconcile")
 }
