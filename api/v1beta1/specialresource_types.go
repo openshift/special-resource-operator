@@ -101,7 +101,7 @@ type SpecialResourceSpec struct {
 	// +kubebuilder:validation:Optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 	// +kubebuilder:validation:Optional
-	Dependencies []SpecialResourceDependency `json:"dependencies"`
+	Dependencies []SpecialResourceDependency `json:"dependencies,omitempty"`
 }
 
 // SpecialResourceDependency a dependent helm chart

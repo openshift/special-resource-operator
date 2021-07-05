@@ -131,7 +131,7 @@ func ExtractToolkitRelease(layer v1.Layer) (DriverToolkitEntry, error) {
 
 	}
 
-	return dtk, errors.New("Missing driver toolkit entry: /etc/river-toolkit-release.json")
+	return dtk, errors.New("Missing driver toolkit entry: /etc/driver-toolkit-release.json")
 }
 
 func ReleaseManifests(layer v1.Layer) (key string, value string) {
