@@ -184,6 +184,8 @@ func OpenShiftInstallOrder() error {
 	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "BuildConfig")
 	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "ImageStream")
 	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "SecurityContextConstraints")
+	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "Issuer")
+	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "Certificates")
 
 	return nil
 }
