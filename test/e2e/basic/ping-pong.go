@@ -78,26 +78,27 @@ func checkPingPong(cs *framework.ClientSet, cl client.Client) {
 	for {
 		time.Sleep(60 * time.Second)
 
-		ginkgo.By("Waiting for ping-poing Pods to be ready")
+		ginkgo.By("Waiting for ping-pong Pods to be ready")
 		opts := metav1.ListOptions{}
 		pods, err := cs.Pods("ping-pong").List(context.TODO(), opts)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		for _, pod := range pods.Items {
+			var log string
 			//run command in pod
 			ginkgo.By("Ensuring that ping-pong is working")
-			log, err := GetPodLogs(pod.Namespace, pod.Name, "", false)
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			if pod.Status.Phase == v1.PodRunning {
+				log, err = GetPodLogs(pod.Namespace, pod.Name, "", false)
+				gomega.Expect(err).NotTo(gomega.HaveOccurred())
+				if !strings.Contains(log, "Ping") || !strings.Contains(log, "Pong") {
+					warn.OnError(errors.New("Did not see Ping or either Pong, waiting"))
+				}
 
-			if !strings.Contains(log, "Ping") || !strings.Contains(log, "Pong") {
-				warn.OnError(errors.New("Did not see Ping or either Pong, waiting"))
+				if strings.Contains(log, "Ping") && strings.Contains(log, "Pong") {
+					ginkgo.By("Found Ping, Pong in logs, done")
+					return
+				}
 			}
-
-			if strings.Contains(log, "Ping") && strings.Contains(log, "Pong") {
-				ginkgo.By("Found Ping, Pong in logs, done")
-				return
-			}
-
 		}
 	}
 

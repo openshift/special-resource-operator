@@ -5,13 +5,13 @@ entries:
       appVersion: '>= 1.13.0 < 1.15.0'
     apiVersion: v2
     appVersion: 1.0.0
-    created: "2021-06-24T12:47:53.530678716Z"
+    created: "2021-06-30T12:41:48.530620318-04:00"
     description: Driver Container Base is the base image for out-of-tree builds
-    digest: bdb17fd53f8683627b9520d1c6b829c4c95636b3ac27486b50febe21ea918df5
+    digest: 1b01fba8b4289586da41aa45385131b7e1f65bc73eeadab0d86aec5c0b86e564
     icon: https://avatars.githubusercontent.com/u/55542927
     name: driver-container-base
     type: application
     urls:
     - file:///charts/deprecated/driver-container-base-0.1.0.tgz
     version: 0.1.0
-generated: "2021-06-24T12:47:53.530334689Z"
+generated: "2021-06-30T12:41:48.530311021-04:00"

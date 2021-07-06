@@ -1,6 +1,9 @@
 package upgrade
 
 import (
+	"runtime"
+	"strings"
+
 	"github.com/pkg/errors"
 
 	"github.com/go-logr/logr"
@@ -80,6 +83,17 @@ func NodeVersionInfo() (map[string]NodeVersion, error) {
 }
 
 func UpdateInfo(info map[string]NodeVersion, dtk registry.DriverToolkitEntry, imageURL string) (map[string]NodeVersion, error) {
+	// Assumes all nodes have the same architecture
+	runningArch := runtime.GOARCH
+	if runningArch == "amd64" {
+		runningArch = "x86_64"
+	}
+	if !strings.Contains(dtk.KernelFullVersion, runningArch) {
+		log.Info("Appending architecture to dtk.KernelFullVersion")
+		dtk.KernelFullVersion = dtk.KernelFullVersion + "." + runningArch
+		dtk.RTKernelFullVersion = dtk.RTKernelFullVersion + "." + runningArch
+		log.Info("Updating version:", "dtk.KernelFullVersion", dtk.KernelFullVersion)
+	}
 
 	// First check for the general kernel entry
 	if _, ok := info[dtk.KernelFullVersion]; ok {
@@ -101,6 +115,7 @@ func UpdateInfo(info map[string]NodeVersion, dtk registry.DriverToolkitEntry, im
 		info[dtk.KernelFullVersion] = nodeVersion
 
 	}
+
 	if _, ok := info[dtk.RTKernelFullVersion]; ok {
 
 		dtk.ImageURL = imageURL
