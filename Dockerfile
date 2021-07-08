@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM registry.svc.ci.openshift.org/ocp/builder:rhel-8-golang-1.16-openshift-4.8 AS builder
+FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.16-openshift-4.9 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -21,11 +21,11 @@ COPY vendor/ vendor/
 # Build
 RUN CGO_ENABLED=0 GO111MODULE=on go build -mod=vendor -a -o manager main.go
 
-FROM registry.svc.ci.openshift.org/ocp/4.8:base
+FROM registry.ci.openshift.org/ocp/4.9:base
 WORKDIR /
 COPY --from=builder /workspace/manager .
 
-COPY charts/ /
+COPY charts/ /charts/
 COPY manifests /manifests
 
 RUN useradd  -r -u 499 nonroot
