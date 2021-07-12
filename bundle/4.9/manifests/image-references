@@ -5,7 +5,7 @@ spec:
   - name: special-resource-operator
     from:
       kind: DockerImage
-      name: quay.io/openshift/origin-special-resource-operator:4.9
+      name: quay.io/openshift/special-resource-rhel8-operator:4.9
   - name: kube-rbac-proxy
     from:
       kind: DockerImage
