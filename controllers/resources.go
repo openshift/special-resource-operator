@@ -368,7 +368,7 @@ func createFromYAML(yamlFile []byte, r *SpecialResourceReconciler,
 
 		// Do not override the namespace if alreayd set
 		if resource.IsNamespaced(obj.GetKind()) && obj.GetNamespace() == "" {
-			log.Info("Namespace empty settting", "namespace", namespace)
+			log.Info("Namespace empty setting", "namespace", namespace)
 			obj.SetNamespace(namespace)
 		}
 

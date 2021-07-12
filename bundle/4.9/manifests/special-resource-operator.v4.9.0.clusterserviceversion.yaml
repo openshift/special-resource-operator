@@ -79,6 +79,102 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
+          - ""
+          resources:
+          - nodes/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - nodes/status
+          verbs:
+          - patch
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - deletecollection
+        - apiGroups:
+          - ""
+          resources:
+          - podtemplates
+          verbs:
+          - create
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - podtemplates/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - '*'
+          resources:
+          - cronjobs
+          verbs:
+          - get
+        - apiGroups:
+          - '*'
+          resources:
+          - daemonsets
+          verbs:
+          - get
+        - apiGroups:
+          - '*'
+          resources:
+          - deployments
+          verbs:
+          - get
+        - apiGroups:
+          - '*'
+          resources:
+          - imagepolicies
+          verbs:
+          - get
+        - apiGroups:
+          - '*'
+          resources:
+          - jobs
+          verbs:
+          - create
+          - get
+        - apiGroups:
+          - '*'
+          resources:
+          - mutatingwebhookconfigurations
+          verbs:
+          - get
+        - apiGroups:
+          - '*'
+          resources:
+          - pods
+          verbs:
+          - get
+        - apiGroups:
+          - '*'
+          resources:
+          - replicacontrollers
+          verbs:
+          - get
+        - apiGroups:
+          - '*'
+          resources:
+          - replicasets
+          verbs:
+          - get
+        - apiGroups:
+          - '*'
+          resources:
+          - statefulsets
+          verbs:
+          - get
+        - apiGroups:
           - acme.cert-manager.io
           resources:
           - challenges
@@ -137,6 +233,7 @@ spec:
           - delete
           - get
           - list
+          - patch
           - update
           - watch
         - apiGroups:
@@ -148,8 +245,18 @@ spec:
           - delete
           - get
           - list
+          - patch
           - update
           - watch
+        - apiGroups:
+          - admissionregistration.k8s.io/v1beta1
+          resources:
+          - mutatingwebhookconfigurations
+          verbs:
+          - create
+          - delete
+          - list
+          - update
         - apiGroups:
           - apiextensions.k8s.io
           resources:
@@ -234,6 +341,18 @@ spec:
           verbs:
           - get
           - list
+          - update
+          - watch
+        - apiGroups:
+          - batch
+          resources:
+          - jobs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
           - update
           - watch
         - apiGroups:
@@ -430,6 +549,12 @@ spec:
           - get
           - list
         - apiGroups:
+          - connaisseur.policy
+          resources:
+          - imagepolicies
+          verbs:
+          - create
+        - apiGroups:
           - coordination.k8s.io
           resources:
           - leases
@@ -571,6 +696,8 @@ spec:
           - delete
           - get
           - list
+          - patch
+          - update
           - watch
         - apiGroups:
           - ""
@@ -642,6 +769,18 @@ spec:
           - csi.storage.k8s.io
           resources:
           - csidrivers
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - extensions
+          resources:
+          - jobs
           verbs:
           - create
           - delete
@@ -1090,7 +1229,7 @@ spec:
                   value: 0.0.1-snapshot
                 - name: SSL_CERT_DIR
                   value: /etc/pki/tls/certs
-                image: quay.io/openshift-psap/special-resource-operator:release-4.9
+                image: quay.io/openshift/special-resource-rhel8-operator:4.9
                 imagePullPolicy: Always
                 name: manager
                 resources:

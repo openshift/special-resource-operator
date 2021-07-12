@@ -56,6 +56,7 @@ var RunInfo = RuntimeInformation{
 	OperatingSystemDecimal:    "",
 	KernelFullVersion:         "",
 	KernelPatchVersion:        "",
+	DriverToolkitImage:        "",
 	ClusterVersion:            "",
 	ClusterVersionMajorMinor:  "",
 	ClusterUpgradeInfo:        make(map[string]upgrade.NodeVersion),
@@ -84,6 +85,7 @@ func logRuntimeInformation() {
 	log.Info("Runtime Information", "ClusterVersion", RunInfo.ClusterVersion)
 	log.Info("Runtime Information", "ClusterVersionMajorMinor", RunInfo.ClusterVersionMajorMinor)
 	log.Info("Runtime Information", "ClusterUpgradeInfo", RunInfo.ClusterUpgradeInfo)
+	log.Info("Runtime Information", "DriverToolkitImage", RunInfo.DriverToolkitImage)
 	log.Info("Runtime Information", "UpdateVendor", RunInfo.UpdateVendor)
 	log.Info("Runtime Information", "PushSecretName", RunInfo.PushSecretName)
 	log.Info("Runtime Information", "OSImageURL", RunInfo.OSImageURL)
