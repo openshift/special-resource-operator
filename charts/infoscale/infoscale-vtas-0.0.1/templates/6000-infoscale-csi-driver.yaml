@@ -1,0 +1,509 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
+
+---
+
+{{- if eq .Values.runArgs.platform "openshift-container-platform" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
+rules:
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+  resourceNames:
+  - {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
+subjects:
+- kind: ServiceAccount
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
+userNames:
+- system:serviceaccount:{{.Values.specialresource.spec.namespace}}:{{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
+
+---
+{{- end }}
+
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+
+---
+
+{{- if eq .Values.runArgs.platform "openshift-container-platform" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+rules:
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+  resourceNames:
+  - {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+subjects:
+- kind: ServiceAccount
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+userNames:
+- system:serviceaccount:{{.Values.specialresource.spec.namespace}}:{{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+
+---
+{{- end }}
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: info-config
+data:
+  # Update this value with InfoScale REST server ip and port in your environment
+    INFOSCALE_REST_URL: https://{{.Values.specialresource.metadata.name}}-rest:8443
+  # Update this value based on InfoScale diskgroup name used in your environment
+    INFOSCALE_DISKGROUP_NAME: "vrts_kube_dg"
+
+---
+
+{{- if eq .Values.runArgs.platform "openshift-container-platform" }}
+allowHostDirVolumePlugin: true
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegedContainer: false
+allowedCapabilities: null
+apiVersion: security.openshift.io/v1
+defaultAddCapabilities: null
+fsGroup:
+  type: RunAsAny
+groups: []
+kind: SecurityContextConstraints
+metadata:
+  annotations:
+    kubernetes.io/description: Custom SCC similar to privilege SCC-HOSTPID/HOSTIPC
+    release.openshift.io/create-only: "true"
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+priority: null
+readOnlyRootFilesystem: false
+requiredDropCapabilities: null
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+users:
+- system:serviceaccount:{{.Values.specialresource.spec.namespace}}:{{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+volumes:
+- emptyDir
+- secret
+
+---
+
+allowHostDirVolumePlugin: true
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegedContainer: true
+allowedCapabilities:
+- 'SYS_ADMIN'
+apiVersion: security.openshift.io/v1
+defaultAddCapabilities: null
+fsGroup:
+  type: RunAsAny
+groups: []
+kind: SecurityContextConstraints
+metadata:
+  annotations:
+    kubernetes.io/description: Custom SCC similar to privilege SCC-HOSTPID/HOSTIPC
+    release.openshift.io/create-only: "true"
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
+priority: null
+readOnlyRootFilesystem: false
+requiredDropCapabilities: null
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+supplementalGroups:
+  type: RunAsAny
+users:
+- system:serviceaccount:{{.Values.specialresource.spec.namespace}}:{{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
+volumes:
+- hostPath
+- secret
+
+---
+{{- end }}
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-csi-role
+rules:
+- apiGroups: [""]
+  resources: ["persistentvolumes"]
+  verbs: ["get", "list", "watch", "create", "delete", "update", "patch"]
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims"]
+  verbs: ["get", "list", "watch", "update"]
+- apiGroups: [""]
+  resources: ["persistentvolumeclaims/status"]
+  verbs: ["patch", "update"]
+- apiGroups: ["snapshot.storage.k8s.io"]
+  resources: ["volumesnapshotclasses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["snapshot.storage.k8s.io"]
+  resources: ["volumesnapshots"]
+  verbs: ["get", "list", "watch", "update"]
+- apiGroups: ["snapshot.storage.k8s.io"]
+  resources: ["volumesnapshotcontents"]
+  verbs: ["create", "get", "list", "watch", "update", "delete"]
+- apiGroups: ["snapshot.storage.k8s.io"]
+  resources: ["volumesnapshots/status"]
+  verbs: ["update"]
+- apiGroups: ["snapshot.storage.k8s.io"]
+  resources: ["volumesnapshotcontents/status"]
+  verbs: ["update"]
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["storageclasses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["volumeattachments"]
+  verbs: ["get", "list", "watch", "update", "patch"]
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["list", "watch", "create", "update", "patch", "delete", "get"]
+- apiGroups: ["storage.k8s.io"]
+  resources: ["csinodes"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["endpoints"]
+  verbs: ["get", "list", "watch", "create", "update"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["create", "list", "watch", "delete"]
+- apiGroups: ["csi.storage.k8s.io"]
+  resources: ["csidrivers"]
+  verbs: ["create", "delete"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-csi-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{.Values.specialresource.metadata.name}}-csi-role
+subjects:
+- kind: ServiceAccount
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+  namespace: {{.Values.specialresource.spec.namespace}}
+
+---
+
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: org.veritas.infoscale
+spec:
+  attachRequired: false
+  podInfoOnMount: false
+
+---
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+  labels:
+    app: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+  annotations:
+    specialresource.openshift.io/wait: "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+  template:
+    metadata:
+      labels:
+        app: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+    spec:
+      containers:
+      - name: csi-provisioner
+        image: {{.Values.runArgs.csiProvisioner}}
+        args:
+        - "--v=5"
+        - "--csi-address=$(ADDRESS)"
+        - "--timeout=60s"
+        env:
+        - name: ADDRESS
+          value: /var/lib/csi/sockets/pluginproxy/csi.sock
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: socket-dir
+          mountPath: /var/lib/csi/sockets/pluginproxy/
+      - name: csi-attacher
+        image: {{.Values.runArgs.csiAttacher}}
+        args:
+        - "--v=5"
+        - "--csi-address=$(ADDRESS)"
+        env:
+        - name: ADDRESS
+          value: /var/lib/csi/sockets/pluginproxy/csi.sock
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: socket-dir
+          mountPath: /var/lib/csi/sockets/pluginproxy/
+      - name: csi-resizer
+        image: {{.Values.runArgs.csiResizer}}
+        args:
+        - "--v=5"
+        - "--csi-address=$(ADDRESS)"
+        - "--timeout=30s"
+        env:
+        - name: ADDRESS
+          value: /var/lib/csi/sockets/pluginproxy/csi.sock
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: socket-dir
+          mountPath: /var/lib/csi/sockets/pluginproxy/
+      - name: csi-snapshotter
+        image: {{.Values.runArgs.csiSnapshotter}}
+        args:
+        - "--v=5"
+        - "--csi-address=$(ADDRESS)"
+        env:
+        - name: ADDRESS
+          value: /var/lib/csi/sockets/pluginproxy/csi.sock
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: socket-dir
+          mountPath: /var/lib/csi/sockets/pluginproxy/
+      - name: csi-infoscale-plugin
+        image: {{.Values.runArgs.infoscaleCSIPlugin}}-{{.Values.operatingSystemMajor}}
+        args:
+        - "--endpoint=$(CSI_ENDPOINT)"
+        - "--nodeid=$(NODE_ID)"
+        - "--url=$(INFOSCALE_REST_URL)"
+        - "--dgname=$(INFOSCALE_DISKGROUP_NAME)"
+        env:
+        - name: CSI_ENDPOINT
+          value: unix:///var/lib/csi/sockets/pluginproxy/csi.sock
+        - name: NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: INFOSCALE_REST_URL
+          valueFrom:
+            configMapKeyRef:
+              name: info-config
+              key: INFOSCALE_REST_URL
+        - name: INFOSCALE_AUTH_KEYSTORE
+          value: /etc/vx/csi/certs/
+        - name: INFOSCALE_DISKGROUP_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: info-config
+              key: INFOSCALE_DISKGROUP_NAME
+        imagePullPolicy: {{.Values.runArgs.infoscaleCSIImgPullPolicy}}
+        volumeMounts:
+          - name: socket-dir
+            mountPath: /var/lib/csi/sockets/pluginproxy/
+          - mountPath: /etc/vx/csi/certs
+            name: csi-cert
+            readOnly: true
+
+      volumes:
+      - name: socket-dir
+        emptyDir: {}
+      - name: csi-cert
+        secret:
+          secretName: csi-tls-cert
+
+      serviceAccount: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+      nodeSelector:
+        {{.Values.node.selector}}: "true"
+
+---
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
+  annotations:
+    {{- if eq .Values.runArgs.platform "openshift-container-platform" }}
+    openshift.io/scc: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
+    {{- end }}
+    specialresource.openshift.io/wait: "true"
+spec:
+  selector:
+    matchLabels:
+      app: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
+  template:
+    metadata:
+      labels:
+        app: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
+    spec:
+      serviceAccount: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
+      containers:
+      - name: csi-infoscale-plugin
+        image: {{.Values.runArgs.infoscaleCSIPlugin}}-{{.Values.operatingSystemMajor}}
+        imagePullPolicy: {{.Values.runArgs.infoscaleCSIImgPullPolicy}}
+        securityContext:
+          privileged: true
+          capabilities:
+            add: ["SYS_ADMIN"]
+          allowPrivilegeEscalation: true
+        command: [ "/sbin/csi-node-entrypoint.sh" ]
+        args:
+        - "--endpoint=$(CSI_ENDPOINT)"
+        - "--nodeid=$(NODE_ID)"
+        - "--url=$(INFOSCALE_REST_URL)"
+        - "--dgname=$(INFOSCALE_DISKGROUP_NAME)"
+        env:
+        - name: CSI_ENDPOINT
+          value: unix:/csi/csi.sock
+        - name: INFOSCALE_AUTH_KEYSTORE
+          value: /etc/vx/csi/certs/
+        - name: NODE_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: INFOSCALE_REST_URL
+          valueFrom:
+            configMapKeyRef:
+              name: info-config
+              key: INFOSCALE_REST_URL
+        - name: INFOSCALE_DISKGROUP_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: info-config
+              key: INFOSCALE_DISKGROUP_NAME
+        terminationMessagePath: /tmp/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+          - name: plugin-dir
+            mountPath: /csi
+          - name: pods-mount-dir
+            mountPath: /var/lib/kubelet
+            mountPropagation: "Bidirectional"
+          - name: host-dev
+            mountPath: /dev
+            mountPropagation: "HostToContainer"
+            mountPropagation: "Bidirectional"
+          - name: host-sys
+            mountPath: /sys
+            mountPropagation: "HostToContainer"
+          - mountPath: /etc/vx/csi/certs
+            name: csi-cert
+            readOnly: true
+          - name: node-feature-discovery
+            mountPath: /etc/kubernetes/node-feature-discovery/
+            mountPropagation: "Bidirectional"
+      - name: csi-node-driver-registrar
+        image: {{.Values.runArgs.csiRegistrar}}
+        args:
+          - "--csi-address=$(ADDRESS)"
+          - "--kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)"
+          - "--v=5"
+        lifecycle:
+          preStop:
+            exec:
+              command: [
+                "/bin/sh", "-c",
+                "rm -rf /registration/org.veritas.infoscale \
+                 /registration/org.veritas.infoscale-reg.sock"
+              ]
+        env:
+        - name: ADDRESS
+          value: /csi/csi.sock
+        - name: DRIVER_REG_SOCK_PATH
+          value: /var/lib/kubelet/plugins/org.veritas.infoscale/csi.sock
+        - name: KUBE_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - name: plugin-dir
+          mountPath: /csi
+        - name: registration-dir
+          mountPath: /registration
+      securityContext:
+        runAsGroup: 0
+        runAsUser: 0
+      volumes:
+        - name: registration-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins_registry/
+            type: DirectoryOrCreate
+        - name: plugin-dir
+          hostPath:
+            path: /var/lib/kubelet/plugins/org.veritas.infoscale
+            type: DirectoryOrCreate
+        - name: pods-mount-dir
+          hostPath:
+            path: /var/lib/kubelet
+            type: Directory
+        - name: host-dev
+          hostPath:
+            path: /dev
+            type: Directory
+        - name: host-sys
+          hostPath:
+            path: /sys
+            type: Directory
+        - name: node-feature-discovery
+          hostPath:
+            path: /etc/kubernetes/node-feature-discovery/
+            type: Directory
+        - name: csi-cert
+          secret:
+            secretName: csi-tls-cert
+      nodeSelector:
+        {{.Values.node.selector}}: "true"
