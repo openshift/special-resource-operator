@@ -7,7 +7,7 @@ updates:
       replace: "version: {FULL_VER}"
     - search: 'olm.skipRange: ">=4.6.0 <{MAJOR}.{MINOR}.0"'
       replace: 'olm.skipRange: ">=4.6.0 <{FULL_VER}"'
-  - file: "nfd.package.yaml"
+  - file: "special-resource-operator.package.yaml"
     update_list:
     - search: "currentCSV: special-resource-operator.v{MAJOR}.{MINOR}.0"
       replace: "currentCSV: special-resource-operator.{FULL_VER}"
