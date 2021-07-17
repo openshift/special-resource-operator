@@ -2,7 +2,7 @@ kind: ImageStream
 apiVersion: image.openshift.io/v1
 spec:
   tags:
-  - name: special-resource-operator
+  - name: special-resource-rhel8-operator
     from:
       kind: DockerImage
       name: quay.io/openshift/special-resource-rhel8-operator:4.9
