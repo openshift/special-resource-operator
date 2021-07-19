@@ -3,13 +3,13 @@ entries:
   shipwright:
   - apiVersion: v2
     appVersion: 0.4.0
-    created: "2021-06-30T12:41:48.897737347-04:00"
+    created: "2021-07-14T15:07:16.554581692-04:00"
     description: Build v2
-    digest: 35d7988d3e06cc04ace4dcc25a53d5d2e3cc37532d5b61ee778402d5ece12441
+    digest: 7a30e1e42dcb3e45c2cce2478d109079b820c102a06366a58af2ec64af57a625
     icon: https://avatars.githubusercontent.com/u/55542927
     name: shipwright
     type: application
     urls:
     - file:///charts/staging/shipwright-4.7.0.tgz
     version: 4.7.0
-generated: "2021-06-30T12:41:48.897009373-04:00"
+generated: "2021-07-14T15:07:16.553858737-04:00"

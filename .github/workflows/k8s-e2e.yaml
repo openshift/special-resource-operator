@@ -1,0 +1,69 @@
+name: k8s-e2e
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled]
+    paths-ignore:
+      - "**/README.md"
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-20.04
+    if: (github.event.action == 'labeled' && github.event.label.name == 'ok-to-test') ||
+        (github.event.pull_request.head.repo.full_name == 'openshift-psap/special-resource-operator')
+    steps:
+    - uses: styfle/cancel-workflow-action@0.9.0
+      with:
+        access_token: ${{ github.token }}
+    - uses: softprops/turnstyle@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        persist-credentials: false
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '1.16.3'
+    - uses: benjlevesque/short-sha@v1.2
+      id: short-sha
+      with:
+        length: 10
+    - run: sudo apt-get install fuse-overlayfs
+    - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make local-image-build
+    - uses: docker/login-action@v1
+      with:
+        registry: quay.io
+        username: ${{ secrets.QUAY_USERNAME }}
+        password: ${{ secrets.QUAY_PASSWORD}}
+    - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make local-image-push
+  e2e:
+    name: test-e2e
+    needs: build
+    runs-on: ubuntu-latest
+    if: (github.event.action == 'labeled' && github.event.label.name == 'ok-to-test') ||
+        (github.event.pull_request.head.repo.full_name == 'openshift-psap/special-resource-operator')
+    steps:
+    - uses: styfle/cancel-workflow-action@0.9.0
+      with:
+        access_token: ${{ github.token }}
+    - uses: softprops/turnstyle@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        persist-credentials: false
+    - uses: actions/setup-go@v2
+    - uses: benjlevesque/short-sha@v1.2
+      id: short-sha
+      with:
+        length: 10
+    - uses: engineerd/setup-kind@v0.1.0
+    - name: Testing
+      run: |
+        export KUBECONFIG="$(kind get kubeconfig-path)"
+        kubectl cluster-info
+    - run: PLATFORM=k8s make deploy
