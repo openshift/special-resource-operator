@@ -1,13 +1,105 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  annotations:
-    include.release.openshift.io/ibm-cloud-managed: "true"
-    include.release.openshift.io/self-managed-high-availability: "true"
-    include.release.openshift.io/single-node-developer: "true"
   creationTimestamp: null
   name: special-resource-manager-role
 rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - nodes/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - deletecollection
+- apiGroups:
+  - ""
+  resources:
+  - podtemplates
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - podtemplates/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - '*'
+  resources:
+  - cronjobs
+  verbs:
+  - get
+- apiGroups:
+  - '*'
+  resources:
+  - daemonsets
+  verbs:
+  - get
+- apiGroups:
+  - '*'
+  resources:
+  - deployments
+  verbs:
+  - get
+- apiGroups:
+  - '*'
+  resources:
+  - imagepolicies
+  verbs:
+  - get
+- apiGroups:
+  - '*'
+  resources:
+  - jobs
+  verbs:
+  - create
+  - get
+- apiGroups:
+  - '*'
+  resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - get
+- apiGroups:
+  - '*'
+  resources:
+  - pods
+  verbs:
+  - get
+- apiGroups:
+  - '*'
+  resources:
+  - replicacontrollers
+  verbs:
+  - get
+- apiGroups:
+  - '*'
+  resources:
+  - replicasets
+  verbs:
+  - get
+- apiGroups:
+  - '*'
+  resources:
+  - statefulsets
+  verbs:
+  - get
 - apiGroups:
   - acme.cert-manager.io
   resources:
@@ -67,6 +159,7 @@ rules:
   - delete
   - get
   - list
+  - patch
   - update
   - watch
 - apiGroups:
@@ -78,8 +171,18 @@ rules:
   - delete
   - get
   - list
+  - patch
   - update
   - watch
+- apiGroups:
+  - admissionregistration.k8s.io/v1beta1
+  resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - create
+  - delete
+  - list
+  - update
 - apiGroups:
   - apiextensions.k8s.io
   resources:
@@ -164,6 +267,18 @@ rules:
   verbs:
   - get
   - list
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
   - update
   - watch
 - apiGroups:
@@ -360,6 +475,12 @@ rules:
   - get
   - list
 - apiGroups:
+  - connaisseur.policy
+  resources:
+  - imagepolicies
+  verbs:
+  - create
+- apiGroups:
   - coordination.k8s.io
   resources:
   - leases
@@ -501,6 +622,8 @@ rules:
   - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - ""
@@ -572,6 +695,18 @@ rules:
   - csi.storage.k8s.io
   resources:
   - csidrivers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - extensions
+  resources:
+  - jobs
   verbs:
   - create
   - delete

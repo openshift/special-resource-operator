@@ -42,8 +42,6 @@ spec:
             - /manager
           args:
             - "--enable-leader-election"
-            - "--zap-encoder=console"
-            - "--zap-log-level=debug"
           image: controller:latest
           name: manager
           securityContext:
@@ -60,9 +58,6 @@ spec:
           - name: cache-volume
             mountPath: /cache
       volumes:
-        - name: special-resource-operator-tls
-          secret:
-            secretName: special-resource-operator-tls
         - name: cache-volume
           emptyDir: {}
       terminationGracePeriodSeconds: 10

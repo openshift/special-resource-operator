@@ -1,0 +1,15 @@
+apiVersion: shipwright.io/v1alpha1
+kind: Build
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}
+spec:
+  source:  
+    url: {{.Values.specialresource.spec.driverContainer.source.git.uri}}
+    revision: {{.Values.specialresource.spec.driverContainer.source.git.ref}}
+  strategy:
+    name: buildah
+    kind: ClusterBuildStrategy
+  output:
+    image: {{ .Values.image_repo }}:{{.Values.kernelFullVersion}} # .SpecialResource.Spec.DriverContainer.Destination?
+    credentials:
+      name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}

@@ -22,15 +22,17 @@ import (
 
 	"github.com/go-logr/logr"
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
+	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	buildv1 "github.com/openshift/api/build/v1"
 	secv1 "github.com/openshift/api/security/v1"
+
+	imagev1 "github.com/openshift/api/image/v1"
 	"github.com/pkg/errors"
 
 	configv1 "github.com/openshift/api/config/v1"
-	imagev1 "github.com/openshift/api/image/v1"
 
 	"helm.sh/helm/v3/pkg/chart"
 	appsv1 "k8s.io/api/apps/v1"
@@ -104,25 +106,49 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 // SetupWithManager main initalization for manager
 func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&srov1beta1.SpecialResource{}).
-		Owns(&v1.Pod{}).
-		Owns(&appsv1.DaemonSet{}).
-		Owns(&appsv1.Deployment{}).
-		Owns(&storagev1.CSIDriver{}).
-		Owns(&imagev1.ImageStream{}).
-		Owns(&buildv1.BuildConfig{}).
-		Owns(&v1.ConfigMap{}).
-		Owns(&v1.ServiceAccount{}).
-		Owns(&rbacv1.Role{}).
-		Owns(&rbacv1.RoleBinding{}).
-		Owns(&rbacv1.ClusterRole{}).
-		Owns(&rbacv1.ClusterRoleBinding{}).
-		Owns(&secv1.SecurityContextConstraints{}).
-		Owns(&v1.Secret{}).
-		WithOptions(controller.Options{
-			MaxConcurrentReconciles: 1,
-		}).
-		WithEventFilter(filter.Predicate()).
-		Complete(r)
+	log = r.Log.WithName(color.Print("setup", color.Brown))
+
+	if clients.GetPlatform() == "OCP" {
+		return ctrl.NewControllerManagedBy(mgr).
+			For(&srov1beta1.SpecialResource{}).
+			Owns(&v1.Pod{}).
+			Owns(&appsv1.DaemonSet{}).
+			Owns(&appsv1.Deployment{}).
+			Owns(&storagev1.CSIDriver{}).
+			Owns(&imagev1.ImageStream{}).
+			Owns(&buildv1.BuildConfig{}).
+			Owns(&v1.ConfigMap{}).
+			Owns(&v1.ServiceAccount{}).
+			Owns(&rbacv1.Role{}).
+			Owns(&rbacv1.RoleBinding{}).
+			Owns(&rbacv1.ClusterRole{}).
+			Owns(&rbacv1.ClusterRoleBinding{}).
+			Owns(&secv1.SecurityContextConstraints{}).
+			Owns(&v1.Secret{}).
+			WithOptions(controller.Options{
+				MaxConcurrentReconciles: 1,
+			}).
+			WithEventFilter(filter.Predicate()).
+			Complete(r)
+	} else {
+		log.Info("Warning: assuming vanilla K8s. Manager will own a limited set of resources.")
+		return ctrl.NewControllerManagedBy(mgr).
+			For(&srov1beta1.SpecialResource{}).
+			Owns(&v1.Pod{}).
+			Owns(&appsv1.DaemonSet{}).
+			Owns(&appsv1.Deployment{}).
+			Owns(&storagev1.CSIDriver{}).
+			Owns(&v1.ConfigMap{}).
+			Owns(&v1.ServiceAccount{}).
+			Owns(&rbacv1.Role{}).
+			Owns(&rbacv1.RoleBinding{}).
+			Owns(&rbacv1.ClusterRole{}).
+			Owns(&rbacv1.ClusterRoleBinding{}).
+			Owns(&v1.Secret{}).
+			WithOptions(controller.Options{
+				MaxConcurrentReconciles: 1,
+			}).
+			WithEventFilter(filter.Predicate()).
+			Complete(r)
+	}
 }

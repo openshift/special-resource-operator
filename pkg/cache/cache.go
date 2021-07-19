@@ -64,6 +64,11 @@ func Nodes(matchingLabels map[string]string, force bool) error {
 		return errors.Wrap(err, "Client cannot get NodeList")
 	}
 
+	log.Info("Node list:", "length", len(Node.List.Items))
+	if len(Node.List.Items) == 0 {
+		log.Info("No nodes found for the SpecialResource. Consider setting .Spec.Node.Selector in the CR or labeling worker nodes.")
+	}
+
 	log.Info("Nodes", "num", len(Node.List.Items))
 
 	return err
