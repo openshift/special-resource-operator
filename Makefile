@@ -5,12 +5,13 @@ TAG              ?= $(shell git branch --show-current)
 IMAGE            ?= quay.io/openshift-psap/special-resource-operator:$(TAG)
 CSPLIT           ?= csplit - --prefix="" --suppress-matched --suffix-format="%04d.yaml"  /---/ '{*}' --silent
 YAMLFILES        ?= $(shell  find manifests charts -name "*.yaml"  -not \( -path "charts/lustre/lustre-aws-fsx-0.0.1/csi-driver/*" -prune \)  -not \( -path "charts/*/shipwright-*/*" -prune \) -not \( -path "charts/experimental/*" -prune \) )
+PLATFORM         ?= ""
+SUFFIX           ?= $(shell if [ ${PLATFORM} == "k8s" ]; then echo "-${PLATFORM}"; fi)
 
 export PATH := go/bin:$(PATH)
 include Makefile.specialresource.mk
 include Makefile.helm.mk
 include Makefile.helper.mk
-
 
 patch:
 	cp .patches/options.patch.go vendor/github.com/google/go-containerregistry/pkg/crane/.
@@ -91,10 +92,12 @@ configure:
 	cd config/default && $(KUSTOMIZE) edit set namespace $(NAMESPACE)
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMAGE)
 
+namespace: patch manifests
+	$(KUSTOMIZE) build config/namespace | kubectl apply -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: patch manifests
-	$(KUSTOMIZE) build config/namespace | kubectl apply -f -
+deploy: namespace
+	$(KUSTOMIZE) build config/default$(SUFFIX) | kubectl apply -f -
 	$(shell sleep 5)
 	$(KUSTOMIZE) build config/cr | kubectl apply -f -
 
@@ -108,14 +111,17 @@ undeploy: kustomize
 	# Give SRO time to reconcile
 	sleep 10
 	$(KUSTOMIZE) build config/namespace | kubectl delete --ignore-not-found -f -
+	$(KUSTOMIZE) build config/default$(SUFFIX) | kubectl delete --ignore-not-found -f -
 
 
 # Generate manifests-gen e.g. CRD, RBAC etc.
 manifests-gen: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
+
 manifests: manifests-gen kustomize configure
-	cd $@; $(KUSTOMIZE) build ../config/namespace | $(CSPLIT)
+	cd $@; rm -f *.yaml
+	cd $@; ( $(KUSTOMIZE) build ../config/namespace && echo "---" && $(KUSTOMIZE) build ../config/default$(SUFFIX) ) | $(CSPLIT)
 	cd $@; bash ../scripts/rename.sh
 	cd $@; $(KUSTOMIZE) build ../config/cr > 0016_specialresource_special-resource-preamble.yaml
 

@@ -153,13 +153,26 @@ func (r *SpecialResourceReconciler) clusterOperatorUpdateRelatedObjects() error 
 // nil -> All things good and default conditions can be applied
 func SpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request, cond []configv1.ClusterOperatorStatusCondition) (ctrl.Result, error) {
 	log = r.Log.WithName(color.Print("status", color.Blue))
-	if err := r.clusterOperatorStatusGetOrCreate(); err != nil {
-		return reconcile.Result{Requeue: true}, errors.Wrap(err, "Cannot get or create ClusterOperator")
+
+	clusterOperatorAvailable, err := clients.HasResource(configv1.SchemeGroupVersion.WithResource("clusteroperators"))
+
+	if err != nil {
+		return reconcile.Result{Requeue: true}, errors.Wrap(err, "Cannot discover ClusterOperator api resource")
 	}
 
-	log.Info("Reconciling ClusterOperator")
-	if err := r.clusterOperatorStatusReconcile(cond); err != nil {
-		return reconcile.Result{Requeue: true}, errors.Wrap(err, "Reconciling ClusterOperator failed")
+	if clusterOperatorAvailable {
+		// If clusterOperator CRD does not exist, warn and return nil,
+		if err := r.clusterOperatorStatusGetOrCreate(); err != nil {
+			return reconcile.Result{Requeue: true}, errors.Wrap(err, "Cannot get or create ClusterOperator")
+		}
+
+		log.Info("Reconciling ClusterOperator")
+		if err := r.clusterOperatorStatusReconcile(cond); err != nil {
+			return reconcile.Result{Requeue: true}, errors.Wrap(err, "Reconciling ClusterOperator failed")
+		}
+	} else {
+		log.Info("Warning: ClusterOperator resource not available. Can be ignored on vanilla k8s.")
 	}
+
 	return reconcile.Result{}, nil
 }

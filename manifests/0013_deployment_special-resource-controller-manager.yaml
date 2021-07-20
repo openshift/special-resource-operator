@@ -1,10 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    include.release.openshift.io/ibm-cloud-managed: "true"
-    include.release.openshift.io/self-managed-high-availability: "true"
-    include.release.openshift.io/single-node-developer: "true"
   labels:
     control-plane: controller-manager
   name: special-resource-controller-manager
@@ -16,10 +12,6 @@ spec:
       control-plane: controller-manager
   template:
     metadata:
-      annotations:
-        include.release.openshift.io/ibm-cloud-managed: "true"
-        include.release.openshift.io/self-managed-high-availability: "true"
-        include.release.openshift.io/single-node-developer: "true"
       labels:
         control-plane: controller-manager
     spec:
@@ -63,16 +55,16 @@ spec:
           value: 0.0.1-snapshot
         - name: SSL_CERT_DIR
           value: /etc/pki/tls/certs
-        image: quay.io/openshift-psap/special-resource-operator:ping-ping
+        image: quay.io/openshift-psap/special-resource-operator:vanilla-k8s-helm
         imagePullPolicy: Always
         name: manager
         resources:
           limits:
             cpu: 300m
-            memory: 300Mi
+            memory: 500Mi
           requests:
             cpu: 300m
-            memory: 300Mi
+            memory: 500Mi
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true

@@ -61,6 +61,12 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 
 	namespacedName := types.NamespacedName{Namespace: r.specialresource.Spec.Namespace, Name: "system:image-puller"}
 	err := clients.Interface.Get(context.TODO(), namespacedName, rb)
+	if apierrors.IsNotFound(err) {
+		log.Info("Warning: ClusterRole system:image-puller not found. Can be ignored on vanilla k8s.")
+		return nil
+	} else if err != nil {
+		return errors.Wrap(err, "Error checking for image-puller clusterRole")
+	}
 
 	newSubject := make(map[string]interface{})
 	newSubjects := make([]interface{}, 0)
@@ -315,8 +321,7 @@ func ReconcileChart(r *SpecialResourceReconciler) error {
 	// specialresource name == namespace if not metadata.namespace is set
 	createSpecialResourceNamespace(r)
 	if err := createImagePullerRoleBinding(r); err != nil {
-		return errors.Wrap(err, "Could not create ImagePuller RoleBinding ")
-
+		return errors.Wrap(err, "Could not create ImagePuller RoleBinding")
 	}
 
 	// Check if we have a ConfigMap deployed in the specialresrouce

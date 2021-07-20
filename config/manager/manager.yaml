@@ -42,8 +42,6 @@ spec:
             - /manager
           args:
             - "--enable-leader-election"
-            - "--zap-encoder=console"
-            - "--zap-log-level=debug"
           image: controller:latest
           name: manager
           securityContext:
@@ -52,17 +50,14 @@ spec:
           resources:
             limits:
               cpu: 300m
-              memory: 300Mi
+              memory: 500Mi
             requests:
               cpu: 300m
-              memory: 300Mi
+              memory: 500Mi
           volumeMounts:
           - name: cache-volume
             mountPath: /cache
       volumes:
-        - name: special-resource-operator-tls
-          secret:
-            secretName: special-resource-operator-tls
         - name: cache-volume
           emptyDir: {}
       terminationGracePeriodSeconds: 10

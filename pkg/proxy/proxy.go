@@ -9,8 +9,10 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -121,13 +123,22 @@ func ClusterConfiguration() (Configuration, error) {
 
 	proxy := &ProxyConfiguration
 
+	proxiesAvailable, err := clients.HasResource(configv1.SchemeGroupVersion.WithResource("proxies"))
+	if err != nil {
+		return *proxy, errors.Wrap(err, "Error discovering proxies API resource")
+	}
+	if !proxiesAvailable {
+		log.Info("Warning: Could not find proxies API resource. Can be ignored on vanilla K8s.")
+		return *proxy, nil
+	}
+
 	cfgs := &unstructured.UnstructuredList{}
 	cfgs.SetAPIVersion("config.openshift.io/v1")
 	cfgs.SetKind("ProxyList")
 
 	opts := []client.ListOption{}
 
-	err := clients.Interface.List(context.TODO(), cfgs, opts...)
+	err = clients.Interface.List(context.TODO(), cfgs, opts...)
 	if err != nil {
 		return *proxy, errors.Wrap(err, "Client cannot get ProxyList")
 	}

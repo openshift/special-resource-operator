@@ -13,11 +13,14 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"github.com/pkg/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -26,18 +29,7 @@ var (
 )
 
 func init() {
-	var err error
-
-	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("wait", color.Brown))
-
-	authn.DefaultKeychain, err = k8schain.NewInCluster(context.TODO(), k8schain.Options{
-		Namespace:          "openshift-config",
-		ServiceAccountName: "default",
-		ImagePullSecrets: []string{
-			"pull-secret",
-		},
-	})
-	exit.OnError(err)
+	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("registry", color.Brown))
 }
 
 type DriverToolkitEntry struct {
@@ -56,6 +48,9 @@ func LastLayer(entry string) v1.Layer {
 	} else if tag := strings.Split(entry, ":"); len(tag) > 1 {
 		repo = tag[0]
 	}
+
+	err := setAuthnKeychain()
+	exit.OnError(err)
 
 	options := crane.NilOption
 
@@ -205,4 +200,28 @@ func dclose(c io.Closer) {
 		warn.OnError(err)
 		//log.Error(err)
 	}
+}
+
+func setAuthnKeychain() error {
+	var err error
+	pullSecretNamespace := "openshift-config"
+
+	_, err = clients.Interface.CoreV1().Namespaces().Get(context.TODO(), pullSecretNamespace, metav1.GetOptions{})
+
+	if err != nil {
+		log.Info("Cannot find namespace for pull-secret, assuming vanilla k8s")
+		return nil
+	} else {
+		authn.DefaultKeychain, err = k8schain.NewInCluster(context.TODO(), k8schain.Options{
+			Namespace:          "openshift-config",
+			ServiceAccountName: "default",
+			ImagePullSecrets: []string{
+				"pull-secret",
+			},
+		})
+		if err != nil {
+			return errors.Wrap(err, "Cannot set authn.DefaultKeychain")
+		}
+	}
+	return nil
 }

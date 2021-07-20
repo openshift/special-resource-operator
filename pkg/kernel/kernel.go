@@ -31,6 +31,11 @@ func SetAffineAttributes(obj *unstructured.Unstructured,
 	name := obj.GetName() + "-" + hash64
 	obj.SetName(name)
 
+	if obj.GetKind() == "BuildRun" {
+		err := unstructured.SetNestedField(obj.Object, name, "spec", "buildRef", "name")
+		exit.OnError(err)
+	}
+
 	if obj.GetKind() == "DaemonSet" {
 		err := unstructured.SetNestedField(obj.Object, name, "metadata", "labels", "app")
 		exit.OnError(err)

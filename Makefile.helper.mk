@@ -62,3 +62,13 @@ else
 KUBELINTER=$(shell which kube-linter)
 endif
 
+update-bundle: 
+	mv $$(find bundle -name image-references) bundle/image-references
+	rm -rf bundle/4.*/manifests bundle/4.*/metadata
+	$(MAKE) bundle DEFAULT_CHANNEL=$(DEFAULT_CHANNEL) VERSION=$(VERSION) IMAGE=$(IMAGE)
+	mv bundle/manifests/special-resource-operator.clusterserviceversion.yaml bundle/manifests/special-resource-operator.v$(VERSION).clusterserviceversion.yaml
+	mv bundle/manifests bundle/$(DEFAULT_CHANNEL)/manifests
+	mv bundle/metadata bundle/$(DEFAULT_CHANNEL)/metadata
+	sed 's#bundle/##g' bundle.Dockerfile | head -n -1 > bundle/$(DEFAULT_CHANNEL)/bundle.Dockerfile
+	mv bundle/image-references bundle/$(DEFAULT_CHANNEL)/manifests/image-references
+
