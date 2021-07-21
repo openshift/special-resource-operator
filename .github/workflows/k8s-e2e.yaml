@@ -61,9 +61,14 @@ jobs:
       id: short-sha
       with:
         length: 10
-    - uses: engineerd/setup-kind@v0.1.0
+    - uses: engineerd/setup-kind@v0.5.0
     - name: Testing
       run: |
         export KUBECONFIG="$(kind get kubeconfig-path)"
         kubectl cluster-info
+    - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-master.yaml.template
+    - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-worker-daemonset.yaml.template
     - run: PLATFORM=k8s make deploy
+    - run: kubectl apply -f  charts/example/centos-simple-kmod-0.0.1/centos-simple-kmod.yaml
+    - run: sleep 360
+    - run: kubectl logs `kubectl get pod -n openshift-special-resource-operator | grep special | awk '{ print $1 }'` -c manager -n openshift-special-resource-operator
