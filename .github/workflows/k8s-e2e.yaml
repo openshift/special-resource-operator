@@ -49,6 +49,12 @@ jobs:
         ref: ${{ github.event.pull_request.head.sha }}
         persist-credentials: false
     - uses: actions/setup-go@v2
+      with:
+        go-version: '1.16.3'
+    - uses: benjlevesque/short-sha@v1.2
+      id: short-sha
+      with:
+        length: 10        
     - uses: engineerd/setup-kind@v0.5.0
     - name: Testing
       run: |
@@ -56,7 +62,7 @@ jobs:
         kubectl cluster-info
     - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-master.yaml.template
     - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-worker-daemonset.yaml.template
-    - run: TAG=${{ jobs.build.steps.short-sha.outputs.sha }}  PLATFORM=k8s make deploy
+    - run: TAG=${{ steps.short-sha.outputs.sha }}  PLATFORM=k8s make deploy
     - run: kubectl apply -f  charts/example/centos-simple-kmod-0.0.1/centos-simple-kmod.yaml
     - run: sleep 360
     - run: kubectl logs `kubectl get pod -n openshift-special-resource-operator | grep special | awk '{ print $1 }'` -c manager -n openshift-special-resource-operator
