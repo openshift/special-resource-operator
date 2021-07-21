@@ -61,8 +61,13 @@ jobs:
         export KUBECONFIG="$(kind get kubeconfig-path)"
         kubectl cluster-info
     - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-master.yaml.template
+    - run: kubectl rollout status deployment -n node-feature-discovery nfd-master --timeout=60s   
+    
     - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-worker-daemonset.yaml.template
-    - run: TAG=${{ steps.short-sha.outputs.sha }}  PLATFORM=k8s make deploy
+    - run: kubectl rollout status daemonset -n node-feature-discovery nfd-worker --timeout=60s
+    
+    - run: TAG=pr-${{ steps.short-sha.outputs.sha }}  PLATFORM=k8s make deploy
+    
     - run: kubectl apply -f  charts/example/centos-simple-kmod-0.0.1/centos-simple-kmod.yaml
     - run: sleep 360
     - run: kubectl logs `kubectl get pod -n openshift-special-resource-operator | grep special | awk '{ print $1 }'` -c manager -n openshift-special-resource-operator
