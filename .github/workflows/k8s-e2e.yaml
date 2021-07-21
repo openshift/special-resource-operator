@@ -61,13 +61,13 @@ jobs:
         export KUBECONFIG="$(kind get kubeconfig-path)"
         kubectl cluster-info
     - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-master.yaml.template
-    - run: kubectl get pod -n node-feature-discovery
+    - run: kubectl describe pod -n node-feature-discovery
     - run: sleep 120
     - run: kubectl get pod -n node-feature-discovery
     - run: kubectl rollout status deployment -n node-feature-discovery nfd-master --timeout=300s   
     
     - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-worker-daemonset.yaml.template
-    - run: kubectl get pod -n node-feature-discovery
+    - run: kubectl describe pod -n node-feature-discovery
     - run: sleep 120
     - run: kubectl get pod -n node-feature-discovery
     - run: kubectl rollout status daemonset -n node-feature-discovery nfd-worker --timeout=300s
