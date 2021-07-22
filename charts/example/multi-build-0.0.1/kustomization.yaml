@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+- files:
+  - templates/0000-buildconfig.yaml
+  - templates/1000-buildconfig.yaml
+  - templates/2000-imagesign.yaml
+  name: multi-build
+namespace: multi-build

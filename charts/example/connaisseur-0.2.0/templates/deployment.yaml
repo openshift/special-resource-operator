@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}-deployment
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "helm.name" . }}
+    helm.sh/chart: {{ include "helm.chart" . }}
+    app.kubernetes.io/instance: {{ .Chart.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.deployment.replicasCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "helm.name" . }}
+      app.kubernetes.io/instance: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "helm.name" . }}
+        app.kubernetes.io/instance: {{ .Chart.Name }}
+      {{- /* This will be set automatically by Kubernetes 1.19 when using the securityContext.seccompProfile  */ -}}
+      {{- if lt (.Capabilities.KubeVersion.Minor | int) 19 }}
+      annotations:
+        seccomp.security.alpha.kubernetes.io/pod: runtime/default
+      {{- end }}
+    spec:
+      serviceAccountName: {{ .Chart.Name }}-serviceaccount
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.deployment.image }}"
+          imagePullPolicy: {{ .Values.deployment.imagePullPolicy }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+              scheme: HTTPS
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 5000
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts:
+            - name: {{ .Chart.Name }}-certs
+              mountPath: /etc/certs
+              readOnly: true
+            - name: {{ .Chart.Name }}-alert-templates
+              mountPath: "/app/config/templates"
+              readOnly: true
+            - name: {{ .Chart.Name }}-alertconfig
+              mountPath: "/app/config"
+              readOnly: true
+          envFrom:
+            - configMapRef:
+                name: {{ .Chart.Name }}-env
+            {{- if .Values.notary.auth.enabled }}
+            - secretRef:
+              {{- if default false .Values.notary.auth.secretName}}
+                name: {{ .Values.notary.auth.secretName}}
+              {{- else }}
+                name: {{ .Chart.Name }}-secret-env
+              {{- end }}
+            {{- end }}
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            {{- toYaml .Values.deployment.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 2000
+            runAsNonRoot: true
+            runAsUser: 1000
+            {{- if gt (.Capabilities.KubeVersion.Minor | int) 18 }}
+            seccompProfile:
+              type: RuntimeDefault
+            {{- end }}
+      {{- with .Values.deployment.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.deployment.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.deployment.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      volumes:
+        - name: {{ .Chart.Name }}-certs
+          secret:
+            secretName: {{ .Chart.Name }}-tls
+        - name: {{ .Chart.Name }}-alertconfig
+          secret:
+            secretName: {{ .Chart.Name }}-alertconfig
+        - name: {{ .Chart.Name }}-alert-templates
+          configMap:
+            name: {{ .Chart.Name }}-alert-templates

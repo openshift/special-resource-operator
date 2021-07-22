@@ -1,0 +1,120 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.Values.specialresource.metadata.name}}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{.Values.specialresource.metadata.name}}
+rules:
+- apiGroups:
+  - security.openshift.io
+  resources:
+  - securitycontextconstraints
+  verbs:
+  - use
+  resourceNames:
+  - anyuid
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{.Values.specialresource.metadata.name}}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{.Values.specialresource.metadata.name}}
+subjects:
+- kind: ServiceAccount
+  name: {{.Values.specialresource.metadata.name}}
+  namespace: {{.Values.specialresource.metadata.namespace}}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-cosign-key
+data:
+  cosign.key: LS0tLS1CRUdJTiBFTkNSWVBURUQgQ09TSUdOIFBSSVZBVEUgS0VZLS0tLS0KZXlKclpHWWlPbnNpYm1GdFpTSTZJbk5qY25sd2RDSXNJbkJoY21GdGN5STZleUpPSWpvek1qYzJPQ3dpY2lJNgpPQ3dpY0NJNk1YMHNJbk5oYkhRaU9pSkpOeXQ2V1hwRGJ6TmxhMlZEWm1JMlVISkdjSEJLUkdzMVRUbHhVa28xCldHMTZjbUpqWWxkRFNtaG5QU0o5TENKamFYQm9aWElpT25zaWJtRnRaU0k2SW01aFkyd3ZjMlZqY21WMFltOTQKSWl3aWJtOXVZMlVpT2lKREt6VnFUemh5ZG5WeVVXRTBhbUZEVGtkdU5sSm9kV0p2TUV0RU16TkVZeUo5TENKagphWEJvWlhKMFpYaDBJam9pY0ZoclQybGFOR0pwUlVSeFlXOW5TekE1UW5Cb2NITndPVkp5TDI5VWVYTkplRlpsCmExVlRhMjhyUWxaTldXWmpWM1o2VGl0bVdUaGhVVXR3VHl0V1FWUTNibEZHUzFCRWQzSTRTM1pZTm1kd1FXOXoKVkVwMGVrUnBVblo2YUhOU04yODJlbTVuV25kdU1uUkdkMFZVVWpob1NYQmpSMEpETlZselFsSm9UbEo1WVZaRgpMM0ZuT1hsamFXTlVVVE5wVlZGU2NHTlpTME5YUkV0cGRrUnRMMHczTm1GcmJIVlNRMmgzVkV4blpsZE5VVFF6ClJVbFZUakpWV0ZKMGNtUTBURWxNTVU5aFIxUlJUV1FyYkhjOVBTSjkKLS0tLS1FTkQgRU5DUllQVEVEIENPU0lHTiBQUklWQVRFIEtFWS0tLS0tCg==
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-entrypoint
+data:
+  entrypoint.sh: |-
+    #!/bin/bash -x
+    set -e
+    cd /tmp
+
+    yum -y install buildah --setopt=install_weak_deps=False
+
+    curl -L https://golang.org/dl/go1.16.5.linux-amd64.tar.gz -o go1.16.5.linux-amd64.tar.gz
+    rm -rf /usr/local/go && tar -C /usr/local -xzf go1.16.5.linux-amd64.tar.gz
+    export PATH=$PATH:/usr/local/go/bin
+    export GOPATH=/tmp
+    export GOCACHE=/tmp/.cache/go-build
+
+    go install github.com/sigstore/cosign/cmd/cosign@v0.5.0
+
+    mkdir ~/.docker && cp ~/secret/.dockerconfigjson ~/.docker/config.json
+
+    echo -n "{{ .Values.cosignPassword }}" | /tmp/bin/cosign sign -key /root/key/cosign.key $IMAGE_TO_SIGN
+
+
+    sleep infinity
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  annotations:
+    specialresource.openshift.io/wait: "true"
+    specialresource.openshift.io/wait-for-logs: "sleep infinity"
+  labels:
+    app: {{.Values.specialresource.metadata.name}}
+  name: {{.Values.specialresource.metadata.name}}
+spec:
+  selector:
+    matchLabels:
+      app: {{.Values.specialresource.metadata.name}}
+  serviceName: {{.Values.specialresource.metadata.name}}
+  replicas: 1 # by default is 1
+  template:
+    metadata:
+      labels:
+        app: {{.Values.specialresource.metadata.name}}
+    spec:
+      serviceAccount: {{.Values.specialresource.metadata.name}}
+      serviceAccountName: {{.Values.specialresource.metadata.name}}
+      terminationGracePeriodSeconds: 10
+      securityContext:
+        runAsUser: 0
+      containers:
+      - name: {{.Values.specialresource.metadata.name}}
+        image: registry.access.redhat.com/ubi8:latest
+        env:
+        - name: IMAGE_TO_SIGN
+          value: "{{.Values.imageToSign}}"
+        command: [/bin/entrypoint.sh]
+        volumeMounts:
+        - name: entrypoint
+          mountPath: /bin/entrypoint.sh
+          readOnly: true
+          subPath: entrypoint.sh
+        - name: dockercfg
+          mountPath: /root/secret
+          readOnly: true
+        - name: cosign
+          mountPath: /root/key
+          readOnly: true
+      volumes:
+      - name: dockercfg
+        secret:
+          secretName: {{.Values.pushSecret}}
+      - name: entrypoint
+        configMap:
+          defaultMode: 0700
+          name: {{.Values.specialresource.metadata.name}}-entrypoint
+      - name: cosign
+        secret:
+          secretName: {{.Values.specialresource.metadata.name}}-cosign-key

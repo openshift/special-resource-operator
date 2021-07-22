@@ -13,6 +13,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
+	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 
 	"github.com/pkg/errors"
 
@@ -33,6 +34,7 @@ type ResourceGroupName struct {
 }
 
 type RuntimeInformation struct {
+	Kind                      string                         `json:"kind"`
 	OperatingSystemMajor      string                         `json:"operatingSystemMajor"`
 	OperatingSystemMajorMinor string                         `json:"operatingSystemMajorMinor"`
 	OperatingSystemDecimal    string                         `json:"operatingSystemDecimal"`
@@ -43,7 +45,6 @@ type RuntimeInformation struct {
 	ClusterVersion            string                         `json:"clusterVersion"`
 	ClusterVersionMajorMinor  string                         `json:"clusterVersionMajorMinor"`
 	ClusterUpgradeInfo        map[string]upgrade.NodeVersion `json:"clusterUpgradeInfo"`
-	UpdateVendor              string                         `json:"updateVendor"`
 	PushSecretName            string                         `json:"pushSecretName"`
 	OSImageURL                string                         `json:"osImageURL"`
 	Proxy                     proxy.Configuration            `json:"proxy"`
@@ -52,6 +53,7 @@ type RuntimeInformation struct {
 }
 
 var RunInfo = RuntimeInformation{
+	Kind:                      "Values",
 	OperatingSystemMajor:      "",
 	OperatingSystemMajorMinor: "",
 	OperatingSystemDecimal:    "",
@@ -62,20 +64,11 @@ var RunInfo = RuntimeInformation{
 	ClusterVersion:            "",
 	ClusterVersionMajorMinor:  "",
 	ClusterUpgradeInfo:        make(map[string]upgrade.NodeVersion),
-	UpdateVendor:              "",
 	PushSecretName:            "",
 	OSImageURL:                "",
 	Proxy:                     proxy.Configuration{},
-	GroupName: ResourceGroupName{
-		DriverBuild:            "driver-build",
-		DriverContainer:        "driver-container",
-		RuntimeEnablement:      "runtime-enablement",
-		DevicePlugin:           "device-plugin",
-		DeviceMonitoring:       "device-monitoring",
-		DeviceDashboard:        "device-dashboard",
-		DeviceFeatureDiscovery: "device-feature-discovery",
-		CSIDriver:              "csi-driver"},
-	SpecialResource: srov1beta1.SpecialResource{},
+	GroupName:                 ResourceGroupName{DriverBuild: "driver-build", DriverContainer: "driver-container", RuntimeEnablement: "runtime-enablement", DevicePlugin: "device-plugin", DeviceMonitoring: "device-monitoring", DeviceDashboard: "device-dashboard", DeviceFeatureDiscovery: "device-feature-discovery", CSIDriver: "csi-driver"},
+	SpecialResource:           srov1beta1.SpecialResource{},
 }
 
 func logRuntimeInformation() {
@@ -84,12 +77,11 @@ func logRuntimeInformation() {
 	log.Info("Runtime Information", "OperatingSystemDecimal", RunInfo.OperatingSystemDecimal)
 	log.Info("Runtime Information", "KernelFullVersion", RunInfo.KernelFullVersion)
 	log.Info("Runtime Information", "KernelPatchVersion", RunInfo.KernelPatchVersion)
+	log.Info("Runtime Information", "DriverToolkitImage", RunInfo.DriverToolkitImage)
 	log.Info("Runtime Information", "Platform", RunInfo.Platform)
 	log.Info("Runtime Information", "ClusterVersion", RunInfo.ClusterVersion)
 	log.Info("Runtime Information", "ClusterVersionMajorMinor", RunInfo.ClusterVersionMajorMinor)
 	log.Info("Runtime Information", "ClusterUpgradeInfo", RunInfo.ClusterUpgradeInfo)
-	log.Info("Runtime Information", "DriverToolkitImage", RunInfo.DriverToolkitImage)
-	log.Info("Runtime Information", "UpdateVendor", RunInfo.UpdateVendor)
 	log.Info("Runtime Information", "PushSecretName", RunInfo.PushSecretName)
 	log.Info("Runtime Information", "OSImageURL", RunInfo.OSImageURL)
 	log.Info("Runtime Information", "Proxy", RunInfo.Proxy)
@@ -123,7 +115,7 @@ func getRuntimeInformation(r *SpecialResourceReconciler) {
 	exit.OnError(errors.Wrap(err, "Failed to get upgrade info"))
 
 	RunInfo.PushSecretName, err = retryGetPushSecretName(r)
-	exit.OnError(errors.Wrap(err, "Failed to get push secret name"))
+	warn.OnError(errors.Wrap(err, "Failed to get push secret name"))
 
 	RunInfo.OSImageURL, err = cluster.OSImageURL()
 	exit.OnError(errors.Wrap(err, "Failed to get OSImageURL"))

@@ -1,10 +1,11 @@
+SHELL             = /bin/bash
 SPECIALRESOURCE  ?= driver-container-base
 NAMESPACE        ?= openshift-special-resource-operator
 PULLPOLICY       ?= IfNotPresent
 TAG              ?= $(shell git branch --show-current)
 IMAGE            ?= quay.io/openshift-psap/special-resource-operator:$(TAG)
 CSPLIT           ?= csplit - --prefix="" --suppress-matched --suffix-format="%04d.yaml"  /---/ '{*}' --silent
-YAMLFILES        ?= $(shell  find manifests charts -name "*.yaml"  -not \( -path "charts/lustre/lustre-aws-fsx-0.0.1/csi-driver/*" -prune \)  -not \( -path "charts/*/shipwright-*/*" -prune \) -not \( -path "charts/experimental/*" -prune \) )
+YAMLFILES        ?= $(shell  find manifests${SUFFIX} charts -name "*.yaml"  -not \( -path "charts/lustre/lustre-aws-fsx-0.0.1/csi-driver/*" -prune \)  -not \( -path "charts/*/shipwright-*/*" -prune \) -not \( -path "charts/experimental/*" -prune \) )
 PLATFORM         ?= ""
 SUFFIX           ?= $(shell if [ ${PLATFORM} == "k8s" ]; then echo "-${PLATFORM}"; fi)
 
@@ -16,7 +17,8 @@ include Makefile.helper.mk
 patch:
 	cp .patches/options.patch.go vendor/github.com/google/go-containerregistry/pkg/crane/.
 	cp .patches/getter.patch.go vendor/helm.sh/helm/v3/pkg/getter/.
-#	cp .patches/zapr.patch.go vendor/github.com/go-logr/zapr/.
+	cp .patches/action.patch.go vendor/helm.sh/helm/v3/pkg/action/.
+	cp .patches/install.patch.go vendor/helm.sh/helm/v3/pkg/action/.
 
 kube-lint: kube-linter
 	$(KUBELINTER) lint $(YAMLFILES)
@@ -28,11 +30,11 @@ verify: fmt vet
 unit:
 	@echo "TODO UNIT TEST"
 
-go-deploy-manifests: manifests
-	go run test/deploy/deploy.go -path ./manifests
+go-deploy-manifests: manifests$(SUFFIX)
+	go run test/deploy/deploy.go -path ./manifests$(SUFFIX)
 
 go-undeploy-manifests:
-	go run test/undeploy/undeploy.go -path ./manifests
+	go run test/undeploy/undeploy.go -path ./manifests$(SUFFIX)
 
 test-e2e-upgrade: go-deploy-manifests
 
@@ -92,7 +94,7 @@ configure:
 	cd config/default && $(KUSTOMIZE) edit set namespace $(NAMESPACE)
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMAGE)
 
-namespace: patch manifests
+namespace: patch manifests$(SUFFIX)
 	$(KUSTOMIZE) build config/namespace | kubectl apply -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
@@ -119,7 +121,7 @@ manifests-gen: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 
-manifests: manifests-gen kustomize configure
+manifests$(SUFFIX): manifests-gen kustomize configure
 	cd $@; rm -f *.yaml
 	cd $@; ( $(KUSTOMIZE) build ../config/namespace && echo "---" && $(KUSTOMIZE) build ../config/default$(SUFFIX) ) | $(CSPLIT)
 	cd $@; bash ../scripts/rename.sh
@@ -149,9 +151,9 @@ local-image-push:
 # Generate bundle manifests-gen and metadata, then validate generated files.
 .PHONY: bundle
 bundle: manifests-gen
-	operator-sdk generate kustomize manifests -q
+	operator-sdk generate kustomize manifests$(SUFFIX) -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMAGE)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --verbose --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	$(KUSTOMIZE) build config/manifests$(SUFFIX) | operator-sdk generate bundle -q --overwrite --verbose --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
 
 # Build the bundle image.
