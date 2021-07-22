@@ -93,6 +93,8 @@ type SpecialResourceSpec struct {
 	// +kubebuilder:validation:Optional
 	ForceUpgrade bool `json:"forceUpgrade"`
 	// +kubebuilder:validation:Optional
+	Debug bool `json:"debug"`
+	// +kubebuilder:validation:Optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:EmbeddedResource
 	Set unstructured.Unstructured `json:"set,omitempty"`

@@ -2,6 +2,7 @@ package framework
 
 import (
 	"context"
+	"strings"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
@@ -42,7 +43,11 @@ func NewControllerRuntimeClient() client.Client {
 	})
 	exit.OnError(errors.Wrap(err, "unable to start manager"))
 
-	return mgr.GetClient()
+	client, err := client.New(mgr.GetConfig(), client.Options{Scheme: scheme})
+	exit.OnError(err)
+	// caching client
+	// return mgr.GetClient()
+	return client
 }
 
 func CreateFromYAML(yamlFile []byte, cl client.Client) {
@@ -114,11 +119,36 @@ func DeleteFromYAML(yamlFile []byte, cl client.Client) {
 		err := cl.Delete(context.TODO(), obj)
 		if apierrors.IsNotFound(err) {
 			warn.OnError(err)
+			return
 		}
 		exit.OnError(err)
 
 		log.Info("Deleted", "Kind", obj.GetKind(), "Name", obj.GetName())
 	}
+}
+
+func DeleteAllSpecialResources(cl client.Client) {
+
+	specialresources := &srov1beta1.SpecialResourceList{}
+
+	opts := []client.ListOption{}
+	err := cl.List(context.TODO(), specialresources, opts...)
+	if err != nil {
+		if strings.Contains(err.Error(), "no matches for kind \"SpecialResource\" in version ") {
+			warn.OnError(err)
+			return
+		}
+		// This should never happen
+		exit.OnError(err)
+	}
+
+	delOpts := []client.DeleteOption{}
+	for _, sr := range specialresources.Items {
+		log.Info("Deleting", "SR", sr.GetName())
+		err := cl.Delete(context.TODO(), &sr, delOpts...)
+		exit.OnError(err)
+	}
+
 }
 
 func getObjFromYAMLSpec(yamlSpec []byte) *unstructured.Unstructured {

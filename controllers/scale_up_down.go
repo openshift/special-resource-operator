@@ -10,20 +10,15 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // If resource available, label the nodes according to the current state
 // if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
-func labelNodesAccordingToState(obj *unstructured.Unstructured, r *SpecialResourceReconciler) error {
-
-	if obj.GetKind() != "DaemonSet" {
-		return nil
-	}
+func labelNodesAccordingToState(nodeSelector map[string]string) error {
 
 	var err error
 
-	if err = cache.Nodes(r.specialresource.Spec.NodeSelector, true); err != nil {
+	if err = cache.Nodes(nodeSelector, true); err != nil {
 		return errors.Wrap(err, "Could not cache nodes for state change")
 	}
 
@@ -45,7 +40,7 @@ func labelNodesAccordingToState(obj *unstructured.Unstructured, r *SpecialResour
 		if apierrors.IsConflict(err) {
 			var err error
 
-			if err = cache.Nodes(r.specialresource.Spec.NodeSelector, true); err != nil {
+			if err = cache.Nodes(nodeSelector, true); err != nil {
 				return errors.Wrap(err, "Could not cache nodes for api conflict")
 			}
 
@@ -58,8 +53,6 @@ func labelNodesAccordingToState(obj *unstructured.Unstructured, r *SpecialResour
 		}
 
 		log.Info("NODE", "Setting Label ", state.CurrentName, "on ", updated.GetName())
-
-		operatorStatusUpdate(obj, r, state.CurrentName)
 
 	}
 	return nil

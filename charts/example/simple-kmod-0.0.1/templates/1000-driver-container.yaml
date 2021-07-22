@@ -28,8 +28,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}
-userNames:
-- system:serviceaccount:{{.Values.specialresource.spec.namespace}}:{{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}
+  namespace: {{.Values.specialresource.spec.namespace}}
 ---
 apiVersion: apps/v1
 kind: DaemonSet

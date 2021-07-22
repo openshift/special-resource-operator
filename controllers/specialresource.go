@@ -1,8 +1,11 @@
 package controllers
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"text/template"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
@@ -13,8 +16,8 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
+	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
-	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/chart"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -135,6 +138,35 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 	return reconcile.Result{}, nil
 }
 
+func TemplateFragmentOrDie(sr interface{}) {
+
+	spec, err := json.Marshal(sr)
+	exit.OnError(err)
+
+	// We want the json representation of the data no the golang one
+	info, err := json.MarshalIndent(RunInfo, "", "  ")
+	exit.OnError(err)
+
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{},
+	}
+	err = obj.UnmarshalJSON(info)
+	exit.OnError(err)
+
+	values := make(map[string]interface{})
+	values["Values"] = obj.Object
+
+	t := template.Must(template.New("runtime").Parse(string(spec)))
+
+	var buff bytes.Buffer
+	err = t.Execute(&buff, values)
+	exit.OnError(err)
+
+	text := buff.Bytes()
+	err = json.Unmarshal(text, sr)
+	exit.OnError(err)
+}
+
 func ReconcileSpecialResourceChart(r *SpecialResourceReconciler, sr srov1beta1.SpecialResource, chart *chart.Chart, values unstructured.Unstructured) error {
 
 	r.specialresource = sr
@@ -142,15 +174,20 @@ func ReconcileSpecialResourceChart(r *SpecialResourceReconciler, sr srov1beta1.S
 	r.values = values
 
 	log = r.Log.WithName(color.Print(r.specialresource.Name, color.Green))
-	log.Info("Reconciling")
+	log.Info("Reconciling Chart")
 
 	// This is specific for the specialresource we need to update the nodes
 	// and the upgradeinfo
 	err := cache.Nodes(r.specialresource.Spec.NodeSelector, true)
 	exit.OnError(errors.Wrap(err, "Failed to cache nodes"))
 
-	RunInfo.ClusterUpgradeInfo, err = upgrade.ClusterInfo()
-	exit.OnError(errors.Wrap(err, "Failed to get upgrade info"))
+	getRuntimeInformation(r)
+	logRuntimeInformation()
+
+	TemplateFragmentOrDie(&r.specialresource)
+	r.specialresource.DeepCopyInto(&RunInfo.SpecialResource)
+
+	TemplateFragmentOrDie(&r.values)
 
 	// Add a finalizer to CR if it does not already have one
 	if !contains(r.specialresource.GetFinalizers(), specialresourceFinalizer) {
@@ -216,7 +253,13 @@ func createSpecialResourceFrom(r *SpecialResourceReconciler, ch *chart.Chart, dp
 
 	log.Info("Creating SpecialResource: " + ch.Files[idx].Name)
 
-	if err := createFromYAML(ch.Files[idx].Data, r, r.specialresource.Spec.Namespace, "", ""); err != nil {
+	if err := resource.CreateFromYAML(ch.Files[idx].Data,
+		false,
+		&r.specialresource,
+		r.specialresource.Name,
+		r.specialresource.Namespace,
+		r.specialresource.Spec.NodeSelector,
+		"", ""); err != nil {
 		log.Info("Cannot create, something went horribly wrong")
 		exit.OnError(err)
 	}

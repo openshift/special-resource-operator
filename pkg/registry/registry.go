@@ -33,10 +33,10 @@ func init() {
 }
 
 type DriverToolkitEntry struct {
-	ImageURL            string
-	KernelFullVersion   string
-	RTKernelFullVersion string
-	OSVersion           string
+	ImageURL            string `json:"imageURL"`
+	KernelFullVersion   string `json:"kernelFullVersion"`
+	RTKernelFullVersion string `json:"RTKernelFullVersion"`
+	OSVersion           string `json:"OSVersion"`
 }
 
 func LastLayer(entry string) v1.Layer {

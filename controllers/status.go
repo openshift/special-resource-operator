@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
@@ -21,7 +20,7 @@ import (
 )
 
 // Operator Status
-func operatorStatusUpdate(obj *unstructured.Unstructured, r *SpecialResourceReconciler, state string) {
+func operatorStatusUpdate(r *SpecialResourceReconciler, state string) {
 
 	r.specialresource.Status.State = state
 
