@@ -1,0 +1,41 @@
+# Default values for infoScale-vtas.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+specialresource:
+  metadata:
+    name: "infoscale-vtas"
+  spec:
+    namespace: "infoscale-vtas"
+    drivercontainer:
+      source:
+        git:
+          ref: "ref"
+          uri: "uri"
+
+runArgs:
+  infoscaleConfigMap: "infoscalecluster-dev-configmap"
+  infoscaleImage: "veritas/infoscale:8.0.0.0000"
+  infoscaleCSIPlugin: "veritas/infoscale_csi_plugin:2.0.0.0000"
+  infoscaleFenImage: "veritas/infoscale-vxfen:2.0.0.0000"
+  infoscaleLicImage: "veritas/infoscale-license:8.0.0.0000"
+  infoscaleImgPullPolicy: "IfNotPresent"
+  infoscaleCSIImgPullPolicy: "IfNotPresent"
+  infoscaleFenImgPullPolicy: "IfNotPresent"
+  infoscaleLicImgPullPolicy: "IfNotPresent"
+  csiAttacher: "openshift4/ose-csi-external-attacher"
+  csiProvisioner: "openshift4/ose-csi-external-provisioner-rhel8"
+  csiRegistrar: "openshift4/ose-csi-driver-registrar"
+  csiResizer: "openshift4/ose-csi-external-resizer-rhel8"
+  csiSnapshotter: "openshift4/ose-csi-external-snapshotter-rhel8"
+  fenController: "kube-fencing-controller:v2.1.0"
+  fenSwitcher: "kube-fencing-switcher:v2.1.0"
+  licPort: "6443"
+  licServer: "192.68.42.56"
+  licUUID: "691c169d-a714-4d27-b46b-a1213a5df662"
+  terminationPeriod: "200"
+  infoscaleVersion: "8.0.0.0000"
+  platform: "openshift-container-platform"
+
+node:
+  selector: "IS-cluster1"

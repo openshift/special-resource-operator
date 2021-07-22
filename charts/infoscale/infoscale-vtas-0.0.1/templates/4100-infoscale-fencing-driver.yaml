@@ -1,0 +1,247 @@
+---
+# Source: kube-fencing/templates/controller-rbac.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-fencing-controller
+  namespace: {{.Values.specialresource.spec.namespace}}
+---
+# Source: kube-fencing/templates/switcher-rbac.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-fencing-switcher
+  namespace: {{.Values.specialresource.spec.namespace}}
+---
+
+{{- if eq .Values.runArgs.platform "openshift-container-platform" }}
+#Custom SCC to allow hostNetwork
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  annotations:
+    kubernetes.io/description: Custom SCC for host network access
+    release.openshift.io/create-only: "true"
+  name: infoscale-kubefencing-scc
+allowHostNetwork: true
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+users:
+- system:serviceaccount:{{.Values.specialresource.spec.namespace}}:{{.Values.specialresource.metadata.name}}-fencing-switcher
+- system:serviceaccount:{{.Values.specialresource.spec.namespace}}:{{.Values.specialresource.metadata.name}}-fencing-controller
+
+---
+{{- end }}
+
+# Source: kube-fencing/templates/controller-rbac.yaml
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-fencing-controller
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["list", "watch", "get", "delete", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["nodes/status"]
+    verbs: ["update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "get", "delete", "deletecollection"]
+  - apiGroups: ["batch", "extensions"]
+    resources: ["jobs"]
+    verbs: ["list", "watch", "get", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["podtemplates"]
+    verbs: ["list", "watch", "get"]
+  - apiGroups: [""]
+    resources: ["podtemplates/finalizers", "nodes/finalizers"]
+    verbs: ["update"]
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["list", "watch", "get"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["volumeattachments"]
+    verbs: ["list", "watch", "get", "delete"]
+---
+# Source: kube-fencing/templates/switcher-rbac.yaml
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-fencing-switcher
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["patch"]
+---
+# Source: kube-fencing/templates/controller-rbac.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-fencing-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{.Values.specialresource.metadata.name}}-fencing-controller
+subjects:
+  - kind: ServiceAccount
+    name: {{.Values.specialresource.metadata.name}}-fencing-controller
+    namespace: {{.Values.specialresource.spec.namespace}}
+---
+# Source: kube-fencing/templates/switcher-rbac.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-fencing-switcher
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{.Values.specialresource.metadata.name}}-fencing-switcher
+subjects:
+  - kind: ServiceAccount
+    name: {{.Values.specialresource.metadata.name}}-fencing-switcher
+    namespace: {{.Values.specialresource.spec.namespace}}
+---
+# Source: kube-fencing/templates/switcher-daemonset.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: {{.Values.specialresource.metadata.name}}-fencing-switcher
+  name: {{.Values.specialresource.metadata.name}}-fencing-switcher
+  namespace: {{.Values.specialresource.spec.namespace}}
+  annotations:
+    specialresource.openshift.io/wait: "true"
+spec:
+  selector:
+    matchLabels:
+      app: {{.Values.specialresource.metadata.name}}-fencing-switcher
+  template:
+    metadata:
+      labels:
+        app: {{.Values.specialresource.metadata.name}}-fencing-switcher
+    spec:
+      serviceAccountName: {{.Values.specialresource.metadata.name}}-fencing-switcher
+      hostNetwork: true
+      imagePullSecrets:
+        - name: regsecret
+      containers:
+      - name: switcher
+        image: {{.Values.runArgs.fenSwitcher}}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+      nodeSelector:
+        {{.Values.node.selector}}: "true"
+---
+# Source: kube-fencing/templates/controller-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: {{.Values.specialresource.metadata.name}}-fencing-controller
+  name: {{.Values.specialresource.metadata.name}}-fencing-controller
+  namespace: {{.Values.specialresource.spec.namespace}}
+  annotations:
+    specialresource.openshift.io/wait: "true"
+spec:
+  replicas:
+  selector:
+    matchLabels:
+      app: {{.Values.specialresource.metadata.name}}-fencing-controller
+  template:
+    metadata:
+      labels:
+        app: {{.Values.specialresource.metadata.name}}-fencing-controller
+    spec:
+      serviceAccountName: {{.Values.specialresource.metadata.name}}-fencing-controller
+      hostNetwork: true
+      imagePullSecrets:
+        - name: regsecret
+      terminationGracePeriodSeconds: 0
+      tolerations:
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 0
+      - key: "node.kubernetes.io/unreachable"
+        operator: "Exists"
+        effect: "NoExecute"
+        tolerationSeconds: 0
+      containers:
+      - name: controller
+        image: {{.Values.runArgs.fenController}}
+        imagePullPolicy: IfNotPresent
+      nodeSelector:
+        {{.Values.node.selector}}: "true"
+---
+
+{{- if eq .Values.runArgs.platform "openshift-container-platform" }}
+#SCC for fencing service account
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  annotations:
+    kubernetes.io/description: Custom SCC for volume access
+    release.openshift.io/create-only: "true"
+  name: infoscale-fencing-scc
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: RunAsAny
+users:
+- system:serviceaccount:{{.Values.specialresource.spec.namespace}}:{{.Values.specialresource.metadata.name}}-fencing
+volumes:
+- secret
+
+---
+{{- end }}
+
+#fencing pod tempalte
+apiVersion: v1
+kind: PodTemplate
+metadata:
+  name: fencing
+  namespace: {{.Values.specialresource.spec.namespace}}
+  annotations:
+    specialresource.openshift.io/wait: "true"
+    fencing/ttl: '0'
+template:
+  spec:
+    serviceAccountName: {{.Values.specialresource.metadata.name}}-fencing
+    containers:
+    - name: fence
+      image: {{.Values.runArgs.infoscaleFenImage}}-{{.Values.operatingSystemMajor}}
+      imagePullPolicy: {{.Values.runArgs.infoscaleFenImgPullPolicy}}
+      command: ["vxfenrestcli", "-N", "$(FENCING_NODE)", "-u", "https://{{.Values.specialresource.metadata.name}}-rest:8443"]
+      volumeMounts:
+        - name: cert-dir
+          mountPath: /etc/vx/certstore/vxfen
+          readOnly: true
+      env:
+      - name: FENCING_NODE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.annotations['fencing/node']
+      - name: FENCING_ID
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.annotations['fencing/id']
+    volumes:
+        - name: cert-dir
+          secret:
+            secretName: vxfen-tls-cert
+    restartPolicy: OnFailure
+    nodeSelector:
+      {{.Values.node.selector}}: "true"
