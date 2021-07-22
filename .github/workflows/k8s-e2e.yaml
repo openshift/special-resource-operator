@@ -68,7 +68,6 @@ jobs:
     - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-worker-daemonset.yaml.template
     - run: kubectl rollout status daemonset -n node-feature-discovery nfd-worker --timeout=300s
 
-    - run: rm -f /usr/local/bin/kustomize 
     - run: TAG=pr-${{ steps.short-sha.outputs.sha }}  PLATFORM=k8s make go-deploy-manifests
     - run: kubectl rollout status deployment -n openshift-special-resource-operator special-resource-controller-manager --timeout=300s
     
