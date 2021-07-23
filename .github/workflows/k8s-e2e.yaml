@@ -56,26 +56,21 @@ jobs:
       with:
         length: 10
     - uses: engineerd/setup-kind@v0.5.0
+      with:
+        version: "v0.11.1"
     - name: Testing
       run: |
         export KUBECONFIG="$(kind get kubeconfig-path)"
         kubectl cluster-info
     - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-master.yaml.template
-
-    - run: kubectl describe pod -n node-feature-discovery
-    - run: sleep 120
-    - run: kubectl get pod -n node-feature-discovery
-
     - run: kubectl rollout status deployment -n node-feature-discovery nfd-master --timeout=300s
 
     - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-worker-daemonset.yaml.template
-    - run: kubectl describe pod -n node-feature-discovery
-    - run: sleep 120
-    - run: kubectl get pod -n node-feature-discovery
     - run: kubectl rollout status daemonset -n node-feature-discovery nfd-worker --timeout=300s
 
-    - run: TAG=pr-${{ steps.short-sha.outputs.sha }}  PLATFORM=k8s make deploy
-
+    - run: TAG=pr-${{ steps.short-sha.outputs.sha }}  PLATFORM=k8s make go-deploy-manifests
+    - run: kubectl rollout status deployment -n openshift-special-resource-operator special-resource-controller-manager --timeout=300s
+    
     - run: kubectl apply -f  charts/example/centos-simple-kmod-0.0.1/centos-simple-kmod.yaml
     - run: sleep 360
     - run: kubectl logs `kubectl get pod -n openshift-special-resource-operator | grep special | awk '{ print $1 }'` -c manager -n openshift-special-resource-operator
