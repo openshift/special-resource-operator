@@ -49,6 +49,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
+    categories: AI/Machine Learning, Drivers and plugins, Networking, Storage
     description: The special resource operator is an orchestrator for resources in a cluster required to deploy special hardware and software. Examples include hardware accelerators or software defined storage, where extra management or kernel modules are needed.
     operators.operatorframework.io/builder: operator-sdk-v1.2.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
@@ -79,46 +80,16 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
-          - ""
-          resources:
-          - nodes/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - ""
-          resources:
-          - nodes/status
-          verbs:
-          - patch
-          - update
-        - apiGroups:
-          - ""
-          resources:
-          - pods
-          verbs:
-          - deletecollection
-        - apiGroups:
-          - ""
-          resources:
-          - podtemplates
-          verbs:
-          - create
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - podtemplates/finalizers
-          verbs:
-          - update
-        - apiGroups:
           - '*'
           resources:
           - cronjobs
           verbs:
+          - delete
           - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - '*'
           resources:
@@ -136,14 +107,21 @@ spec:
           resources:
           - imagepolicies
           verbs:
+          - delete
           - get
+          - update
         - apiGroups:
           - '*'
           resources:
           - jobs
           verbs:
           - create
+          - delete
           - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - '*'
           resources:
@@ -348,12 +326,7 @@ spec:
           resources:
           - jobs
           verbs:
-          - create
-          - delete
-          - get
           - list
-          - patch
-          - update
           - watch
         - apiGroups:
           - build.openshift.io
@@ -778,18 +751,6 @@ spec:
           - update
           - watch
         - apiGroups:
-          - extensions
-          resources:
-          - jobs
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
           - image.openshift.io
           resources:
           - imagestreams
@@ -1126,6 +1087,8 @@ spec:
           resources:
           - storageclasses
           verbs:
+          - get
+          - list
           - watch
         - apiGroups:
           - storage.k8s.io
@@ -1288,7 +1251,7 @@ spec:
         serviceAccountName: default
     strategy: deployment
   installModes:
-  - supported: false
+  - supported: true
     type: OwnNamespace
   - supported: true
     type: SingleNamespace
