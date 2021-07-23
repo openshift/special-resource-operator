@@ -7,46 +7,16 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - ""
-  resources:
-  - nodes/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - nodes/status
-  verbs:
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - deletecollection
-- apiGroups:
-  - ""
-  resources:
-  - podtemplates
-  verbs:
-  - create
-  - get
-  - list
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - podtemplates/finalizers
-  verbs:
-  - update
-- apiGroups:
   - '*'
   resources:
   - cronjobs
   verbs:
+  - delete
   - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - '*'
   resources:
@@ -64,14 +34,21 @@ rules:
   resources:
   - imagepolicies
   verbs:
+  - delete
   - get
+  - update
 - apiGroups:
   - '*'
   resources:
   - jobs
   verbs:
   - create
+  - delete
   - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - '*'
   resources:
@@ -276,12 +253,7 @@ rules:
   resources:
   - jobs
   verbs:
-  - create
-  - delete
-  - get
   - list
-  - patch
-  - update
   - watch
 - apiGroups:
   - build.openshift.io
@@ -706,18 +678,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - extensions
-  resources:
-  - jobs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - image.openshift.io
   resources:
   - imagestreams
@@ -1054,6 +1014,8 @@ rules:
   resources:
   - storageclasses
   verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - storage.k8s.io

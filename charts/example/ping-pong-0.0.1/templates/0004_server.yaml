@@ -2,8 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{.Values.specialresource.metadata.name}}-server
-  labels:
-    app: {{.Values.specialresource.metadata.name}}
+  annotations:
+    specialresource.openshift.io/wait: "true"
 spec:
   replicas: 1
   selector:

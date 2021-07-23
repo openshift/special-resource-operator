@@ -23,6 +23,8 @@ import (
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/controllers"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/pkg/resource"
+
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -71,11 +73,14 @@ func main() {
 
 	clients.RestConfig = mgr.GetConfig()
 	clients.Interface = &clients.ClientsInterface{
-		Client:         mgr.GetClient(),
-		Clientset:      clients.GetKubeClientSetOrDie(),
-		ConfigV1Client: clients.GetConfigClientOrDie(),
-		EventRecorder:  mgr.GetEventRecorderFor("specialresource"),
+		Client:                   mgr.GetClient(),
+		Clientset:                clients.GetKubeClientSetOrDie(),
+		ConfigV1Client:           clients.GetConfigClientOrDie(),
+		CachedDiscoveryInterface: clients.GetCachedDiscoveryClientOrDie(),
+		EventRecorder:            mgr.GetEventRecorderFor("specialresource"),
 	}
+
+	resource.RuntimeScheme = mgr.GetScheme()
 
 	if err = (&controllers.SpecialResourceReconciler{
 		Log:    ctrl.Log,

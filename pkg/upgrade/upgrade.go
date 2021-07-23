@@ -27,9 +27,9 @@ func init() {
 }
 
 type NodeVersion struct {
-	OSVersion      string
-	ClusterVersion string
-	DriverToolkit  registry.DriverToolkitEntry
+	OSVersion      string                      `json:"OSVersion"`
+	ClusterVersion string                      `json:"clusterVersion"`
+	DriverToolkit  registry.DriverToolkitEntry `json:"driverToolkit"`
 }
 
 func ClusterInfo() (map[string]NodeVersion, error) {

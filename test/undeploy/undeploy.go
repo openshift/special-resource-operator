@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"time"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/assets"
@@ -35,6 +36,10 @@ func main() {
 	}
 
 	cl := framework.NewControllerRuntimeClient()
+
+	framework.DeleteAllSpecialResources(cl)
+	// sleep 10 for finalizers to kick in
+	time.Sleep(10 * time.Second)
 
 	manifests := assets.GetFrom(*path)
 

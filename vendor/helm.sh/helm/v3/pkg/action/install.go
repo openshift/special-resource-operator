@@ -234,6 +234,7 @@ func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}) (*release.
 		IsInstall: !isUpgrade,
 		IsUpgrade: isUpgrade,
 	}
+
 	valuesToRender, err := chartutil.ToRenderValues(chrt, vals, options, caps)
 	if err != nil {
 		return nil, err
@@ -247,6 +248,7 @@ func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}) (*release.
 	if manifestDoc != nil {
 		rel.Manifest = manifestDoc.String()
 	}
+
 	// Check error from render
 	if err != nil {
 		rel.SetStatus(release.StatusFailed, fmt.Sprintf("failed to render resource: %s", err.Error()))

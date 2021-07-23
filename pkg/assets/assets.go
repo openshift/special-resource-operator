@@ -124,7 +124,11 @@ func FromConfigMap(templates *unstructured.Unstructured) []*chart.File {
 	exit.OnErrorOrNotFound(found, err)
 
 	for key := range manifests {
-		states = append(states, &chart.File{Name: key, Data: manifests[key].([]byte)})
+		state := &chart.File{}
+		state.Name = key
+		state.Data = []byte(manifests[key].(string))
+		states = append(states, state)
+		log.Info("Adding", "state", state.Name)
 	}
 
 	return states

@@ -1,14 +1,13 @@
 package clients
 
 import (
-	"os"
-
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	buildv1 "github.com/openshift/api/build/v1"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,6 +25,7 @@ var (
 	Interface  *ClientsInterface
 	RestConfig *rest.Config
 	Namespace  string
+	config     genericclioptions.ConfigFlags
 )
 
 type ClientsInterface struct {
@@ -34,6 +34,7 @@ type ClientsInterface struct {
 	clientconfigv1.ConfigV1Client
 	record.EventRecorder
 	authn.Keychain
+	discovery.CachedDiscoveryInterface
 }
 
 func init() {
@@ -46,10 +47,7 @@ func init() {
 func GetKubeClientSetOrDie() kubernetes.Clientset {
 
 	clientSet, err := kubernetes.NewForConfig(RestConfig)
-	if err != nil {
-		log.Info(color.Print("GetConfigClientOrDie: "+err.Error(), color.Red))
-		os.Exit(1)
-	}
+	exit.OnError(err)
 	return *clientSet
 }
 
@@ -57,11 +55,15 @@ func GetKubeClientSetOrDie() kubernetes.Clientset {
 func GetConfigClientOrDie() clientconfigv1.ConfigV1Client {
 
 	client, err := clientconfigv1.NewForConfig(RestConfig)
-	if err != nil {
-		log.Info(color.Print("GetConfigClientOrDie: "+err.Error(), color.Red))
-		os.Exit(1)
-	}
+	exit.OnError(err)
 	return *client
+}
+
+func GetCachedDiscoveryClientOrDie() discovery.CachedDiscoveryInterface {
+
+	client, err := config.ToDiscoveryClient()
+	exit.OnError(err)
+	return client
 }
 
 func HasResource(resource schema.GroupVersionResource) (bool, error) {

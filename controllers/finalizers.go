@@ -7,14 +7,25 @@ import (
 
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const specialresourceFinalizer = "finalizer.sro.openshift.io"
+
+var (
+	ns unstructured.Unstructured
+)
+
+func init() {
+	ns.SetKind("Namespace")
+	ns.SetAPIVersion("v1")
+}
 
 func reconcileFinalizers(r *SpecialResourceReconciler) error {
 	if contains(r.specialresource.GetFinalizers(), specialresourceFinalizer) {
@@ -79,6 +90,17 @@ func finalizeSpecialResource(r *SpecialResourceReconciler) error {
 	}
 	err := finalizeNodes(r, "specialresource.openshift.io/state-"+r.specialresource.Name)
 	warn.OnError(err)
+
+	if r.specialresource.Name != "special-resource-preamble" {
+
+		ns.SetName(r.specialresource.Name)
+		err := clients.Interface.Delete(context.TODO(), &ns)
+		if !apierrors.IsNotFound(err) {
+			warn.OnError(err)
+		}
+		err = poll.ForResourceUnavailability(&ns)
+		warn.OnError(err)
+	}
 
 	log.Info("Successfully finalized", "SpecialResource:", r.specialresource.Name)
 	return nil

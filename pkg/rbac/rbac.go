@@ -29,7 +29,7 @@ package rbac
 // +kubebuilder:rbac:groups=core,resources=persistentvolumes,verbs=get;list;watch;create;delete;update;patch
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=storage.k8s.io,resources=csinodes,verbs=get;list;watch
-// +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=watch
+// +kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=watch;get;list
 // +kubebuilder:rbac:groups=storage.k8s.io,resources=csidrivers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=endpoints,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
@@ -100,11 +100,11 @@ package rbac
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,resourceNames=cert-manager-controller,verbs=patch
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=mutatingwebhookconfigurations,verbs=create;get;list;watch;update;delete;patch
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=create;get;list;watch;update;delete;patch
-// +kubebuilder:rbac:groups=*,resources=cronjobs,verbs=get
+// +kubebuilder:rbac:groups=*,resources=cronjobs,verbs=get;delete;update;list;watch;patch
 // +kubebuilder:rbac:groups=*,resources=daemonsets,verbs=get
 // +kubebuilder:rbac:groups=*,resources=deployments,verbs=get
-// +kubebuilder:rbac:groups=*,resources=imagepolicies,verbs=get
-// +kubebuilder:rbac:groups=*,resources=jobs,verbs=get;create
+// +kubebuilder:rbac:groups=*,resources=imagepolicies,verbs=get;update;delete
+// +kubebuilder:rbac:groups=*,resources=jobs,verbs=get;create;delete;update;list;watch;patch
 // +kubebuilder:rbac:groups=*,resources=mutatingwebhookconfigurations,verbs=get
 // +kubebuilder:rbac:groups=*,resources=pods,verbs=get
 // +kubebuilder:rbac:groups=*,resources=replicacontrollers,verbs=get
@@ -112,10 +112,4 @@ package rbac
 // +kubebuilder:rbac:groups=*,resources=statefulsets,verbs=get
 // +kubebuilder:rbac:groups=connaisseur.policy,resources=imagepolicies,verbs=create
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io/v1beta1,resources=mutatingwebhookconfigurations,verbs=create;delete;update;list
-// +kubebuilder:rbac:groups="",resources=nodes/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=nodes/status,verbs=update;patch
-// +kubebuilder:rbac:groups="",resources=pods,verbs=deletecollection
-// +kubebuilder:rbac:groups="",resources=podtemplates,verbs=list;watch;get;create;update
-// +kubebuilder:rbac:groups="",resources=podtemplates/finalizers,verbs=update
-// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=list;watch;get;create;update;patch;delete
-// +kubebuilder:rbac:groups=extensions,resources=jobs,verbs=list;watch;get;create;update;patch;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=watch;list
