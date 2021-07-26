@@ -20,32 +20,35 @@ To update the CR one can run:
 VERSION=0.0.1 REPO=example SPECIALRESOURCE=multi-build make
 ```
 
-For this to work one has to create a `kustomization.yaml` that will be processed
-during a make run. One cannot just override one state, all states are
-read from one source (http, local, or ConfigMap). Here is an `kustomization.yaml` as an example from the
-`multi-build` recipe.
+```bash
+SPECIALRESOURCE=multi-build REPO=example VERSION=0.0.1 make chart
+```
 
-```yaml
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
+ConfigMap is a protocol handler to Helm. Charts can now also be indexed from a ConfigMap.
+The command above creates a CM with the chart embedded as binaryData.
 
-generatorOptions:
-  disableNameSuffixHash: true
+Update the CR to use `cm://` protocol handler in SRO. URL schema is
+`cm://<NAMESPACE>/<SPECIALRESOURCE>-chart`
 
-configMapGenerator:
-- files:
-  - templates/0000-buildconfig.yaml
-  - templates/1000-buildconfig.yaml
-  - templates/2000-imagesign.yaml
-  name: multi-build
-namespace: multi-build
+```yaml=
+ spec:
+  chart:
+    name: multi-build
+    repository:
+      caFile: ""
+      certFile: ""
+      insecure_skip_tls_verify: false
+      keyFile: ""
+      name: example
+      password: ""
+      url: cm://multi-build/multi-build-chart
 ```
 
 Another field was added to the CR, namely `debug` that can be set to true to get
 all the manifests, hooks and values printed on the console. Can be valuable for
 verifying if all `Values` are set and correclty interpreted.
 
-```yaml
+```yaml=
 apiVersion: sro.openshift.io/v1beta1
 kind: SpecialResource
 metadata:

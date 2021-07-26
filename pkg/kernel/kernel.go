@@ -36,7 +36,7 @@ func SetAffineAttributes(obj *unstructured.Unstructured,
 		exit.OnError(err)
 	}
 
-	if obj.GetKind() == "DaemonSet" {
+	if obj.GetKind() == "DaemonSet" || obj.GetKind() == "Deployment" || obj.GetKind() == "StatefulSet" {
 		err := unstructured.SetNestedField(obj.Object, name, "metadata", "labels", "app")
 		exit.OnError(err)
 		err = unstructured.SetNestedField(obj.Object, name, "spec", "selector", "matchLabels", "app")
@@ -55,7 +55,9 @@ func SetAffineAttributes(obj *unstructured.Unstructured,
 
 func SetVersionNodeAffinity(obj *unstructured.Unstructured, kernelFullVersion string) error {
 
-	if strings.Compare(obj.GetKind(), "DaemonSet") == 0 {
+	if strings.Compare(obj.GetKind(), "DaemonSet") == 0 ||
+		strings.Compare(obj.GetKind(), "Deployment") == 0 ||
+		strings.Compare(obj.GetKind(), "Statefulset") == 0 {
 		if err := versionNodeAffinity(kernelFullVersion, obj, "spec", "template", "spec", "nodeSelector"); err != nil {
 			return errors.Wrap(err, "Cannot setup DaemonSet kernel version affinity")
 		}

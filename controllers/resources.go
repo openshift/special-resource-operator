@@ -25,23 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func getChartTemplates(r *SpecialResourceReconciler) (*unstructured.Unstructured, error) {
-
-	log.Info("Looking for chart templates ConfigMap for")
-	cm := &unstructured.Unstructured{}
-	cm.SetAPIVersion("v1")
-	cm.SetKind("ConfigMap")
-
-	namespacedName := types.NamespacedName{Namespace: r.specialresource.Spec.Namespace, Name: r.specialresource.Name}
-	err := clients.Interface.Get(context.TODO(), namespacedName, cm)
-
-	if apierrors.IsNotFound(err) {
-		log.Info("SpecialResource chart templates ConfigMap not found, using local repository \"/charts\" for")
-		return nil, nil
-	}
-	return cm, nil
-}
-
 func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 
 	if found := slice.Contains(r.dependency.Tags, "image-puller"); !found {
@@ -53,13 +36,13 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 	rb.SetAPIVersion("rbac.authorization.k8s.io/v1")
 	rb.SetKind("RoleBinding")
 
-	namespacedName := types.NamespacedName{Namespace: r.specialresource.Spec.Namespace, Name: "system:image-puller"}
+	namespacedName := types.NamespacedName{Namespace: r.specialresource.Spec.Namespace, Name: "system:image-pullers"}
 	err := clients.Interface.Get(context.TODO(), namespacedName, rb)
 	if apierrors.IsNotFound(err) {
-		log.Info("Warning: ClusterRole system:image-puller not found. Can be ignored on vanilla k8s.")
+		log.Info("Warning: RoleBinding system:image-pullers not found. Can be ignored on vanilla k8s or when namespace is being created.")
 		return nil
 	} else if err != nil {
-		return errors.Wrap(err, "Error checking for image-puller clusterRole")
+		return errors.Wrap(err, "Error checking for image-pullers roleBinding")
 	}
 
 	newSubject := make(map[string]interface{})
@@ -152,13 +135,6 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 		} else {
 			nostate.Templates = append(nostate.Templates, template)
 		}
-	}
-
-	// If we have found a ConfigMap with the templates use this to populate
-	// the states otherwise use the templates from the chart directory
-	if templates != nil {
-		log.Info("Getting states from ConfigMap")
-		stateYAMLS = assets.FromConfigMap(templates)
 	}
 
 	sort.Slice(stateYAMLS, func(i, j int) bool {
@@ -312,7 +288,6 @@ metadata:
 // ReconcileChart Reconcile Hardware Configurations
 func ReconcileChart(r *SpecialResourceReconciler) error {
 
-	var err error
 	var templates *unstructured.Unstructured
 
 	// Leave this here, this is crucial for all following work
@@ -321,15 +296,6 @@ func ReconcileChart(r *SpecialResourceReconciler) error {
 	createSpecialResourceNamespace(r)
 	if err := createImagePullerRoleBinding(r); err != nil {
 		return errors.Wrap(err, "Could not create ImagePuller RoleBinding")
-	}
-
-	// Check if we have a ConfigMap deployed in the specialresrouce
-	// namespace if not fallback to the local repository.
-	// ConfigMap can be used to overrride the local repository templates
-	// for testing.
-	log.Info("Getting chart templates from ConfigMap")
-	if templates, err = getChartTemplates(r); err != nil {
-		return errors.Wrap(err, "Cannot get ConfigMap with chart templates")
 	}
 
 	if err := ReconcileChartStates(r, templates); err != nil {
