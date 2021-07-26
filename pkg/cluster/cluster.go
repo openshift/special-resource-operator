@@ -87,7 +87,7 @@ func VersionHistory() ([]string, error) {
 
 func OSImageURL() (string, error) {
 
-	machineConfigAvailable, err := clients.HasResource(machinev1.SchemeGroupVersion.WithResource("proxies"))
+	machineConfigAvailable, err := clients.HasResource(machinev1.SchemeGroupVersion.WithResource("machineconfigs"))
 	if err != nil {
 		return "", errors.Wrap(err, "Error discovering machineconfig API resource")
 	}

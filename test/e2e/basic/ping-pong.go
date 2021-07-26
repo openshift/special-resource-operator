@@ -11,11 +11,13 @@ import (
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
+	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"github.com/openshift-psap/special-resource-operator/test/framework"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -105,13 +107,35 @@ func checkPingPong(cs *framework.ClientSet, cl client.Client) {
 }
 
 func specialResourceDelete(cs *framework.ClientSet, cl client.Client, path string) {
-
-	ginkgo.By("deleting ping-pong")
+	SRName := "ping-pong"
+	ginkgo.By("deleting " + SRName)
 	sr, err := ioutil.ReadFile(path)
 	if err != nil {
 		panic(err)
 	}
 	framework.DeleteFromYAMLWithCR(sr, cl)
+
+	ginkgo.By(fmt.Sprintf("Confirming %s is deleted", SRName))
+	err = wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
+		specialresources := &srov1beta1.SpecialResourceList{}
+		err = cl.List(context.TODO(), specialresources, []client.ListOption{}...)
+		if err != nil {
+			return false, fmt.Errorf("couldn't get SpecialResourceList: %v", err)
+		}
+
+		for _, n := range specialresources.Items {
+			if n.ObjectMeta.Name == SRName {
+				return false, nil
+			}
+		}
+
+		return true, nil
+
+	})
+	if err != nil {
+		explain = err.Error()
+	}
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
 }
 
 func specialResourceCreate(cs *framework.ClientSet, cl client.Client, path string) {
