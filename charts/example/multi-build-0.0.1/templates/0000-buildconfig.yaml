@@ -42,4 +42,4 @@ spec:
   output:
     to:
       kind: ImageStreamTag
-      name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}:v{{.Values.kernelFullVersion}}
+      name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}-current:v{{.Values.kernelFullVersion}}

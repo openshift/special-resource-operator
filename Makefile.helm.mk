@@ -12,7 +12,7 @@ helm-lint: helm
 helm-repo-index: helm-lint
 	@for repo in $(HELM_REPOS); do                          \
 		cd $$repo;                              \
-		helm package `ls -d */`;                       \
+		helm package `ls -d */` >/dev/null;                      \
 		helm repo index . --url=file:///$$repo; \
 		cd ../..;                                      \
 	done

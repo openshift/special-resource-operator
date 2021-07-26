@@ -115,19 +115,21 @@ func UpdateResourceVersion(req *unstructured.Unstructured, found *unstructured.U
 
 func SetNodeSelectorTerms(obj *unstructured.Unstructured, terms map[string]string) error {
 
-	if strings.Compare(obj.GetKind(), "DaemonSet") == 0 {
+	if strings.Compare(obj.GetKind(), "DaemonSet") == 0 ||
+		strings.Compare(obj.GetKind(), "Deployment") == 0 ||
+		strings.Compare(obj.GetKind(), "Statefulset") == 0 {
 		if err := nodeSelectorTerms(terms, obj, "spec", "template", "spec", "nodeSelector"); err != nil {
-			return errors.Wrap(err, "Cannot setup DaemonSet kernel version affinity")
+			return errors.Wrap(err, "Cannot setup "+obj.GetKind()+" nodeSelector")
 		}
 	}
 	if strings.Compare(obj.GetKind(), "Pod") == 0 {
 		if err := nodeSelectorTerms(terms, obj, "spec", "nodeSelector"); err != nil {
-			return errors.Wrap(err, "Cannot setup Pod kernel version affinity")
+			return errors.Wrap(err, "Cannot setup Pod nodeSelector")
 		}
 	}
 	if strings.Compare(obj.GetKind(), "BuildConfig") == 0 {
 		if err := nodeSelectorTerms(terms, obj, "spec", "nodeSelector"); err != nil {
-			return errors.Wrap(err, "Cannot setup BuildConfig kernel version affinity")
+			return errors.Wrap(err, "Cannot setup BuildConfig nodeSelector")
 		}
 	}
 

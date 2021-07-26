@@ -273,10 +273,10 @@ func Run(ch chart.Chart, vals map[string]interface{},
 	rel, err := install.Run(&ch, vals)
 	exit.OnError(err)
 
-	json, err := json.MarshalIndent(vals, "", " ")
-	exit.OnError(err)
-
 	if debug {
+		json, err := json.MarshalIndent(vals, "", " ")
+		exit.OnError(err)
+
 		fmt.Printf("--------------------------------------------------------------------------------\n")
 		fmt.Printf("\"%s\"\n", json)
 		fmt.Printf("--------------------------------------------------------------------------------\n")

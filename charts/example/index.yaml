@@ -3,9 +3,9 @@ entries:
   centos-simple-kmod:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2021-07-21T12:48:08.378211182Z"
+    created: "2021-07-26T10:13:44.605323847Z"
     description: Simple kmod will deploy a simple kmod driver-container
-    digest: 56d7c45aa3583b1ffbce46d143f9c07f05e2bdd822b82caf675474c61e0057a0
+    digest: 50c9b2a76f6fa339ff8f507ba86cca4bce2a78bd7e133a259c45af42e70d0abc
     icon: https://avatars.githubusercontent.com/u/55542927
     name: centos-simple-kmod
     type: application
@@ -15,9 +15,9 @@ entries:
   connaisseur:
   - apiVersion: v2
     appVersion: 1.16.0
-    created: "2021-07-21T12:48:08.3790311Z"
+    created: "2021-07-26T10:13:44.606136455Z"
     description: A Helm chart for the Connaisseur Admission Controller
-    digest: d5189783d063cf3f06e8cb001cb9b1a75788dd593799ef4f27ce7d9c015635e6
+    digest: 02aef7de77adc2455c30d647d8d8007607d324ea6c4fa6937268f7e4707af853
     name: connaisseur
     type: application
     urls:
@@ -26,9 +26,9 @@ entries:
   multi-build:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2021-07-21T12:48:08.379266705Z"
+    created: "2021-07-26T10:13:44.60635171Z"
     description: Showcase how to use multiple Builds with different DTKs
-    digest: 3ec4a1b7768b06d7d6376c44465e37a467ab34993e0ff9beedf0ac544573ae7a
+    digest: 05edb1ed4efc983208946ddcf954d68fd8db5441e19202de69dae7c26b3761a2
     icon: https://avatars.githubusercontent.com/u/55542927
     name: multi-build
     type: application
@@ -38,9 +38,9 @@ entries:
   ping-pong:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2021-07-21T12:48:08.379564272Z"
+    created: "2021-07-26T10:13:44.606640197Z"
     description: Simple go app to showcase cert-manager intergration
-    digest: bafd343632f6a1336521e3dfa9f91c3cc9daacc937102798f1b38930fb495fb9
+    digest: 9857b1bc097ac557e7d462fc4eaa6fbf15f709b4359e2bb5dbf14b610d0f9787
     icon: https://avatars.githubusercontent.com/u/55542927
     name: ping-pong
     type: application
@@ -50,13 +50,13 @@ entries:
   simple-kmod:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2021-07-21T12:48:08.379752146Z"
+    created: "2021-07-26T10:13:44.60679007Z"
     description: Simple kmod will deploy a simple kmod driver-container
-    digest: 897a98bd7df3d1e42abefd5f8309b3ad60cd07690d736be52fe1fb8be2fec331
+    digest: d3871345035294a4813c32a866fc7fa6d0126cb6752964bab0fee48ae484ed41
     icon: https://avatars.githubusercontent.com/u/55542927
     name: simple-kmod
     type: application
     urls:
     - file:///charts/example/simple-kmod-0.0.1.tgz
     version: 0.0.1
-generated: "2021-07-21T12:48:08.377914905Z"
+generated: "2021-07-26T10:13:44.60503455Z"
