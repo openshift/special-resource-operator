@@ -11,32 +11,15 @@ metadata:
             "name": "simple-kmod"
           },
           "spec": {
-            "configuration": [
-              {
-                "name": "KMOD_NAMES",
-                "value": [
-                  "simple-kmod",
-                  "simple-procfs-kmod"
-                ]
-              }
-            ],
-            "dependsOn": [
-              {
-                "imageReference": "true",
-                "name": "driver-container-base"
-              }
-            ],
+            "chart": {
+              "name": "simple-kmod",
+              "repository": {
+                "name": "example",
+                "url": "file:///charts/example"
+              },
+              "version": "0.0.1"
+            },
             "driverContainer": {
-              "buildArgs": [
-                {
-                  "name": "KVER",
-                  "value": "{{.Values.kernelFullVersion}}"
-                },
-                {
-                  "name": "KMODVER",
-                  "value": "SRO"
-                }
-              ],
               "source": {
                 "git": {
                   "ref": "master",
@@ -44,7 +27,21 @@ metadata:
                 }
               }
             },
-            "namespace": "simple-kmod"
+            "namespace": "simple-kmod",
+            "set": {
+              "apiVersion": "sro.openshift.io/v1beta1",
+              "buildArgs": [
+                {
+                  "name": "KMODVER",
+                  "value": "SRO"
+                }
+              ],
+              "kind": "Values",
+              "kmodNames": [
+                "simple-kmod",
+                "simple-procfs-kmod"
+              ]
+            }
           }
         }
       ]
