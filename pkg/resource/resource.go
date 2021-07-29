@@ -392,7 +392,6 @@ func SetMetaData(obj *unstructured.Unstructured, nm string, ns string) {
 	labels["app.kubernetes.io/managed-by"] = "Helm"
 
 	obj.SetLabels(labels)
-
 }
 
 type resourceCallbacks map[string]func(obj *unstructured.Unstructured, sr interface{}) error
