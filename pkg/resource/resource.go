@@ -372,17 +372,26 @@ func rebuildDriverContainer(obj *unstructured.Unstructured) error {
 
 func SetMetaData(obj *unstructured.Unstructured, nm string, ns string) {
 
-	helm := obj.GetAnnotations()
+	annotations := obj.GetAnnotations()
 
-	if helm == nil {
-		helm = make(map[string]string)
+	if annotations == nil {
+		annotations = make(map[string]string)
 	}
 
-	helm["meta.helm.sh/release-name"] = nm
-	helm["meta.helm.sh/release-namespace"] = ns
+	annotations["meta.helm.sh/release-name"] = nm
+	annotations["meta.helm.sh/release-namespace"] = ns
 
-	obj.SetAnnotations(helm)
+	obj.SetAnnotations(annotations)
 
+	labels := obj.GetLabels()
+
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	labels["app.kubernetes.io/managed-by"] = "Helm"
+
+	obj.SetLabels(labels)
 }
 
 type resourceCallbacks map[string]func(obj *unstructured.Unstructured, sr interface{}) error
