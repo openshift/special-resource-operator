@@ -113,3 +113,10 @@ package rbac
 // +kubebuilder:rbac:groups=connaisseur.policy,resources=imagepolicies,verbs=create
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io/v1beta1,resources=mutatingwebhookconfigurations,verbs=create;delete;update;list
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=watch;list
+// +kubebuilder:rbac:groups="",resources=nodes/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=nodes/status,verbs=update;patch
+// +kubebuilder:rbac:groups="",resources=pods,verbs=deletecollection
+// +kubebuilder:rbac:groups="",resources=podtemplates,verbs=list;watch;get;create;update
+// +kubebuilder:rbac:groups="",resources=podtemplates/finalizers,verbs=update
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=list;watch;get;create;update;patch;delete
+// +kubebuilder:rbac:groups=extensions,resources=jobs,verbs=list;watch;get;create;update;patch;delete
