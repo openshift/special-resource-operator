@@ -1,0 +1,38 @@
+apiVersion: sro.openshift.io/v1beta1
+kind: SpecialResource
+metadata:
+  name: fpga-operator
+spec:
+  chart:
+    name: fpga-operator
+    version: 2.0.1
+    repository:
+      name: inaccel
+      url: cm://inaccel-fpga-operator/fpga-operator-chart
+  namespace: inaccel-fpga-operator
+  nodeSelector:
+    feature.node.kubernetes.io/pci-1d0f.present: "true"
+
+  set:
+    kind: Values
+    apiVersion: sro.openshift.io/v1beta1
+    coral:
+      image: inaccel/coral
+      pullPolicy: Always
+      # resources: ...
+      # tag: ...
+    license: 599196-B9FFA3-06D914-E4CB28-1A904A-V3
+    monitor:
+      image: inaccel/monitor
+      # port: ...
+      # pullPolicy: ...
+      # resources: ...
+      tag: latest
+      # nodeSelector: feature.node.kubernetes.io/pci-1d0f.present=true
+  dependencies:
+  - chart:
+      name: fpga-xrt-driver
+      version: 4.7.11
+      repository:
+        name: xilinx
+        url: file:///charts/xilinx/
