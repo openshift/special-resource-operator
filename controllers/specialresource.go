@@ -118,6 +118,7 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 		if err := ReconcileSpecialResourceChart(r, child, cchart, r.dependency.Set); err != nil {
 			// We do not want a stacktrace here, errors.Wrap already created
 			// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
+			operatorStatusUpdate(&child, fmt.Sprintf("%v", err))
 			log.Info("RECONCILE REQUEUE: Could not reconcile chart", "error", fmt.Sprintf("%v", err))
 			//return reconcile.Result{}, errors.New("Reconciling failed")
 			return reconcile.Result{Requeue: true}, nil
@@ -129,6 +130,7 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 	if err := ReconcileSpecialResourceChart(r, r.parent, pchart, r.parent.Spec.Set); err != nil {
 		// We do not want a stacktrace here, errors.Wrap already created
 		// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
+		operatorStatusUpdate(&r.parent, fmt.Sprintf("%v", err))
 		log.Info("RECONCILE REQUEUE: Could not reconcile chart", "error", fmt.Sprintf("%v", err))
 		//return reconcile.Result{}, errors.New("Reconciling failed")
 		return reconcile.Result{Requeue: true}, nil
@@ -162,8 +164,7 @@ func TemplateFragmentOrDie(sr interface{}) {
 	err = t.Execute(&buff, values)
 	exit.OnError(err)
 
-	text := buff.Bytes()
-	err = json.Unmarshal(text, sr)
+	err = json.Unmarshal(buff.Bytes(), sr)
 	exit.OnError(err)
 }
 
@@ -184,8 +185,37 @@ func ReconcileSpecialResourceChart(r *SpecialResourceReconciler, sr srov1beta1.S
 	getRuntimeInformation(r)
 	logRuntimeInformation()
 
+	for idx, dep := range r.specialresource.Spec.Dependencies {
+		if dep.Set.Object == nil {
+			dep.Set.Object = make(map[string]interface{})
+		}
+		err = unstructured.SetNestedField(dep.Set.Object, "Values", "kind")
+		exit.OnError(err)
+		err = unstructured.SetNestedField(dep.Set.Object, "sro.openshift.io/v1beta1", "apiVersion")
+		exit.OnError(err)
+
+		r.specialresource.Spec.Dependencies[idx] = dep
+	}
+
+	if r.specialresource.Spec.Set.Object == nil {
+		r.specialresource.Spec.Set.Object = make(map[string]interface{})
+	}
+
+	err = unstructured.SetNestedField(r.specialresource.Spec.Set.Object, "Values", "kind")
+	exit.OnError(err)
+	err = unstructured.SetNestedField(r.specialresource.Spec.Set.Object, "sro.openshift.io/v1beta1", "apiVersion")
+	exit.OnError(err)
+
 	TemplateFragmentOrDie(&r.specialresource)
 	r.specialresource.DeepCopyInto(&RunInfo.SpecialResource)
+
+	if r.values.Object == nil {
+		r.values.Object = make(map[string]interface{})
+	}
+	err = unstructured.SetNestedField(r.values.Object, "Values", "kind")
+	exit.OnError(err)
+	err = unstructured.SetNestedField(r.values.Object, "sro.openshift.io/v1beta1", "apiVersion")
+	exit.OnError(err)
 
 	TemplateFragmentOrDie(&r.values)
 

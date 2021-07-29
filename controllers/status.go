@@ -20,19 +20,19 @@ import (
 )
 
 // Operator Status
-func operatorStatusUpdate(r *SpecialResourceReconciler, state string) {
+func operatorStatusUpdate(sr *srov1beta1.SpecialResource, state string) {
 
-	r.specialresource.Status.State = state
+	sr.Status.State = state
 
-	err := clients.Interface.Status().Update(context.TODO(), &r.specialresource)
+	err := clients.Interface.Status().Update(context.TODO(), sr)
 	if apierrors.IsConflict(err) {
-		sr := types.NamespacedName{Name: r.specialresource.Name, Namespace: ""}
-		err := clients.Interface.Get(context.TODO(), sr, &r.specialresource)
+		objectKey := types.NamespacedName{Name: sr.Name, Namespace: ""}
+		err := clients.Interface.Get(context.TODO(), objectKey, sr)
 		if apierrors.IsNotFound(err) {
 			return
 		}
 		// Do not update the status if we're in the process of being deleted
-		isMarkedToBeDeleted := r.specialresource.GetDeletionTimestamp() != nil
+		isMarkedToBeDeleted := sr.GetDeletionTimestamp() != nil
 		if isMarkedToBeDeleted {
 			return
 		}

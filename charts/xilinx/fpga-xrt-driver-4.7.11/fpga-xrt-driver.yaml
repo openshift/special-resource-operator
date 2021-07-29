@@ -7,7 +7,7 @@ spec:
     name: fpga-xrt-driver
     repository:
       name: example
-      url: file:///charts/xilinx
+      url: cm://fpga-xrt-driver/fpga-xrt-driver-chart
     version: 4.7.11
   namespace: fpga-xrt-driver
   nodeSelector:
