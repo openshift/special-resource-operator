@@ -27,7 +27,7 @@ type SpecialResourceImages struct {
 	Name       string                 `json:"name"`
 	Kind       string                 `json:"kind"`
 	Namespace  string                 `json:"namespace"`
-	PullSecret string                 `json:"pullsecret"`
+	PullSecret string                 `json:"pullsecret,omitempty"`
 	Paths      []SpecialResourcePaths `json:"path"`
 }
 

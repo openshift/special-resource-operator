@@ -184,7 +184,6 @@ spec:
                           - name
                           - namespace
                           - path
-                          - pullsecret
                           type: object
                         type: array
                     type: object
