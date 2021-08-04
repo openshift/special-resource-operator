@@ -89,7 +89,9 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 	log.Info("Resolving Dependencies")
 
 	pchart, err := helmer.Load(r.parent.Spec.Chart)
-	exit.OnError(err)
+	if err != nil {
+		return reconcile.Result{Requeue: true}, err
+	}
 
 	// Only one level dependency support for now
 	for _, r.dependency = range r.parent.Spec.Dependencies {

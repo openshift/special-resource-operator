@@ -28,7 +28,7 @@ spec:
       # pullPolicy: ...
       # resources: ...
       tag: latest
-      # nodeSelector: feature.node.kubernetes.io/pci-1d0f.present=true
+    ##nodeSelector: feature.node.kubernetes.io/pci-1d0f.present=true
   dependencies:
   - chart:
       name: fpga-xrt-driver

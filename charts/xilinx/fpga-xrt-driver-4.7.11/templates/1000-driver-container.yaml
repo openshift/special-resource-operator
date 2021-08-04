@@ -68,6 +68,26 @@ spec:
               command: ["/bin/sh", "-c", "systemctl stop kmods-via-containers@simple-kmod"]
         securityContext:
           privileged: true
+        volumeMounts:
+        - mountPath: /dev
+          name: dev
+          mountPropagation: Bidirectional
+        - mountPath: /sys
+          name: sys
+        - mountPath: /etc/inaccel
+          name: inaccel
+          mountPropagation: Bidirectional
+      volumes:
+      - hostPath:
+          path: /dev
+        name: dev
+      - hostPath:
+          path: /sys
+        name: sys
+      - hostPath:
+          path: /etc/inaccel
+          type: DirectoryOrCreate
+        name: inaccel
       nodeSelector:
         node-role.kubernetes.io/worker: ""
         feature.node.kubernetes.io/kernel-version.full: "{{.Values.KernelFullVersion}}"

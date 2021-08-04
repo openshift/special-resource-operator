@@ -8,5 +8,5 @@ roleRef:
   name: {{ .Chart.Name }}
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: {{ .Chart.Name }}
   namespace: {{ .Release.Namespace }} #kube-system

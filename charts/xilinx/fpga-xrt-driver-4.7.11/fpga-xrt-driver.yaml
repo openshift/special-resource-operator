@@ -14,9 +14,11 @@ spec:
     feature.node.kubernetes.io/pci-1d0f.present: "true"
     node.kubernetes.io/instance-type: f1.2xlarge
 
+
   set:
     kind: Values
     apiVersion: sro.openshift.io/v1beta1
+    blub: bla
 
   driverContainer:
     source:
