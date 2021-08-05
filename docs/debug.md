@@ -7,7 +7,7 @@ To create the states in the template directory as a CM we can run the
 following:
 
 ```bash
-VERSION=0.0.1 REPO=example SPECIALRESOURCE=multi-build make assets
+VERSION=0.0.1 REPO=example SPECIALRESOURCE=multi-build make chart
 ```
 
 This command will create a CM with all the states and SRO will use them in the
@@ -17,11 +17,11 @@ development without rebuilding SRO.
 To update the CR one can run:
 
 ```bash
-VERSION=0.0.1 REPO=example SPECIALRESOURCE=multi-build make
+SPECIALRESOURCE=multi-build REPO=example VERSION=0.0.1 make chart
 ```
 
 ```bash
-SPECIALRESOURCE=multi-build REPO=example VERSION=0.0.1 make chart
+VERSION=0.0.1 REPO=example SPECIALRESOURCE=multi-build make
 ```
 
 ConfigMap is a protocol handler to Helm. Charts can now also be indexed from a ConfigMap.

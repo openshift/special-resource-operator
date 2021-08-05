@@ -28,8 +28,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}
-userNames:
-- system:serviceaccount:{{.Values.specialresource.spec.namespace}}:{{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}
+  namespace: {{.Values.specialresource.spec.namespace}}
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -69,6 +68,26 @@ spec:
               command: ["/bin/sh", "-c", "systemctl stop kmods-via-containers@simple-kmod"]
         securityContext:
           privileged: true
+        volumeMounts:
+        - mountPath: /dev
+          name: dev
+          mountPropagation: Bidirectional
+        - mountPath: /sys
+          name: sys
+        - mountPath: /etc/inaccel
+          name: inaccel
+          mountPropagation: Bidirectional
+      volumes:
+      - hostPath:
+          path: /dev
+        name: dev
+      - hostPath:
+          path: /sys
+        name: sys
+      - hostPath:
+          path: /etc/inaccel
+          type: DirectoryOrCreate
+        name: inaccel
       nodeSelector:
         node-role.kubernetes.io/worker: ""
         feature.node.kubernetes.io/kernel-version.full: "{{.Values.KernelFullVersion}}"

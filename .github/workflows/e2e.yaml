@@ -60,7 +60,7 @@ jobs:
         openshift_password: ${{ secrets.OPENSHIFT_PASSWORD }}
         insecure_skip_tls_verify: true
         namespace: default
-    - run: make deploy
+    - run: TAG=master make deploy
     - run: make undeploy
     - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make go-deploy-manifests
     - run: make test-e2e

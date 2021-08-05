@@ -8,6 +8,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
+	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 	"github.com/pkg/errors"
@@ -20,19 +21,30 @@ import (
 )
 
 // Operator Status
-func operatorStatusUpdate(r *SpecialResourceReconciler, state string) {
+func operatorStatusUpdate(sr *srov1beta1.SpecialResource, state string) {
 
-	r.specialresource.Status.State = state
+	update := srov1beta1.SpecialResource{}
 
-	err := clients.Interface.Status().Update(context.TODO(), &r.specialresource)
+	// If we cannot find the SR than something bad is going on ..
+	objectKey := types.NamespacedName{Name: sr.GetName(), Namespace: sr.GetNamespace()}
+	err := clients.Interface.Get(context.TODO(), objectKey, &update)
+	if err != nil {
+		warn.OnError(errors.Wrap(err, "Is SR being deleted? Cannot get current instance"))
+		return
+	}
+
+	update.Status.State = state
+	update.DeepCopyInto(sr)
+
+	err = clients.Interface.Status().Update(context.TODO(), sr)
 	if apierrors.IsConflict(err) {
-		sr := types.NamespacedName{Name: r.specialresource.Name, Namespace: ""}
-		err := clients.Interface.Get(context.TODO(), sr, &r.specialresource)
+		objectKey := types.NamespacedName{Name: sr.Name, Namespace: ""}
+		err := clients.Interface.Get(context.TODO(), objectKey, sr)
 		if apierrors.IsNotFound(err) {
 			return
 		}
 		// Do not update the status if we're in the process of being deleted
-		isMarkedToBeDeleted := r.specialresource.GetDeletionTimestamp() != nil
+		isMarkedToBeDeleted := sr.GetDeletionTimestamp() != nil
 		if isMarkedToBeDeleted {
 			return
 		}

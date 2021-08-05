@@ -120,8 +120,10 @@ func Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 		InsecureSkipTLSverify: spec.Repository.InsecureSkipTLSverify,
 	}
 
-	err := AddorUpdateRepo(entry)
-	exit.OnError(err)
+	if err := AddorUpdateRepo(entry); err != nil {
+		warn.OnError(err)
+		return nil, err
+	}
 
 	act := action.ChartPathOptions{
 		CaFile:                "",
@@ -140,7 +142,9 @@ func Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 	repoChartName := entry.Name + "/" + spec.Name
 	log.Info("Locating", "chart", repoChartName)
 
+	var err error
 	var path string
+
 	if path, err = act.LocateChart(repoChartName, settings); err != nil {
 		return nil, errors.Wrap(err, "Could not locate chart: "+repoChartName)
 	}
@@ -230,7 +234,10 @@ func Run(ch chart.Chart, vals map[string]interface{},
 	}
 
 	rel, err := install.Run(&ch, vals)
-	exit.OnError(err)
+	if err != nil {
+		warn.OnError(err)
+		return err
+	}
 
 	if debug {
 		json, err := json.MarshalIndent(vals, "", " ")

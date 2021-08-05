@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -93,13 +94,26 @@ func finalizeSpecialResource(r *SpecialResourceReconciler) error {
 
 	if r.specialresource.Name != "special-resource-preamble" {
 
-		ns.SetName(r.specialresource.Name)
-		err := clients.Interface.Delete(context.TODO(), &ns)
-		if !apierrors.IsNotFound(err) {
-			warn.OnError(err)
+		ns.SetName(r.specialresource.Spec.Namespace)
+		key := client.ObjectKeyFromObject(&ns)
+
+		err := clients.Interface.Get(context.TODO(), key, &ns)
+		if apierrors.IsNotFound(err) {
+			log.Info("Successfully finalized (IsNotFound)", "SpecialResource:", r.specialresource.Name)
+			return nil
 		}
-		err = poll.ForResourceUnavailability(&ns)
-		warn.OnError(err)
+
+		for _, owner := range ns.GetOwnerReferences() {
+			if owner.Kind == "SpecialResource" {
+				log.Info("Namespaces is owned by SpecialResource deleting")
+				err = clients.Interface.Delete(context.TODO(), &ns)
+				if !apierrors.IsNotFound(err) {
+					warn.OnError(err)
+				}
+				err = poll.ForResourceUnavailability(&ns)
+				warn.OnError(err)
+			}
+		}
 	}
 
 	log.Info("Successfully finalized", "SpecialResource:", r.specialresource.Name)
