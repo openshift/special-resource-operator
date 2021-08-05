@@ -15,6 +15,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
+	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
@@ -226,7 +227,7 @@ func noop() error {
 	return nil
 }
 
-func createSpecialResourceFrom(r *SpecialResourceReconciler, ch *chart.Chart, dp helmer.HelmChart) error {
+func createSpecialResourceFrom(r *SpecialResourceReconciler, ch *chart.Chart, dp helmerv1beta1.HelmChart) error {
 
 	vals := unstructured.Unstructured{}
 	vals.SetKind("Values")

@@ -17,9 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
+	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 )
 
 // SpecialResourceImages defines the observed state of SpecialResource
@@ -87,7 +88,7 @@ type SpecialResourceDriverContainer struct {
 // SpecialResourceSpec defines the desired state of SpecialResource
 type SpecialResourceSpec struct {
 	// +kubebuilder:validation:Required
-	Chart helmer.HelmChart `json:"chart"`
+	Chart helmerv1beta1.HelmChart `json:"chart"`
 	// +kubebuilder:validation:Required
 	Namespace string `json:"namespace"`
 	// +kubebuilder:validation:Optional
@@ -108,7 +109,7 @@ type SpecialResourceSpec struct {
 
 // SpecialResourceDependency a dependent helm chart
 type SpecialResourceDependency struct {
-	helmer.HelmChart `json:"chart,omitempty"`
+	helmerv1beta1.HelmChart `json:"chart,omitempty"`
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:EmbeddedResource
