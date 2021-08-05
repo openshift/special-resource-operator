@@ -55,7 +55,7 @@ spec:
           value: 0.0.1-snapshot
         - name: SSL_CERT_DIR
           value: /etc/pki/tls/certs
-        image: quay.io/openshift-psap/special-resource-operator:chart-as-asset
+        image: quay.io/openshift-psap/special-resource-operator:supported-arches
         imagePullPolicy: Always
         name: manager
         resources:

@@ -7,6 +7,41 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - nodes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - nodes/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - deletecollection
+- apiGroups:
+  - ""
+  resources:
+  - podtemplates
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - podtemplates/finalizers
+  verbs:
+  - update
+- apiGroups:
   - '*'
   resources:
   - cronjobs
@@ -253,7 +288,12 @@ rules:
   resources:
   - jobs
   verbs:
+  - create
+  - delete
+  - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - build.openshift.io
@@ -669,6 +709,18 @@ rules:
   - csi.storage.k8s.io
   resources:
   - csidrivers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - extensions
+  resources:
+  - jobs
   verbs:
   - create
   - delete

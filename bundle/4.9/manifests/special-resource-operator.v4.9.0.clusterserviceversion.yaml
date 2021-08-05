@@ -50,6 +50,8 @@ metadata:
     description: The special resource operator is an orchestrator for resources in a cluster required to deploy special hardware and software. Examples include hardware accelerators or software defined storage, where extra management or kernel modules are needed.
     operators.operatorframework.io/builder: operator-sdk-v1.2.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
+  labels:
+    operatorframework.io/arch.amd64: supported
   name: special-resource-operator.v4.9.0
   namespace: placeholder
 spec:
@@ -76,6 +78,41 @@ spec:
     spec:
       clusterPermissions:
       - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - nodes/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - nodes/status
+          verbs:
+          - patch
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - deletecollection
+        - apiGroups:
+          - ""
+          resources:
+          - podtemplates
+          verbs:
+          - create
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - podtemplates/finalizers
+          verbs:
+          - update
         - apiGroups:
           - '*'
           resources:
@@ -323,7 +360,12 @@ spec:
           resources:
           - jobs
           verbs:
+          - create
+          - delete
+          - get
           - list
+          - patch
+          - update
           - watch
         - apiGroups:
           - build.openshift.io
@@ -739,6 +781,18 @@ spec:
           - csi.storage.k8s.io
           resources:
           - csidrivers
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - extensions
+          resources:
+          - jobs
           verbs:
           - create
           - delete
