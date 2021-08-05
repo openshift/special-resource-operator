@@ -49,6 +49,8 @@ func init() {
 	waitFor["Job"] = ForJob
 	waitFor["Deployment"] = ForDeployment
 	waitFor["StatefulSet"] = ForStatefulSet
+	waitFor["Namespace"] = ForResourceAvailability
+	waitFor["Certificates"] = ForResourceAvailability
 
 	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("wait", color.Brown))
 }

@@ -70,14 +70,14 @@ func (g *ConfigMapGetter) Get(href string, option ...Option) (*bytes.Buffer, err
 	namespacedName := strings.TrimPrefix(href, "cm://")
 	s := strings.Split(namespacedName, "/")
 	if len(s) < 3 {
-		return nil, errors.New("Malformed cm:// URL, cm://<NAMESPACE>/<NAME>/<ITEM>")
+		return nil, errors.New("Malformed cm:// URL, cm://<NAMESPACE>/<NAME>")
 	}
 
 	opts := metav1.GetOptions{}
 
 	chart, err := g.kc.CoreV1().ConfigMaps(s[0]).Get(context.TODO(), s[1], opts)
 	if err != nil {
-		panic(err)
+		return nil, errors.New(fmt.Sprintf("Cannot find ConfigMap with provided URL: cm://%s/%s", s[0], s[1]))
 	}
 
 	asciiData := chart.Data
@@ -91,8 +91,7 @@ func (g *ConfigMapGetter) Get(href string, option ...Option) (*bytes.Buffer, err
 		return bytes.NewBuffer([]byte(asciiData["index.yaml"])), nil
 	}
 
-	for k, v := range binaryData {
-		fmt.Printf("Found chart tgz %s\n", k)
+	for _, v := range binaryData {
 		return bytes.NewBuffer(v), nil
 	}
 
