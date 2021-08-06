@@ -16,7 +16,6 @@ metadata:
   annotations:
      specialresource.openshift.io/wait: "true"
 spec:
-  serviceAccount: {{.Values.specialresource.metadata.name}}-fencing
   commonName: {{.Values.specialresource.metadata.name}}-vxfen
   secretName: vxfen-tls-cert
   duration: 8760h # 365d
