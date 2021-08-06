@@ -16,6 +16,13 @@ metadata:
 
 {{- if eq .Values.runArgs.platform "openshift-container-platform" }}
 #Custom SCC to allow hostNetwork
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: true
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
 apiVersion: security.openshift.io/v1
 kind: SecurityContextConstraints
 metadata:
@@ -23,7 +30,7 @@ metadata:
     kubernetes.io/description: Custom SCC for host network access
     release.openshift.io/create-only: "true"
   name: infoscale-kubefencing-scc
-allowHostNetwork: true
+readOnlyRootFilesystem: false
 runAsUser:
   type: RunAsAny
 seLinuxContext:
@@ -189,6 +196,13 @@ spec:
 
 {{- if eq .Values.runArgs.platform "openshift-container-platform" }}
 #SCC for fencing service account
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: false
+allowPrivilegedContainer: false
 apiVersion: security.openshift.io/v1
 kind: SecurityContextConstraints
 metadata:
@@ -196,6 +210,7 @@ metadata:
     kubernetes.io/description: Custom SCC for volume access
     release.openshift.io/create-only: "true"
   name: infoscale-fencing-scc
+readOnlyRootFilesystem: false
 runAsUser:
   type: RunAsAny
 seLinuxContext:
