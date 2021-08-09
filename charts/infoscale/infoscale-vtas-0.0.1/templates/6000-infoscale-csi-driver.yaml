@@ -33,8 +33,6 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
-userNames:
-- system:serviceaccount:{{.Values.specialresource.spec.namespace}}:{{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-node
 
 ---
 {{- end }}
@@ -74,8 +72,6 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
-userNames:
-- system:serviceaccount:{{.Values.specialresource.spec.namespace}}:{{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
 
 ---
 {{- end }}
@@ -267,6 +263,7 @@ spec:
   selector:
     matchLabels:
       app: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.csiDriver}}-controller
+  serviceName: "csi-infoscale"
   template:
     metadata:
       labels:

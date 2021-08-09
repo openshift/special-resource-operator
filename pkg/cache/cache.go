@@ -6,6 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
+	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,20 +49,63 @@ func Nodes(matchingLabels map[string]string, force bool) error {
 	Node.List.SetAPIVersion("v1")
 	Node.List.SetKind("NodeList")
 
+	// First check if we have nodeSelectors set and only include those nodes
+	// Otherwise select all nodes without NoExecute and NoSchedule taint.
 	opts := []client.ListOption{}
-
-	// Only filter if we have a selector set, otherwise zero nodes will be
-	// returned and no labels can be extracted. Set the default worker label
-	// otherwise.
 	if len(matchingLabels) > 0 {
 		opts = append(opts, client.MatchingLabels(matchingLabels))
-	} else {
-		opts = append(opts, client.MatchingLabels{"node-role.kubernetes.io/worker": ""})
 	}
 
-	err := clients.Interface.List(context.TODO(), Node.List, opts...)
+	var list unstructured.UnstructuredList
+	list.SetAPIVersion("v1")
+	list.SetKind("NodeList")
+
+	err := clients.Interface.List(context.TODO(), &list, opts...)
 	if err != nil {
 		return errors.Wrap(err, "Client cannot get NodeList")
+	}
+
+	Node.List.Object = list.Object
+	Node.List.Items = []unstructured.Unstructured{}
+
+	// Filter all nodes out that have NoExecute or NoSchedule taint
+	for idx, node := range list.Items {
+
+		taints, ok, err := unstructured.NestedSlice(node.Object, "spec", "taints")
+		if err != nil {
+			warn.OnError(err)
+			return errors.Wrap(err, "Cannot extract taints from Node object")
+		}
+		// Nothing to filter no taints on the current node object, continue
+		if !ok {
+			Node.List.Items = append(Node.List.Items, list.Items[idx])
+			log.Info("Nodes cached", "name", node.GetName())
+			continue
+		}
+
+		keep := true
+
+		for _, taint := range taints {
+
+			effect, ok, err := unstructured.NestedString(taint.(map[string]interface{}), "effect")
+			if err != nil {
+				warn.OnError(err)
+				return errors.Wrap(err, "Cannot extract effect from taint object")
+			}
+			// No effect found continuing
+			if !ok {
+				continue
+			}
+			if effect == "NoSchedule" || effect == "NoExecute" {
+				keep = false
+			}
+		}
+
+		if keep {
+			Node.List.Items = append(Node.List.Items, list.Items[idx])
+			log.Info("Nodes cached", "name", node.GetName())
+		}
+
 	}
 
 	log.Info("Node list:", "length", len(Node.List.Items))

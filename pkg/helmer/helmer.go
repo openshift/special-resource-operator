@@ -17,6 +17,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
+	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
@@ -80,48 +81,6 @@ func init() {
 
 }
 
-type HelmRepo struct {
-	// +kubebuilder:validation:Required
-	Name string `json:"name"`
-	// +kubebuilder:validation:Required
-	URL string `json:"url"`
-	// +kubebuilder:validation:Optional
-	Username string `json:"username"`
-	// +kubebuilder:validation:Optional
-	Password string `json:"password"`
-	// +kubebuilder:validation:Optional
-	CertFile string `json:"certFile"`
-	// +kubebuilder:validation:Optional
-	KeyFile string `json:"keyFile"`
-	// +kubebuilder:validation:Optional
-	CAFile string `json:"caFile"`
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:=false
-	InsecureSkipTLSverify bool `json:"insecure_skip_tls_verify"`
-}
-type HelmChartObosolete struct {
-	Name       string   `json:"name"`
-	Version    string   `json:"version"`
-	Repository HelmRepo `json:"repository"`
-}
-
-type HelmChart struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
-	// +kubebuilder:validation:Required
-	Repository HelmRepo `json:"repository"`
-	// +kubebuilder:validation:Optional
-	Tags []string `json:"tags"`
-}
-
-func (in *HelmChart) DeepCopyInto(out *HelmChart) {
-	out.Name = in.Name
-	out.Version = in.Version
-	out.Repository = in.Repository
-	out.Tags = make([]string, len(in.Tags))
-	copy(out.Tags, in.Tags)
-}
-
 func AddorUpdateRepo(entry *repo.Entry) error {
 
 	chartRepo, err := repo.NewChartRepository(entry, getterProviders)
@@ -148,7 +107,7 @@ func AddorUpdateRepo(entry *repo.Entry) error {
 	return nil
 }
 
-func Load(spec HelmChart) (*chart.Chart, error) {
+func Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 
 	entry := &repo.Entry{
 		Name:                  spec.Repository.Name,
@@ -161,8 +120,10 @@ func Load(spec HelmChart) (*chart.Chart, error) {
 		InsecureSkipTLSverify: spec.Repository.InsecureSkipTLSverify,
 	}
 
-	err := AddorUpdateRepo(entry)
-	exit.OnError(err)
+	if err := AddorUpdateRepo(entry); err != nil {
+		warn.OnError(err)
+		return nil, err
+	}
 
 	act := action.ChartPathOptions{
 		CaFile:                "",
@@ -181,7 +142,9 @@ func Load(spec HelmChart) (*chart.Chart, error) {
 	repoChartName := entry.Name + "/" + spec.Name
 	log.Info("Locating", "chart", repoChartName)
 
+	var err error
 	var path string
+
 	if path, err = act.LocateChart(repoChartName, settings); err != nil {
 		return nil, errors.Wrap(err, "Could not locate chart: "+repoChartName)
 	}
@@ -271,7 +234,10 @@ func Run(ch chart.Chart, vals map[string]interface{},
 	}
 
 	rel, err := install.Run(&ch, vals)
-	exit.OnError(err)
+	if err != nil {
+		warn.OnError(err)
+		return err
+	}
 
 	if debug {
 		json, err := json.MarshalIndent(vals, "", " ")
