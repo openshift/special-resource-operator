@@ -1,13 +1,13 @@
 # How to build recipes
 
-The Special Resource Operatore (SRO) is based on Helm charts. A Helm chart is a recipe
+The Special Resource Operator (SRO) is based on Helm charts. A Helm chart is a recipe
 to build a special resource. The integrated Helm support in SRO can use chart repositories
 either via HTTP, OCI or file:///.
 
 Most of the time the charts are packaged with SRO. In this way we have tested SRO recipes
 for each K8S or OpenShift release.
 
-A SRO recipe consists of an CR and a packaged Helm chart.
+An SRO recipe consists of an CR and a packaged Helm chart.
 
 Here is a simple CR for an out-of-tree driver build
 
@@ -38,12 +38,12 @@ spec:
         uri: "https://github.com/openshift-psap/kvc-simple-kmod.git"
 ```
 
-SRO keeps an internal Helm repository of all packaged helm charts and they are
+SRO keeps an internal Helm repository of all packaged helm charts, and they are
 organized in repositories, the same structure that helm uses for storing charts
 online.
 
 The `chart:` section tells SRO in which repository to find  the simple-kmod chart
-alongside with an version. This is the same version you would specify in the
+alongside with a version. This is the same version you would specify in the
 Chart.yaml in your helm chart.
 
 SRO charts usually do not have a values.yaml because most of the information that
@@ -51,7 +51,7 @@ is needed to build an out-of-tree driver is gathered during runtime. See the nex
 section for "all" runtime variables.
 
 The `set:` sections can be used to set values in the chart templates, think of it
-as an programmatic approach to provide values. Those values will be coalesced with
+as a programmatic approach to provide values. Those values will be coalesced with
 the values.yaml if it exists.
 
 The simple-kmod BuildConfig uses e.g. the buildArgs supplied in the `set:` section
@@ -67,7 +67,7 @@ in the BuildConfig template to populate arguments:
 The `driverContainer:` section describes how to build the driver-container an
 extensive list of options is listed here: <https://github.com/openshift/enhancements/pull/357>
 
-An SpecialResource can also have an dependency, a dependency is expressed again
+An SpecialResource can also have a dependency, a dependency is expressed again
 with a `chart:` and `set:` section. The ping-pong special resource illustrates
 this: charts/example/ping-pong-0.0.1/ping-pong.yaml.
 
@@ -85,11 +85,11 @@ Helm per default has a specific ordering in which order resources should be crea
 when a chart is templated. SRO goes one step further and is using a specific naming
 scheme of templates to force ordering between any resource.
 
-A single file (template) in the templates direcotry represents a state if the file
-starts with a four digit number. Each of these files are treated as states that
+A single file (template) in the templates' directory represents a state if the file
+starts with a four-digit number. Each of these files are treated as states that
 are executed in ascending numbering order. The ping-pong chart illustrates this.
 
-It is alos possible to mix states and non states in a chart. The states are executed
+It is also possible to mix states and non states in a chart. The states are executed
 first and then the non-state templates.
 
 SRO has also some advanced waiting callbacks for resources, e.g. we can wait for
@@ -97,7 +97,7 @@ a specific log in a Pod or wait for any other resource to be in a specific state
 
 Sometimes we don't want to start another DaemonSet before the DaemonSet in a
 previous state is fully rolled out not only created by the services or daemons
-inside of the Pod/Container fully started.
+inside the Pod/Container fully started.
 
 ## Runtime Variables
 

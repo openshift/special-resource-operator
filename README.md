@@ -39,7 +39,7 @@ The following descriptions of the states will describe how e.g. the SRO handles 
 ### General State Breakdown
 Assets like ServiceAccount, RBAC, DaemonSet, ConfigMap yaml files for each state are saved in the container under `/opt/sro/state-{driver,device-plugin,monitoring}`. The SRO will take each of these assets and assign a control function to each of them. Those control functions have hooks for preprocessing the yaml files or hooks to preprocess the decoded API runtime objects. Those hooks are used to add runtime information from the cluster like kernel-version, and nodeSelectors based on the discovered hardware etc. 
 
-After the assests were decoded preprocessed and transformed into API runtime objects, the control funcs take care of CRUD operations on those. 
+After the assets were decoded preprocessed and transformed into API runtime objects, the control functions take care of CRUD operations on those. 
 
 The SRO is easily extended just by creating another directory under `/opt/sro/state-new` and adding this new state to the operator [addState(...)](https://github.com/openshift-psap/special-resource-operator/blob/012020bb04922737d1f9eb5e703d3b931a053bd4/pkg/controller/specialresource/specialresource_state.go#L79). The SRO operator will scan this new directory and automatically assign the corresponding control functions. 
 
@@ -66,13 +66,13 @@ This way one can be sure that only the correct driver version is scheduled on th
 
 
 #### State Driver Validation
-To check if the driver and the hook are correctly deployed, the operator will schedule a simple GPU workload and check if the Pod status is `Success`, which means the application returned succesfully without an error. The GPU workload will exit with an error, it the driver or the userspace part are not working correctly. This Pod will not allocate an extended resource, only checking if the GPU is working. 
+To check if the driver and the hook are correctly deployed, the operator will schedule a simple GPU workload and check if the Pod status is `Success`, which means the application returned successfully without an error. The GPU workload will exit with an error, it is the driver or the userspace part are not working correctly. This Pod will not allocate an extended resource, only checking if the GPU is working. 
 
 #### State Device Plugin
 As the name already suggests, this state will deploy a special resource DevicePlugin with all its dependencies, see [state-device-plugin](https://github.com/openshift-psap/special-resource-operator/tree/master/assets/state-device-plugin) for a complete list. 
 
 #### State Device Plugin Validation
-One will use the same GPU workload as before for validation but this time the Pod will request a extended resource (1) to check if the DevicePlugin has correctly advertised the GPUs to the cluster and (2) to check if userspace and kernelspace are working correclty. 
+One will use the same GPU workload as before for validation but this time the Pod will request an extended resource (1) to check if the DevicePlugin has correctly advertised the GPUs to the cluster and (2) to check if userspace and kernelspace are working correctly. 
 
 #### State Monitoring
 This state uses a custom metrics exporter DaemonSet to export metrics for Prometheus. A ServiceMonitor adds this exporter as a new scrape target. 
@@ -110,12 +110,12 @@ If one wants to repel Pods from nodes that have special resources without the co
 
 The `nvidia.com/gpu` is an extended resource, which is exposed by the DevicePlugin, there is no need to add a  toleration to Pods that request extended resources. The ExtendedResourcesAdmissionController will add a toleration to each Pod that tries to allocate an extended resource on a node with the corresponding taint.
 
-A Pod that does not request a extended resource e.g. a CPU only Pod will be repelled from the node. The taint will make sure that only special resource workloads are deployed to those specific nodes.
+A Pod that does not request an extended resource e.g. a CPU only Pod will be repelled from the node. The taint will make sure that only special resource workloads are deployed to those specific nodes.
 
 ### Soft Partitioning
-Compared to the hard partioning scheme with taints, soft partitioning will allow any Pod on the node but will preempt low priority Pods with high priority Pods. High priority Pods could be with special resource workloads and low priority CPU only Pods. The following CR can be used to instantiate the operator with priority and preemption: [sro_cr_sched_priority_preemption.yaml](https://github.com/openshift-psap/special-resource-operator/blob/052d7ad0cd4255ab9b0595f17d4914b61927d18f/manifests/sro_cr_sched_priority_preemption.yaml#L1). The CR accepts an array of priorityclasses, here the operator creates two classes, namely: `gpu-high-priority` and `gpu-low-priority`. 
+Compared to the hard partitioning scheme with taints, soft partitioning will allow any Pod on the node but will preempt low priority Pods with high priority Pods. High priority Pods could be with special resource workloads and low priority CPU only Pods. The following CR can be used to instantiate the operator with priority and preemption: [sro_cr_sched_priority_preemption.yaml](https://github.com/openshift-psap/special-resource-operator/blob/052d7ad0cd4255ab9b0595f17d4914b61927d18f/manifests/sro_cr_sched_priority_preemption.yaml#L1). The CR accepts an array of `priorityclasses`, here the operator creates two classes, namely: `gpu-high-priority` and `gpu-low-priority`. 
 
-One can use the low priority class to keep the node busy and as soon as a high priority class Pod is created that allocates a extended resource, the scheduler will try to preempt the low priority Pod to make schedulig of the pending Pod possible. 
+One can use the low priority class to keep the node busy and as soon as a high priority class Pod is created that allocates an extended resource, the scheduler will try to preempt the low priority Pod to make scheduling of the pending Pod possible. 
 
 
 
