@@ -120,3 +120,7 @@ package rbac
 // +kubebuilder:rbac:groups="",resources=podtemplates/finalizers,verbs=update
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=list;watch;get;create;update;patch;delete
 // +kubebuilder:rbac:groups=extensions,resources=jobs,verbs=list;watch;get;create;update;patch;delete
+// +kubebuilder:rbac:groups=networking.x-k8s.io,resources=httproutes,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=networking.x-k8s.io,resources=gateways,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.x-k8s.io,resources=gateways/finalizers,verbs=update
+// +kubebuilder:rbac:groups=networking.x-k8s.io,resources=httproutes/finalisers,verbs=update

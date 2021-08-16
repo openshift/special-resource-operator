@@ -135,7 +135,7 @@ func Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 		RepoURL:               "",
 		Username:              "",
 		Verify:                false,
-		Version:               "",
+		Version:               spec.Version,
 	}
 	act.Verify = false
 

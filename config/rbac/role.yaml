@@ -801,6 +801,37 @@ rules:
   verbs:
   - update
 - apiGroups:
+  - networking.x-k8s.io
+  resources:
+  - gateways
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.x-k8s.io
+  resources:
+  - gateways/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - networking.x-k8s.io
+  resources:
+  - httproutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - networking.x-k8s.io
+  resources:
+  - httproutes/finalisers
+  verbs:
+  - update
+- apiGroups:
   - operator.cert-manager.io
   resources:
   - certmanagers
