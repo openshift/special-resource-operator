@@ -1,7 +1,7 @@
 # How to debug recipes
 
-The Special Resource Operatore (SRO) can read the states either from the local,
-http or a ConfigMap resource.
+The Special Resource Operator (SRO) can read the states either from the local,
+HTTP or a ConfigMap (CM) resource.
 
 To create the states in the template directory as a CM we can run the
 following:
@@ -11,7 +11,7 @@ VERSION=0.0.1 REPO=example SPECIALRESOURCE=multi-build make chart
 ```
 
 This command will create a CM with all the states and SRO will use them in the
-next reconcilation loop. This makes it easy to override manifests during
+next reconciliation loop. This makes it easy to override manifests during
 development without rebuilding SRO.
 
 To update the CR one can run:
@@ -30,7 +30,7 @@ The command above creates a CM with the chart embedded as binaryData.
 Update the CR to use `cm://` protocol handler in SRO. URL schema is
 `cm://<NAMESPACE>/<SPECIALRESOURCE>-chart`
 
-```yaml=
+```yaml
  spec:
   chart:
     name: multi-build
@@ -46,9 +46,9 @@ Update the CR to use `cm://` protocol handler in SRO. URL schema is
 
 Another field was added to the CR, namely `debug` that can be set to true to get
 all the manifests, hooks and values printed on the console. Can be valuable for
-verifying if all `Values` are set and correclty interpreted.
+verifying if all `Values` are set and correctly interpreted.
 
-```yaml=
+```yaml
 apiVersion: sro.openshift.io/v1beta1
 kind: SpecialResource
 metadata:
