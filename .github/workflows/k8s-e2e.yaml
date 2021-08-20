@@ -62,10 +62,10 @@ jobs:
       run: |
         export KUBECONFIG="$(kind get kubeconfig-path)"
         kubectl cluster-info
-    - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-master.yaml.template
+    - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/v0.8.2/nfd-master.yaml.template
     - run: kubectl rollout status deployment -n node-feature-discovery nfd-master --timeout=300s
 
-    - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/master/nfd-worker-daemonset.yaml.template
+    - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/v0.8.2/nfd-worker-daemonset.yaml.template
     - run: kubectl rollout status daemonset -n node-feature-discovery nfd-worker --timeout=300s
 
     - run: TAG=pr-${{ steps.short-sha.outputs.sha }}  PLATFORM=k8s make go-deploy-manifests
