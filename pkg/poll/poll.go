@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -14,6 +15,9 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
+	"github.com/openshift-psap/special-resource-operator/pkg/hash"
+	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
+	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 
 	"github.com/pkg/errors"
@@ -334,8 +338,59 @@ func ForDaemonSetCallback(obj *unstructured.Unstructured) bool {
 
 }
 
+func ForLifecycleAvailability(obj *unstructured.Unstructured) error {
+
+	if obj.GetKind() != "DaemonSet" {
+		return nil
+	}
+
+	strategy, found, err := unstructured.NestedString(obj.Object, "spec", "updateStrategy", "type")
+	exit.OnError(err)
+
+	if !found || strategy != "OnDelete" {
+		return nil
+	}
+
+	objKey := types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+
+	ins := types.NamespacedName{
+		Namespace: os.Getenv("OPERATOR_NAMESPACE"),
+		Name:      "special-resource-lifecycle",
+	}
+
+	err = wait.Poll(RetryInterval, Timeout, func() (done bool, err error) {
+
+		log.Info("Waiting for lifecycle update of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
+
+		pl := lifecycle.GetPodFromDaemonSet(objKey)
+
+		for _, pod := range pl.Items {
+			log.Info("Checking lifecycle of", "Pod", pod.GetName())
+			hs := hash.FNV64a(pod.GetNamespace() + pod.GetName())
+			value, err := storage.CheckConfigMapEntry(hs, ins)
+			if err != nil {
+				return false, err
+			}
+			if value != "" {
+				return false, nil
+			}
+		}
+		log.Info("All Pods running latest DaemonSet Template, we can move on")
+		return true, nil
+	})
+
+	return err
+}
+
 func ForDaemonSet(obj *unstructured.Unstructured) error {
 	if err := ForResourceAvailability(obj); err != nil {
+		return err
+	}
+
+	if err := ForLifecycleAvailability(obj); err != nil {
 		return err
 	}
 

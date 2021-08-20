@@ -20,4 +20,9 @@ groupName:
 kernelFullVersion: "kernelFullVersion"
 operatingSystemMajor: "8"
 
-
+alerting:
+  cluster: "foo"
+clientArgs:
+  caFile: ""
+serverArgs:
+  caFile: ""
