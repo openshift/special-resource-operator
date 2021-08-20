@@ -1,4 +1,5 @@
 resources:
+- lifecycle.yaml
 - dependencies.yaml
 - manager.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
@@ -6,4 +7,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: quay.io/openshift-psap/special-resource-operator
-  newTag: update-readme
+  newTag: ondelete

@@ -3,9 +3,9 @@ entries:
   cert-manager:
   - apiVersion: v2
     appVersion: 1.4.0
-    created: "2021-08-12T11:16:23.256422334-04:00"
+    created: "2021-08-20T08:08:24.714075921Z"
     description: Simple go app to showcase cert-manager intergration
-    digest: bc857bc582b30ffd27c84440fb40ec144769cef8656cf1c4c65f1b9ff5012512
+    digest: 248998f11a38ae9fcc99791c1c2af9bf64ee9ad9b1028770d49457467ae3702d
     icon: https://avatars.githubusercontent.com/u/55542927
     name: cert-manager
     type: application
@@ -15,13 +15,13 @@ entries:
   simple-kmod:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2021-08-12T11:16:23.256584946-04:00"
+    created: "2021-08-20T08:08:24.714281386Z"
     description: Simple kmod will deploy a simple kmod driver-container
-    digest: 775da6435a69f39e3a6f4ebf1a00b394f9268768542a2a4f9cecc4e4d2e1aeef
+    digest: 06ea3db5061e8d71a7f1418424d391188f34507611669ba2bc638040bacafc59
     icon: https://avatars.githubusercontent.com/u/55542927
     name: simple-kmod
     type: application
     urls:
     - file:///charts/experimental/simple-kmod-0.0.1.tgz
     version: 0.0.1
-generated: "2021-08-12T11:16:23.251596708-04:00"
+generated: "2021-08-20T08:08:24.706777106Z"
