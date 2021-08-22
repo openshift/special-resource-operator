@@ -95,9 +95,6 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 			namespace, _, err := unstructured.NestedString(subject, "namespace")
 			exit.OnError(err)
 
-			log.Info("ImageReference", "namespace", namespace)
-			log.Info("ImageReference", "r.namespace", r.parent.Spec.Namespace)
-
 			if namespace == r.parent.Spec.Namespace {
 				log.Info("ImageReference ServiceAccount found, returning")
 				return nil

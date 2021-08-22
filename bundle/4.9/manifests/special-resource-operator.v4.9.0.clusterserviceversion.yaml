@@ -52,6 +52,9 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
   labels:
     operatorframework.io/arch.amd64: supported
+    operatorframework.io/arch.arm64: supported
+    operatorframework.io/arch.ppc64le: supported
+    operatorframework.io/arch.s390x: supported
   name: special-resource-operator.v4.9.0
   namespace: placeholder
 spec:
@@ -870,6 +873,37 @@ spec:
           - networking.k8s.io
           resources:
           - ingresses/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - networking.x-k8s.io
+          resources:
+          - gateways
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - networking.x-k8s.io
+          resources:
+          - gateways/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - networking.x-k8s.io
+          resources:
+          - httproutes
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - networking.x-k8s.io
+          resources:
+          - httproutes/finalisers
           verbs:
           - update
         - apiGroups:

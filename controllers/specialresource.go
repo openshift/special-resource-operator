@@ -5,13 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"text/template"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/dependencies"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
@@ -19,9 +18,11 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
+	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/chart"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -62,7 +63,15 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 		// If we do not find the specialresource it might be deleted,
 		// if it is a depdendency of another specialresource assign the
 		// parent specialresource for processing.
-		parent := dependencies.CheckConfigMap(req.Name)
+		obj := types.NamespacedName{
+			Namespace: os.Getenv("OPERATOR_NAMESPACE"),
+			Name:      "special-resource-dependencies",
+		}
+		parent, err := storage.CheckConfigMapEntry(req.Name, obj)
+		if err != nil {
+			operatorStatusUpdate(&r.parent, fmt.Sprintf("%v", err))
+			return reconcile.Result{}, err
+		}
 		request, found = FindSR(specialresources.Items, parent, "Name")
 		if !found {
 			return reconcile.Result{}, nil
@@ -106,7 +115,16 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 
 		// We save the dependency chain so we can restore specialresources
 		// if one is deleted that is a dependency of another
-		dependencies.UpdateConfigMap(r.parent.Name, r.dependency.Name)
+
+		ins := types.NamespacedName{
+			Namespace: os.Getenv("OPERATOR_NAMESPACE"),
+			Name:      "special-resource-dependencies",
+		}
+		err = storage.UpdateConfigMapEntry(r.dependency.Name, r.parent.Name, ins)
+		if err != nil {
+			operatorStatusUpdate(&r.parent, fmt.Sprintf("%v", err))
+			return reconcile.Result{}, err
+		}
 
 		var child srov1beta1.SpecialResource
 		// Assign the specialresource to the reconciler object
@@ -181,11 +199,6 @@ func ReconcileSpecialResourceChart(r *SpecialResourceReconciler, sr srov1beta1.S
 	log = r.Log.WithName(color.Print(r.specialresource.Name, color.Green))
 	log.Info("Reconciling Chart")
 
-	// This is specific for the specialresource we need to update the nodes
-	// and the upgradeinfo
-	err := cache.Nodes(r.specialresource.Spec.NodeSelector, true)
-	exit.OnError(errors.Wrap(err, "Failed to cache nodes"))
-
 	getRuntimeInformation(r)
 	logRuntimeInformation()
 
@@ -193,7 +206,7 @@ func ReconcileSpecialResourceChart(r *SpecialResourceReconciler, sr srov1beta1.S
 		if dep.Set.Object == nil {
 			dep.Set.Object = make(map[string]interface{})
 		}
-		err = unstructured.SetNestedField(dep.Set.Object, "Values", "kind")
+		err := unstructured.SetNestedField(dep.Set.Object, "Values", "kind")
 		exit.OnError(err)
 		err = unstructured.SetNestedField(dep.Set.Object, "sro.openshift.io/v1beta1", "apiVersion")
 		exit.OnError(err)
@@ -205,7 +218,7 @@ func ReconcileSpecialResourceChart(r *SpecialResourceReconciler, sr srov1beta1.S
 		r.specialresource.Spec.Set.Object = make(map[string]interface{})
 	}
 
-	err = unstructured.SetNestedField(r.specialresource.Spec.Set.Object, "Values", "kind")
+	err := unstructured.SetNestedField(r.specialresource.Spec.Set.Object, "Values", "kind")
 	exit.OnError(err)
 	err = unstructured.SetNestedField(r.specialresource.Spec.Set.Object, "sro.openshift.io/v1beta1", "apiVersion")
 	exit.OnError(err)
