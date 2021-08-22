@@ -48,6 +48,7 @@ metadata:
     capabilities: Basic Install
     categories: AI/Machine Learning, Drivers and plugins, Networking, Storage
     description: The special resource operator is an orchestrator for resources in a cluster required to deploy special hardware and software. Examples include hardware accelerators or software defined storage, where extra management or kernel modules are needed.
+    olm.skipRange: ">=4.6.0 <4.9.0"
     operators.operatorframework.io/builder: operator-sdk-v1.2.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
   labels:
