@@ -177,6 +177,8 @@ spec:
           mountPath: /opt/VRTS/install/logs
         - name: log-tmpinstall
           mountPath: /opt/VRTStmp
+        - name: date-config
+          mountPath: /etc/localtime
       terminationGracePeriodSeconds: {{.Values.runArgs.terminationPeriod}}
       restartPolicy: Always
       tolerations:
@@ -201,6 +203,10 @@ spec:
               secretName: rest-tls-cert
 
 # Creating separate hostpath volume for each log destination
+        - name: date-config
+          hostPath:
+              path: /etc/localtime
+              type: FileOrCreate
         - name: log-sys
           hostPath:
               path: /var/VRTS/log/var/log
