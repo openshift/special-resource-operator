@@ -8,4 +8,5 @@ reviewers:
   - ArangoGutierrez
   - dagrayvid
   - kpouget
+  - pacevedom
 component: "Special Resource Operator"
