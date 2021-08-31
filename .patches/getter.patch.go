@@ -91,8 +91,10 @@ func (g *ConfigMapGetter) Get(href string, option ...Option) (*bytes.Buffer, err
 		return bytes.NewBuffer([]byte(asciiData["index.yaml"])), nil
 	}
 
-	for _, v := range binaryData {
-		return bytes.NewBuffer(v), nil
+	for k, v := range binaryData {
+		if s[2] == k {
+			return bytes.NewBuffer(v), nil
+		}
 	}
 
 	return nil, errors.New(fmt.Sprintf("Cannot find any asciiData | binaryData in CM %+v\n", chart))
