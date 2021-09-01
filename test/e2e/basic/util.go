@@ -286,3 +286,13 @@ func WaitForClusterOperatorCondition(cs *framework.ClientSet, interval, duration
 	}
 	return nil
 }
+
+// IsNodeReady helps determine if a given node is ready or not.
+func IsNodeReady(node corev1.Node) bool {
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == corev1.NodeReady {
+			return condition.Status == corev1.ConditionTrue
+		}
+	}
+	return false
+}
