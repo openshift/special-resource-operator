@@ -181,6 +181,10 @@ func simpleKmodDelete(cs *framework.ClientSet, cl client.Client) {
 	for _, node := range nodes {
 		//run command in pod
 		ginkgo.By("Ensuring that the simple-kmod is unloaded")
+		if !IsNodeReady(node) {
+			ginkgo.By(fmt.Sprintf("Skipping NotReady node %s", node.Name))
+			continue
+		}
 		// || true at the end of grep command because we don't want grep to exit with an error code if no matches are found.
 		unloadCmd := []string{"/bin/sh", "-c", "/host/usr/sbin/lsmod | grep -c simple-kmod || true"}
 		unloadValExp := "0"
