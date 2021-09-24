@@ -1,8 +1,6 @@
 approvers:
-  - zvonkok
-  - dagrayvid
+    - dagrayvid
 reviewers:
-  - zvonkok
   - ArangoGutierrez
   - dagrayvid
   - kpouget
