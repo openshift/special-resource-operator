@@ -3,18 +3,40 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"time"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"github.com/openshift-psap/special-resource-operator/test/framework"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	configv1 "github.com/openshift/api/config/v1"
-	//srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 )
+
+func createPreamble(cs *framework.ClientSet, cl client.Client) error {
+	specialresources := &srov1beta1.SpecialResourceList{}
+	err := cl.List(context.TODO(), specialresources, []client.ListOption{}...)
+	if err != nil {
+		return fmt.Errorf("couldn't get SpecialResourceList: %v", err)
+	}
+	for _, element := range specialresources.Items {
+		if element.Name == "special-resource-preamble" {
+			return nil
+		}
+	}
+
+	preambleYAML, err := ioutil.ReadFile("../../../manifests/0016_specialresource_special-resource-preamble.yaml")
+	if err != nil {
+		return err
+	}
+	framework.CreateFromYAML(preambleYAML, cl)
+	return nil
+}
 
 var _ = ginkgo.Describe("[basic][available] Special Resource Operator availability", func() {
 	const (
@@ -23,6 +45,7 @@ var _ = ginkgo.Describe("[basic][available] Special Resource Operator availabili
 	)
 
 	cs := framework.NewClientSet()
+	cl := framework.NewControllerRuntimeClient()
 
 	var explain error
 
@@ -50,6 +73,15 @@ var _ = ginkgo.Describe("[basic][available] Special Resource Operator availabili
 			}
 			return false, nil
 		})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
+	})
+
+	// Create the preamble. If the operator is deployed using OLM ClusterOperator doesnt exist. If the resource
+	// doesnt exist then SRO will create one, but this only happens when creating a SpecialResource instance. To
+	// force it we create the preamble. If ClusterOperator was already present then preamble creation is idempotent.
+	ginkgo.It("Create preamble to enforce clusteroperator presence", func() {
+		ginkgo.By("Creating preamble")
+		err := createPreamble(cs, cl)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
 	})
 
