@@ -223,24 +223,27 @@ func ForDeployment(obj *unstructured.Unstructured) error {
 				return false
 			}
 
-			if _, ok := status["availableReplicas"]; !ok {
+			_, ok := status["replicas"]
+			if !ok {
+				log.Info("No replicas for ReplicaSet", "name", rs.GetName())
 				return false
 			}
-			if _, ok := status["replicas"]; !ok {
-				return false
-			}
-
-			avail := status["availableReplicas"].(int64)
 			repls := status["replicas"].(int64)
-
-			if avail == repls {
-				log.Info("Status", "AvailableReplicas", avail, "Replicas", repls)
-				return true
+			_, okAvailableReplicas := status["availableReplicas"]
+			if repls == 0 {
+				log.Info("ReplicaSet scheduled for termination", "name", rs.GetName())
+				continue
 			}
-
+			if !okAvailableReplicas {
+				return false
+			}
+			avail := status["availableReplicas"].(int64)
 			log.Info("Status", "AvailableReplicas", avail, "Replicas", repls)
+			if avail != repls {
+				return false
+			}
 		}
-		return false
+		return true
 	})
 }
 

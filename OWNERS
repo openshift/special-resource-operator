@@ -1,12 +1,12 @@
 approvers:
-  - zvonkok
   - dagrayvid
+  - bthurber
 reviewers:
-  - zvonkok
-  - courtneypacheco
-  - jmencak
   - ArangoGutierrez
+  - bthurber
   - dagrayvid
   - kpouget
   - pacevedom
+  - ybettan
+  - yevgeny-shnaidman
 component: "Special Resource Operator"
