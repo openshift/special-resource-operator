@@ -179,6 +179,9 @@ spec:
           mountPath: /opt/VRTStmp
         - name: date-config
           mountPath: /etc/localtime
+        - name: dns-certs-dir
+          mountPath: /etc/vx/dns-certs
+          readOnly: true
       terminationGracePeriodSeconds: {{.Values.runArgs.terminationPeriod}}
       restartPolicy: Always
       tolerations:
@@ -201,6 +204,9 @@ spec:
         - name: cert-dir
           secret:
               secretName: rest-tls-cert
+        - name: dns-certs-dir
+          secret:
+              secretName: infoscale-dns-secret
 
 # Creating separate hostpath volume for each log destination
         - name: date-config

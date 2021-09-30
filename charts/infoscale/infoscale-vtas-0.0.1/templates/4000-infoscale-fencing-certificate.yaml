@@ -25,3 +25,31 @@ spec:
     kind: Issuer
 
 ---
+
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-fencing
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get","patch","update"]
+  - apiGroups: ["infoscale.veritas.com"]
+    resources: ["infoscaleclusters"]
+    verbs: ["get","patch","update","list"]
+
+---
+
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{.Values.specialresource.metadata.name}}-fencing
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{.Values.specialresource.metadata.name}}-fencing
+subjects:
+  - kind: ServiceAccount
+    name: {{.Values.specialresource.metadata.name}}-fencing
+    namespace: {{.Values.specialresource.spec.namespace}}
+---

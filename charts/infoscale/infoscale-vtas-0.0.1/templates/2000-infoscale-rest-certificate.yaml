@@ -1,4 +1,12 @@
 apiVersion: v1
+kind: Secret
+metadata:
+  namespace: {{.Values.specialresource.spec.namespace}}
+  name: infoscale-dns-secret
+
+---
+
+apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}-{{.Values.operatingSystemMajor}}

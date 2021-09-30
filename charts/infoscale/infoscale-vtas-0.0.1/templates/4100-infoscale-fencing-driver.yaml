@@ -60,6 +60,9 @@ rules:
   - apiGroups: ["batch", "extensions"]
     resources: ["jobs"]
     verbs: ["list", "watch", "get", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs/finalizers"]
+    verbs: ["update"]
   - apiGroups: [""]
     resources: ["configmaps"]
     verbs: ["get", "create", "update", "patch"]
@@ -239,7 +242,7 @@ template:
     - name: fence
       image: {{.Values.runArgs.infoscaleFenImage}}-{{.Values.operatingSystemMajor}}
       imagePullPolicy: {{.Values.runArgs.infoscaleFenImgPullPolicy}}
-      command: ["vxfenrestcli", "-N", "$(FENCING_NODE)", "-u", "https://{{.Values.specialresource.metadata.name}}-rest:8443"]
+      command: ["vxfenrestcli", "-N", "$(FENCING_NODE)", "-u", "https://{{.Values.specialresource.metadata.name}}-rest:8443", "-e"]
       volumeMounts:
         - name: cert-dir
           mountPath: /etc/vx/certstore/vxfen
@@ -257,6 +260,34 @@ template:
         - name: cert-dir
           secret:
             secretName: vxfen-tls-cert
+    restartPolicy: OnFailure
+    nodeSelector:
+      {{.Values.node.selector}}: "true"
+
+---
+
+#fencing afterhook podtemplate
+
+apiVersion: v1
+kind: PodTemplate
+metadata:
+  name: fencing-afterhook
+  namespace: {{.Values.specialresource.spec.namespace}}
+  annotations:
+    specialresource.openshift.io/wait: "true"
+template:
+  spec:
+    serviceAccountName: {{.Values.specialresource.metadata.name}}-fencing
+    containers:
+    - name: fence-afterhook
+      image: {{.Values.runArgs.infoscaleFenImage}}-{{.Values.operatingSystemMajor}}
+      imagePullPolicy: {{.Values.runArgs.infoscaleFenImgPullPolicy}}
+      command: ["vxfenrestcli", "-a", "-N", "$(FENCING_NODE)"]
+      env:
+        - name: FENCING_NODE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.annotations['fencing/node']
     restartPolicy: OnFailure
     nodeSelector:
       {{.Values.node.selector}}: "true"
