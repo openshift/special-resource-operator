@@ -294,6 +294,12 @@ rules:
   - update
   - watch
 - apiGroups:
+  - batch
+  resources:
+  - jobs/finalizers
+  verbs:
+  - update
+- apiGroups:
   - build.openshift.io
   resources:
   - buildconfigs
@@ -757,6 +763,15 @@ rules:
   - imagestreams/layers
   verbs:
   - get
+- apiGroups:
+  - infoscale.veritas.com
+  resources:
+  - infoscaleclusters
+  verbs:
+  - get
+  - list
+  - patch
+  - update
 - apiGroups:
   - monitoring.coreos.com
   resources:
