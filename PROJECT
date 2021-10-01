@@ -1,6 +1,6 @@
 domain: openshift.io
 layout: go.kubebuilder.io/v2
-projectName: special-resource-operator
+projectName: openshift-special-resource-operator
 repo: github.com/openshift-psap/special-resource-operator
 resources:
 - group: sro
