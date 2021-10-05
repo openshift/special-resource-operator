@@ -139,7 +139,7 @@ func OperatingSystem() (string, string, string, error) {
 	if rhelVersion, found := labels[os+".RHEL_VERSION"]; found && len(rhelVersion) == 3 {
 		rhelMaj := rhelVersion[0:1]
 		rhelMin := rhelVersion[2:]
-		return "rhel" + rhelVersion, "rhel" + rhelMaj, rhelMaj + "." + rhelMin, nil
+		return "rhel" + rhelMaj, "rhel" + rhelVersion, rhelMaj + "." + rhelMin, nil
 	}
 
 	// On vanilla k8s and older NFD versions, we need RenderOperatingSystem
