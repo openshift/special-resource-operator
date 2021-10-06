@@ -112,17 +112,21 @@ func OSImageURL() (string, error) {
 	return osImageURL, nil
 }
 
+// Assumes all nodes have the same OS.
+// Returns the os in the following forms:
+// rhelx.y, rhelx, x.y
 func OperatingSystem() (string, string, string, error) {
 
 	var nodeOSrel string
 	var nodeOSmaj string
 	var nodeOSmin string
+	var labels map[string]string
 
 	// Assuming all nodes are running the same os
 	os := "feature.node.kubernetes.io/system-os_release"
 
 	for _, node := range cache.Node.List.Items {
-		labels := node.GetLabels()
+		labels = node.GetLabels()
 		nodeOSrel = labels[os+".ID"]
 		nodeOSmaj = labels[os+".VERSION_ID.major"]
 		nodeOSmin = labels[os+".VERSION_ID.minor"]
@@ -131,7 +135,14 @@ func OperatingSystem() (string, string, string, error) {
 			return "", "", "", errors.New("Cannot extract " + os + ".*, is NFD running? Check node labels")
 		}
 	}
+	// On OCP >4.7, we can use the NFD label  feature.node.kubernetes.io/system-os_release.RHEL_VERSION label.
+	if rhelVersion, found := labels[os+".RHEL_VERSION"]; found && len(rhelVersion) == 3 {
+		rhelMaj := rhelVersion[0:1]
+		rhelMin := rhelVersion[2:]
+		return "rhel" + rhelMaj, "rhel" + rhelVersion, rhelMaj + "." + rhelMin, nil
+	}
 
+	// On vanilla k8s and older NFD versions, we need RenderOperatingSystem
 	return osversion.RenderOperatingSystem(nodeOSrel, nodeOSmaj, nodeOSmin)
 }
 
