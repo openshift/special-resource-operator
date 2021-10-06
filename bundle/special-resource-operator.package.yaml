@@ -1,5 +1,0 @@
-packageName: special-resource-operator
-channels:
-- name: '4.9'
-  currentCSV: special-resource-operator.v4.9.0
-defaultChannel: "4.9"
