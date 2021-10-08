@@ -1293,7 +1293,7 @@ spec:
                   value: 0.0.1-snapshot
                 - name: SSL_CERT_DIR
                   value: /etc/pki/tls/certs
-                image: quay.io/openshift/special-resource-rhel8-operator:4.9
+                image: quay.io/openshift/origin-special-resource-rhel8-operator:4.9
                 imagePullPolicy: Always
                 name: manager
                 resources:
