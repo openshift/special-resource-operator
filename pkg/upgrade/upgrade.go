@@ -28,6 +28,8 @@ func init() {
 
 type NodeVersion struct {
 	OSVersion      string                      `json:"OSVersion"`
+	OSMajor        string			   `json:"OSMajor"`
+	OSMajorMinor   string			   `json:"OSMajorMinor"`
 	ClusterVersion string                      `json:"clusterVersion"`
 	DriverToolkit  registry.DriverToolkitEntry `json:"driverToolkit"`
 }
@@ -68,17 +70,21 @@ func NodeVersionInfo() (map[string]NodeVersion, error) {
 			return nil, errors.New("Label " + short + " not found is NFD running? Check node labels")
 		}
 
-		short = "feature.node.kubernetes.io/system-os_release.RHEL_VERSION"
-		if rhelVersion, found = labels[short]; !found {
-			log.Info("Warning: Label " + short + " not found. Can be ignored on vanilla k8s")
-		}
-
 		short = "feature.node.kubernetes.io/system-os_release.VERSION_ID"
 		if clusterVersion, found = labels[short]; !found {
 			return nil, errors.New("Label " + short + " not found is NFD running? Check node labels")
 		}
 
-		info[kernelFullVersion] = NodeVersion{OSVersion: rhelVersion, ClusterVersion: clusterVersion}
+		short = "feature.node.kubernetes.io/system-os_release.RHEL_VERSION"
+		if rhelVersion, found = labels[short]; !found {
+			nodeOSrel := labels["feature.node.kubernetes.io/system-os_release.ID"]
+			nodeOSmaj := labels["feature.node.kubernetes.io/system-os_release.VERSION_ID.major"]
+			nodeOSmin := labels["feature.node.kubernetes.io/system-os_release.VERSION_ID.minor"]
+			info[kernelFullVersion] = NodeVersion{OSVersion: nodeOSmaj + "." + nodeOSmin, OSMajor: nodeOSrel + nodeOSmaj, OSMajorMinor: nodeOSrel + nodeOSmaj + "." + nodeOSmin, ClusterVersion: clusterVersion}
+		} else {
+			rhelMaj := rhelVersion[0:1]
+			info[kernelFullVersion] = NodeVersion{OSVersion: rhelVersion, OSMajor: "rhel" + rhelMaj, OSMajorMinor: "rhel" + rhelVersion, ClusterVersion: clusterVersion}
+		}
 	}
 
 	return info, nil
