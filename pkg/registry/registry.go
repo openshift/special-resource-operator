@@ -6,11 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/authn/k8schain"
 	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
@@ -22,6 +21,13 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+)
+
+const (
+	pullSecretNamespace  = "openshift-config"
+	pullSecretName       = "pull-secret"
+	pullSecretFileName   = ".dockerconfigjson"
+	dockerConfigFilePath = "/home/nonroot/.docker/config.json"
 )
 
 var (
@@ -39,7 +45,33 @@ type DriverToolkitEntry struct {
 	OSVersion           string `json:"OSVersion"`
 }
 
+func writeImageRegistryCredentials() error {
+	_, err := clients.Interface.CoreV1().Namespaces().Get(context.TODO(), pullSecretNamespace, metav1.GetOptions{})
+	if err != nil {
+		log.Info("Can not find namespace for pull secrets, assuming vanilla k8s")
+		return nil
+	}
+
+	s, err := clients.Interface.CoreV1().Secrets(pullSecretNamespace).Get(context.TODO(), pullSecretName, metav1.GetOptions{})
+	if err != nil {
+		return errors.Wrap(err, "Can not retrieve pull secrets")
+	}
+
+	pullSecretData, ok := s.Data[pullSecretFileName]
+	if !ok {
+		return errors.New("Can not find data content in the secret")
+	}
+
+	err = os.WriteFile(dockerConfigFilePath, pullSecretData, 0644)
+	if err != nil {
+		return errors.Wrap(err, "Can not write pull secret file")
+	}
+	return nil
+}
+
 func LastLayer(entry string) v1.Layer {
+	err := writeImageRegistryCredentials()
+	exit.OnError(err)
 
 	var repo string
 
@@ -48,9 +80,6 @@ func LastLayer(entry string) v1.Layer {
 	} else if tag := strings.Split(entry, ":"); len(tag) > 1 {
 		repo = tag[0]
 	}
-
-	err := setAuthnKeychain()
-	exit.OnError(err)
 
 	options := crane.NilOption
 
@@ -200,28 +229,4 @@ func dclose(c io.Closer) {
 		warn.OnError(err)
 		//log.Error(err)
 	}
-}
-
-func setAuthnKeychain() error {
-	var err error
-	pullSecretNamespace := "openshift-config"
-
-	_, err = clients.Interface.CoreV1().Namespaces().Get(context.TODO(), pullSecretNamespace, metav1.GetOptions{})
-
-	if err != nil {
-		log.Info("Cannot find namespace for pull-secret, assuming vanilla k8s")
-		return nil
-	} else {
-		authn.DefaultKeychain, err = k8schain.NewInCluster(context.TODO(), k8schain.Options{
-			Namespace:          "openshift-config",
-			ServiceAccountName: "default",
-			ImagePullSecrets: []string{
-				"pull-secret",
-			},
-		})
-		if err != nil {
-			return errors.Wrap(err, "Cannot set authn.DefaultKeychain")
-		}
-	}
-	return nil
 }
