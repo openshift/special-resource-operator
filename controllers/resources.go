@@ -175,6 +175,8 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 
 			RunInfo.ClusterVersionMajorMinor = version.ClusterVersion
 			RunInfo.OperatingSystemDecimal = version.OSVersion
+			RunInfo.OperatingSystemMajorMinor = version.OSMajorMinor
+			RunInfo.OperatingSystemMajor = version.OSMajor
 			RunInfo.DriverToolkitImage = version.DriverToolkit.ImageURL
 
 			if kernelAffine {
