@@ -3,9 +3,9 @@ entries:
   fpga-operator:
   - apiVersion: v2
     appVersion: "2.0"
-    created: "2021-10-14T13:34:51.177924057+05:30"
+    created: "2021-10-29T01:21:00.401352614-04:00"
     description: Simplifying FPGA management in Kubernetes
-    digest: aea244b8cc2bc6bcfd97822b1a703a987e9c1fffe603f66a7e3040a6abe890db
+    digest: deaa00f13cd9391798aa1c73d3ccf9c066aba33ed7bc46daae21bcad1315dca1
     home: https://inaccel.com
     icon: https://en.gravatar.com/userimage/147236320/b395338a451c3220272055a0970bbd47.png?size=1250
     keywords:
@@ -22,5 +22,4 @@ entries:
     urls:
     - file:///charts/inaccel/fpga-operator-2.0.1.tgz
     version: 2.0.1
-generated: "2021-10-14T13:34:51.177341308+05:30"
-
+generated: "2021-10-29T01:21:00.399858524-04:00"

@@ -13,6 +13,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -179,6 +180,26 @@ func Predicate() predicate.Predicate {
 			e.ObjectOld.GetGeneration()
 			e.ObjectOld.GetOwnerReferences()
 
+			obj := e.ObjectNew
+
+			// Required for the case when pods are deleted due to OS upgrade
+
+			if Owned(obj) && kernel.IsObjectAffine(obj) {
+				if e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() &&
+					e.ObjectOld.GetResourceVersion() == e.ObjectNew.GetResourceVersion() {
+					return false
+				} else {
+					log.Info(Mode+" Owned Generation or resourceVersion Changed for kernel affine object",
+						"Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
+					if reflect.TypeOf(obj).String() == "*v1.DaemonSet" && e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
+						err := lifecycle.UpdateDaemonSetPods(obj)
+						warn.OnError(err)
+					}
+					return true
+				}
+			}
+
+
 			// Ignore updates to CR status in which case metadata.Generation does not change
 			if e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() {
 				return false
@@ -192,7 +213,6 @@ func Predicate() predicate.Predicate {
 
 			// If a specialresource dependency is updated we
 			// want to reconcile it, handle the update event
-			obj := e.ObjectNew
 
 			if IsSpecialResource(obj) {
 				log.Info(Mode+" IsSpecialResource GenerationChanged",
