@@ -2,28 +2,24 @@ package controllers
 
 import (
 	"context"
-
 	"fmt"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
-	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // If resource available, label the nodes according to the current state
 // if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
 func labelNodesAccordingToState(nodeSelector map[string]string) error {
-
 	var err error
 
 	if err = cache.Nodes(nodeSelector, true); err != nil {
-		return errors.Wrap(err, "Could not cache nodes for state change")
+		return fmt.Errorf("could not cache nodes for state change: %w", err)
 	}
 
 	for _, node := range cache.Node.List.Items {
-
 		labels := node.GetLabels()
 
 		// Label missing update the Node to advance to the next state
@@ -33,27 +29,26 @@ func labelNodesAccordingToState(nodeSelector map[string]string) error {
 
 		updated.SetLabels(labels)
 
-		err := clients.Interface.Update(context.TODO(), updated)
-		if apierrors.IsForbidden(err) {
-			return errors.Wrap(err, "forbidden check Role, ClusterRole and Bindings for operator %s")
-		}
-		if apierrors.IsConflict(err) {
-			var err error
-
-			if err = cache.Nodes(nodeSelector, true); err != nil {
-				return errors.Wrap(err, "Could not cache nodes for api conflict")
+		if err = clients.Interface.Update(context.TODO(), updated); err != nil {
+			if apierrors.IsForbidden(err) {
+				return fmt.Errorf("forbidden - check Role, ClusterRole and Bindings for operator %s: %w", err)
 			}
 
-			return fmt.Errorf("node Conflict Label %s err %s", state.CurrentName, err)
-		}
+			if apierrors.IsConflict(err) {
+				if err := cache.Nodes(nodeSelector, true); err != nil {
+					return fmt.Errorf("could not cache nodes for api conflict: %w", err)
+				}
 
-		if err != nil {
+				return fmt.Errorf("node Conflict Label %s err %s", state.CurrentName, err)
+			}
+
 			log.Error(err, "Node Update", "label", state.CurrentName)
-			return fmt.Errorf("couldn't Update Node")
+			return fmt.Errorf("couldn't Update Node: %w", err)
 		}
 
 		log.Info("NODE", "Setting Label ", state.CurrentName, "on ", updated.GetName())
 
 	}
+
 	return nil
 }

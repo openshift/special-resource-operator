@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -9,12 +10,9 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
-
 	"github.com/pkg/errors"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -87,21 +85,27 @@ func logRuntimeInformation() {
 	log.Info("Runtime Information", "Proxy", RunInfo.Proxy)
 }
 
-func getRuntimeInformation(r *SpecialResourceReconciler) {
-
+func getRuntimeInformation(r *SpecialResourceReconciler) error {
 	var err error
 
-	err = cache.Nodes(r.specialresource.Spec.NodeSelector, false)
-	exit.OnError(errors.Wrap(err, "Failed to cache nodes"))
+	if err = cache.Nodes(r.specialresource.Spec.NodeSelector, false); err != nil {
+		return fmt.Errorf("failed to cache nodes: %w", err)
+	}
 
 	RunInfo.OperatingSystemMajor, RunInfo.OperatingSystemMajorMinor, RunInfo.OperatingSystemDecimal, err = cluster.OperatingSystem()
-	exit.OnError(errors.Wrap(err, "Failed to get operating system"))
+	if err != nil {
+		return fmt.Errorf("failed to get operating system: %w", err)
+	}
 
 	RunInfo.KernelFullVersion, err = kernel.FullVersion()
-	exit.OnError(errors.Wrap(err, "Failed to get kernel version"))
+	if err != nil {
+		return fmt.Errorf("failed to get kernel version: %w", err)
+	}
 
 	RunInfo.KernelPatchVersion, err = kernel.PatchVersion(RunInfo.KernelFullVersion)
-	exit.OnError(errors.Wrap(err, "Failed to get kernel patch version"))
+	if err != nil {
+		return fmt.Errorf("failed to get kernel patch version: %w", err)
+	}
 
 	// Only want to initialize the platform once.
 	if RunInfo.Platform == "" {
@@ -109,21 +113,33 @@ func getRuntimeInformation(r *SpecialResourceReconciler) {
 	}
 
 	RunInfo.ClusterVersion, RunInfo.ClusterVersionMajorMinor, err = cluster.Version()
-	exit.OnError(errors.Wrap(err, "Failed to get cluster version"))
+	if err != nil {
+		return fmt.Errorf("failed to get cluster version: %w", err)
+	}
 
 	RunInfo.ClusterUpgradeInfo, err = upgrade.ClusterInfo()
-	exit.OnError(errors.Wrap(err, "Failed to get upgrade info"))
+	if err != nil {
+		return fmt.Errorf("failed to get upgrade info: %w", err)
+	}
 
 	RunInfo.PushSecretName, err = retryGetPushSecretName(r)
-	warn.OnError(errors.Wrap(err, "Failed to get push secret name"))
+	if err != nil {
+		return fmt.Errorf("failed to get push secret name: %w", err)
+	}
 
 	RunInfo.OSImageURL, err = cluster.OSImageURL()
-	exit.OnError(errors.Wrap(err, "Failed to get OSImageURL"))
+	if err != nil {
+		return fmt.Errorf("failed to get OSImageURL: %w", err)
+	}
 
 	RunInfo.Proxy, err = proxy.ClusterConfiguration()
-	exit.OnError(errors.Wrap(err, "Failed to get Proxy Configuration"))
+	if err != nil {
+		return fmt.Errorf("failed to get Proxy Configuration: %w", err)
+	}
 
 	r.specialresource.DeepCopyInto(&RunInfo.SpecialResource)
+
+	return nil
 }
 
 func retryGetPushSecretName(r *SpecialResourceReconciler) (string, error) {
@@ -143,7 +159,6 @@ func retryGetPushSecretName(r *SpecialResourceReconciler) (string, error) {
 }
 
 func getPushSecretName(r *SpecialResourceReconciler) (string, error) {
-
 	if RunInfo.Platform == "K8S" {
 		log.Info("Warning: On vanilla K8s. Skipping search for push-secret")
 		return "", nil
