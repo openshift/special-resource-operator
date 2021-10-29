@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -14,7 +15,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,9 +69,10 @@ func writeImageRegistryCredentials() error {
 	return nil
 }
 
-func LastLayer(entry string) v1.Layer {
-	err := writeImageRegistryCredentials()
-	exit.OnError(err)
+func LastLayer(entry string) (v1.Layer, error) {
+	if err := writeImageRegistryCredentials(); err != nil {
+		return nil, err
+	}
 
 	var repo string
 
@@ -85,40 +86,43 @@ func LastLayer(entry string) v1.Layer {
 
 	manifest, err := crane.Manifest(entry, options)
 	if err != nil {
-		warn.OnError(errors.Wrap(err, "Cannot extract manifest"))
-		return nil
+		warn.OnError(fmt.Errorf("cannot extract manifest: %v", err))
+		return nil, nil
 	}
 
 	release := unstructured.Unstructured{}
-	err = json.Unmarshal(manifest, &release.Object)
-	exit.OnError(err)
+	if err = json.Unmarshal(manifest, &release.Object); err != nil {
+		return nil, err
+	}
 
 	layers, _, err := unstructured.NestedSlice(release.Object, "layers")
-	exit.OnError(err)
+	if err != nil {
+		return nil, err
+	}
 
 	last := layers[len(layers)-1]
 
 	digest := last.(map[string]interface{})["digest"].(string)
 
-	layer, err := crane.PullLayer(repo+"@"+digest, options)
-	exit.OnError(err)
-
-	return layer
+	return crane.PullLayer(repo+"@"+digest, options)
 }
 
 func ExtractToolkitRelease(layer v1.Layer) (DriverToolkitEntry, error) {
+	var dtk DriverToolkitEntry
 
 	targz, err := layer.Compressed()
+	if err != nil {
+		return dtk, err
+	}
 	defer dclose(targz)
-	exit.OnError(err)
 
 	gr, err := gzip.NewReader(targz)
+	if err != nil {
+		return dtk, err
+	}
 	defer dclose(gr)
-	exit.OnError(err)
 
 	tr := tar.NewReader(gr)
-
-	var dtk DriverToolkitEntry
 
 	for {
 		header, err := tr.Next()
@@ -128,25 +132,34 @@ func ExtractToolkitRelease(layer v1.Layer) (DriverToolkitEntry, error) {
 
 		if header.Name == "etc/driver-toolkit-release.json" {
 			buff, err := io.ReadAll(tr)
-			exit.OnError(err)
+			if err != nil {
+				return dtk, err
+			}
 
 			obj := unstructured.Unstructured{}
 
-			err = json.Unmarshal(buff, &obj.Object)
-			exit.OnError(err)
+			if err = json.Unmarshal(buff, &obj.Object); err != nil {
+				return dtk, err
+			}
 
 			entry, _, err := unstructured.NestedString(obj.Object, "KERNEL_VERSION")
-			exit.OnError(err)
+			if err != nil {
+				return dtk, err
+			}
 			log.Info("DTK", "kernel-version", entry)
 			dtk.KernelFullVersion = entry
 
 			entry, _, err = unstructured.NestedString(obj.Object, "RT_KERNEL_VERSION")
-			exit.OnError(err)
+			if err != nil {
+				return dtk, err
+			}
 			log.Info("DTK", "rt-kernel-version", entry)
 			dtk.RTKernelFullVersion = entry
 
 			entry, _, err = unstructured.NestedString(obj.Object, "RHEL_VERSION")
-			exit.OnError(err)
+			if err != nil {
+				return dtk, err
+			}
 			log.Info("DTK", "rhel-version", entry)
 			dtk.OSVersion = entry
 
@@ -158,15 +171,19 @@ func ExtractToolkitRelease(layer v1.Layer) (DriverToolkitEntry, error) {
 	return dtk, errors.New("Missing driver toolkit entry: /etc/driver-toolkit-release.json")
 }
 
-func ReleaseManifests(layer v1.Layer) (key string, value string) {
+func ReleaseManifests(layer v1.Layer) (string, string, error) {
 
 	targz, err := layer.Compressed()
+	if err != nil {
+		return "", "", err
+	}
 	defer dclose(targz)
-	exit.OnError(err)
 
 	gr, err := gzip.NewReader(targz)
+	if err != nil {
+		return "", "", err
+	}
 	defer dclose(gr)
-	exit.OnError(err)
 
 	tr := tar.NewReader(gr)
 
@@ -175,22 +192,31 @@ func ReleaseManifests(layer v1.Layer) (key string, value string) {
 
 	for {
 		header, err := tr.Next()
-		if err == io.EOF {
-			break
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+
+			return "", "", err
 		}
 
 		if header.Name == "release-manifests/image-references" {
 
 			buff, err := io.ReadAll(tr)
-			exit.OnError(err)
+			if err != nil {
+				return "", "", err
+			}
 
 			obj := unstructured.Unstructured{}
 
-			err = json.Unmarshal(buff, &obj.Object)
-			exit.OnError(err)
+			if err = json.Unmarshal(buff, &obj.Object); err != nil {
+				return "", "", err
+			}
 
 			tags, _, err := unstructured.NestedSlice(obj.Object, "spec", "tags")
-			exit.OnError(err)
+			if err != nil {
+				return "", "", err
+			}
 
 			for _, tag := range tags {
 				if tag.(map[string]interface{})["name"] == "driver-toolkit" {
@@ -204,15 +230,20 @@ func ReleaseManifests(layer v1.Layer) (key string, value string) {
 		if header.Name == "release-manifests/release-metadata" {
 
 			buff, err := io.ReadAll(tr)
-			exit.OnError(err)
+			if err != nil {
+				return "", "", err
+			}
 
 			obj := unstructured.Unstructured{}
 
-			err = json.Unmarshal(buff, &obj.Object)
-			exit.OnError(err)
+			if err = json.Unmarshal(buff, &obj.Object); err != nil {
+				return "", "", err
+			}
 
 			version, _, err = unstructured.NestedString(obj.Object, "version")
-			exit.OnError(err)
+			if err != nil {
+				return "", "", err
+			}
 		}
 
 		if version != "" && imageURL != "" {
@@ -221,7 +252,7 @@ func ReleaseManifests(layer v1.Layer) (key string, value string) {
 
 	}
 
-	return version, imageURL
+	return version, imageURL, nil
 }
 
 func dclose(c io.Closer) {

@@ -7,14 +7,12 @@ import (
 	"io"
 	"os"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/hash"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
@@ -34,32 +32,25 @@ var (
 	RetryInterval = time.Second * 5
 	Timeout       = time.Second * 30
 	log           logr.Logger
-)
-
-type pollCallbacks map[string]func(obj *unstructured.Unstructured) error
-
-var (
-	waitFor pollCallbacks
+	waitFor       = map[string]func(obj *unstructured.Unstructured) error{
+		"Pod":                      ForPod,
+		"DaemonSet":                ForDaemonSet,
+		"BuildConfig":              ForBuild,
+		"Secret":                   ForSecret,
+		"CustomResourceDefinition": ForCRD,
+		"Job":                      ForJob,
+		"Deployment":               ForDeployment,
+		"StatefulSet":              ForStatefulSet,
+		"Namespace":                ForResourceAvailability,
+		"Certificates":             ForResourceAvailability,
+	}
 )
 
 func init() {
-
-	waitFor = make(pollCallbacks)
-	waitFor["Pod"] = ForPod
-	waitFor["DaemonSet"] = ForDaemonSet
-	waitFor["BuildConfig"] = ForBuild
-	waitFor["Secret"] = ForSecret
-	waitFor["CustomResourceDefinition"] = ForCRD
-	waitFor["Job"] = ForJob
-	waitFor["Deployment"] = ForDeployment
-	waitFor["StatefulSet"] = ForStatefulSet
-	waitFor["Namespace"] = ForResourceAvailability
-	waitFor["Certificates"] = ForResourceAvailability
-
 	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("wait", color.Brown))
 }
 
-type statusCallback func(obj *unstructured.Unstructured) bool
+type statusCallback func(obj *unstructured.Unstructured) (bool, error)
 
 func ForResourceAvailability(obj *unstructured.Unstructured) error {
 
@@ -97,44 +88,39 @@ func ForResourceUnavailability(obj *unstructured.Unstructured) error {
 }
 
 // makeStatusCallback Closure capturing json path and expected status
-func makeStatusCallback(obj *unstructured.Unstructured, status interface{}, fields ...string) func(obj *unstructured.Unstructured) bool {
+func makeStatusCallback(
+	obj *unstructured.Unstructured,
+	status interface{}, fields ...string) statusCallback {
 	_status := status
 	_fields := fields
-	return func(obj *unstructured.Unstructured) bool {
-		switch x := _status.(type) {
+	return func(obj *unstructured.Unstructured) (bool, error) {
+		switch expected := _status.(type) {
 		case int64:
-			expected := _status.(int64)
 			current, found, err := unstructured.NestedInt64(obj.Object, _fields...)
-			exit.OnErrorOrNotFound(found, err)
-
-			if current == int64(expected) {
-				return true
+			if err != nil || !found {
+				return false, fmt.Errorf("error or not found: %w", err)
 			}
-			return false
+
+			return current == expected, nil
 
 		case int:
-			expected := _status.(int)
 			current, found, err := unstructured.NestedInt64(obj.Object, _fields...)
-			exit.OnErrorOrNotFound(found, err)
-
-			if int(current) == int(expected) {
-				return true
+			if err != nil || !found {
+				return false, fmt.Errorf("error or not found: %w", err)
 			}
-			return false
+
+			return int(current) == expected, nil
 
 		case string:
-			expected := _status.(string)
 			current, found, err := unstructured.NestedString(obj.Object, _fields...)
-			exit.OnErrorOrNotFound(found, err)
-
-			if stat := strings.Compare(current, expected); stat == 0 {
-				return true
+			if err != nil || !found {
+				return false, fmt.Errorf("error or not found: %w", err)
 			}
-			return false
+
+			return current == expected, nil
 
 		default:
-			panic(fmt.Errorf("cannot extract type from %T", x))
-
+			return false, fmt.Errorf("%T: unhandled type", _status)
 		}
 	}
 }
@@ -186,13 +172,13 @@ func ForDeployment(obj *unstructured.Unstructured) error {
 	if err := ForResourceAvailability(obj); err != nil {
 		return err
 	}
-	return ForResourceFullAvailability(obj, func(obj *unstructured.Unstructured) bool {
+	return ForResourceFullAvailability(obj, func(obj *unstructured.Unstructured) (bool, error) {
 
 		labels, found, err := unstructured.NestedMap(obj.Object, "spec", "selector", "matchLabels")
 		warn.OnError(err)
 
 		if !found {
-			return false
+			return false, err
 		}
 
 		matchingLabels := make(map[string]string)
@@ -211,7 +197,7 @@ func ForDeployment(obj *unstructured.Unstructured) error {
 		err = clients.Interface.List(context.TODO(), &rss, opts...)
 		if err != nil {
 			log.Info("Could not get ReplicaSet", "Deployment", obj.GetName(), "error", err)
-			return false
+			return false, nil
 		}
 
 		for _, rs := range rss.Items {
@@ -220,13 +206,13 @@ func ForDeployment(obj *unstructured.Unstructured) error {
 			warn.OnError(err)
 			if !found {
 				log.Info("No status for ReplicaSet", "name", rs.GetName())
-				return false
+				return false, nil
 			}
 
 			_, ok := status["replicas"]
 			if !ok {
 				log.Info("No replicas for ReplicaSet", "name", rs.GetName())
-				return false
+				return false, nil
 			}
 			repls := status["replicas"].(int64)
 			_, okAvailableReplicas := status["availableReplicas"]
@@ -235,15 +221,15 @@ func ForDeployment(obj *unstructured.Unstructured) error {
 				continue
 			}
 			if !okAvailableReplicas {
-				return false
+				return false, nil
 			}
 			avail := status["availableReplicas"].(int64)
 			log.Info("Status", "AvailableReplicas", avail, "Replicas", repls)
 			if avail != repls {
-				return false
+				return false, nil
 			}
 		}
-		return true
+		return true, nil
 	})
 }
 
@@ -251,34 +237,34 @@ func ForStatefulSet(obj *unstructured.Unstructured) error {
 	if err := ForResourceAvailability(obj); err != nil {
 		return err
 	}
-	return ForResourceFullAvailability(obj, func(obj *unstructured.Unstructured) bool {
+	return ForResourceFullAvailability(obj, func(obj *unstructured.Unstructured) (bool, error) {
 
 		repls, found, err := unstructured.NestedInt64(obj.Object, "spec", "replicas")
 		warn.OnError(err)
 		if !found {
-			exit.OnError(errors.New("Something went horribly wrong, cannot read .spec.replicas from StatefulSet"))
+			return false, errors.New("Something went horribly wrong, cannot read .spec.replicas from StatefulSet")
 		}
 		log.Info("DEBUG", ".spec.replicas", repls)
 		status, found, err := unstructured.NestedMap(obj.Object, "status")
 		warn.OnError(err)
 		if !found {
 			log.Info("No status for StatefulSet", "name", obj.GetName())
-			return false
+			return false, nil
 		}
 		if _, ok := status["currentReplicas"]; !ok {
-			return false
+			return false, nil
 		}
 
 		currt := status["currentReplicas"].(int64)
 
 		if repls == currt {
 			log.Info("Status", "Replicas", repls, "CurrentReplicas", currt)
-			return true
+			return true, nil
 		}
 
 		log.Info("Status", "Replicas", repls, "CurrentReplicas", currt)
 
-		return false
+		return false, nil
 	})
 }
 
@@ -287,45 +273,51 @@ func ForJob(obj *unstructured.Unstructured) error {
 		return err
 	}
 
-	return ForResourceFullAvailability(obj, func(obj *unstructured.Unstructured) bool {
+	return ForResourceFullAvailability(obj, func(obj *unstructured.Unstructured) (bool, error) {
 
 		conditions, found, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
 		warn.OnError(err)
 
 		if !found {
-			return false
+			return false, nil
 		}
 
 		for _, condition := range conditions {
 
 			status, found, err := unstructured.NestedString(condition.(map[string]interface{}), "status")
-			exit.OnErrorOrNotFound(found, err)
+			if err != nil || !found {
+				return false, fmt.Errorf("error or not found: %w", err)
+			}
 
 			if status == "True" {
 				stype, found, err := unstructured.NestedString(condition.(map[string]interface{}), "type")
-				exit.OnErrorOrNotFound(found, err)
+				if err != nil || !found {
+					return false, fmt.Errorf("error or not found: %w", err)
+				}
 
 				if stype == "Complete" {
-					return true
+					return true, nil
 				}
 			}
 
 		}
-		return false
+		return false, nil
 	})
 }
 
-func ForDaemonSetCallback(obj *unstructured.Unstructured) bool {
+func ForDaemonSetCallback(obj *unstructured.Unstructured) (bool, error) {
 
 	// The total number of nodes that should be running the daemon pod
 	var err error
 	var found bool
 	var callback statusCallback
 
-	callback = func(obj *unstructured.Unstructured) bool { return false }
+	callback = func(obj *unstructured.Unstructured) (bool, error) { return false, nil }
 
 	cache.Node.Count, found, err = unstructured.NestedInt64(obj.Object, "status", "desiredNumberScheduled")
-	exit.OnErrorOrNotFound(found, err)
+	if err != nil || !found {
+		return found, err
+	}
 
 	_, found, _ = unstructured.NestedInt64(obj.Object, "status", "numberUnavailable")
 	if found {
@@ -338,7 +330,6 @@ func ForDaemonSetCallback(obj *unstructured.Unstructured) bool {
 	}
 
 	return callback(obj)
-
 }
 
 func ForLifecycleAvailability(obj *unstructured.Unstructured) error {
@@ -348,7 +339,9 @@ func ForLifecycleAvailability(obj *unstructured.Unstructured) error {
 	}
 
 	strategy, found, err := unstructured.NestedString(obj.Object, "spec", "updateStrategy", "type")
-	exit.OnError(err)
+	if err != nil {
+		return err
+	}
 
 	if !found || strategy != "OnDelete" {
 		return nil
@@ -364,7 +357,7 @@ func ForLifecycleAvailability(obj *unstructured.Unstructured) error {
 		Name:      "special-resource-lifecycle",
 	}
 
-	err = wait.Poll(RetryInterval, Timeout, func() (done bool, err error) {
+	return wait.Poll(RetryInterval, Timeout, func() (done bool, err error) {
 
 		log.Info("Waiting for lifecycle update of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
 
@@ -384,8 +377,6 @@ func ForLifecycleAvailability(obj *unstructured.Unstructured) error {
 		log.Info("All Pods running latest DaemonSet Template, we can move on")
 		return true, nil
 	})
-
-	return err
 }
 
 func ForDaemonSet(obj *unstructured.Unstructured) error {
@@ -431,22 +422,24 @@ func ForResourceFullAvailability(obj *unstructured.Unstructured, callback status
 
 	found := obj.DeepCopy()
 
-	if err := wait.Poll(RetryInterval, Timeout, func() (done bool, err error) {
-		err = clients.Interface.Get(context.TODO(), types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
+	return wait.Poll(RetryInterval, Timeout, func() (bool, error) {
+		err := clients.Interface.Get(context.TODO(), types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
 		if err != nil {
 			log.Error(err, "")
 			return false, err
 		}
-		if callback(found) {
+		fnd, err := callback(found)
+		if err != nil {
+			return fnd, err
+		}
+
+		if fnd {
 			log.Info("Resource available ", "Kind", obj.GetKind()+": "+obj.GetNamespace()+"/"+obj.GetName())
 			return true, nil
 		}
 		log.Info("Waiting for availability of ", "Kind", obj.GetKind()+": "+obj.GetNamespace()+"/"+obj.GetName())
 		return false, nil
-	}); err != nil {
-		return err
-	}
-	return nil
+	})
 }
 
 func ForDaemonSetLogs(obj *unstructured.Unstructured, pattern string) error {
@@ -485,14 +478,14 @@ func ForDaemonSetLogs(obj *unstructured.Unstructured, pattern string) error {
 		req := clients.Interface.CoreV1().Pods(pod.GetNamespace()).GetLogs(pod.GetName(), &podLogOpts)
 		podLogs, err := req.Stream(context.TODO())
 		if err != nil {
-			return errors.Wrap(err, "Error in opening stream")
+			return fmt.Errorf("error in opening stream: %w", err)
 		}
 		defer podLogs.Close()
 
 		buf := new(bytes.Buffer)
-		_, err = io.Copy(buf, podLogs)
-		if err != nil {
-			return errors.Wrap(err, "Error in copy information from podLogs to buf")
+
+		if _, err = io.Copy(buf, podLogs); err != nil {
+			return fmt.Errorf("error in copy information from podLogs to buf: %w", err)
 		}
 
 		cutoff := 100
@@ -504,7 +497,14 @@ func ForDaemonSetLogs(obj *unstructured.Unstructured, pattern string) error {
 		lastBytes := logs[len(logs)-cutoff:]
 		log.Info("WaitForDaemonSetLogs", "LastBytes", lastBytes)
 
-		if match, _ := regexp.MatchString(pattern, lastBytes); !match {
+		var match bool
+
+		match, err = regexp.MatchString(pattern, lastBytes)
+		if err != nil {
+			return fmt.Errorf("error matching pattern %q: %v", pattern, err)
+		}
+
+		if !match {
 			return errors.New("Not yet done. Not matched against: " + pattern)
 		}
 	}

@@ -4,18 +4,11 @@ import (
 	"context"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 )
-
-var Driver string
-
-func init() {
-	Driver = "ConfigMap"
-}
 
 func GetConfigMap(namespace string, name string) (*unstructured.Unstructured, error) {
 
@@ -43,11 +36,10 @@ func CheckConfigMapEntry(key string, ins types.NamespacedName) (string, error) {
 	}
 
 	data, found, err := unstructured.NestedMap(cm.Object, "data")
-	exit.OnError(err)
-
-	if !found {
-		return "", nil
+	if err != nil || !found {
+		return "", err
 	}
+
 	if value, found := data[key]; found {
 		return value.(string), nil
 	}
@@ -65,7 +57,9 @@ func UpdateConfigMapEntry(key string, value string, ins types.NamespacedName) er
 
 	// Just looking if exists so we can create or update
 	entries, found, err := unstructured.NestedMap(cm.Object, "data")
-	exit.OnError(err)
+	if err != nil {
+		return err
+	}
 
 	if !found {
 		entries = make(map[string]interface{})
@@ -73,8 +67,9 @@ func UpdateConfigMapEntry(key string, value string, ins types.NamespacedName) er
 
 	entries[key] = value
 
-	err = unstructured.SetNestedMap(cm.Object, entries, "data")
-	exit.OnError(err)
+	if err = unstructured.SetNestedMap(cm.Object, entries, "data"); err != nil {
+		return err
+	}
 
 	err = clients.Interface.Update(context.TODO(), cm)
 	if err != nil {
@@ -94,22 +89,25 @@ func DeleteConfigMapEntry(delete string, ins types.NamespacedName) error {
 
 	// Just looking if exists so we can create or update
 	old, found, err := unstructured.NestedMap(cm.Object, "data")
-	exit.OnError(err)
+	if err != nil {
+		return err
+	}
 
 	if !found {
 		return nil
 	}
 
-	new := make(map[string]interface{})
+	newMap := make(map[string]interface{})
 
 	for k, v := range old {
 		if delete != k {
-			new[k] = v
+			newMap[k] = v
 		}
 	}
 
-	err = unstructured.SetNestedMap(cm.Object, new, "data")
-	exit.OnError(err)
+	if err = unstructured.SetNestedMap(cm.Object, newMap, "data"); err != nil {
+		return err
+	}
 
 	err = clients.Interface.Update(context.TODO(), cm)
 	if err != nil {
