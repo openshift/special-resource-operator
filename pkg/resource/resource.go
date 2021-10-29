@@ -15,6 +15,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
 	"github.com/pkg/errors"
+	"helm.sh/helm/v3/pkg/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -28,6 +29,7 @@ import (
 
 var (
 	log           logr.Logger
+	HelmClient    kube.Interface
 	RuntimeScheme *runtime.Scheme
 	UpdateVendor  string
 )
