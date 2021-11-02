@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
@@ -101,20 +102,10 @@ func filePathPatternValid(path string) bool {
 	return false
 }
 
+var reState = regexp.MustCompile(`^[0-9]{4}[-_].*\.yaml$`)
+
 func ValidStateName(path string) bool {
-
-	patterns := []string{
-		"[0-9][0-9][0-9][0-9]-*.yaml",
-		"[0-9][0-9][0-9][0-9]_*.yaml",
-	}
-
-	for _, pattern := range patterns {
-		if result, _ := filepath.Match(pattern, filepath.Base(path)); !result {
-			continue
-		}
-		return true
-	}
-	return false
+	return reState.MatchString(path)
 }
 
 func FromConfigMap(templates *unstructured.Unstructured) []*chart.File {
