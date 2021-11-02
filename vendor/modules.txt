@@ -445,6 +445,7 @@ github.com/openshift/client-go/config/clientset/versioned/scheme
 github.com/openshift/client-go/config/clientset/versioned/typed/config/v1
 # github.com/openshift/library-go v0.0.0-20211103140146-29c9bb8362e2
 ## explicit; go 1.16
+github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers
 github.com/openshift/library-go/pkg/config/leaderelection
 github.com/openshift/library-go/pkg/operator/v1helpers
 # github.com/openshift/machine-config-operator v0.0.1-0.20210514234214-c415ce6aed25
