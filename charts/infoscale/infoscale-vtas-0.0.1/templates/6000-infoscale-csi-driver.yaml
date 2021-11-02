@@ -275,7 +275,7 @@ spec:
         args:
         - "--v=5"
         - "--csi-address=$(ADDRESS)"
-        - "--timeout=60s"
+        - "--timeout=300s"
         env:
         - name: ADDRESS
           value: /var/lib/csi/sockets/pluginproxy/csi.sock
@@ -300,7 +300,7 @@ spec:
         args:
         - "--v=5"
         - "--csi-address=$(ADDRESS)"
-        - "--timeout=30s"
+        - "--timeout=300s"
         env:
         - name: ADDRESS
           value: /var/lib/csi/sockets/pluginproxy/csi.sock
