@@ -345,7 +345,11 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 		return nil
 	}
 
-	if hash.AnnotationEqual(found, obj) {
+	equal, err := hash.AnnotationEqual(found, obj)
+	if err != nil {
+		return err
+	}
+	if !equal {
 		logg.Info("Found, not updating, hash the same: " + found.GetKind() + "/" + found.GetName())
 		return nil
 	}

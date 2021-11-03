@@ -83,10 +83,13 @@ func UpdateDaemonSetPods(obj client.Object) error {
 
 	for _, pod := range pl.Items {
 
-		hs := hash.FNV64a(pod.GetNamespace() + pod.GetName())
+		hs, err := hash.FNV64a(pod.GetNamespace() + pod.GetName())
+		if err != nil {
+			return err
+		}
 		value := "*v1.Pod"
 		log.Info(pod.GetName(), "hs", hs, "value", value)
-		err := storage.UpdateConfigMapEntry(hs, value, ins)
+		err = storage.UpdateConfigMapEntry(hs, value, ins)
 		if err != nil {
 			warn.OnError(err)
 			return err

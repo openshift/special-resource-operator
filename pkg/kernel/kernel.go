@@ -26,7 +26,10 @@ func SetAffineAttributes(obj *unstructured.Unstructured,
 	operatingSystemMajorMinor string) error {
 
 	kernelVersion := strings.ReplaceAll(kernelFullVersion, "_", "-")
-	hash64 := hash.FNV64a(operatingSystemMajorMinor + "-" + kernelVersion)
+	hash64, err := hash.FNV64a(operatingSystemMajorMinor + "-" + kernelVersion)
+	if err != nil {
+		return err
+	}
 	name := obj.GetName() + "-" + hash64
 	obj.SetName(name)
 
