@@ -1,15 +1,14 @@
 package clients
 
 import (
+	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	buildv1 "github.com/openshift/api/build/v1"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
-	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
@@ -43,33 +42,24 @@ func init() {
 
 }
 
-// GetKubeClientSetOrDie Add a native non-caching client for advanced CRUD operations
-func GetKubeClientSetOrDie() kubernetes.Clientset {
-
-	clientSet, err := kubernetes.NewForConfig(RestConfig)
-	exit.OnError(err)
-	return *clientSet
+// GetKubeClientSet returns a native non-caching client for advanced CRUD operations
+func GetKubeClientSet() (*kubernetes.Clientset, error) {
+	return kubernetes.NewForConfig(RestConfig)
 }
 
-// GetConfigClientOrDie Add a configv1 client to the reconciler
-func GetConfigClientOrDie() clientconfigv1.ConfigV1Client {
-
-	client, err := clientconfigv1.NewForConfig(RestConfig)
-	exit.OnError(err)
-	return *client
+// GetConfigClient returns a configv1 client to the reconciler
+func GetConfigClient() (*clientconfigv1.ConfigV1Client, error) {
+	return clientconfigv1.NewForConfig(RestConfig)
 }
 
-func GetCachedDiscoveryClientOrDie() discovery.CachedDiscoveryInterface {
-
-	client, err := config.ToDiscoveryClient()
-	exit.OnError(err)
-	return client
+func GetCachedDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
+	return config.ToDiscoveryClient()
 }
 
 func HasResource(resource schema.GroupVersionResource) (bool, error) {
 	dclient, err := discovery.NewDiscoveryClientForConfig(RestConfig)
 	if err != nil {
-		return false, errors.Wrap(err, "Error: cannot retrieve a DiscoveryClient")
+		return false, fmt.Errorf("Cannot retrieve a DiscoveryClient: %w", err)
 	}
 	if dclient == nil {
 		log.Info("Warning: cannot retrieve DiscoveryClient. Assuming vanilla k8s")
@@ -83,7 +73,7 @@ func HasResource(resource schema.GroupVersionResource) (bool, error) {
 	}
 	if err != nil {
 		log.Info("Error while querying ServerResources")
-		return false, errors.Wrap(err, "Cannot query ServerResources")
+		return false, fmt.Errorf("Cannot query ServerResources: %w", err)
 	} else {
 		for _, serverResource := range resources.APIResources {
 			if serverResource.Name == resource.Resource {
@@ -101,14 +91,14 @@ func BuildConfigsAvailable() (bool, error) {
 	return HasResource(buildv1.SchemeGroupVersion.WithResource("buildconfigs"))
 }
 
-func GetPlatform() string {
+func GetPlatform() (string, error) {
 	clusterIsOCP, err := BuildConfigsAvailable()
 	if err != nil {
-		exit.OnError(err)
+		return "", err
 	}
 	if clusterIsOCP {
-		return "OCP"
+		return "OCP", nil
 	} else {
-		return "K8S"
+		return "K8S", nil
 	}
 }
