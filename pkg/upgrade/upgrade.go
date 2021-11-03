@@ -179,7 +179,7 @@ func DriverToolkitVersion(entries []string, info map[string]NodeVersion) (map[st
 		}
 
 		if layer, err = registry.LastLayer(imageURL); layer == nil {
-			return nil, fmt.Errorf("cannot extract last layer for DTK from %s [%w]", imageURL, err)
+			return nil, fmt.Errorf("cannot extract last layer for DTK from %s: %w", imageURL, err)
 		}
 
 		dtk, err := registry.ExtractToolkitRelease(layer)

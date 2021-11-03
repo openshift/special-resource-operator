@@ -108,7 +108,7 @@ func UpdateResourceVersion(req *unstructured.Unstructured, found *unstructured.U
 		}
 
 		if err = unstructured.SetNestedField(req.Object, clusterIP, "spec", "clusterIP"); err != nil {
-			return fmt.Errorf("Couldn't update clusterIP: %w", err)
+			return fmt.Errorf("couldn't update clusterIP: %w", err)
 		}
 	}
 
@@ -185,7 +185,7 @@ func CreateFromYAML(yamlFile []byte,
 		}
 
 		if err = obj.UnmarshalJSON(jsonSpec); err != nil {
-			return fmt.Errorf("cannot unmarshall json spec, check your manifest: %s [%w]", jsonSpec, err)
+			return fmt.Errorf("cannot unmarshall json spec, check your manifest: %s: %w", jsonSpec, err)
 		}
 
 		//  Do not override the namespace if alreayd set
@@ -321,7 +321,7 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 
 		if err = clients.Interface.Create(context.TODO(), obj); err != nil {
 			if apierrors.IsForbidden(err) {
-				return fmt.Errorf("API error: forbidden [%w]", err)
+				return fmt.Errorf("API error: forbidden: %w", err)
 			}
 
 			return fmt.Errorf("unknown error: %w", err)
@@ -564,5 +564,5 @@ func checkForImagePullBackOff(obj *unstructured.Unstructured, namespace string) 
 		return nil
 	}
 
-	return fmt.Errorf("Unexpected Phase of Pods in DameonSet: %s ", obj.GetName())
+	return fmt.Errorf("unexpected Phase of Pods in DameonSet: %s", obj.GetName())
 }

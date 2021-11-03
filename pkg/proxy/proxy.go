@@ -18,6 +18,7 @@ import (
 )
 
 var (
+	errNotFound        = errors.New("not found")
 	log                logr.Logger
 	ProxyConfiguration Configuration
 )
@@ -54,11 +55,15 @@ func Setup(obj *unstructured.Unstructured) error {
 // path... -> Pod, DaemonSet, BuildConfig, etc.
 func SetupDaemonSet(obj *unstructured.Unstructured) error {
 	containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
-	if err != nil || !found {
+	if err != nil {
 		return err
 	}
 
-	if err := setupContainersProxy(containers); err != nil {
+	if !found {
+		return errNotFound
+	}
+
+	if err = setupContainersProxy(containers); err != nil {
 		return errors.Wrap(err, "Cannot set proxy for Pod")
 	}
 
@@ -66,13 +71,16 @@ func SetupDaemonSet(obj *unstructured.Unstructured) error {
 }
 
 func SetupPod(obj *unstructured.Unstructured) error {
-
 	containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "containers")
-	if err != nil || !found {
+	if err != nil {
 		return err
 	}
 
-	if err := setupContainersProxy(containers); err != nil {
+	if !found {
+		return errNotFound
+	}
+
+	if err = setupContainersProxy(containers); err != nil {
 		return errors.Wrap(err, "Cannot set proxy for Pod")
 	}
 

@@ -505,7 +505,7 @@ func ForDaemonSetLogs(obj *unstructured.Unstructured, pattern string) error {
 		}
 
 		if !match {
-			return errors.New("Not yet done. Not matched against: " + pattern)
+			return fmt.Errorf("not yet done; not matched against %q", pattern)
 		}
 	}
 
