@@ -19,14 +19,15 @@ patch:
 	cp .patches/getter.patch.go vendor/helm.sh/helm/v3/pkg/getter/.
 	cp .patches/action.patch.go vendor/helm.sh/helm/v3/pkg/action/.
 	cp .patches/install.patch.go vendor/helm.sh/helm/v3/pkg/action/.
+	OUT="$(shell patch -p1 -N -i .patches/helm.patch)" || echo "${OUT}" | grep "Skipping patch" -q || (echo $OUT && false)
 
 kube-lint: kube-linter
 	$(KUBELINTER) lint $(YAMLFILES)
 
-lint: golangci-lint
+lint: patch golangci-lint
 	$(GOLANGCILINT) run -v --timeout 5m0s
 
-verify: fmt vet
+verify: patch fmt vet
 unit:
 	@echo "TODO UNIT TEST"
 
@@ -40,7 +41,7 @@ test-e2e-upgrade: go-deploy-manifests
 
 test-e2e:
 	for d in basic; do \
-          KUBERNETES_CONFIG="$(KUBECONFIG)" go test -v -timeout 40m ./test/e2e/$$d -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit; \
+          KUBERNETES_CONFIG="$(KUBECONFIG)" go test -v -timeout 40m --tags=e2e ./test/e2e/$$d -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit; \
         done
 
 # Current Operator version
@@ -76,7 +77,7 @@ endif
 all: $(SPECIALRESOURCE)
 
 # Run tests
-test: # generate fmt vet manifests-gen
+test: patch # generate fmt vet manifests-gen
 	go test ./... -coverprofile cover.out
 
 # Build manager binary

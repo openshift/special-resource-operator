@@ -6,38 +6,40 @@ import (
 	"strconv"
 
 	"github.com/mitchellh/hashstructure/v2"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // FNV64a return 64bit hash
-func FNV64a(s string) string {
+func FNV64a(s string) (string, error) {
 	h := fnv.New64a()
 	if _, err := h.Write([]byte(s)); err != nil {
-		exit.OnError(errors.Wrap(err, "Could not write hash"))
+		return "", fmt.Errorf("Could not write hash: %w", err)
 	}
-	return fmt.Sprintf("%x", h.Sum64())
+	return fmt.Sprintf("%x", h.Sum64()), nil
 }
 
-func Annotate(obj *unstructured.Unstructured) {
+func Annotate(obj *unstructured.Unstructured) error {
 
 	hash, err := hashstructure.Hash(obj.Object, hashstructure.FormatV2, nil)
-	exit.OnError(err)
+	if err != nil {
+		return err
+	}
 	anno := obj.GetAnnotations()
 	if anno == nil {
 		anno = make(map[string]string)
 	}
 	anno["specialresource.openshift.io/hash"] = strconv.FormatUint(hash, 10)
 	obj.SetAnnotations(anno)
-
+	return nil
 }
 
-func AnnotationEqual(new *unstructured.Unstructured, old *unstructured.Unstructured) bool {
+func AnnotationEqual(new *unstructured.Unstructured, old *unstructured.Unstructured) (bool, error) {
 
 	hash, err := hashstructure.Hash(old.Object, hashstructure.FormatV2, nil)
-	exit.OnError(err)
+	if err != nil {
+		return false, err
+	}
 	anno := new.GetAnnotations()
 
-	return anno["specialresource.openshift.io/hash"] == strconv.FormatUint(hash, 10)
+	return anno["specialresource.openshift.io/hash"] == strconv.FormatUint(hash, 10), nil
 }

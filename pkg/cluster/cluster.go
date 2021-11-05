@@ -2,18 +2,17 @@ package cluster
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/osversion"
 	configv1 "github.com/openshift/api/config/v1"
 	machinev1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
-
-	"github.com/pkg/errors"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,13 +31,17 @@ func init() {
 
 func Version() (string, string, error) {
 
-	if !ClusterVersionAvailable() {
+	available, err := ClusterVersionAvailable()
+	if err != nil {
+		return "", "", err
+	}
+	if !available {
 		return "", "", nil
 	}
 
 	version, err := clients.Interface.ClusterVersions().Get(context.TODO(), "version", metav1.GetOptions{})
 	if err != nil {
-		return "", "", errors.Wrap(err, "ConfigClient unable to get ClusterVersions")
+		return "", "", fmt.Errorf("ConfigClient unable to get ClusterVersions: %w", err)
 	}
 
 	var majorMinor string
@@ -65,13 +68,17 @@ func VersionHistory() ([]string, error) {
 
 	stat := []string{}
 
-	if !ClusterVersionAvailable() {
+	available, err := ClusterVersionAvailable()
+	if err != nil {
+		return nil, err
+	}
+	if !available {
 		return stat, nil
 	}
 
 	version, err := clients.Interface.ClusterVersions().Get(context.TODO(), "version", metav1.GetOptions{})
 	if err != nil {
-		return stat, errors.Wrap(err, "ConfigClient unable to get ClusterVersions")
+		return stat, fmt.Errorf("ConfigClient unable to get ClusterVersions: %w", err)
 	}
 
 	stat = append(stat, version.Status.Desired.Image)
@@ -89,7 +96,7 @@ func OSImageURL() (string, error) {
 
 	machineConfigAvailable, err := clients.HasResource(machinev1.SchemeGroupVersion.WithResource("machineconfigs"))
 	if err != nil {
-		return "", errors.Wrap(err, "Error discovering machineconfig API resource")
+		return "", fmt.Errorf("Error discovering machineconfig API resource: %w", err)
 	}
 	if !machineConfigAvailable {
 		log.Info("Warning: Could not find machineconfig API resource. Can be ignored on vanilla k8s.")
@@ -103,11 +110,16 @@ func OSImageURL() (string, error) {
 	namespacedName := types.NamespacedName{Namespace: "openshift-machine-config-operator", Name: "machine-config-osimageurl"}
 	err = clients.Interface.Get(context.TODO(), namespacedName, cm)
 	if apierrors.IsNotFound(err) {
-		return "", errors.Wrap(err, "ConfigMap machine-config-osimageurl -n  openshift-machine-config-operator not found")
+		return "", fmt.Errorf("ConfigMap machine-config-osimageurl -n  openshift-machine-config-operator not found: %w", err)
 	}
 
 	osImageURL, found, err := unstructured.NestedString(cm.Object, "data", "osImageURL")
-	exit.OnErrorOrNotFound(found, err)
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return "", errors.New("osImageURL not found")
+	}
 
 	return osImageURL, nil
 }
@@ -132,7 +144,7 @@ func OperatingSystem() (string, string, string, error) {
 		nodeOSmin = labels[os+".VERSION_ID.minor"]
 
 		if len(nodeOSrel) == 0 || len(nodeOSmaj) == 0 {
-			return "", "", "", errors.New("Cannot extract " + os + ".*, is NFD running? Check node labels")
+			return "", "", "", fmt.Errorf("Cannot extract %s.*, is NFD running? Check node labels", os)
 		}
 	}
 	// On OCP >4.7, we can use the NFD label  feature.node.kubernetes.io/system-os_release.RHEL_VERSION label.
@@ -146,15 +158,15 @@ func OperatingSystem() (string, string, string, error) {
 	return osversion.RenderOperatingSystem(nodeOSrel, nodeOSmaj, nodeOSmin)
 }
 
-func ClusterVersionAvailable() bool {
+func ClusterVersionAvailable() (bool, error) {
 
 	clusterVersionAvailable, err := clients.HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions"))
 	if err != nil {
-		exit.OnError(err)
+		return false, err
 	}
 	if !clusterVersionAvailable {
 		log.Info("Warning: ClusterVersion API resource not available. Can be ignored on vanilla k8s.")
-		return false
+		return false, nil
 	}
-	return true
+	return true, nil
 }

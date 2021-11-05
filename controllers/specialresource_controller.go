@@ -108,7 +108,12 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	log = r.Log.WithName(color.Print("setup", color.Brown))
 
-	if clients.GetPlatform() == "OCP" {
+	platform, err := clients.GetPlatform()
+	if err != nil {
+		return err
+	}
+
+	if platform == "OCP" {
 		return ctrl.NewControllerManagedBy(mgr).
 			For(&srov1beta1.SpecialResource{}).
 			Owns(&v1.Pod{}).

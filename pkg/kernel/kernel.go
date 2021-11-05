@@ -6,6 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
@@ -27,7 +28,10 @@ func SetAffineAttributes(obj *unstructured.Unstructured,
 	operatingSystemMajorMinor string) error {
 
 	kernelVersion := strings.ReplaceAll(kernelFullVersion, "_", "-")
-	hash64 := hash.FNV64a(operatingSystemMajorMinor + "-" + kernelVersion)
+	hash64, err := hash.FNV64a(operatingSystemMajorMinor + "-" + kernelVersion)
+	if err != nil {
+		return err
+	}
 	name := obj.GetName() + "-" + hash64
 	obj.SetName(name)
 
@@ -94,7 +98,7 @@ func versionNodeAffinity(kernelFullVersion string, obj *unstructured.Unstructure
 	return nil
 }
 
-func IsObjectAffine(obj *unstructured.Unstructured) bool {
+func IsObjectAffine(obj client.Object) bool {
 
 	annotations := obj.GetAnnotations()
 
