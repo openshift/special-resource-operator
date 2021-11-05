@@ -7,10 +7,6 @@ on:
       - "**/README.md"
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.event.pull_request.head.sha }}
-  cancel-in-progress: true
-
 jobs:
   build:
     name: build
