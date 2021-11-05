@@ -31,7 +31,7 @@ func labelNodesAccordingToState(nodeSelector map[string]string) error {
 
 		if err = clients.Interface.Update(context.TODO(), updated); err != nil {
 			if apierrors.IsForbidden(err) {
-				return fmt.Errorf("forbidden - check Role, ClusterRole and Bindings for operator %s: %w", err)
+				return fmt.Errorf("forbidden - check Role, ClusterRole and Bindings for operator: %w", err)
 			}
 
 			if apierrors.IsConflict(err) {

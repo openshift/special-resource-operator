@@ -1,10 +1,11 @@
 package kernel
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"testing"
 )
 
 const kernelFullVersion = "4.18.0-305.19.1.el8_4.x86_64"
@@ -39,6 +40,7 @@ func TestSetAffineAttributes(t *testing.T) {
 			obj := newObj(kind, objNewName)
 
 			err := SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor)
+			require.NoError(t, err)
 
 			expectedSelector := map[string]interface{}{
 				"feature.node.kubernetes.io/kernel-version.full": kernelFullVersion,
@@ -56,7 +58,6 @@ func TestSetAffineAttributes(t *testing.T) {
 			obj := newObj(kind, objName)
 
 			err := SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor)
-
 			require.NoError(t, err)
 
 			assert.Equal(t, objNewName, obj.GetLabels()["app"])
@@ -94,6 +95,7 @@ func TestSetVersionNodeAffinity(t *testing.T) {
 			obj := newObj(kind, "")
 
 			err := SetVersionNodeAffinity(obj, kernelFullVersion)
+			require.NoError(t, err)
 
 			expectedSelector := map[string]interface{}{
 				"feature.node.kubernetes.io/kernel-version.full": kernelFullVersion,
