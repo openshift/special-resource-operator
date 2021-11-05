@@ -197,7 +197,9 @@ func CreateFromYAML(yamlFile []byte,
 		// We used this for predicate filtering, we're watching a lot of
 		// API Objects we want to ignore all objects that do not have this
 		// label.
-		filter.SetLabel(obj)
+		if err = filter.SetLabel(obj); err != nil {
+			return fmt.Errorf("could not set the label: %w", err)
+		}
 
 		// kernel affinity related attributes only set if there is an
 		// annotation specialresource.openshift.io/kernel-affine: true
@@ -310,7 +312,9 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 		logg.Info("Release", "Installed", releaseInstalled)
 		logg.Info("Is", "OneTimer", oneTimer)
 
-		hash.Annotate(obj)
+		if err = hash.Annotate(obj); err != nil {
+			return err
+		}
 
 		// If we create the resource set the owner reference
 		if err = controllerutil.SetControllerReference(owner, obj, RuntimeScheme); err != nil {
@@ -349,7 +353,7 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 	if err != nil {
 		return err
 	}
-	if !equal {
+	if equal {
 		logg.Info("Found, not updating, hash the same: " + found.GetKind() + "/" + found.GetName())
 		return nil
 	}
@@ -357,7 +361,9 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 	logg.Info("Found, updating")
 	required := obj.DeepCopy()
 
-	hash.Annotate(required)
+	if err = hash.Annotate(required); err != nil {
+		return err
+	}
 
 	// required.ResourceVersion = found.ResourceVersion this is only needed
 	// before we update a resource, we do not care when creating, hence
