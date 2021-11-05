@@ -29,7 +29,6 @@ jobs:
       id: short-sha
       with:
         length: 10
-    - run: sudo apt-get install fuse-overlayfs
     - run: make local-image-build
       env:
         TAG: pr-${{ steps.short-sha.outputs.sha }}
