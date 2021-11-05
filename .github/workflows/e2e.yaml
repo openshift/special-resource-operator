@@ -30,13 +30,17 @@ jobs:
       with:
         length: 10
     - run: sudo apt-get install fuse-overlayfs
-    - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make local-image-build
+    - run: make local-image-build
+      env:
+        TAG: pr-${{ steps.short-sha.outputs.sha }}
     - uses: docker/login-action@v1
       with:
         registry: quay.io
         username: ${{ secrets.QUAY_USERNAME }}
         password: ${{ secrets.QUAY_PASSWORD}}
-    - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make local-image-push
+    - run: make local-image-push
+      env:
+        TAG: pr-${{ steps.short-sha.outputs.sha }}
   e2e:
     name: test-e2e
     needs: build
@@ -63,9 +67,14 @@ jobs:
         openshift_password: ${{ secrets.OPENSHIFT_PASSWORD }}
         insecure_skip_tls_verify: true
         namespace: default
-    - run: TAG=master make deploy || true
+    - run: make deploy
+      env:
+        TAG: master
+      continue-on-error: true
     - run: make undeploy
-    - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make deploy-manifests
+    - run: make deploy-manifests
+      env:
+        TAG: pr-${{ steps.short-sha.outputs.sha }}
     - run: make test-e2e
     - run: oc logs deployment/special-resource-controller-manager -n openshift-special-resource-operator -c manager
     - run: make undeploy-manifests
