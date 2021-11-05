@@ -28,12 +28,18 @@ var clientSet kubernetes.Clientset
 var _ = ginkgo.Describe("[basic][ping-pong] create and deploy ping-poing", func() {
 
 	cs := framework.NewClientSet()
-	cl := framework.NewControllerRuntimeClient()
+	cl, err := framework.NewControllerRuntimeClient()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 	ginkgo.It("Can create and deploy ping-pong", func() {
 		ginkgo.By("Creating ping-pong #1")
-		specialResourceCreate(cs, cl, "../../../charts/example/ping-pong-0.0.1/ping-pong.yaml")
+		err = specialResourceCreate(cs, cl, "../../../charts/example/ping-pong-0.0.1/ping-pong.yaml")
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 		checkPingPong(cs, cl)
-		specialResourceDelete(cs, cl, "../../../charts/example/ping-pong-0.0.1/ping-pong.yaml")
+
+		err = specialResourceDelete(cs, cl, "../../../charts/example/ping-pong-0.0.1/ping-pong.yaml")
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 })
 
@@ -106,17 +112,19 @@ func checkPingPong(cs *framework.ClientSet, cl client.Client) {
 
 }
 
-func specialResourceDelete(cs *framework.ClientSet, cl client.Client, path string) {
+func specialResourceDelete(cs *framework.ClientSet, cl client.Client, path string) error {
 	SRName := "ping-pong"
 	ginkgo.By("deleting " + SRName)
 	sr, err := ioutil.ReadFile(path)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	framework.DeleteFromYAMLWithCR(sr, cl)
+	if err = framework.DeleteFromYAMLWithCR(sr, cl); err != nil {
+		return err
+	}
 
 	ginkgo.By(fmt.Sprintf("Confirming %s is deleted", SRName))
-	err = wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
+	return wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
 		specialresources := &srov1beta1.SpecialResourceList{}
 		err = cl.List(context.TODO(), specialresources, []client.ListOption{}...)
 		if err != nil {
@@ -130,22 +138,18 @@ func specialResourceDelete(cs *framework.ClientSet, cl client.Client, path strin
 		}
 
 		return true, nil
-
 	})
-	if err != nil {
-		explain = err.Error()
-	}
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
 }
 
-func specialResourceCreate(cs *framework.ClientSet, cl client.Client, path string) {
+func specialResourceCreate(cs *framework.ClientSet, cl client.Client, path string) error {
 
 	ginkgo.By("creating ping-pong")
 	sr, err := ioutil.ReadFile(path)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	framework.CreateFromYAML(sr, cl)
+
+	return framework.CreateFromYAML(sr, cl)
 }
 
 // GetKubeClientSetOrDie Add a native non-caching client for advanced CRUD operations

@@ -34,8 +34,7 @@ func createPreamble(cs *framework.ClientSet, cl client.Client) error {
 	if err != nil {
 		return err
 	}
-	framework.CreateFromYAML(preambleYAML, cl)
-	return nil
+	return framework.CreateFromYAML(preambleYAML, cl)
 }
 
 var _ = ginkgo.Describe("[basic][available] Special Resource Operator availability", func() {
@@ -45,7 +44,8 @@ var _ = ginkgo.Describe("[basic][available] Special Resource Operator availabili
 	)
 
 	cs := framework.NewClientSet()
-	cl := framework.NewControllerRuntimeClient()
+	cl, err := framework.NewControllerRuntimeClient()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	var explain error
 

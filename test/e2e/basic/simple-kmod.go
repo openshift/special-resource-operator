@@ -54,7 +54,8 @@ func simpleKmodCreate(cs *framework.ClientSet, cl client.Client) {
 	if err != nil {
 		panic(err)
 	}
-	framework.CreateFromYAML(simpleKmodCrYAML, cl)
+	err = framework.CreateFromYAML(simpleKmodCrYAML, cl)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
 
 	/*
 		ginkgo.By("waiting for completion driver-container-base build")
@@ -154,8 +155,10 @@ func simpleKmodModulesReady(cs *framework.ClientSet) {
 func simpleKmodDelete(cs *framework.ClientSet, cl client.Client) {
 
 	ginkgo.By("deleting simple-kmod")
-	framework.DeleteFromYAMLWithCR(simpleKmodCrYAML, cl)
-	err := wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
+	err := framework.DeleteFromYAMLWithCR(simpleKmodCrYAML, cl)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
+
+	err = wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
 		namespaces, err := cs.Namespaces().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return false, fmt.Errorf("couldn't get namespaces: %v", err)
@@ -197,7 +200,8 @@ func simpleKmodDelete(cs *framework.ClientSet, cl client.Client) {
 var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", func() {
 
 	cs := framework.NewClientSet()
-	cl := framework.NewControllerRuntimeClient()
+	cl, err := framework.NewControllerRuntimeClient()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Check that operator deployment has 1 available pod
 	ginkgo.It("Can create driver-container-base and deploy simple-kmod", func() {
