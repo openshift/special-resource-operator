@@ -31,13 +31,18 @@ verify: patch fmt vet
 unit:
 	@echo "TODO UNIT TEST"
 
-go-deploy-manifests: manifests$(SUFFIX)
-	go run test/deploy/deploy.go -path ./manifests$(SUFFIX)
+CRDS := $(shell echo manifests/[0-9][0-9][0-9][0-9]_customresourcedefinition_*.yaml)
 
-go-undeploy-manifests:
-	go run test/undeploy/undeploy.go -path ./manifests$(SUFFIX)
+deploy-manifests: manifests$(SUFFIX)
+	# First, create CRDs
+	for c in $(CRDS); do kubectl apply -f $${c}; done
+	# Wait for CRDs to be established in the API server, otherwise adding the corresponding CRs could fail
+	for c in $(CRDS); do kubectl wait --for condition=established --timeout=60s -f $${c}; done
+	# Apply all the rest
+	kubectl apply --wait -f ./manifests$(SUFFIX)
 
-test-e2e-upgrade: go-deploy-manifests
+undeploy-manifests: manifests$(SUFFIX)
+	kubectl delete --wait --ignore-not-found -f ./manifests$(SUFFIX)
 
 test-e2e:
 	for d in basic; do \

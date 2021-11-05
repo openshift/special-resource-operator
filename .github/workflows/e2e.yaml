@@ -65,7 +65,7 @@ jobs:
         namespace: default
     - run: TAG=master make deploy || true
     - run: make undeploy
-    - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make go-deploy-manifests
+    - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make deploy-manifests
     - run: make test-e2e
     - run: oc logs deployment/special-resource-controller-manager -n openshift-special-resource-operator -c manager
-    - run: make go-undeploy-manifests
+    - run: make undeploy-manifests
