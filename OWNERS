@@ -1,6 +1,8 @@
 approvers:
-  - dagrayvid
   - bthurber
+  - dagrayvid
+  - pacevedom
+  - qbarrand
 reviewers:
   - ArangoGutierrez
   - bthurber

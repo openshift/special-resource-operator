@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -8,11 +9,11 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/hash"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,7 +38,7 @@ func init() {
 	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("filter", color.Purple))
 }
 
-func SetLabel(obj *unstructured.Unstructured) {
+func SetLabel(obj *unstructured.Unstructured) error {
 
 	var labels map[string]string
 
@@ -48,27 +49,38 @@ func SetLabel(obj *unstructured.Unstructured) {
 	labels[owned] = "true"
 	obj.SetLabels(labels)
 
-	SetSubResourceLabel(obj)
+	return SetSubResourceLabel(obj)
 }
 
-func SetSubResourceLabel(obj *unstructured.Unstructured) {
+func SetSubResourceLabel(obj *unstructured.Unstructured) error {
 
 	if obj.GetKind() == "DaemonSet" || obj.GetKind() == "Deployment" ||
 		obj.GetKind() == "StatefulSet" {
 
 		labels, found, err := unstructured.NestedMap(obj.Object, "spec", "template", "metadata", "labels")
-		exit.OnErrorOrNotFound(found, err)
+		if err != nil {
+			return err
+		}
+		if !found {
+			return errors.New("Labels not found")
+		}
 
 		labels[owned] = "true"
-		err = unstructured.SetNestedMap(obj.Object, labels, "spec", "template", "metadata", "labels")
-		exit.OnError(err)
+		if err := unstructured.SetNestedMap(obj.Object, labels, "spec", "template", "metadata", "labels"); err != nil {
+			return err
+		}
 	}
 
 	if obj.GetKind() == "BuildConfig" {
 		log.Info("TODO: how to set label ownership for Builds and related Pods")
 		/*
 			output, found, err := unstructured.NestedMap(obj.Object, "spec", "output")
-			exit.OnErrorOrNotFound(found, err)
+			if err != nil {
+				return err
+			}
+			if !found {
+				return errors.New("output not found")
+			}
 
 			label := make(map[string]interface{})
 			label["name"] = owned
@@ -77,10 +89,13 @@ func SetSubResourceLabel(obj *unstructured.Unstructured) {
 
 			if _, found := output["imageLabels"]; !found {
 				err := unstructured.SetNestedSlice(obj.Object, imageLabels, "spec", "output", "imageLabels")
-				exit.OnError(err)
+				if err != nil {
+					return err
+				}
 			}
 		*/
 	}
+	return nil
 }
 
 func IsSpecialResource(obj client.Object) bool {
@@ -179,6 +194,26 @@ func Predicate() predicate.Predicate {
 			e.ObjectOld.GetGeneration()
 			e.ObjectOld.GetOwnerReferences()
 
+			obj := e.ObjectNew
+
+			// Required for the case when pods are deleted due to OS upgrade
+
+			if Owned(obj) && kernel.IsObjectAffine(obj) {
+				if e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() &&
+					e.ObjectOld.GetResourceVersion() == e.ObjectNew.GetResourceVersion() {
+					return false
+				} else {
+					log.Info(Mode+" Owned Generation or resourceVersion Changed for kernel affine object",
+						"Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
+					if reflect.TypeOf(obj).String() == "*v1.DaemonSet" && e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
+						err := lifecycle.UpdateDaemonSetPods(obj)
+						warn.OnError(err)
+					}
+					return true
+				}
+			}
+
+
 			// Ignore updates to CR status in which case metadata.Generation does not change
 			if e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() {
 				return false
@@ -192,7 +227,6 @@ func Predicate() predicate.Predicate {
 
 			// If a specialresource dependency is updated we
 			// want to reconcile it, handle the update event
-			obj := e.ObjectNew
 
 			if IsSpecialResource(obj) {
 				log.Info(Mode+" IsSpecialResource GenerationChanged",
@@ -233,8 +267,12 @@ func Predicate() predicate.Predicate {
 					Namespace: os.Getenv("OPERATOR_NAMESPACE"),
 					Name:      "special-resource-lifecycle",
 				}
-				key := hash.FNV64a(obj.GetNamespace() + obj.GetName())
-				err := storage.DeleteConfigMapEntry(key, ins)
+				key, err := hash.FNV64a(obj.GetNamespace() + obj.GetName())
+				if err != nil {
+					warn.OnError(err)
+					return false
+				}
+				err = storage.DeleteConfigMapEntry(key, ins)
 				warn.OnError(err)
 
 				return true

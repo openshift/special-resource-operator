@@ -8,7 +8,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/pkg/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -16,7 +15,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
@@ -51,8 +49,7 @@ var (
 func init() {
 	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("helmer", color.Blue))
 
-	err := OpenShiftInstallOrder()
-	exit.OnError(err)
+	OpenShiftInstallOrder()
 
 	settings = cli.New()
 
@@ -85,13 +82,13 @@ func AddorUpdateRepo(entry *repo.Entry) error {
 
 	chartRepo, err := repo.NewChartRepository(entry, getterProviders)
 	if err != nil {
-		return errors.Wrap(err, "new chart repository failed")
+		return fmt.Errorf("new chart repository failed: %w", err)
 
 	}
 	chartRepo.CachePath = settings.RepositoryCache
 
 	if _, err = chartRepo.DownloadIndexFile(); err != nil {
-		return errors.Wrap(err, "cannot find index.yaml for: "+entry.URL)
+		return fmt.Errorf("cannot find index.yaml for %s: %w", entry.URL, err)
 	}
 
 	if repoFile.Has(entry.Name) {
@@ -101,7 +98,7 @@ func AddorUpdateRepo(entry *repo.Entry) error {
 	repoFile.Update(entry)
 
 	if err = repoFile.WriteFile(settings.RepositoryConfig, 0644); err != nil {
-		return errors.Wrap(err, "could not wirte repository config:"+settings.RepositoryConfig)
+		return fmt.Errorf("could not wirte repository config %s: %w", settings.RepositoryConfig, err)
 	}
 
 	return nil
@@ -146,7 +143,7 @@ func Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 	var path string
 
 	if path, err = act.LocateChart(repoChartName, settings); err != nil {
-		return nil, errors.Wrap(err, "Could not locate chart: "+repoChartName)
+		return nil, fmt.Errorf("Could not locate chart %s: %w", repoChartName, err)
 	}
 
 	loaded, err := loader.Load(path)
@@ -155,16 +152,14 @@ func Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 
 }
 
-func OpenShiftInstallOrder() error {
-
+func OpenShiftInstallOrder() {
+	// Mutates helm package exported variables
 	idx := slice.Find(releaseutil.InstallOrder, "Service")
 	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "BuildConfig")
 	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "ImageStream")
 	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "SecurityContextConstraints")
 	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "Issuer")
 	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "Certificates")
-
-	return nil
 }
 
 func LogWrap(format string, v ...interface{}) {
@@ -199,7 +194,9 @@ func Run(ch chart.Chart, vals map[string]interface{},
 	ActionConfig = new(action.Configuration)
 
 	err := ActionConfig.Init(settings.RESTClientGetter(), namespace, "configmaps", LogWrap)
-	exit.OnError(errors.Wrap(err, "Cannot initialize helm action config"))
+	if err != nil {
+		return fmt.Errorf("Cannot initialize helm action config: %w", err)
+	}
 
 	resource.HelmClient = ActionConfig.KubeClient
 
@@ -221,7 +218,7 @@ func Run(ch chart.Chart, vals map[string]interface{},
 	}
 
 	if ch.Metadata.Type != "" && ch.Metadata.Type != "application" {
-		return errors.New("Chart has an unsupported type and is not installable:" + ch.Metadata.Type)
+		return fmt.Errorf("Chart has an unsupported type %s and can not be installed", ch.Metadata.Type)
 	}
 
 	// Pre-install anything in the crd/ directory. We do this before Helm
@@ -230,7 +227,9 @@ func Run(ch chart.Chart, vals map[string]interface{},
 
 		log.Info("Release CRDs")
 		err := InstallCRDs(crds, owner, install.ReleaseName, install.Namespace)
-		exit.OnError(errors.Wrap(err, "Cannot install CRDs"))
+		if err != nil {
+			return fmt.Errorf("Cannot install CRDs: %w", err)
+		}
 	}
 
 	rel, err := install.Run(&ch, vals)
@@ -241,7 +240,9 @@ func Run(ch chart.Chart, vals map[string]interface{},
 
 	if debug {
 		json, err := json.MarshalIndent(vals, "", " ")
-		exit.OnError(err)
+		if err != nil {
+			return err
+		}
 
 		fmt.Printf("--------------------------------------------------------------------------------\n")
 		fmt.Printf("\"%s\"\n", json)
@@ -311,7 +312,7 @@ func Run(ch chart.Chart, vals map[string]interface{},
 	}
 
 	if err := install.RecordRelease(rel); err != nil {
-		warn.OnError(errors.Wrap(err, "failed to record the release"))
+		warn.OnError(fmt.Errorf("failed to record the release: %w", err))
 	}
 
 	return nil
@@ -346,7 +347,7 @@ func ExecHook(rl *release.Release, hook release.HookEvent, timeout time.Duration
 		if apierrors.IsNotFound(err) {
 			log.Info("Hooks", string(hook), "NotReady (IsNotFound)")
 		} else {
-			return errors.Wrapf(err, "Unexpected error getting hook cm %s", hook)
+			return fmt.Errorf("Unexpected error getting hook cm %s: %w", hook, err)
 		}
 	} else {
 		log.Info("Hooks", string(hook), "Ready (Get)")
@@ -392,9 +393,9 @@ func ExecHook(rl *release.Release, hook release.HookEvent, timeout time.Duration
 			h.LastRun.CompletedAt = helmtime.Now()
 			h.LastRun.Phase = release.HookPhaseFailed
 			if err := ActionConfig.DeleteHookByPolicy(h, release.HookFailed); err != nil {
-				return errors.Wrapf(err, "failed to delete hook by policy %s %s", h.Name, h.Path)
+				return fmt.Errorf("failed to delete hook by policy %s %s: %w", h.Name, h.Path, err)
 			}
-			return errors.Wrapf(err, "hook execution failed %s %s", h.Name, h.Path)
+			return fmt.Errorf("hook execution failed %s %s: %w", h.Name, h.Path, err)
 		}
 
 		// Watch hook resources until they have completed
@@ -420,9 +421,9 @@ func ExecHook(rl *release.Release, hook release.HookEvent, timeout time.Duration
 		}
 
 		if apierrors.IsForbidden(err) {
-			return errors.Wrap(err, "API error is forbidden")
+			return fmt.Errorf("API error is forbidden: %w", err)
 		}
-		return errors.Wrapf(err, "Unexpected error creating hook cm %s", hook)
+		return fmt.Errorf("Unexpected error creating hook cm %s: %w", hook, err)
 	}
 	log.Info("Hooks", string(hook), "Ready (Created)")
 	return nil
