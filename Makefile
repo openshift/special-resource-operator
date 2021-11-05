@@ -44,6 +44,10 @@ deploy-manifests: manifests$(SUFFIX)
 undeploy-manifests: manifests$(SUFFIX)
 	kubectl delete --wait --ignore-not-found -f ./manifests$(SUFFIX)
 
+# TODO: obsolete targets; remove
+go-deploy-manifests: deploy-manifests
+go-undeploy-manifests: undeploy-manifests
+
 test-e2e:
 	for d in basic; do \
           KUBERNETES_CONFIG="$(KUBECONFIG)" go test -v -timeout 40m --tags=e2e ./test/e2e/$$d -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit; \
