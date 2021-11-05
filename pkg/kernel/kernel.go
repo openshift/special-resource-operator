@@ -5,12 +5,11 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/hash"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -36,22 +35,30 @@ func SetAffineAttributes(obj *unstructured.Unstructured,
 	obj.SetName(name)
 
 	if obj.GetKind() == "BuildRun" {
-		err := unstructured.SetNestedField(obj.Object, name, "spec", "buildRef", "name")
-		exit.OnError(err)
+		if err = unstructured.SetNestedField(obj.Object, name, "spec", "buildRef", "name"); err != nil {
+			return err
+		}
 	}
 
 	if obj.GetKind() == "DaemonSet" || obj.GetKind() == "Deployment" || obj.GetKind() == "StatefulSet" {
-		err := unstructured.SetNestedField(obj.Object, name, "metadata", "labels", "app")
-		exit.OnError(err)
-		err = unstructured.SetNestedField(obj.Object, name, "spec", "selector", "matchLabels", "app")
-		exit.OnError(err)
-		err = unstructured.SetNestedField(obj.Object, name, "spec", "template", "metadata", "labels", "app")
-		exit.OnError(err)
-		err = unstructured.SetNestedField(obj.Object, name, "spec", "template", "metadata", "labels", "app")
-		exit.OnError(err)
+		if err = unstructured.SetNestedField(obj.Object, name, "metadata", "labels", "app"); err != nil {
+			return err
+		}
+
+		if err = unstructured.SetNestedField(obj.Object, name, "spec", "selector", "matchLabels", "app"); err != nil {
+			return err
+		}
+
+		if err = unstructured.SetNestedField(obj.Object, name, "spec", "template", "metadata", "labels", "app"); err != nil {
+			return err
+		}
+
+		if err = unstructured.SetNestedField(obj.Object, name, "spec", "template", "metadata", "labels", "app"); err != nil {
+			return err
+		}
 	}
 
-	if err := SetVersionNodeAffinity(obj, kernelFullVersion); err != nil {
+	if err = SetVersionNodeAffinity(obj, kernelFullVersion); err != nil {
 		return errors.Wrap(err, "Cannot set kernel version node affinity for obj: "+obj.GetKind())
 	}
 	return nil
@@ -83,7 +90,9 @@ func SetVersionNodeAffinity(obj *unstructured.Unstructured, kernelFullVersion st
 func versionNodeAffinity(kernelFullVersion string, obj *unstructured.Unstructured, fields ...string) error {
 
 	nodeSelector, found, err := unstructured.NestedMap(obj.Object, fields...)
-	exit.OnError(err)
+	if err != nil {
+		return err
+	}
 
 	if !found {
 		nodeSelector = make(map[string]interface{})

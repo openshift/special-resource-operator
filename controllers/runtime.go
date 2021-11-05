@@ -110,7 +110,9 @@ func getRuntimeInformation(r *SpecialResourceReconciler) error {
 	// Only want to initialize the platform once.
 	if RunInfo.Platform == "" {
 		RunInfo.Platform, err = clients.GetPlatform()
-		exit.OnError(errors.Wrap(err, "Failed to determine platform"))
+		if err != nil {
+			return fmt.Errorf("failed to determine platform: %w", err)
+		}
 	}
 
 	RunInfo.ClusterVersion, RunInfo.ClusterVersionMajorMinor, err = cluster.Version()
