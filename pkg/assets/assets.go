@@ -105,7 +105,7 @@ func filePathPatternValid(path string) bool {
 var reState = regexp.MustCompile(`^[0-9]{4}[-_].*\.yaml$`)
 
 func ValidStateName(path string) bool {
-	return reState.MatchString(path)
+	return reState.MatchString(filepath.Base(path))
 }
 
 func FromConfigMap(templates *unstructured.Unstructured) []*chart.File {
