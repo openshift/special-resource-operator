@@ -1,5 +1,5 @@
 packageName: openshift-special-resource-operator
 channels:
-- name: '4.9'
-  currentCSV: openshift-special-resource-operator.v4.9.0
-defaultChannel: "4.9"
+- name: '4.10'
+  currentCSV: openshift-special-resource-operator.v4.10.0
+defaultChannel: "4.10"
