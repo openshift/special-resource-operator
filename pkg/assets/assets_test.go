@@ -1,8 +1,9 @@
 package assets
 
 import (
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestValidStateName(t *testing.T) {
@@ -12,6 +13,18 @@ func TestValidStateName(t *testing.T) {
 	}{
 		{
 			input: "0000_test.yaml",
+			valid: true,
+		},
+		{
+			input: "/path/to/0000_test.yaml",
+			valid: true,
+		},
+		{
+			input: "/0000_test.yaml",
+			valid: true,
+		},
+		{
+			input: "./0000_test.yaml",
 			valid: true,
 		},
 		{
