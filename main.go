@@ -17,14 +17,14 @@ limitations under the License.
 package main
 
 import (
-	"flag"
 	"os"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
+	"github.com/openshift-psap/special-resource-operator/cmd/cli"
+	"github.com/openshift-psap/special-resource-operator/cmd/leaderelection"
 	"github.com/openshift-psap/special-resource-operator/controllers"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
-
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -49,23 +49,26 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	flag.Parse()
+	cl, err := cli.ParseCommandLine(os.Args[0], os.Args[1:])
+	if err != nil {
+		setupLog.Error(err, "could not parse command-line arguments")
+		os.Exit(1)
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             scheme,
-		MetricsBindAddress: metricsAddr,
+	opts := &ctrl.Options{
+		MetricsBindAddress: cl.MetricsAddr,
 		Port:               9443,
-		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "b6ae617b.openshift.io",
-	})
+		Scheme:             scheme,
+	}
+
+	if cl.EnableLeaderElection {
+		opts.LeaderElection = cl.EnableLeaderElection
+		opts = leaderelection.ApplyOpenShiftOptions(opts)
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), *opts)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
