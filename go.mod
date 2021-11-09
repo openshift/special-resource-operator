@@ -9,9 +9,9 @@ require (
 	github.com/mitchellh/hashstructure/v2 v2.0.1
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.15.0
-	github.com/openshift/api v0.0.0-20210409143810-a99ffa1cac67
-	github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
-	github.com/openshift/library-go v0.0.0-20210205203934-9eb0d970f2f4
+	github.com/openshift/api v0.0.0-20210924154557-a4f696157341
+	github.com/openshift/client-go v0.0.0-20210916133943-9acee1a0fb83
+	github.com/openshift/library-go v0.0.0-20211103140146-29c9bb8362e2
 	github.com/openshift/machine-config-operator v0.0.1-0.20210514234214-c415ce6aed25
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.42.1
