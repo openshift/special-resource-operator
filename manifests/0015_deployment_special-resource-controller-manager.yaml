@@ -29,6 +29,7 @@ spec:
         ports:
         - containerPort: 8443
           name: https
+          protocol: TCP
         resources:
           limits:
             cpu: 500m
@@ -55,7 +56,7 @@ spec:
           value: 0.0.1-snapshot
         - name: SSL_CERT_DIR
           value: /etc/pki/tls/certs
-        image: quay.io/openshift-psap/special-resource-operator:fencing_enhancements
+        image: quay.io/openshift-psap/special-resource-operator:operator-sdk-version
         imagePullPolicy: Always
         name: manager
         resources:
@@ -71,10 +72,13 @@ spec:
         volumeMounts:
         - mountPath: /cache
           name: cache-volume
+        - mountPath: /home/nonroot/.docker
+          name: cred-volume
       securityContext:
         runAsGroup: 499
         runAsNonRoot: true
         runAsUser: 499
+      serviceAccountName: special-resource-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
       - name: special-resource-operator-tls
@@ -82,3 +86,5 @@ spec:
           secretName: special-resource-operator-tls
       - emptyDir: {}
         name: cache-volume
+      - emptyDir: {}
+        name: cred-volume

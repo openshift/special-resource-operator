@@ -9,5 +9,5 @@ roleRef:
   name: special-resource-leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: special-resource-controller-manager
   namespace: openshift-special-resource-operator

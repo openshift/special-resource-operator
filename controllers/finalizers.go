@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const specialresourceFinalizer = "finalizer.sro.openshift.io"
+const specialresourceFinalizer = "sro.openshift.io/finalizer"
 
 var (
 	ns unstructured.Unstructured

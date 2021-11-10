@@ -10,10 +10,10 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/hash"
+	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
-	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -212,7 +212,6 @@ func Predicate() predicate.Predicate {
 					return true
 				}
 			}
-
 
 			// Ignore updates to CR status in which case metadata.Generation does not change
 			if e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() {

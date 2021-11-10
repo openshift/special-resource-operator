@@ -736,6 +736,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - fpga.silicom.dk
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - image.openshift.io
   resources:
   - imagestreams
@@ -1119,6 +1131,18 @@ rules:
   - storage.k8s.io
   resources:
   - volumeattachments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sts.silicom.com
+  resources:
+  - '*'
   verbs:
   - create
   - delete

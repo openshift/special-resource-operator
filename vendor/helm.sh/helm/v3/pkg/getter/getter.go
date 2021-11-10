@@ -177,7 +177,7 @@ var ociProvider = Provider{
 // Currently, the built-in getters and the discovered plugins with downloader
 // notations are collected.
 func All(settings *cli.EnvSettings) Providers {
-	result := Providers{httpProvider, ociProvider, fileProvider, configMapProvider}
+	result := Providers{httpProvider, ociProvider}
 	pluginDownloaders, _ := collectPlugins(settings)
 	result = append(result, pluginDownloaders...)
 	return result

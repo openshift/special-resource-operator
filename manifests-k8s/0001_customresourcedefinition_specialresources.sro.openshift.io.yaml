@@ -22,14 +22,10 @@ spec:
         description: SpecialResource is the Schema for the specialresources API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -125,17 +121,14 @@ spec:
                   type: object
                 type: array
               driverContainer:
-                description: SpecialResourceDriverContainer defines the desired state
-                  of SpecialResource
+                description: SpecialResourceDriverContainer defines the desired state of SpecialResource
                 properties:
                   artifacts:
-                    description: SpecialResourceArtifacts defines the observed state
-                      of SpecialResource
+                    description: SpecialResourceArtifacts defines the observed state of SpecialResource
                     properties:
                       claims:
                         items:
-                          description: SpecialResourceClaims defines the observed
-                            state of SpecialResource
+                          description: SpecialResourceClaims defines the observed state of SpecialResource
                           properties:
                             mountPath:
                               type: string
@@ -148,8 +141,7 @@ spec:
                         type: array
                       hostPaths:
                         items:
-                          description: SpecialResourcePaths defines the observed state
-                            of SpecialResource
+                          description: SpecialResourcePaths defines the observed state of SpecialResource
                           properties:
                             destinationDir:
                               type: string
@@ -162,8 +154,7 @@ spec:
                         type: array
                       images:
                         items:
-                          description: SpecialResourceImages defines the observed
-                            state of SpecialResource
+                          description: SpecialResourceImages defines the observed state of SpecialResource
                           properties:
                             kind:
                               type: string
@@ -173,8 +164,7 @@ spec:
                               type: string
                             path:
                               items:
-                                description: SpecialResourcePaths defines the observed
-                                  state of SpecialResource
+                                description: SpecialResourcePaths defines the observed state of SpecialResource
                                 properties:
                                   destinationDir:
                                     type: string
@@ -192,17 +182,14 @@ spec:
                           - name
                           - namespace
                           - path
-                          - pullsecret
                           type: object
                         type: array
                     type: object
                   source:
-                    description: SpecialResourceSource defines the observed state
-                      of SpecialResource
+                    description: SpecialResourceSource defines the observed state of SpecialResource
                     properties:
                       git:
-                        description: SpecialResourceGit defines the observed state
-                          of SpecialResource
+                        description: SpecialResourceGit defines the observed state of SpecialResource
                         properties:
                           ref:
                             type: string
