@@ -2,12 +2,12 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/pkg/errors"
@@ -18,6 +18,7 @@ import (
 )
 
 var (
+	errNotFound        = errors.New("not found")
 	log                logr.Logger
 	ProxyConfiguration Configuration
 )
@@ -54,9 +55,15 @@ func Setup(obj *unstructured.Unstructured) error {
 // path... -> Pod, DaemonSet, BuildConfig, etc.
 func SetupDaemonSet(obj *unstructured.Unstructured) error {
 	containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
-	exit.OnErrorOrNotFound(found, err)
+	if err != nil {
+		return err
+	}
 
-	if err := setupContainersProxy(containers); err != nil {
+	if !found {
+		return errNotFound
+	}
+
+	if err = setupContainersProxy(containers); err != nil {
 		return errors.Wrap(err, "Cannot set proxy for Pod")
 	}
 
@@ -64,11 +71,16 @@ func SetupDaemonSet(obj *unstructured.Unstructured) error {
 }
 
 func SetupPod(obj *unstructured.Unstructured) error {
-
 	containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "containers")
-	exit.OnErrorOrNotFound(found, err)
+	if err != nil {
+		return err
+	}
 
-	if err := setupContainersProxy(containers); err != nil {
+	if !found {
+		return errNotFound
+	}
+
+	if err = setupContainersProxy(containers); err != nil {
 		return errors.Wrap(err, "Cannot set proxy for Pod")
 	}
 
@@ -81,7 +93,9 @@ func setupContainersProxy(containers []interface{}) error {
 		switch container := container.(type) {
 		case map[string]interface{}:
 			env, found, err := unstructured.NestedSlice(container, "env")
-			exit.OnError(err)
+			if err != nil {
+				return err
+			}
 
 			// If env not found we are creating a new env slice
 			// otherwise we're appending it to the existing env slice
@@ -106,8 +120,8 @@ func setupContainersProxy(containers []interface{}) error {
 			env = append(env, httpsproxy)
 			env = append(env, noproxy)
 
-			if err := unstructured.SetNestedSlice(container, env, "env"); err != nil {
-				return errors.Wrap(err, "Cannot set env for container")
+			if err = unstructured.SetNestedSlice(container, env, "env"); err != nil {
+				return fmt.Errorf("cannot set env for container: %w", err)
 			}
 
 		default:

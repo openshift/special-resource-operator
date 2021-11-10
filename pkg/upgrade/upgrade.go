@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"fmt"
 	"runtime"
 	"strings"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -28,8 +28,8 @@ func init() {
 
 type NodeVersion struct {
 	OSVersion      string                      `json:"OSVersion"`
-	OSMajor        string			   `json:"OSMajor"`
-	OSMajorMinor   string			   `json:"OSMajorMinor"`
+	OSMajor        string                      `json:"OSMajor"`
+	OSMajorMinor   string                      `json:"OSMajorMinor"`
 	ClusterVersion string                      `json:"clusterVersion"`
 	DriverToolkit  registry.DriverToolkitEntry `json:"driverToolkit"`
 }
@@ -37,13 +37,19 @@ type NodeVersion struct {
 func ClusterInfo() (map[string]NodeVersion, error) {
 
 	info, err := NodeVersionInfo()
-	exit.OnError(errors.Wrap(err, "Failed to get upgrade info"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get upgrade info: %w", err)
+	}
 
 	history, err := cluster.VersionHistory()
-	exit.OnError(errors.Wrap(err, "Could not get version history"))
+	if err != nil {
+		return nil, fmt.Errorf("could not get version history: %w", err)
+	}
 
 	versions, err := DriverToolkitVersion(history, info)
-	exit.OnError(err)
+	if err != nil {
+		return nil, err
+	}
 
 	return versions, nil
 
@@ -67,12 +73,12 @@ func NodeVersionInfo() (map[string]NodeVersion, error) {
 		// is available if the key is there
 		short := "feature.node.kubernetes.io/kernel-version.full"
 		if kernelFullVersion, found = labels[short]; !found {
-			return nil, errors.New("Label " + short + " not found is NFD running? Check node labels")
+			return nil, fmt.Errorf("label %s not found is NFD running? Check node labels", short)
 		}
 
 		short = "feature.node.kubernetes.io/system-os_release.VERSION_ID"
 		if clusterVersion, found = labels[short]; !found {
-			return nil, errors.New("Label " + short + " not found is NFD running? Check node labels")
+			return nil, fmt.Errorf("label %s not found is NFD running? Check node labels", short)
 		}
 
 		short = "feature.node.kubernetes.io/system-os_release.RHEL_VERSION"
@@ -111,9 +117,7 @@ func UpdateInfo(info map[string]NodeVersion, dtk registry.DriverToolkitEntry, im
 		osDTK := dtk.OSVersion
 
 		if osNFD != osDTK {
-
-			msg := "OSVersion mismatch NFD: " + osNFD + " vs. DTK: " + osDTK
-			exit.OnError(errors.New(msg))
+			return nil, fmt.Errorf("OSVersion mismatch NFD: %s vs. DTK: %s", osNFD, osDTK)
 		}
 
 		nodeVersion := info[dtk.KernelFullVersion]
@@ -131,9 +135,7 @@ func UpdateInfo(info map[string]NodeVersion, dtk registry.DriverToolkitEntry, im
 		osDTK := dtk.OSVersion
 
 		if osNFD != osDTK {
-
-			msg := "OSVersion mismatch NFD: " + osNFD + " vs. DTK: " + osDTK
-			exit.OnError(errors.New(msg))
+			return nil, fmt.Errorf("OSVersion mismatch NFD: %s vs. DTK: %s", osNFD, osDTK)
 		}
 
 		nodeVersion := info[dtk.RTKernelFullVersion]
@@ -151,14 +153,24 @@ func DriverToolkitVersion(entries []string, info map[string]NodeVersion) (map[st
 	for _, entry := range entries {
 
 		log.Info("History", "entry", entry)
-		var layer v1.Layer
-		if layer = registry.LastLayer(entry); layer == nil {
+
+		var (
+			err   error
+			layer v1.Layer
+		)
+
+		layer, err = registry.LastLayer(entry)
+		if err != nil {
+			return nil, err
+		}
+
+		if layer == nil {
 			continue
 		}
 		// For each entry we're fetching the cluster version and dtk URL
-		version, imageURL := registry.ReleaseManifests(layer)
-		if version == "" {
-			exit.OnError(errors.New("Could not extract version from payload"))
+		_, imageURL, err := registry.ReleaseManifests(layer)
+		if err != nil {
+			return nil, fmt.Errorf("could not extract version from payload: %w", err)
 		}
 
 		if imageURL == "" {
@@ -166,12 +178,14 @@ func DriverToolkitVersion(entries []string, info map[string]NodeVersion) (map[st
 			return info, nil
 		}
 
-		if layer = registry.LastLayer(imageURL); layer == nil {
-			exit.OnError(errors.New("Cannot extract last layer for DTK from: " + imageURL))
+		if layer, err = registry.LastLayer(imageURL); layer == nil {
+			return nil, fmt.Errorf("cannot extract last layer for DTK from %s: %w", imageURL, err)
 		}
 
 		dtk, err := registry.ExtractToolkitRelease(layer)
-		exit.OnError(err)
+		if err != nil {
+			return nil, err
+		}
 
 		// info has the kernels that are currently "running" on the cluster
 		// we're going only to update the struct with DTK information on
