@@ -14,7 +14,7 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: openshift-special-resource-operator.vX.Y.Z
+  name: openshift-special-resource-operator.v0.0.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}

@@ -28,8 +28,8 @@ func init() {
 
 type NodeVersion struct {
 	OSVersion      string                      `json:"OSVersion"`
-	OSMajor        string			   `json:"OSMajor"`
-	OSMajorMinor   string			   `json:"OSMajorMinor"`
+	OSMajor        string                      `json:"OSMajor"`
+	OSMajorMinor   string                      `json:"OSMajorMinor"`
 	ClusterVersion string                      `json:"clusterVersion"`
 	DriverToolkit  registry.DriverToolkitEntry `json:"driverToolkit"`
 }

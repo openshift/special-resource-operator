@@ -5,6 +5,41 @@ metadata:
   name: special-resource-manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - nodes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - nodes/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - deletecollection
+- apiGroups:
+  - ""
+  resources:
+  - podtemplates
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - podtemplates/finalizers
+  verbs:
+  - update
+- apiGroups:
   - '*'
   resources:
   - cronjobs
@@ -251,8 +286,19 @@ rules:
   resources:
   - jobs
   verbs:
+  - create
+  - delete
+  - get
   - list
+  - patch
+  - update
   - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs/finalizers
+  verbs:
+  - update
 - apiGroups:
   - build.openshift.io
   resources:
@@ -676,6 +722,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - extensions
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - image.openshift.io
   resources:
   - imagestreams
@@ -705,6 +763,15 @@ rules:
   - imagestreams/layers
   verbs:
   - get
+- apiGroups:
+  - infoscale.veritas.com
+  resources:
+  - infoscaleclusters
+  verbs:
+  - get
+  - list
+  - patch
+  - update
 - apiGroups:
   - monitoring.coreos.com
   resources:
@@ -744,6 +811,37 @@ rules:
   - networking.k8s.io
   resources:
   - ingresses/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - networking.x-k8s.io
+  resources:
+  - gateways
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.x-k8s.io
+  resources:
+  - gateways/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - networking.x-k8s.io
+  resources:
+  - httproutes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - networking.x-k8s.io
+  resources:
+  - httproutes/finalisers
   verbs:
   - update
 - apiGroups:
