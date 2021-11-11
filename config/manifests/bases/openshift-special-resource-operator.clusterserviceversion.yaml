@@ -53,10 +53,10 @@ spec:
   - GPI
   links:
   - name: README
-    url: https://github.com/openshift-psap/special-resource-operator
+    url: https://github.com/openshift/special-resource-operator
   maintainers:
-  - email: zkaiser@redhat.com
-    name: Zvonko Kaiser
+  - email: bthurber@redhat.com
+    name: Brett Thurber
   - email: dagray@redhat.com
     name: David Gray
   maturity: alpha
