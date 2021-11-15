@@ -16,7 +16,7 @@ The Special Resource Operator is available as a community operator on OperatorHu
 
 ## From the CLI
 ```
-$ git clone https://github.com/openshift-psap/special-resource-operator
+$ git clone https://github.com/openshift/special-resource-operator
 $ cd special-resource-operator
 $ TAG=master make deploy
 ```
