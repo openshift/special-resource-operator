@@ -29,14 +29,17 @@ jobs:
       id: short-sha
       with:
         length: 10
-    - run: sudo apt-get install fuse-overlayfs
-    - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make local-image-build
+    - run: make local-image-build
+      env:
+        TAG: pr-${{ steps.short-sha.outputs.sha }}
     - uses: docker/login-action@v1
       with:
         registry: quay.io
         username: ${{ secrets.QUAY_USERNAME }}
         password: ${{ secrets.QUAY_PASSWORD}}
-    - run: TAG=pr-${{ steps.short-sha.outputs.sha }} make local-image-push
+    - run: make local-image-push
+      env:
+        TAG: pr-${{ steps.short-sha.outputs.sha }}
   e2e:
     name: test-e2e
     needs: build
@@ -68,9 +71,12 @@ jobs:
     - run: kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/node-feature-discovery/v0.8.2/nfd-worker-daemonset.yaml.template
     - run: kubectl rollout status daemonset -n node-feature-discovery nfd-worker --timeout=300s
 
-    - run: TAG=pr-${{ steps.short-sha.outputs.sha }}  PLATFORM=k8s make go-deploy-manifests
+    - run: make go-deploy-manifests
+      env:
+        TAG: pr-${{ steps.short-sha.outputs.sha }}
+        PLATFORM: k8s
     - run: kubectl rollout status deployment -n openshift-special-resource-operator special-resource-controller-manager --timeout=300s
-    
+
     - run: kubectl apply -f  charts/example/centos-simple-kmod-0.0.1/centos-simple-kmod.yaml
     - run: sleep 360
     - run: kubectl logs `kubectl get pod -n openshift-special-resource-operator | grep special | awk '{ print $1 }'` -c manager -n openshift-special-resource-operator

@@ -18,14 +18,17 @@ jobs:
     - uses: actions/setup-go@v2
       with:
         go-version: '1.16.6'
-    - run:  TAG=master make local-image-build
+    - run: make local-image-build
+      env:
+        TAG: master
     - uses: docker/login-action@v1
       with:
         registry: quay.io
         username: ${{ secrets.QUAY_USERNAME }}
         password: ${{ secrets.QUAY_PASSWORD}}
-    - run: TAG=master make local-image-push
-
+    - run: make local-image-push
+      env:
+        TAG: master
 
 #  close_job:
     # this job will only run if the PR has been closed without being merged
