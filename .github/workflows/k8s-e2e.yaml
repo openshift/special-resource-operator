@@ -7,14 +7,13 @@ on:
       - "**/README.md"
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build:
     name: build
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}_build_$${ github.head_ref }}
+      cancel-in-progress: true
     if: (github.event.action == 'labeled' && github.event.label.name == 'ok-to-test') ||
         (github.event.pull_request.head.repo.full_name == 'openshift-psap/special-resource-operator')
     steps:
@@ -44,6 +43,9 @@ jobs:
     name: test-e2e
     needs: build
     runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}_test-e2e_$${ github.head_ref }}
+      cancel-in-progress: true
     if: (github.event.action == 'labeled' && github.event.label.name == 'ok-to-test') ||
         (github.event.pull_request.head.repo.full_name == 'openshift-psap/special-resource-operator')
     steps:
