@@ -21,6 +21,7 @@ import (
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/cmd/cli"
+	"github.com/openshift-psap/special-resource-operator/cmd/leaderelection"
 	"github.com/openshift-psap/special-resource-operator/controllers"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
@@ -56,14 +57,18 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             scheme,
+	opts := &ctrl.Options{
 		MetricsBindAddress: cl.MetricsAddr,
 		Port:               9443,
-		LeaderElection:     cl.EnableLeaderElection,
-		LeaderElectionID:   "b6ae617b.openshift.io",
-		LeaseDuration:      &cl.LeaderElectionLeaseDuration,
-	})
+		Scheme:             scheme,
+	}
+
+	if cl.EnableLeaderElection {
+		opts.LeaderElection = cl.EnableLeaderElection
+		opts = leaderelection.ApplyOpenShiftOptions(opts)
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), *opts)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
