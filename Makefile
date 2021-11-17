@@ -87,10 +87,10 @@ run: manifests generate fmt vet ## Run against the configured Kubernetes cluster
 	go run -mod=vendor ./main.go
 
 local-image-build: patch helm-lint helm-repo-index generate manifests-gen ## Build container image with the manager.
-	podman build -t $(IMG) -f Dockerfile.ubi8 --no-cache .
+	$(CONTAINER_COMMAND) build -t $(IMG) -f Dockerfile.ubi8 --no-cache .
 
 local-image-push: ## Push docker image with the manager.
-	podman push $(IMG)
+	$(CONTAINER_COMMAND) push $(IMG)
 
 
 ##@ Deployment
@@ -219,7 +219,7 @@ endif
 # https://github.com/operator-framework/community-operators/blob/7f1438c/docs/packaging-operator.md#updating-your-existing-operator
 .PHONY: catalog-build
 catalog-build: opm ## Build a catalog image.
-	$(OPM) index add --container-tool podman --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
+	$(OPM) index add --container-tool $(CONTAINER_COMMAND) --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
 
 # Push the catalog image.
 .PHONY: catalog-push
