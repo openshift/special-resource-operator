@@ -16,7 +16,9 @@ jobs:
         ref: "master"
         persist-credentials: false
     - uses: actions/setup-go@v2
-    - run:  TAG=master make local-image-build
+      with:
+        go-version: '1.17.2'
+    - run: TAG=master make local-image-build
     - uses: docker/login-action@v1
       with:
         registry: quay.io
