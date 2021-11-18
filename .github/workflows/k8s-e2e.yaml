@@ -23,7 +23,7 @@ jobs:
         persist-credentials: false
     - uses: actions/setup-go@v2
       with:
-        go-version: '1.16.6'
+        go-version: '1.17.2'
     - uses: benjlevesque/short-sha@v1.2
       id: short-sha
       with:
@@ -55,7 +55,7 @@ jobs:
         persist-credentials: false
     - uses: actions/setup-go@v2
       with:
-        go-version: '1.16.6'
+        go-version: '1.17.2'
     - uses: benjlevesque/short-sha@v1.2
       id: short-sha
       with:

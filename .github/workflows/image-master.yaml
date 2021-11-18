@@ -17,7 +17,7 @@ jobs:
         persist-credentials: false
     - uses: actions/setup-go@v2
       with:
-        go-version: '1.16.6'
+        go-version: '1.17.2'
     - run: make local-image-build
       env:
         TAG: master
