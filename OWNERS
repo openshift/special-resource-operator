@@ -1,12 +1,16 @@
 approvers:
-  - dagrayvid
-  - bthurber
-reviewers:
-  - ArangoGutierrez
   - bthurber
   - dagrayvid
-  - kpouget
   - pacevedom
+  - qbarrand
+  - ybettan
+  - yevgeny-shnaidman
+reviewers:
+  - bthurber
+  - dagrayvid
+  - pacevedom
+  - pmtk
+  - qbarrand
   - ybettan
   - yevgeny-shnaidman
 component: "Special Resource Operator"
