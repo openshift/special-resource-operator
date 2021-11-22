@@ -9,6 +9,8 @@ CSPLIT           ?= csplit - --prefix="" --suppress-matched --suffix-format="%04
 YAMLFILES        ?= $(shell  find manifests charts -name "*.yaml"  -not \( -path "charts/lustre/lustre-aws-fsx-0.0.1/csi-driver/*" -prune \)  -not \( -path "charts/*/shipwright-*/*" -prune \) -not \( -path "charts/experimental/*" -prune \) )
 PLATFORM         ?= ""
 SUFFIX           ?= $(shell if [ ${PLATFORM} == "k8s" ]; then echo "-${PLATFORM}"; fi)
+CONTAINER_COMMAND := $(or ${CONTAINER_COMMAND},podman)
+KUBECONFIG       ?= ${HOME}/.kube/config
 
 export PATH := go/bin:$(PATH)
 

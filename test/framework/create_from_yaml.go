@@ -71,6 +71,7 @@ func CreateFromYAML(yamlFile []byte, cl client.Client) error {
 
 		log.Info(message, "Kind", obj.GetKind(), "Name", obj.GetName())
 	}
+
 	return nil
 }
 
@@ -87,8 +88,7 @@ func DeleteFromYAMLWithCR(yamlFile []byte, cl client.Client) error {
 			return err
 		}
 
-		err = cl.Delete(context.TODO(), obj)
-		if err != nil {
+		if err = cl.Delete(context.TODO(), obj); err != nil {
 			return err
 		}
 		log.Info("Deleted", "Kind", obj.GetKind(), "Name", obj.GetName())
