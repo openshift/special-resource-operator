@@ -10,6 +10,7 @@ YAMLFILES        ?= $(shell  find manifests charts -name "*.yaml"  -not \( -path
 PLATFORM         ?= ""
 SUFFIX           ?= $(shell if [ ${PLATFORM} == "k8s" ]; then echo "-${PLATFORM}"; fi)
 CONTAINER_COMMAND := $(or ${CONTAINER_COMMAND},podman)
+KUBECONFIG       ?= ${HOME}/.kube/config
 
 export PATH := go/bin:$(PATH)
 

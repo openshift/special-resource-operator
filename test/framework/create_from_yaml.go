@@ -50,23 +50,23 @@ func NewControllerRuntimeClient() client.Client {
 	return client
 }
 
-func CreateFromYAML(yamlFile []byte, cl client.Client) {
+func CreateFromYAML(yamlFile []byte, cl client.Client) error {
 
 	scanner := yamlutil.NewYAMLScanner(yamlFile)
 
 	for scanner.Scan() {
 		yamlSpec := scanner.Bytes()
-
 		obj := getObjFromYAMLSpec(yamlSpec)
-
 		err := cl.Create(context.TODO(), obj)
+		message := "Resource created"
 		if apierrors.IsAlreadyExists(err) {
-			warn.OnError(err)
+			message = "Resource already exists"
+		} else {
+			return err
 		}
-		exit.OnError(err)
-
-		log.Info("Created", "Kind", obj.GetKind(), "Name", obj.GetName())
+		log.Info(message, "Kind", obj.GetKind(), "Name", obj.GetName())
 	}
+	return nil
 }
 
 func UpdateFromYAML(yamlFile []byte, cl client.Client) {
@@ -86,45 +86,43 @@ func UpdateFromYAML(yamlFile []byte, cl client.Client) {
 }
 
 // Don't use this to delete the CRD or undeploy the operator -- CR deletion will fail
-func DeleteFromYAMLWithCR(yamlFile []byte, cl client.Client) {
+func DeleteFromYAMLWithCR(yamlFile []byte, cl client.Client) error {
 
 	scanner := yamlutil.NewYAMLScanner(yamlFile)
 
 	for scanner.Scan() {
 		yamlSpec := scanner.Bytes()
-
 		obj := getObjFromYAMLSpec(yamlSpec)
-
 		err := cl.Delete(context.TODO(), obj)
-		exit.OnError(err)
-
+		if err != nil {
+			return err
+		}
 		log.Info("Deleted", "Kind", obj.GetKind(), "Name", obj.GetName())
 	}
+	return nil
 }
 
-func DeleteFromYAML(yamlFile []byte, cl client.Client) {
+func DeleteFromYAML(yamlFile []byte, cl client.Client) error {
 
 	scanner := yamlutil.NewYAMLScanner(yamlFile)
 
 	for scanner.Scan() {
 		yamlSpec := scanner.Bytes()
-
 		obj := getObjFromYAMLSpec(yamlSpec)
-
 		// CRD is deleted so CR deletion will fail since already gone
 		if obj.GetKind() == "SpecialResource" {
 			continue
 		}
-
 		err := cl.Delete(context.TODO(), obj)
+		message := "Deleted resource"
 		if apierrors.IsNotFound(err) {
-			warn.OnError(err)
-			return
+			message = "Resource didnt exist"
+		} else {
+			return err
 		}
-		exit.OnError(err)
-
-		log.Info("Deleted", "Kind", obj.GetKind(), "Name", obj.GetName())
+		log.Info(message, "Kind", obj.GetKind(), "Name", obj.GetName())
 	}
+	return nil
 }
 
 func DeleteAllSpecialResources(cl client.Client) {
