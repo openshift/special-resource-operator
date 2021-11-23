@@ -278,7 +278,7 @@ metadata:
 		add := []byte(r.specialresource.Spec.Namespace)
 		ns = append(ns, add...)
 	}
-	if err := resource.CreateFromYAML(ns, false, &r.specialresource, "", "", nil, "", ""); err != nil {
+	if err := resource.CreateFromYAML(ns, false, &r.specialresource, r.specialresource.Name, "", nil, "", ""); err != nil {
 		log.Info("Cannot reconcile specialresource namespace, something went horribly wrong")
 		exit.OnError(err)
 	}

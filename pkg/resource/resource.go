@@ -11,6 +11,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/hash"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
+	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
@@ -175,81 +176,109 @@ func CreateFromYAML(yamlFile []byte,
 
 		yamlSpec := scanner.Bytes()
 
-		obj := &unstructured.Unstructured{
-			Object: map[string]interface{}{},
-		}
-
-		jsonSpec, err := yaml.YAMLToJSON(yamlSpec)
+		err := createObjFromYAML(yamlSpec,
+			releaseInstalled,
+			owner,
+			name,
+			namespace,
+			nodeSelector,
+			kernelFullVersion,
+			operatingSystemMajorMinor)
 		if err != nil {
-			return errors.Wrap(err, "Could not convert yaml file to json"+string(yamlSpec))
+			return err
 		}
-
-		if err = obj.UnmarshalJSON(jsonSpec); err != nil {
-			return fmt.Errorf("cannot unmarshall json spec, check your manifest: %s: %w", jsonSpec, err)
-		}
-
-		//  Do not override the namespace if alreayd set
-		if IsNamespaced(obj.GetKind()) && obj.GetNamespace() == "" {
-			log.Info("Namespace empty settting", "namespace", namespace)
-			obj.SetNamespace(namespace)
-		}
-
-		// We used this for predicate filtering, we're watching a lot of
-		// API Objects we want to ignore all objects that do not have this
-		// label.
-		if err = filter.SetLabel(obj); err != nil {
-			return fmt.Errorf("could not set label: %w", err)
-		}
-
-		// kernel affinity related attributes only set if there is an
-		// annotation specialresource.openshift.io/kernel-affine: true
-		if kernel.IsObjectAffine(obj) {
-			if err = kernel.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor); err != nil {
-				return fmt.Errorf("cannot set kernel affine attributes: %w", err)
-			}
-		}
-
-		// Add nodeSelector terms for the specialresource
-		// we do not want to spread HW enablement stacks on all nodes
-		if err = SetNodeSelectorTerms(obj, nodeSelector); err != nil {
-			return fmt.Errorf("setting NodeSelectorTerms failed: %w", err)
-		}
-
-		// We are only building a driver-container if we cannot pull the image
-		// We are asuming that vendors provide pre compiled DriverContainers
-		// If err == nil, build a new container, if err != nil skip it
-		if err = rebuildDriverContainer(obj); err != nil {
-			log.Info("Skipping building driver-container", "Name", obj.GetName())
-			return nil
-		}
-
-		// Callbacks before CRUD will update the manifests
-		if err = BeforeCRUD(obj, owner); err != nil {
-			return fmt.Errorf("before CRUD hooks failed: %w", err)
-		}
-		// Create Update Delete Patch resources
-		err = CRUD(obj, releaseInstalled, owner, name, namespace)
-		// The mutating webhook needs a couple of secs to be ready
-		// sleep for 5 secs and requeue
-		if err != nil {
-			if strings.Contains(err.Error(), "failed calling webhook") {
-				return fmt.Errorf("webhook not ready, requeue: %w", err)
-			}
-
-			return fmt.Errorf("CRUD exited non-zero on Object: %+v: %w", obj, err)
-		}
-
-		// Callbacks after CRUD will wait for ressource and check status
-		if err = AfterCRUD(obj, namespace); err != nil {
-			return fmt.Errorf("after CRUD hooks failed: %w", err)
-		}
-
 	}
 
 	if err := scanner.Err(); err != nil {
 		return fmt.Errorf("failed to scan manifest: %w", err)
 	}
 
+	return nil
+}
+
+func createObjFromYAML(yamlSpec []byte,
+	releaseInstalled bool,
+	owner v1.Object,
+	name string,
+	namespace string,
+	nodeSelector map[string]string,
+	kernelFullVersion string,
+	operatingSystemMajorMinor string) error {
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{},
+	}
+
+	jsonSpec, err := yaml.YAMLToJSON(yamlSpec)
+	if err != nil {
+		return fmt.Errorf("Could not convert yaml file to json: %s: error %w", string(yamlSpec), err)
+	}
+
+	if err = obj.UnmarshalJSON(jsonSpec); err != nil {
+		return fmt.Errorf("cannot unmarshall json spec, check your manifest: %s: %w", jsonSpec, err)
+	}
+
+	yamlKind := obj.GetKind()
+	yamlName := obj.GetName()
+	yamlNamespace := obj.GetNamespace()
+	metricValue := 0
+	defer func() {
+		metrics.SetCompletedKind(name, yamlKind, yamlName, yamlNamespace, metricValue)
+	}()
+
+	//  Do not override the namespace if already set
+	if IsNamespaced(obj.GetKind()) && obj.GetNamespace() == "" {
+		log.Info("Namespace empty settting", "namespace", namespace)
+		obj.SetNamespace(namespace)
+	}
+
+	// We used this for predicate filtering, we're watching a lot of
+	// API Objects we want to ignore all objects that do not have this
+	// label.
+	if err = filter.SetLabel(obj); err != nil {
+		return fmt.Errorf("could not set label: %w", err)
+	}
+	// kernel affinity related attributes only set if there is an
+	// annotation specialresource.openshift.io/kernel-affine: true
+	if kernel.IsObjectAffine(obj) {
+		if err = kernel.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor); err != nil {
+			return fmt.Errorf("cannot set kernel affine attributes: %w", err)
+		}
+	}
+
+	// Add nodeSelector terms defined for the specialresource CR to the object
+	// we do not want to spread HW enablement stacks on all nodes
+	if err = SetNodeSelectorTerms(obj, nodeSelector); err != nil {
+		return fmt.Errorf("setting NodeSelectorTerms failed: %w", err)
+	}
+
+	// We are only building a driver-container if we cannot pull the image
+	// We are asuming that vendors provide pre compiled DriverContainers
+	// If err == nil, build a new container, if err != nil skip it
+	if err = rebuildDriverContainer(obj); err != nil {
+		log.Info("Skipping building driver-container", "Name", obj.GetName())
+		return nil
+	}
+
+	// Callbacks before CRUD will update the manifests
+	if err = BeforeCRUD(obj, owner); err != nil {
+		return fmt.Errorf("before CRUD hooks failed: %w", err)
+	}
+	// Create Update Delete Patch resources
+	err = CRUD(obj, releaseInstalled, owner, name, namespace)
+	if err != nil {
+		if strings.Contains(err.Error(), "failed calling webhook") {
+			return fmt.Errorf("webhook not ready, requeue: %w", err)
+		}
+
+		return fmt.Errorf("CRUD exited non-zero on Object: %+v: %w", obj, err)
+	}
+
+	// Callbacks after CRUD will wait for ressource and check status
+	if err = AfterCRUD(obj, namespace); err != nil {
+		return fmt.Errorf("after CRUD hooks failed: %w", err)
+	}
+
+	metricValue = 1
 	return nil
 }
 
