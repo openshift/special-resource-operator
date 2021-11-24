@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/go-logr/logr"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
@@ -18,13 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var (
-	log logr.Logger
-)
-
-func init() {
-	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("upgrade", color.Blue))
-}
+var log = zap.New(zap.UseDevMode(true)).WithName(color.Print("upgrade", color.Blue))
 
 type NodeVersion struct {
 	OSVersion      string                      `json:"OSVersion"`

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
@@ -19,13 +18,9 @@ import (
 
 var (
 	errNotFound        = errors.New("not found")
-	log                logr.Logger
+	log                = zap.New(zap.UseDevMode(true)).WithName(color.Print("kernel", color.Green))
 	ProxyConfiguration Configuration
 )
-
-func init() {
-	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("kernel", color.Green))
-}
 
 type Configuration struct {
 	HttpProxy  string

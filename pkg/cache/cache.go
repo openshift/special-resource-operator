@@ -3,7 +3,6 @@ package cache
 import (
 	"context"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
@@ -13,28 +12,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var (
-	log logr.Logger
-)
-
-func init() {
-	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("cache", color.Brown))
-}
-
-var Node NodesCache
-
-func init() {
-	Node.Count = 0xDEADBEEF
-	Node.List = &unstructured.UnstructuredList{
-		Object: map[string]interface{}{},
-		Items:  []unstructured.Unstructured{},
-	}
-}
-
 type NodesCache struct {
 	List  *unstructured.UnstructuredList
 	Count int64
 }
+
+var (
+	log  = zap.New(zap.UseDevMode(true)).WithName(color.Print("cache", color.Brown))
+	Node = NodesCache{
+		List: &unstructured.UnstructuredList{
+			Object: map[string]interface{}{},
+			Items:  []unstructured.Unstructured{},
+		},
+		Count: 0xDEADBEEF,
+	}
+)
 
 func Nodes(matchingLabels map[string]string, force bool) error {
 

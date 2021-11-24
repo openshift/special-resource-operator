@@ -28,17 +28,15 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-var (
-	log           logr.Logger
-	HelmClient    kube.Interface
-	RuntimeScheme *runtime.Scheme
-	UpdateVendor  string
-)
+type resourceCallbacks map[string]func(obj *unstructured.Unstructured, sr interface{}) error
 
-func init() {
-	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("resource", color.Blue))
+var (
 	customCallback = make(resourceCallbacks)
-}
+	log            = zap.New(zap.UseDevMode(true)).WithName(color.Print("resource", color.Blue))
+	HelmClient     kube.Interface
+	RuntimeScheme  *runtime.Scheme
+	UpdateVendor   string
+)
 
 func IsNamespaced(kind string) bool {
 	if kind == "Namespace" ||
@@ -449,10 +447,6 @@ func SetMetaData(obj *unstructured.Unstructured, nm string, ns string) {
 
 	obj.SetLabels(labels)
 }
-
-type resourceCallbacks map[string]func(obj *unstructured.Unstructured, sr interface{}) error
-
-var customCallback resourceCallbacks
 
 func BeforeCRUD(obj *unstructured.Unstructured, sr interface{}) error {
 
