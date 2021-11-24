@@ -56,7 +56,7 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: openshift-special-resource-operator.v4.9.0
+  name: openshift-special-resource-operator.v4.10.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -1293,7 +1293,7 @@ spec:
                   value: 0.0.1-snapshot
                 - name: SSL_CERT_DIR
                   value: /etc/pki/tls/certs
-                image: quay.io/openshift/origin-special-resource-rhel8-operator:4.9
+                image: quay.io/openshift/origin-special-resource-rhel8-operator:4.10
                 imagePullPolicy: Always
                 name: manager
                 resources:
@@ -1378,4 +1378,4 @@ spec:
   provider:
     name: Red Hat
     url: redhat.com
-  version: 4.9.0
+  version: 4.10.0

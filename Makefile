@@ -46,7 +46,7 @@ test-e2e:
 # Current Operator version
 VERSION ?= 0.0.1
 
-CHANNELS="4.9"
+CHANNELS="4.10"
 
 # Default bundle image tag
 BUNDLE_IMG ?= quay.io/openshift-psap/special-resource-operator-bundle:$(VERSION)
@@ -55,7 +55,7 @@ ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
 endif
 
-DEFAULT_CHANNEL="4.9"
+DEFAULT_CHANNEL="4.10"
 
 ifneq ($(origin DEFAULT_CHANNEL), undefined)
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
