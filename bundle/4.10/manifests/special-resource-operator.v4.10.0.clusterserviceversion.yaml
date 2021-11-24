@@ -56,7 +56,7 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: special-resource-operator.v4.9.0
+  name: special-resource-operator.v4.10.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -812,6 +812,18 @@ spec:
           - update
           - watch
         - apiGroups:
+          - fpga.silicom.dk
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - image.openshift.io
           resources:
           - imagestreams
@@ -1204,6 +1216,18 @@ spec:
           - update
           - watch
         - apiGroups:
+          - sts.silicom.com
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - tekton.dev
           resources:
           - taskruns
@@ -1293,7 +1317,7 @@ spec:
                   value: 0.0.1-snapshot
                 - name: SSL_CERT_DIR
                   value: /etc/pki/tls/certs
-                image: quay.io/openshift-psap/special-resource-operator:release-4.9
+                image: quay.io/openshift-psap/special-resource-operator:release-4.10
                 imagePullPolicy: Always
                 name: manager
                 resources:
@@ -1370,12 +1394,12 @@ spec:
   - name: README
     url: https://github.com/openshift-psap/special-resource-operator
   maintainers:
-  - email: zkaiser@redhat.com
-    name: Zvonko Kaiser
+  - email: bthurber@redhat.com
+    name: Brett Thurber
   - email: dagray@redhat.com
     name: David Gray
   maturity: alpha
   provider:
     name: Red Hat
     url: redhat.com
-  version: 4.9.0
+  version: 4.10.0

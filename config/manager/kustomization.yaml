@@ -7,4 +7,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: quay.io/openshift-psap/special-resource-operator
-  newTag: release-4.9
+  newTag: release-4.10
