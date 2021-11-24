@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
@@ -28,11 +27,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var (
+const (
 	RetryInterval = time.Second * 5
 	Timeout       = time.Second * 30
-	log           logr.Logger
-	waitFor       = map[string]func(obj *unstructured.Unstructured) error{
+)
+
+var (
+	log     = zap.New(zap.UseDevMode(true)).WithName(color.Print("wait", color.Brown))
+	waitFor = map[string]func(obj *unstructured.Unstructured) error{
 		"Pod":                      ForPod,
 		"DaemonSet":                ForDaemonSet,
 		"BuildConfig":              ForBuild,
@@ -45,10 +47,6 @@ var (
 		"Certificates":             ForResourceAvailability,
 	}
 )
-
-func init() {
-	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("wait", color.Brown))
-}
 
 type statusCallback func(obj *unstructured.Unstructured) (bool, error)
 

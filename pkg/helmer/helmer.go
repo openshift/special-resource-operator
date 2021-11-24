@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
@@ -33,8 +32,8 @@ import (
 )
 
 var (
-	log      logr.Logger
-	settings *cli.EnvSettings
+	log      = zap.New(zap.UseDevMode(true)).WithName(color.Print("helmer", color.Blue))
+	settings = cli.New()
 	// http, oci, and patched for file:////
 	getterProviders getter.Providers
 	repoFile        = repo.File{
@@ -47,11 +46,7 @@ var (
 )
 
 func init() {
-	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("helmer", color.Blue))
-
 	OpenShiftInstallOrder()
-
-	settings = cli.New()
 
 	// cli.EnvSettings{
 	//	KubeConfig:       "",

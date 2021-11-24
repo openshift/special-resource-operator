@@ -6,18 +6,11 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var (
-	log logr.Logger
-)
-
-func init() {
-	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("exit", color.Red))
-}
+var log = zap.New(zap.UseDevMode(true)).WithName(color.Print("exit", color.Red))
 
 // OnErrorOrNotFound Exit if something is not found or error occured
 func OnErrorOrNotFound(found bool, err error) {

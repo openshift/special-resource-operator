@@ -2,7 +2,7 @@ package clients
 
 import (
 	"fmt"
-	"github.com/go-logr/logr"
+
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	buildv1 "github.com/openshift/api/build/v1"
@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	log        logr.Logger
+	log        = zap.New(zap.UseDevMode(true)).WithName(color.Print("clients", color.Brown))
 	Interface  *ClientsInterface
 	RestConfig *rest.Config
 	Namespace  string
@@ -34,12 +34,6 @@ type ClientsInterface struct {
 	record.EventRecorder
 	authn.Keychain
 	discovery.CachedDiscoveryInterface
-}
-
-func init() {
-
-	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("clients", color.Brown))
-
 }
 
 // GetKubeClientSet returns a native non-caching client for advanced CRUD operations

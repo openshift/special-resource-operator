@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
@@ -21,13 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var (
-	log logr.Logger
-)
-
-func init() {
-	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("cache", color.Brown))
-}
+var log = zap.New(zap.UseDevMode(true)).WithName(color.Print("cache", color.Brown))
 
 func Version() (string, string, error) {
 

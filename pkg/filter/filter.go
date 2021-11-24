@@ -7,7 +7,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/hash"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
@@ -22,21 +21,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-var (
-	Mode   string
-	sroGVK string
-	owned  string
-	log    logr.Logger
+const (
+	sroGVK = "SpecialResource"
+	owned  = "specialresource.openshift.io/owned"
 )
 
-func init() {
-	sroGVK = "SpecialResource"
-	owned = "specialresource.openshift.io/owned"
-}
-
-func init() {
-	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("filter", color.Purple))
-}
+var (
+	Mode string
+	log  = zap.New(zap.UseDevMode(true)).WithName(color.Print("filter", color.Purple))
+)
 
 func SetLabel(obj *unstructured.Unstructured) error {
 

@@ -3,7 +3,6 @@ package kernel
 import (
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -14,13 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-var (
-	log logr.Logger
-)
-
-func init() {
-	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("kernel", color.Green))
-}
+var log = zap.New(zap.UseDevMode(true)).WithName(color.Print("kernel", color.Green))
 
 func SetAffineAttributes(obj *unstructured.Unstructured,
 	kernelFullVersion string,

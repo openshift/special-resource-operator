@@ -10,7 +10,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
@@ -30,13 +29,7 @@ const (
 	dockerConfigFilePath = "/home/nonroot/.docker/config.json"
 )
 
-var (
-	log logr.Logger
-)
-
-func init() {
-	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("registry", color.Brown))
-}
+var log = zap.New(zap.UseDevMode(true)).WithName(color.Print("registry", color.Brown))
 
 type DriverToolkitEntry struct {
 	ImageURL            string `json:"imageURL"`

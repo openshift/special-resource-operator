@@ -19,15 +19,6 @@ import (
 
 const specialresourceFinalizer = "sro.openshift.io/finalizer"
 
-var (
-	ns unstructured.Unstructured
-)
-
-func init() {
-	ns.SetKind("Namespace")
-	ns.SetAPIVersion("v1")
-}
-
 func reconcileFinalizers(r *SpecialResourceReconciler) error {
 	if contains(r.specialresource.GetFinalizers(), specialresourceFinalizer) {
 		// Run finalization logic for specialresource
@@ -93,7 +84,10 @@ func finalizeSpecialResource(r *SpecialResourceReconciler) error {
 	warn.OnError(err)
 
 	if r.specialresource.Name != "special-resource-preamble" {
+		ns := unstructured.Unstructured{}
 
+		ns.SetKind("Namespace")
+		ns.SetAPIVersion("v1")
 		ns.SetName(r.specialresource.Spec.Namespace)
 		key := client.ObjectKeyFromObject(&ns)
 
