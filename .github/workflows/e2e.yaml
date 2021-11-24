@@ -65,14 +65,20 @@ jobs:
         openshift_password: ${{ secrets.OPENSHIFT_PASSWORD }}
         insecure_skip_tls_verify: true
         namespace: default
+    - name: Forced delete all SpecialResources from previous runs
+      run: |
+          for i in `oc get specialresources.sro.openshift.io -o jsonpath='{.items[*].metadata.name}'`;
+            do oc patch specialresources.sro.openshift.io $i -p '{"metadata":{"finalizers":[]}}' --type=merge;
+            oc delete specialresources.sro.openshift.io $i --ignore-not-found
+          done
     - run: make deploy
-      env:
-        TAG: master
-      continue-on-error: true
-    - run: make undeploy
-    - run: make go-deploy-manifests
       env:
         TAG: pr-${{ steps.short-sha.outputs.sha }}
     - run: make test-e2e
+      id: teste2e
     - run: oc logs deployment/special-resource-controller-manager -n openshift-special-resource-operator -c manager
-    - run: make go-undeploy-manifests
+      if: steps.teste2e.outcome == 'failure'
+    - run: make undeploy
+      if: always()
+      env:
+        TAG: pr-${{ steps.short-sha.outputs.sha }}
