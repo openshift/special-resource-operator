@@ -91,24 +91,21 @@ func NodeVersionInfo() (map[string]NodeVersion, error) {
 }
 
 func UpdateInfo(info map[string]NodeVersion, dtk registry.DriverToolkitEntry, imageURL string) (map[string]NodeVersion, error) {
+	dtk.ImageURL = imageURL
+	osDTK := dtk.OSVersion
 	// Assumes all nodes have the same architecture
 	runningArch := runtime.GOARCH
 	if runningArch == "amd64" {
 		runningArch = "x86_64"
 	}
 	if !strings.Contains(dtk.KernelFullVersion, runningArch) {
-		log.Info("Appending architecture to dtk.KernelFullVersion")
 		dtk.KernelFullVersion = dtk.KernelFullVersion + "." + runningArch
 		dtk.RTKernelFullVersion = dtk.RTKernelFullVersion + "." + runningArch
-		log.Info("Updating version:", "dtk.KernelFullVersion", dtk.KernelFullVersion)
+		log.Info("Updating version:", "dtk.KernelFullVersion", dtk.KernelFullVersion, "dtk.RTKernelFullVersion", dtk.RTKernelFullVersion)
 	}
 
-	// First check for the general kernel entry
 	if _, ok := info[dtk.KernelFullVersion]; ok {
-
-		dtk.ImageURL = imageURL
 		osNFD := info[dtk.KernelFullVersion].OSVersion
-		osDTK := dtk.OSVersion
 
 		if osNFD != osDTK {
 
@@ -125,10 +122,7 @@ func UpdateInfo(info map[string]NodeVersion, dtk registry.DriverToolkitEntry, im
 	}
 
 	if _, ok := info[dtk.RTKernelFullVersion]; ok {
-
-		dtk.ImageURL = imageURL
 		osNFD := info[dtk.RTKernelFullVersion].OSVersion
-		osDTK := dtk.OSVersion
 
 		if osNFD != osDTK {
 
@@ -140,7 +134,7 @@ func UpdateInfo(info map[string]NodeVersion, dtk registry.DriverToolkitEntry, im
 		nodeVersion.OSVersion = dtk.OSVersion
 		nodeVersion.DriverToolkit = dtk
 
-		info[dtk.KernelFullVersion] = nodeVersion
+		info[dtk.RTKernelFullVersion] = nodeVersion
 
 	}
 	return info, nil
