@@ -77,7 +77,7 @@ jobs:
     - run: make test-e2e
       id: teste2e
     - run: oc logs deployment/special-resource-controller-manager -n openshift-special-resource-operator -c manager
-      if: steps.teste2e.outcome == 'failure'
+      if: always() && steps.teste2e.outcome == 'failure'
     - run: make undeploy
       if: always()
       env:
