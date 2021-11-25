@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/go-logr/logr v0.4.0
+	github.com/golang/mock v1.4.4
 	github.com/google/go-containerregistry v0.5.2-0.20210601193515-0ffa4a5c8691
 	github.com/mitchellh/hashstructure/v2 v2.0.1
 	github.com/onsi/ginkgo v1.16.4

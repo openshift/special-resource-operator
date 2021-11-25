@@ -93,7 +93,7 @@ helm-plugins: helm-plugins/cm-getter
 manager: patch generate ## Build manager binary.
 	go build -o manager main.go
 
-run: manifests generate fmt vet ## Run against the configured Kubernetes cluster in ~/.kube/config
+run: manifests generate fmt ## Run against the configured Kubernetes cluster in ~/.kube/config
 	go run -mod=vendor ./main.go
 
 local-image-build: patch helm-lint helm-repo-index generate manifests-gen ## Build container image with the manager.
@@ -102,6 +102,9 @@ local-image-build: patch helm-lint helm-repo-index generate manifests-gen ## Bui
 local-image-push: ## Push docker image with the manager.
 	podman push $(IMG)
 
+generate-mocks:
+	$(shell find . -name "mock_*.go" | grep -v vendor | xargs rm -f)
+	go generate $(shell go list ./... | grep -v 'vendor\|charts')
 
 ##@ Deployment
 
