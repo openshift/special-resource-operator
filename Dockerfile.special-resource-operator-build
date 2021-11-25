@@ -14,4 +14,5 @@ RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/i
 RUN GO111MODULE=on go install golang.stackrox.io/kube-linter/cmd/kube-linter@latest
 RUN curl -L --retry 5 "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv4.3.0/kustomize_v4.3.0_linux_amd64.tar.gz" | \
     tar -zx -C /usr/bin
-RUN go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.0
+RUN go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.6.1
+RUN go install github.com/golang/mock/mockgen@v1.5.0

@@ -75,15 +75,15 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet --mod=vendor ./...
 
-test: patch manifests generate fmt vet envtest ## Run tests.
+test: patch manifests generate fmt envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 
 ##@ Build
 
-manager: patch generate fmt vet ## Build manager binary.
+manager: patch generate fmt ## Build manager binary.
 	go build -mod=vendor -o /tmp/bin/manager main.go
 
-run: manifests generate fmt vet ## Run against the configured Kubernetes cluster in ~/.kube/config
+run: manifests generate fmt ## Run against the configured Kubernetes cluster in ~/.kube/config
 	go run -mod=vendor ./main.go
 
 local-image-build: patch helm-lint helm-repo-index generate manifests-gen ## Build container image with the manager.
@@ -92,6 +92,9 @@ local-image-build: patch helm-lint helm-repo-index generate manifests-gen ## Bui
 local-image-push: ## Push docker image with the manager.
 	$(CONTAINER_COMMAND) push $(IMG)
 
+generate-mocks:
+	$(shell find . -name "mock_*.go" | grep -v vendor | xargs rm -f)
+	go generate $(shell go list ./... | grep -v 'vendor\|charts')
 
 ##@ Deployment
 

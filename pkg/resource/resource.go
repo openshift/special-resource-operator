@@ -36,6 +36,7 @@ var (
 	HelmClient     kube.Interface
 	RuntimeScheme  *runtime.Scheme
 	UpdateVendor   string
+	pollActions    = poll.New()
 )
 
 func IsNamespaced(kind string) bool {
@@ -490,28 +491,28 @@ func AfterCRUD(obj *unstructured.Unstructured, namespace string) error {
 
 	if wait, found := annotations["specialresource.openshift.io/wait"]; found && wait == "true" {
 		log.Info("specialresource.openshift.io/wait")
-		if err := poll.ForResource(obj); err != nil {
+		if err := pollActions.ForResource(obj); err != nil {
 			return fmt.Errorf("could not wait for resource: %w", err)
 		}
 	}
 
 	if pattern, found := annotations["specialresource.openshift.io/wait-for-logs"]; found && len(pattern) > 0 {
 		log.Info("specialresource.openshift.io/wait-for-logs")
-		if err := poll.ForDaemonSetLogs(obj, pattern); err != nil {
+		if err := pollActions.ForDaemonSetLogs(obj, pattern); err != nil {
 			return fmt.Errorf("could not wait for DaemonSet logs: %w", err)
 		}
 	}
 
 	if _, found := annotations["helm.sh/hook"]; found {
 		// In the case of hooks we're always waiting for all ressources
-		if err := poll.ForResource(obj); err != nil {
+		if err := pollActions.ForResource(obj); err != nil {
 			return fmt.Errorf("could not wait for resource: %w", err)
 		}
 	}
 
 	// Always wait for CRDs to be present
 	if obj.GetKind() == "CustomResourceDefinition" {
-		if err := poll.ForResource(obj); err != nil {
+		if err := pollActions.ForResource(obj); err != nil {
 			return fmt.Errorf("could not wait for CRD: %w", err)
 		}
 	}
@@ -521,7 +522,7 @@ func AfterCRUD(obj *unstructured.Unstructured, namespace string) error {
 
 func checkForImagePullBackOff(obj *unstructured.Unstructured, namespace string) error {
 
-	if err := poll.ForDaemonSet(obj); err == nil {
+	if err := pollActions.ForDaemonSet(obj); err == nil {
 		return nil
 	}
 

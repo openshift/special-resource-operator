@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
@@ -27,37 +28,55 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+//go:generate mockgen -source=poll.go -package=poll -destination=mock_poll_api.go
+
+type PollActions interface {
+	ForResourceUnavailability(obj *unstructured.Unstructured) error
+	ForResource(obj *unstructured.Unstructured) error
+	ForDaemonSet(obj *unstructured.Unstructured) error
+	ForDaemonSetLogs(obj *unstructured.Unstructured, pattern string) error
+}
+
+type pollActions struct {
+	log     logr.Logger
+	waitFor map[string]func(obj *unstructured.Unstructured) error
+}
+
 const (
-	RetryInterval = time.Second * 5
-	Timeout       = time.Second * 30
+	retryInterval = time.Second * 5
+	timeout       = time.Second * 30
 )
 
-var (
-	log     = zap.New(zap.UseDevMode(true)).WithName(color.Print("wait", color.Brown))
-	waitFor = map[string]func(obj *unstructured.Unstructured) error{
-		"Pod":                      ForPod,
-		"DaemonSet":                ForDaemonSet,
-		"BuildConfig":              ForBuild,
-		"Secret":                   ForSecret,
-		"CustomResourceDefinition": ForCRD,
-		"Job":                      ForJob,
-		"Deployment":               ForDeployment,
-		"StatefulSet":              ForStatefulSet,
-		"Namespace":                ForResourceAvailability,
-		"Certificates":             ForResourceAvailability,
+func New() PollActions {
+	actions := pollActions{
+		log: zap.New(zap.UseDevMode(true)).WithName(color.Print("wait", color.Brown)),
 	}
-)
+	waitFor := map[string]func(obj *unstructured.Unstructured) error{
+		"Pod":                      actions.forPod,
+		"DaemonSet":                actions.ForDaemonSet,
+		"BuildConfig":              actions.forBuild,
+		"Secret":                   actions.forSecret,
+		"CustomResourceDefinition": actions.forCRD,
+		"Job":                      actions.forJob,
+		"Deployment":               actions.forDeployment,
+		"StatefulSet":              actions.forStatefulSet,
+		"Namespace":                actions.forResourceAvailability,
+		"Certificates":             actions.forResourceAvailability,
+	}
+	actions.waitFor = waitFor
+	return &actions
+}
 
 type statusCallback func(obj *unstructured.Unstructured) (bool, error)
 
-func ForResourceAvailability(obj *unstructured.Unstructured) error {
+func (p *pollActions) forResourceAvailability(obj *unstructured.Unstructured) error {
 
 	found := obj.DeepCopy()
-	err := wait.Poll(RetryInterval, Timeout, func() (done bool, err error) {
+	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
 		err = clients.Interface.Get(context.TODO(), types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				log.Info("Waiting for creation of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
+				p.log.Info("Waiting for creation of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
 				return false, nil
 			}
 			return false, err
@@ -67,19 +86,19 @@ func ForResourceAvailability(obj *unstructured.Unstructured) error {
 	return err
 }
 
-func ForResourceUnavailability(obj *unstructured.Unstructured) error {
+func (p *pollActions) ForResourceUnavailability(obj *unstructured.Unstructured) error {
 
 	found := obj.DeepCopy()
-	err := wait.Poll(RetryInterval, Timeout, func() (done bool, err error) {
+	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
 		err = clients.Interface.Get(context.TODO(), types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				log.Info("Waiting done for deletion of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
+				p.log.Info("Waiting done for deletion of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
 				return true, nil
 			}
 			return true, err
 		}
-		log.Info("Waiting for deletion of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
+		p.log.Info("Waiting for deletion of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
 		return false, nil
 	})
 	return err
@@ -123,13 +142,13 @@ func makeStatusCallback(
 	}
 }
 
-func ForResource(obj *unstructured.Unstructured) error {
+func (p *pollActions) ForResource(obj *unstructured.Unstructured) error {
 
 	var err error
 	// Wait for general availability, Pods Complete, Running
 	// DaemonSet NumberUnavailable == 0, etc
-	if wait, ok := waitFor[obj.GetKind()]; ok {
-		log.Info("ForResource", "Kind", obj.GetKind())
+	if wait, ok := p.waitFor[obj.GetKind()]; ok {
+		p.log.Info("ForResource", "Kind", obj.GetKind())
 		if err = wait(obj); err != nil {
 			return errors.Wrap(err, "Waiting too long for resource")
 		}
@@ -140,15 +159,15 @@ func ForResource(obj *unstructured.Unstructured) error {
 	return nil
 }
 
-func ForSecret(obj *unstructured.Unstructured) error {
-	return ForResourceAvailability(obj)
+func (p *pollActions) forSecret(obj *unstructured.Unstructured) error {
+	return p.forResourceAvailability(obj)
 }
 
-func ForCRD(obj *unstructured.Unstructured) error {
+func (p *pollActions) forCRD(obj *unstructured.Unstructured) error {
 
 	clients.Interface.Invalidate()
 	// Lets wait some time for the API server to register the new CRD
-	if err := ForResourceAvailability(obj); err != nil {
+	if err := p.forResourceAvailability(obj); err != nil {
 		return err
 	}
 
@@ -158,19 +177,19 @@ func ForCRD(obj *unstructured.Unstructured) error {
 	return nil
 }
 
-func ForPod(obj *unstructured.Unstructured) error {
-	if err := ForResourceAvailability(obj); err != nil {
+func (p *pollActions) forPod(obj *unstructured.Unstructured) error {
+	if err := p.forResourceAvailability(obj); err != nil {
 		return err
 	}
 	callback := makeStatusCallback(obj, "Succeeded", "status", "phase")
-	return ForResourceFullAvailability(obj, callback)
+	return p.forResourceFullAvailability(obj, callback)
 }
 
-func ForDeployment(obj *unstructured.Unstructured) error {
-	if err := ForResourceAvailability(obj); err != nil {
+func (p *pollActions) forDeployment(obj *unstructured.Unstructured) error {
+	if err := p.forResourceAvailability(obj); err != nil {
 		return err
 	}
-	return ForResourceFullAvailability(obj, func(obj *unstructured.Unstructured) (bool, error) {
+	return p.forResourceFullAvailability(obj, func(obj *unstructured.Unstructured) (bool, error) {
 
 		labels, found, err := unstructured.NestedMap(obj.Object, "spec", "selector", "matchLabels")
 		warn.OnError(err)
@@ -194,35 +213,35 @@ func ForDeployment(obj *unstructured.Unstructured) error {
 
 		err = clients.Interface.List(context.TODO(), &rss, opts...)
 		if err != nil {
-			log.Info("Could not get ReplicaSet", "Deployment", obj.GetName(), "error", err)
+			p.log.Info("Could not get ReplicaSet", "Deployment", obj.GetName(), "error", err)
 			return false, nil
 		}
 
 		for _, rs := range rss.Items {
-			log.Info("Checking ReplicaSet", "name", rs.GetName())
+			p.log.Info("Checking ReplicaSet", "name", rs.GetName())
 			status, found, err := unstructured.NestedMap(rs.Object, "status")
 			warn.OnError(err)
 			if !found {
-				log.Info("No status for ReplicaSet", "name", rs.GetName())
+				p.log.Info("No status for ReplicaSet", "name", rs.GetName())
 				return false, nil
 			}
 
 			_, ok := status["replicas"]
 			if !ok {
-				log.Info("No replicas for ReplicaSet", "name", rs.GetName())
+				p.log.Info("No replicas for ReplicaSet", "name", rs.GetName())
 				return false, nil
 			}
 			repls := status["replicas"].(int64)
 			_, okAvailableReplicas := status["availableReplicas"]
 			if repls == 0 {
-				log.Info("ReplicaSet scheduled for termination", "name", rs.GetName())
+				p.log.Info("ReplicaSet scheduled for termination", "name", rs.GetName())
 				continue
 			}
 			if !okAvailableReplicas {
 				return false, nil
 			}
 			avail := status["availableReplicas"].(int64)
-			log.Info("Status", "AvailableReplicas", avail, "Replicas", repls)
+			p.log.Info("Status", "AvailableReplicas", avail, "Replicas", repls)
 			if avail != repls {
 				return false, nil
 			}
@@ -231,22 +250,22 @@ func ForDeployment(obj *unstructured.Unstructured) error {
 	})
 }
 
-func ForStatefulSet(obj *unstructured.Unstructured) error {
-	if err := ForResourceAvailability(obj); err != nil {
+func (p *pollActions) forStatefulSet(obj *unstructured.Unstructured) error {
+	if err := p.forResourceAvailability(obj); err != nil {
 		return err
 	}
-	return ForResourceFullAvailability(obj, func(obj *unstructured.Unstructured) (bool, error) {
+	return p.forResourceFullAvailability(obj, func(obj *unstructured.Unstructured) (bool, error) {
 
 		repls, found, err := unstructured.NestedInt64(obj.Object, "spec", "replicas")
 		warn.OnError(err)
 		if !found {
 			return false, errors.New("Something went horribly wrong, cannot read .spec.replicas from StatefulSet")
 		}
-		log.Info("DEBUG", ".spec.replicas", repls)
+		p.log.Info("DEBUG", ".spec.replicas", repls)
 		status, found, err := unstructured.NestedMap(obj.Object, "status")
 		warn.OnError(err)
 		if !found {
-			log.Info("No status for StatefulSet", "name", obj.GetName())
+			p.log.Info("No status for StatefulSet", "name", obj.GetName())
 			return false, nil
 		}
 		if _, ok := status["currentReplicas"]; !ok {
@@ -256,22 +275,22 @@ func ForStatefulSet(obj *unstructured.Unstructured) error {
 		currt := status["currentReplicas"].(int64)
 
 		if repls == currt {
-			log.Info("Status", "Replicas", repls, "CurrentReplicas", currt)
+			p.log.Info("Status", "Replicas", repls, "CurrentReplicas", currt)
 			return true, nil
 		}
 
-		log.Info("Status", "Replicas", repls, "CurrentReplicas", currt)
+		p.log.Info("Status", "Replicas", repls, "CurrentReplicas", currt)
 
 		return false, nil
 	})
 }
 
-func ForJob(obj *unstructured.Unstructured) error {
-	if err := ForResourceAvailability(obj); err != nil {
+func (p *pollActions) forJob(obj *unstructured.Unstructured) error {
+	if err := p.forResourceAvailability(obj); err != nil {
 		return err
 	}
 
-	return ForResourceFullAvailability(obj, func(obj *unstructured.Unstructured) (bool, error) {
+	return p.forResourceFullAvailability(obj, func(obj *unstructured.Unstructured) (bool, error) {
 
 		conditions, found, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
 		warn.OnError(err)
@@ -303,7 +322,7 @@ func ForJob(obj *unstructured.Unstructured) error {
 	})
 }
 
-func ForDaemonSetCallback(obj *unstructured.Unstructured) (bool, error) {
+func (p *pollActions) forDaemonSetCallback(obj *unstructured.Unstructured) (bool, error) {
 
 	// The total number of nodes that should be running the daemon pod
 	var err error
@@ -330,7 +349,7 @@ func ForDaemonSetCallback(obj *unstructured.Unstructured) (bool, error) {
 	return callback(obj)
 }
 
-func ForLifecycleAvailability(obj *unstructured.Unstructured) error {
+func (p *pollActions) forLifecycleAvailability(obj *unstructured.Unstructured) error {
 
 	if obj.GetKind() != "DaemonSet" {
 		return nil
@@ -355,14 +374,14 @@ func ForLifecycleAvailability(obj *unstructured.Unstructured) error {
 		Name:      "special-resource-lifecycle",
 	}
 
-	return wait.Poll(RetryInterval, Timeout, func() (done bool, err error) {
+	return wait.Poll(retryInterval, timeout, func() (done bool, err error) {
 
-		log.Info("Waiting for lifecycle update of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
+		p.log.Info("Waiting for lifecycle update of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
 
 		pl := lifecycle.GetPodFromDaemonSet(objKey)
 
 		for _, pod := range pl.Items {
-			log.Info("Checking lifecycle of", "Pod", pod.GetName())
+			p.log.Info("Checking lifecycle of", "Pod", pod.GetName())
 			hs, err := hash.FNV64a(pod.GetNamespace() + pod.GetName())
 			if err != nil {
 				return false, err
@@ -375,26 +394,26 @@ func ForLifecycleAvailability(obj *unstructured.Unstructured) error {
 				return false, nil
 			}
 		}
-		log.Info("All Pods running latest DaemonSet Template, we can move on")
+		p.log.Info("All Pods running latest DaemonSet Template, we can move on")
 		return true, nil
 	})
 }
 
-func ForDaemonSet(obj *unstructured.Unstructured) error {
-	if err := ForResourceAvailability(obj); err != nil {
+func (p *pollActions) ForDaemonSet(obj *unstructured.Unstructured) error {
+	if err := p.forResourceAvailability(obj); err != nil {
 		return err
 	}
 
-	if err := ForLifecycleAvailability(obj); err != nil {
+	if err := p.forLifecycleAvailability(obj); err != nil {
 		return err
 	}
 
-	return ForResourceFullAvailability(obj, ForDaemonSetCallback)
+	return p.forResourceFullAvailability(obj, p.forDaemonSetCallback)
 }
 
-func ForBuild(obj *unstructured.Unstructured) error {
+func (p *pollActions) forBuild(obj *unstructured.Unstructured) error {
 
-	if err := ForResourceAvailability(obj); err != nil {
+	if err := p.forResourceAvailability(obj); err != nil {
 		return err
 	}
 
@@ -411,7 +430,7 @@ func ForBuild(obj *unstructured.Unstructured) error {
 
 	for _, build := range builds.Items {
 		callback := makeStatusCallback(&build, "Complete", "status", "phase")
-		if err := ForResourceFullAvailability(&build, callback); err != nil {
+		if err := p.forResourceFullAvailability(&build, callback); err != nil {
 			return err
 		}
 	}
@@ -419,14 +438,14 @@ func ForBuild(obj *unstructured.Unstructured) error {
 	return nil
 }
 
-func ForResourceFullAvailability(obj *unstructured.Unstructured, callback statusCallback) error {
+func (p *pollActions) forResourceFullAvailability(obj *unstructured.Unstructured, callback statusCallback) error {
 
 	found := obj.DeepCopy()
 
-	return wait.Poll(RetryInterval, Timeout, func() (bool, error) {
+	return wait.Poll(retryInterval, timeout, func() (bool, error) {
 		err := clients.Interface.Get(context.TODO(), types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
 		if err != nil {
-			log.Error(err, "")
+			p.log.Error(err, "")
 			return false, err
 		}
 		fnd, err := callback(found)
@@ -435,17 +454,17 @@ func ForResourceFullAvailability(obj *unstructured.Unstructured, callback status
 		}
 
 		if fnd {
-			log.Info("Resource available ", "Kind", obj.GetKind()+": "+obj.GetNamespace()+"/"+obj.GetName())
+			p.log.Info("Resource available ", "Kind", obj.GetKind()+": "+obj.GetNamespace()+"/"+obj.GetName())
 			return true, nil
 		}
-		log.Info("Waiting for availability of ", "Kind", obj.GetKind()+": "+obj.GetNamespace()+"/"+obj.GetName())
+		p.log.Info("Waiting for availability of ", "Kind", obj.GetKind()+": "+obj.GetNamespace()+"/"+obj.GetName())
 		return false, nil
 	})
 }
 
-func ForDaemonSetLogs(obj *unstructured.Unstructured, pattern string) error {
+func (p *pollActions) ForDaemonSetLogs(obj *unstructured.Unstructured, pattern string) error {
 
-	log.Info("WaitForDaemonSetLogs", "Name", obj.GetName())
+	p.log.Info("WaitForDaemonSetLogs", "Name", obj.GetName())
 
 	pods := &unstructured.UnstructuredList{}
 	pods.SetAPIVersion("v1")
@@ -460,7 +479,7 @@ func ForDaemonSetLogs(obj *unstructured.Unstructured, pattern string) error {
 		return errors.New("Cannot find Label app=, missing take a look at the manifests")
 	}
 
-	log.Info("Looking for Pods with label app=" + selector)
+	p.log.Info("Looking for Pods with label app=" + selector)
 	label["app"] = selector
 
 	opts := []client.ListOption{
@@ -474,7 +493,7 @@ func ForDaemonSetLogs(obj *unstructured.Unstructured, pattern string) error {
 	}
 
 	for _, pod := range pods.Items {
-		log.Info("WaitForDaemonSetLogs", "Pod", pod.GetName())
+		p.log.Info("WaitForDaemonSetLogs", "Pod", pod.GetName())
 		podLogOpts := v1.PodLogOptions{}
 		req := clients.Interface.CoreV1().Pods(pod.GetNamespace()).GetLogs(pod.GetName(), &podLogOpts)
 		podLogs, err := req.Stream(context.TODO())
@@ -496,7 +515,7 @@ func ForDaemonSetLogs(obj *unstructured.Unstructured, pattern string) error {
 
 		logs := buf.String()
 		lastBytes := logs[len(logs)-cutoff:]
-		log.Info("WaitForDaemonSetLogs", "LastBytes", lastBytes)
+		p.log.Info("WaitForDaemonSetLogs", "LastBytes", lastBytes)
 
 		var match bool
 

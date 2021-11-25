@@ -19,6 +19,8 @@ import (
 
 const specialresourceFinalizer = "sro.openshift.io/finalizer"
 
+var pollActions = poll.New()
+
 func reconcileFinalizers(r *SpecialResourceReconciler) error {
 	if contains(r.specialresource.GetFinalizers(), specialresourceFinalizer) {
 		// Run finalization logic for specialresource
@@ -104,7 +106,7 @@ func finalizeSpecialResource(r *SpecialResourceReconciler) error {
 				if !apierrors.IsNotFound(err) {
 					warn.OnError(err)
 				}
-				err = poll.ForResourceUnavailability(&ns)
+				err = pollActions.ForResourceUnavailability(&ns)
 				warn.OnError(err)
 			}
 		}
