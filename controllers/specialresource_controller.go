@@ -26,6 +26,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
+	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	buildv1 "github.com/openshift/api/build/v1"
 	secv1 "github.com/openshift/api/security/v1"
 
@@ -54,6 +55,8 @@ var (
 type SpecialResourceReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+
+	Metrics metrics.Metrics
 
 	specialresource srov1beta1.SpecialResource
 	parent          srov1beta1.SpecialResource

@@ -15,7 +15,6 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
@@ -52,7 +51,7 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 	}
 
 	// Set specialResourcesCreated metric to the number of specialresources
-	metrics.SetSpecialResourcesCreated(len(specialresources.Items))
+	r.Metrics.SetSpecialResourcesCreated(len(specialresources.Items))
 
 	// Do not reconcile all SRs everytime, get the one were the request
 	// came from, use the List for metrics and dashboard, we also need the

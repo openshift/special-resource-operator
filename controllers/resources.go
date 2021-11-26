@@ -10,7 +10,6 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
-	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
@@ -218,7 +217,7 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 			// ones for parallel startup, otherwise we would wait for the first
 			// then for the second etc.
 			if err != nil && replicas == len(RunInfo.ClusterUpgradeInfo) {
-				metrics.SetCompletedState(r.specialresource.Name, stateYAML.Name, 0)
+				r.Metrics.SetCompletedState(r.specialresource.Name, stateYAML.Name, 0)
 				return errors.Wrap(err, "Failed to create state: "+stateYAML.Name)
 			}
 
@@ -229,7 +228,7 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 
 		}
 
-		metrics.SetCompletedState(r.specialresource.Name, stateYAML.Name, 1)
+		r.Metrics.SetCompletedState(r.specialresource.Name, stateYAML.Name, 1)
 		// If resource available, label the nodes according to the current state
 		// if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
 		operatorStatusUpdate(&r.specialresource, state.CurrentName)
