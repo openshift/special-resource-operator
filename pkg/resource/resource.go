@@ -37,6 +37,7 @@ var (
 	RuntimeScheme  *runtime.Scheme
 	UpdateVendor   string
 	pollActions    = poll.New()
+	metricsClient  = metrics.New()
 )
 
 func IsNamespaced(kind string) bool {
@@ -221,7 +222,7 @@ func createObjFromYAML(yamlSpec []byte,
 	yamlNamespace := obj.GetNamespace()
 	metricValue := 0
 	defer func() {
-		metrics.SetCompletedKind(name, yamlKind, yamlName, yamlNamespace, metricValue)
+		metricsClient.SetCompletedKind(name, yamlKind, yamlName, yamlNamespace, metricValue)
 	}()
 
 	//  Do not override the namespace if already set

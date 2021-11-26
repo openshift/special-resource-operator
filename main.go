@@ -24,6 +24,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/cmd/leaderelection"
 	"github.com/openshift-psap/special-resource-operator/controllers"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -103,8 +104,9 @@ func main() {
 	resource.RuntimeScheme = mgr.GetScheme()
 
 	if err = (&controllers.SpecialResourceReconciler{
-		Log:    ctrl.Log,
-		Scheme: mgr.GetScheme(),
+		Log:     ctrl.Log,
+		Scheme:  mgr.GetScheme(),
+		Metrics: metrics.New(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
 		os.Exit(1)

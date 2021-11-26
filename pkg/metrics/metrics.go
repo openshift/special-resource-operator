@@ -7,17 +7,17 @@ import (
 
 // When adding metric names, see https://prometheus.io/docs/practices/naming/#metric-names
 const (
-	specialResourcesCreatedQuery = "sro_managed_resources_total"
+	createdSpecialResourcesQuery = "sro_managed_resources_total"
 	completedStatesQuery         = "sro_states_completed_info"
 	completedKindQuery           = "sro_kind_completed_info"
 )
 
 var (
 	//#TODO set the metric
-	specialResourcesCreated = prometheus.NewGauge(
+	createdSpecialResources = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Name: specialResourcesCreatedQuery,
-			Help: "Number of specialresources created",
+			Name: createdSpecialResourcesQuery,
+			Help: "Number of created SpecialResources",
 		},
 	)
 	completedStates = prometheus.NewGaugeVec(
@@ -36,31 +36,38 @@ var (
 	)
 )
 
-// SetCompletedState set completed states
-func SetCompletedState(specialResource string, state string, value int) {
-	completedStates.WithLabelValues(specialResource, state).Set(float64(value))
-}
-
-// DeleteCompleteStates delete metric complete states
-func DeleteCompleteStates(specialResource string, state string) {
-	completedStates.DeleteLabelValues(specialResource, state)
-}
-
-func SetCompletedKind(specialResource, kind, name, namespace string, value int) {
-	completedKinds.WithLabelValues(specialResource, kind, name, namespace).Set(float64(value))
-}
-
-// SetSpecialResourcesCreated set number of created states
-func SetSpecialResourcesCreated(value int) {
-	specialResourcesCreated.Set(float64(value))
-}
-
 func init() {
 	// Register custom metrics with the global prometheus registry
 	metrics.Registry.MustRegister(
-		specialResourcesCreated,
+		createdSpecialResources,
 		completedStates,
 		completedKinds,
 	)
+}
 
+//go:generate mockgen -source=metrics.go -package=metrics -destination=mock_metrics_api.go
+
+// Metrics is an interface representing a prometheus client for the Special Resource Operator
+type Metrics interface {
+	SetSpecialResourcesCreated(value int)
+	SetCompletedState(specialResource, state string, value int)
+	SetCompletedKind(specialResource, kind, name, namespace string, value int)
+}
+
+func New() Metrics {
+	return &metricsImpl{}
+}
+
+type metricsImpl struct{}
+
+func (m *metricsImpl) SetSpecialResourcesCreated(value int) {
+	createdSpecialResources.Set(float64(value))
+}
+
+func (m *metricsImpl) SetCompletedState(specialResource, state string, value int) {
+	completedStates.WithLabelValues(specialResource, state).Set(float64(value))
+}
+
+func (m *metricsImpl) SetCompletedKind(specialResource, kind, name, namespace string, value int) {
+	completedKinds.WithLabelValues(specialResource, kind, name, namespace).Set(float64(value))
 }
