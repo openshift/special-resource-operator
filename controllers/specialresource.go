@@ -21,7 +21,6 @@ import (
 	"helm.sh/helm/v3/pkg/chart"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	controllerruntime "sigs.k8s.io/controller-runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -319,10 +318,12 @@ func createSpecialResourceFrom(r *SpecialResourceReconciler, ch *chart.Chart, dp
 	var idx int
 	if idx = slice.FindCRFile(ch.Files, r.dependency.Name); idx == -1 {
 		log.Info("Creating SpecialResource from template, cannot find it in charts directory")
-		res, err := controllerruntime.CreateOrUpdate(context.TODO(), clients.Interface, &sr, noop)
+
+		res, err := clients.Interface.CreateOrUpdate(context.TODO(), &sr, noop)
 		if err != nil {
 			return fmt.Errorf("%s: %w", res, err)
 		}
+
 		return errors.New("Created new SpecialResource we need to Reconcile")
 	}
 

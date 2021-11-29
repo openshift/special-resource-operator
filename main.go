@@ -75,30 +75,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	clients.RestConfig = mgr.GetConfig()
-
-	kubeClientSet, err := clients.GetKubeClientSet()
+	clients.Interface, err = clients.NewClients(mgr.GetClient(), mgr.GetConfig(), mgr.GetEventRecorderFor("specialresource"))
 	if err != nil {
-		setupLog.Error(err, "unable to create client set")
+		setupLog.Error(err, "unable to create k8s clients")
 		os.Exit(1)
-	}
-	configClient, err := clients.GetConfigClient()
-	if err != nil {
-		setupLog.Error(err, "unable to create config client")
-		os.Exit(1)
-	}
-	cachedDiscoveryClient, err := clients.GetCachedDiscoveryClient()
-	if err != nil {
-		setupLog.Error(err, "unable to create cached discovery client")
-		os.Exit(1)
-	}
-
-	clients.Interface = &clients.ClientsInterface{
-		Client:                   mgr.GetClient(),
-		Clientset:                *kubeClientSet,
-		ConfigV1Client:           *configClient,
-		CachedDiscoveryInterface: cachedDiscoveryClient,
-		EventRecorder:            mgr.GetEventRecorderFor("specialresource"),
 	}
 
 	resource.RuntimeScheme = mgr.GetScheme()

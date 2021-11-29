@@ -32,7 +32,7 @@ func Version() (string, string, error) {
 		return "", "", nil
 	}
 
-	version, err := clients.Interface.ClusterVersions().Get(context.TODO(), "version", metav1.GetOptions{})
+	version, err := clients.Interface.ClusterVersionGet(context.TODO(), metav1.GetOptions{})
 	if err != nil {
 		return "", "", fmt.Errorf("ConfigClient unable to get ClusterVersions: %w", err)
 	}
@@ -69,7 +69,7 @@ func VersionHistory() ([]string, error) {
 		return stat, nil
 	}
 
-	version, err := clients.Interface.ClusterVersions().Get(context.TODO(), "version", metav1.GetOptions{})
+	version, err := clients.Interface.ClusterVersionGet(context.TODO(), metav1.GetOptions{})
 	if err != nil {
 		return stat, fmt.Errorf("ConfigClient unable to get ClusterVersions: %w", err)
 	}
@@ -87,7 +87,7 @@ func VersionHistory() ([]string, error) {
 
 func OSImageURL() (string, error) {
 
-	machineConfigAvailable, err := clients.HasResource(machinev1.SchemeGroupVersion.WithResource("machineconfigs"))
+	machineConfigAvailable, err := clients.Interface.HasResource(machinev1.SchemeGroupVersion.WithResource("machineconfigs"))
 	if err != nil {
 		return "", fmt.Errorf("Error discovering machineconfig API resource: %w", err)
 	}
@@ -153,7 +153,7 @@ func OperatingSystem() (string, string, string, error) {
 
 func ClusterVersionAvailable() (bool, error) {
 
-	clusterVersionAvailable, err := clients.HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions"))
+	clusterVersionAvailable, err := clients.Interface.HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions"))
 	if err != nil {
 		return false, err
 	}

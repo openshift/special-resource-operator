@@ -111,7 +111,7 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	log = r.Log.WithName(color.Print("setup", color.Brown))
 
-	platform, err := clients.GetPlatform()
+	platform, err := clients.Interface.GetPlatform()
 	if err != nil {
 		return err
 	}
