@@ -275,6 +275,17 @@ rules:
   - update
   - watch
 - apiGroups:
+  - apps.open-cluster-management.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
   - auditregistration.k8s.io
   resources:
   - auditsinks
@@ -458,6 +469,14 @@ rules:
   verbs:
   - sign
 - apiGroups:
+  - cluster.open-cluster-management.io
+  resources:
+  - '*'
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - config.openshift.io
   resources:
   - clusteroperators
@@ -487,6 +506,7 @@ rules:
   - clusterversions
   verbs:
   - get
+  - list
 - apiGroups:
   - config.openshift.io
   resources:
@@ -883,6 +903,28 @@ rules:
   - update
   - watch
 - apiGroups:
+  - policy.open-cluster-management.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
+  - ran.openshift.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - clusterrolebindings
@@ -1059,6 +1101,34 @@ rules:
   - list
   - update
   - watch
+- apiGroups:
+  - sro.openshift.io
+  resources:
+  - specialresourcemodules
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sro.openshift.io
+  resources:
+  - specialresourcemodules/finalizers
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - sro.openshift.io
+  resources:
+  - specialresourcemodules/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - sro.openshift.io
   resources:

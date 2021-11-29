@@ -21,22 +21,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-const (
-	Kind       = "SpecialResource"
-	OwnedLabel = "specialresource.openshift.io/owned"
-)
-
 type Filter interface {
 	GetPredicates() predicate.Predicate
 	GetMode() string
 }
 
-func NewFilter(lifecycle lifecycle.Lifecycle, storage storage.Storage, kernelData kernel.KernelData) Filter {
+func NewFilter(kind, ownedLabel string, lifecycle lifecycle.Lifecycle, storage storage.Storage, kernelData kernel.KernelData) Filter {
 	return &filter{
 		log:        zap.New(zap.UseDevMode(true)).WithName(utils.Print("filter", utils.Purple)),
 		lifecycle:  lifecycle,
 		storage:    storage,
 		kernelData: kernelData,
+		kind:       kind,
+		ownedLabel: ownedLabel,
 	}
 }
 
@@ -45,6 +42,8 @@ type filter struct {
 	lifecycle  lifecycle.Lifecycle
 	storage    storage.Storage
 	kernelData kernel.KernelData
+	kind       string
+	ownedLabel string
 
 	mode string
 }
@@ -65,13 +64,13 @@ func (f *filter) isSpecialResource(obj client.Object) bool {
 
 	kind := obj.GetObjectKind().GroupVersionKind().Kind
 
-	if kind == Kind {
+	if kind == f.kind {
 		return true
 	}
 
 	t := reflect.TypeOf(obj).String()
 
-	if strings.Contains(t, Kind) {
+	if strings.Contains(t, f.kind) {
 		return true
 
 	}
@@ -100,7 +99,7 @@ func (f *filter) isSpecialResource(obj client.Object) bool {
 func (f *filter) owned(obj client.Object) bool {
 
 	for _, owner := range obj.GetOwnerReferences() {
-		if owner.Kind == Kind {
+		if owner.Kind == f.kind {
 			return true
 		}
 	}
@@ -108,7 +107,7 @@ func (f *filter) owned(obj client.Object) bool {
 	var labels map[string]string
 
 	if labels = obj.GetLabels(); labels != nil {
-		if _, found := labels[OwnedLabel]; found {
+		if _, found := labels[f.ownedLabel]; found {
 			return true
 		}
 	}
@@ -157,7 +156,6 @@ func (f *filter) GetPredicates() predicate.Predicate {
 			obj := e.ObjectNew
 
 			// Required for the case when pods are deleted due to OS upgrade
-
 			if f.owned(obj) && f.kernelData.IsObjectAffine(obj) {
 				if e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() &&
 					e.ObjectOld.GetResourceVersion() == e.ObjectNew.GetResourceVersion() {

@@ -1,8 +1,11 @@
 package utils
 
 // +kubebuilder:rbac:groups=sro.openshift.io,resources=specialresources,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=sro.openshift.io,resources=specialresourcemodules,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=sro.openshift.io,resources=specialresources/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=sro.openshift.io,resources=specialresourcemodules/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=sro.openshift.io,resources=specialresources/finalizers,verbs=get;update;patch
+// +kubebuilder:rbac:groups=sro.openshift.io,resources=specialresourcemodules/finalizers,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods/log,verbs=get
 // +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
@@ -12,7 +15,7 @@ package utils
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get
+// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list
 // +kubebuilder:rbac:groups=config.openshift.io,resources=proxies,verbs=get;list
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=security.openshift.io,resources=securitycontextconstraints,verbs=use;get;list;watch;create;update;patch;delete
@@ -126,3 +129,7 @@ package utils
 // +kubebuilder:rbac:groups=networking.x-k8s.io,resources=gateways/finalizers,verbs=update
 // +kubebuilder:rbac:groups=networking.x-k8s.io,resources=httproutes/finalisers,verbs=update
 // +kubebuilder:rbac:groups=infoscale.veritas.com,resources=infoscaleclusters,verbs=update;patch;get;list
+// +kubebuilder:rbac:groups=cluster.open-cluster-management.io,resources=*,verbs=list;watch;get
+// +kubebuilder:rbac:groups=policy.open-cluster-management.io,resources=*,verbs=create;update;patch;delete;get;list
+// +kubebuilder:rbac:groups=apps.open-cluster-management.io,resources=*,verbs=create;update;patch;delete;get;list
+// +kubebuilder:rbac:groups=ran.openshift.io,resources=*,verbs=create;update;patch;delete;get;list

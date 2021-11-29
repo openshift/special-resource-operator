@@ -46,12 +46,12 @@ var _ = Describe("helmer_InstallCRDs", func() {
 
 		mockResourceAPI.
 			EXPECT().
-			CreateFromYAML(context.TODO(), nil, false, owner, name, namespace, nil, "", "").
+			CreateFromYAML(context.TODO(), nil, false, owner, name, namespace, nil, "", "", "").
 			Return(randomError)
 
 		h, err := newHelmerWithVersions(mockResourceAPI, cli.New(), nil, nil, mockKubeClient)
 		Expect(err).NotTo(HaveOccurred())
-		err = h.InstallCRDs(context.TODO(), nil, owner, name, namespace)
+		err = h.InstallCRDs(context.TODO(), nil, owner, name, namespace, "")
 		Expect(err).To(Equal(randomError))
 	})
 
@@ -77,11 +77,11 @@ def
 
 		mockResourceAPI.
 			EXPECT().
-			CreateFromYAML(context.TODO(), manifests, false, owner, name, namespace, nil, "", "")
+			CreateFromYAML(context.TODO(), manifests, false, owner, name, namespace, nil, "", "", "")
 
 		h, err := newHelmerWithVersions(mockResourceAPI, cli.New(), nil, nil, mockKubeClient)
 		Expect(err).NotTo(HaveOccurred())
-		err = h.InstallCRDs(context.TODO(), crds, owner, name, namespace)
+		err = h.InstallCRDs(context.TODO(), crds, owner, name, namespace, "")
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
@@ -104,7 +104,7 @@ var _ = Describe("helmer_Run", func() {
 
 		h, err := newHelmerWithVersions(mockResourceAPI, cli.New(), nil, nil, mockKubeClient)
 		Expect(err).NotTo(HaveOccurred())
-		err = h.Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
+		err = h.Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false, "")
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -126,11 +126,11 @@ var _ = Describe("helmer_Run", func() {
 
 		mockResourceAPI.
 			EXPECT().
-			CreateFromYAML(context.TODO(), gomock.Any(), false, owner, name, namespace, nil, "", "").
+			CreateFromYAML(context.TODO(), gomock.Any(), false, owner, name, namespace, nil, "", "", "").
 			Return(randomError)
 		h, err := newHelmerWithVersions(mockResourceAPI, cli.New(), nil, nil, mockKubeClient)
 		Expect(err).NotTo(HaveOccurred())
-		err = h.Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
+		err = h.Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false, "")
 		Expect(errors.Is(err, randomError)).To(BeTrue())
 	})
 })

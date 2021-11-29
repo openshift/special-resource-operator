@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  labels:
+    role: alert-rules
+  name: special-resource-sro-operator-prometheus-rules
+  namespace: openshift-special-resource-operator
+spec:
+  groups:
+  - name: sro-operator.rules
+    rules:
+    - alert: UpgradeWarning
+      annotations:
+        message: |
+          Current upgrade may cause driver-container in CR {{ $labels.cr }} to fail.
+      expr: sro_upgrade_alert == 1
+      for: 1m
+      labels:
+        severity: warning

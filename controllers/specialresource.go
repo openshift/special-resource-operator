@@ -314,7 +314,7 @@ func (r *SpecialResourceReconciler) createSpecialResourceFrom(ctx context.Contex
 		sr.Name,
 		sr.Namespace,
 		sr.Spec.NodeSelector,
-		"", ""); err != nil {
+		"", "", SROwnedLabel); err != nil {
 		return err
 	}
 
