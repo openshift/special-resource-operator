@@ -39,7 +39,7 @@ func main() {
 	manifests := assets.GetFrom(*path)
 
 	for _, manifest := range manifests {
-		framework.CreateFromYAML(manifest.Content, cl)
+		_ = framework.CreateFromYAML(manifest.Content, cl)
 	}
 
 }

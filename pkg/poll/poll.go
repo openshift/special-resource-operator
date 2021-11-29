@@ -495,7 +495,7 @@ func (p *pollActions) ForDaemonSetLogs(obj *unstructured.Unstructured, pattern s
 	for _, pod := range pods.Items {
 		p.log.Info("WaitForDaemonSetLogs", "Pod", pod.GetName())
 		podLogOpts := v1.PodLogOptions{}
-		req := clients.Interface.CoreV1().Pods(pod.GetNamespace()).GetLogs(pod.GetName(), &podLogOpts)
+		req := clients.Interface.GetPodLogs(pod.GetNamespace(), pod.GetName(), &podLogOpts)
 		podLogs, err := req.Stream(context.TODO())
 		if err != nil {
 			return fmt.Errorf("error in opening stream: %w", err)

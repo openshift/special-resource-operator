@@ -132,7 +132,7 @@ func ClusterConfiguration() (Configuration, error) {
 
 	proxy := &ProxyConfiguration
 
-	proxiesAvailable, err := clients.HasResource(configv1.SchemeGroupVersion.WithResource("proxies"))
+	proxiesAvailable, err := clients.Interface.HasResource(configv1.SchemeGroupVersion.WithResource("proxies"))
 	if err != nil {
 		return *proxy, errors.Wrap(err, "Error discovering proxies API resource")
 	}

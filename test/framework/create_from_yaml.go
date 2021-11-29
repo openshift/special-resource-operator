@@ -59,10 +59,12 @@ func CreateFromYAML(yamlFile []byte, cl client.Client) error {
 		obj := getObjFromYAMLSpec(yamlSpec)
 		err := cl.Create(context.TODO(), obj)
 		message := "Resource created"
-		if apierrors.IsAlreadyExists(err) {
-			message = "Resource already exists"
-		} else {
-			return err
+		if err != nil {
+			if apierrors.IsAlreadyExists(err) {
+				message = "Resource already exists"
+			} else {
+				return err
+			}
 		}
 		log.Info(message, "Kind", obj.GetKind(), "Name", obj.GetName())
 	}
@@ -115,10 +117,12 @@ func DeleteFromYAML(yamlFile []byte, cl client.Client) error {
 		}
 		err := cl.Delete(context.TODO(), obj)
 		message := "Deleted resource"
-		if apierrors.IsNotFound(err) {
-			message = "Resource didnt exist"
-		} else {
-			return err
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				message = "Resource didnt exist"
+			} else {
+				return err
+			}
 		}
 		log.Info(message, "Kind", obj.GetKind(), "Name", obj.GetName())
 	}

@@ -44,7 +44,7 @@ func main() {
 	manifests := assets.GetFrom(*path)
 
 	for _, manifest := range manifests {
-		framework.DeleteFromYAML(manifest.Content, cl)
+		_ = framework.DeleteFromYAML(manifest.Content, cl)
 	}
 
 }

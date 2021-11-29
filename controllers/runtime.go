@@ -19,7 +19,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	//machineV1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 )
 
 type ResourceGroupName struct {
@@ -105,7 +104,7 @@ func getRuntimeInformation(r *SpecialResourceReconciler) {
 
 	// Only want to initialize the platform once.
 	if RunInfo.Platform == "" {
-		RunInfo.Platform, err = clients.GetPlatform()
+		RunInfo.Platform, err = clients.Interface.GetPlatform()
 		exit.OnError(errors.Wrap(err, "Failed to determine platform"))
 	}
 

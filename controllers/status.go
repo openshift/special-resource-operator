@@ -36,7 +36,7 @@ func operatorStatusUpdate(sr *srov1beta1.SpecialResource, state string) {
 	update.Status.State = state
 	update.DeepCopyInto(sr)
 
-	err = clients.Interface.Status().Update(context.TODO(), sr)
+	err = clients.Interface.StatusUpdate(context.TODO(), sr)
 	if apierrors.IsConflict(err) {
 		objectKey := types.NamespacedName{Name: sr.Name, Namespace: ""}
 		err := clients.Interface.Get(context.TODO(), objectKey, sr)
@@ -79,7 +79,7 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusGetOrCreate() error {
 
 	co := &configv1.ClusterOperator{ObjectMeta: metav1.ObjectMeta{Name: r.GetName()}}
 
-	co, err = clients.Interface.ClusterOperators().Create(context.TODO(), co, metav1.CreateOptions{})
+	co, err = clients.Interface.ClusterOperatorCreate(context.TODO(), co, metav1.CreateOptions{})
 	if err != nil {
 		return errors.Wrap(err, "Failed to create ClusterOperator "+co.Name)
 	}
@@ -120,14 +120,14 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusReconcile(
 }
 
 func (r *SpecialResourceReconciler) clusterOperatorGetLatest() error {
-	co, err := clients.Interface.ClusterOperators().Get(context.TODO(), r.GetName(), metav1.GetOptions{})
+	co, err := clients.Interface.ClusterOperatorGet(context.TODO(), r.GetName(), metav1.GetOptions{})
 	co.DeepCopyInto(&r.clusterOperator)
 	return err
 }
 
 func (r *SpecialResourceReconciler) clusterOperatorStatusUpdate() error {
 
-	if _, err := clients.Interface.ClusterOperators().UpdateStatus(context.TODO(), &r.clusterOperator, metav1.UpdateOptions{}); err != nil {
+	if _, err := clients.Interface.ClusterOperatorUpdateStatus(context.TODO(), &r.clusterOperator, metav1.UpdateOptions{}); err != nil {
 		return err
 	}
 	return nil
@@ -165,7 +165,7 @@ func (r *SpecialResourceReconciler) clusterOperatorUpdateRelatedObjects() error 
 func SpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request, cond []configv1.ClusterOperatorStatusCondition) (ctrl.Result, error) {
 	log = r.Log.WithName(color.Print("status", color.Blue))
 
-	clusterOperatorAvailable, err := clients.HasResource(configv1.SchemeGroupVersion.WithResource("clusteroperators"))
+	clusterOperatorAvailable, err := clients.Interface.HasResource(configv1.SchemeGroupVersion.WithResource("clusteroperators"))
 
 	if err != nil {
 		return reconcile.Result{Requeue: true}, errors.Wrap(err, "Cannot discover ClusterOperator api resource")

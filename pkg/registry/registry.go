@@ -39,13 +39,13 @@ type DriverToolkitEntry struct {
 }
 
 func writeImageRegistryCredentials() error {
-	_, err := clients.Interface.CoreV1().Namespaces().Get(context.TODO(), pullSecretNamespace, metav1.GetOptions{})
+	_, err := clients.Interface.GetNamespace(context.TODO(), pullSecretNamespace, metav1.GetOptions{})
 	if err != nil {
 		log.Info("Can not find namespace for pull secrets, assuming vanilla k8s")
 		return nil
 	}
 
-	s, err := clients.Interface.CoreV1().Secrets(pullSecretNamespace).Get(context.TODO(), pullSecretName, metav1.GetOptions{})
+	s, err := clients.Interface.GetSecret(context.TODO(), pullSecretNamespace, pullSecretName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "Can not retrieve pull secrets")
 	}
