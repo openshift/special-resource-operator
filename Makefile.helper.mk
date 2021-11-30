@@ -39,7 +39,7 @@ test-e2e-upgrade: go-deploy-manifests
 
 test-e2e:
 	for d in basic; do \
-          KUBERNETES_CONFIG="$(KUBECONFIG)" go test -v -timeout 40m --tags=e2e ./test/e2e/$$d -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit; \
+          KUBERNETES_CONFIG="$(KUBECONFIG)" go test -v -timeout 40m ./test/e2e/$$d -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit; \
         done
 
 # Download kube-linter locally if necessary

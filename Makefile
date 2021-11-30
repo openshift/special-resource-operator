@@ -73,7 +73,9 @@ vet: ## Run go vet against code.
 	go vet --mod=vendor ./...
 
 test: patch manifests generate fmt envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
+	# Use `go run github.com/onsi/ginkgo/ginkgo` as only the ginkgo binary supports -skipPackage
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
+		go run github.com/onsi/ginkgo/ginkgo -skipPackage ./test/e2e -coverprofile cover.out ./...
 
 ##@ Build
 

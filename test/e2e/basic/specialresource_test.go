@@ -1,6 +1,3 @@
-//go:build e2e
-// +build e2e
-
 package e2e
 
 import (
@@ -13,7 +10,6 @@ import (
 )
 
 const (
-	NamespaceSRO = "openshift-special-resource-operator"
 	pollInterval = 1 * time.Second
 	waitDuration = 10 * time.Minute
 )
