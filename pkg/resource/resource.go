@@ -217,6 +217,12 @@ func createObjFromYAML(yamlSpec []byte,
 		return fmt.Errorf("cannot unmarshall json spec, check your manifest: %s: %w", jsonSpec, err)
 	}
 
+	//  Do not override the namespace if already set
+	if IsNamespaced(obj.GetKind()) && obj.GetNamespace() == "" {
+		log.Info("Namespace empty settting", "namespace", namespace)
+		obj.SetNamespace(namespace)
+	}
+
 	yamlKind := obj.GetKind()
 	yamlName := obj.GetName()
 	yamlNamespace := obj.GetNamespace()
@@ -224,12 +230,6 @@ func createObjFromYAML(yamlSpec []byte,
 	defer func() {
 		metricsClient.SetCompletedKind(name, yamlKind, yamlName, yamlNamespace, metricValue)
 	}()
-
-	//  Do not override the namespace if already set
-	if IsNamespaced(obj.GetKind()) && obj.GetNamespace() == "" {
-		log.Info("Namespace empty settting", "namespace", namespace)
-		obj.SetNamespace(namespace)
-	}
 
 	// We used this for predicate filtering, we're watching a lot of
 	// API Objects we want to ignore all objects that do not have this
