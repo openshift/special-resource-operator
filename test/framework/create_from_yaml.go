@@ -57,8 +57,8 @@ func CreateFromYAML(yamlFile []byte, cl client.Client) error {
 	for scanner.Scan() {
 		yamlSpec := scanner.Bytes()
 		obj := getObjFromYAMLSpec(yamlSpec)
-		err := cl.Create(context.TODO(), obj)
 		message := "Resource created"
+		err := cl.Create(context.TODO(), obj)
 		if err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				message = "Resource already exists"
@@ -115,8 +115,8 @@ func DeleteFromYAML(yamlFile []byte, cl client.Client) error {
 		if obj.GetKind() == "SpecialResource" {
 			continue
 		}
-		err := cl.Delete(context.TODO(), obj)
 		message := "Deleted resource"
+		err := cl.Delete(context.TODO(), obj)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				message = "Resource didnt exist"

@@ -44,7 +44,10 @@ func main() {
 	manifests := assets.GetFrom(*path)
 
 	for _, manifest := range manifests {
-		_ = framework.DeleteFromYAML(manifest.Content, cl)
+		err := framework.DeleteFromYAML(manifest.Content, cl)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 }

@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
@@ -18,8 +19,10 @@ import (
 )
 
 const (
-	pingPongName      = "ping-pong"
-	pingPongChartPath = "../../../charts/example/ping-pong-0.0.1/ping-pong.yaml"
+	pingPongName         = "ping-pong"
+	pingPongChartPath    = "../../../charts/example/ping-pong-0.0.1/ping-pong.yaml"
+	pingPongPollInterval = 1 * time.Second
+	pingPongWaitDuration = 10 * time.Minute
 )
 
 var _ = ginkgo.Describe("[basic][ping-pong] Test ping-pong", func() {
@@ -88,7 +91,7 @@ func checkPingPong(clientSet *kubernetes.Clientset, cs *framework.ClientSet, cl 
 	if err != nil {
 		return err
 	}
-	err = wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
+	err = wait.PollImmediate(pingPongPollInterval, pingPongWaitDuration, func() (bool, error) {
 		found := 0
 		for _, pod := range pods.Items {
 			log, err := getPodLogs(clientSet, pod.Namespace, pod.Name)
@@ -116,7 +119,7 @@ func pingPongDelete(cs *framework.ClientSet, cl client.Client) error {
 }
 
 func waitPingPongDeleted(cl client.Client) error {
-	err := wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
+	err := wait.PollImmediate(pingPongPollInterval, pingPongWaitDuration, func() (bool, error) {
 		specialresources := &srov1beta1.SpecialResourceList{}
 		err := cl.List(context.Background(), specialresources, []client.ListOption{}...)
 		if err != nil {

@@ -39,7 +39,10 @@ func main() {
 	manifests := assets.GetFrom(*path)
 
 	for _, manifest := range manifests {
-		_ = framework.CreateFromYAML(manifest.Content, cl)
+		err := framework.CreateFromYAML(manifest.Content, cl)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 }
