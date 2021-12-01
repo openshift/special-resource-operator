@@ -90,7 +90,7 @@ helm-plugins: helm-plugins/cm-getter
 manager: patch generate ## Build manager binary.
 	go build -o manager main.go
 
-run: manifests generate fmt ## Run against the configured Kubernetes cluster in ~/.kube/config
+run: manifests generate ## Run against the configured Kubernetes cluster in ~/.kube/config
 	go run -mod=vendor ./main.go
 
 local-image-build: patch helm-lint helm-repo-index generate manifests-gen ## Build container image with the manager.

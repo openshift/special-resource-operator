@@ -26,7 +26,11 @@ lint: patch golangci-lint
 	$(GOLANGCILINT) run -v --timeout 5m0s
 	shellcheck helm-plugins/file-getter/cat-wrapper
 
-verify: patch fmt vet
+verify: patch vet
+	if [ `gofmt -l . | grep -v vendor | wc -l` -ne 0 ]; then \
+		echo There are some malformated files, please make sure to run \'make fmt\'; \
+		exit 1; \
+	fi
 
 go-deploy-manifests: manifests-gen
 	go run test/deploy/deploy.go -path ./manifests$(SUFFIX)
@@ -34,9 +38,9 @@ go-deploy-manifests: manifests-gen
 go-undeploy-manifests:
 	go run test/undeploy/undeploy.go -path ./manifests$(SUFFIX)
 
-test-e2e-upgrade: go-deploy-manifests
+e2e-test-upgrade: go-deploy-manifests
 
-test-e2e:
+e2e-test:
 	for d in basic; do \
           KUBERNETES_CONFIG="$(KUBECONFIG)" go test -v -timeout 40m ./test/e2e/$$d -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit; \
         done
