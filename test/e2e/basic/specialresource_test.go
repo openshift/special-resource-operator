@@ -2,16 +2,10 @@ package e2e
 
 import (
 	"testing"
-	"time"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"github.com/openshift-psap/special-resource-operator/test/framework"
-)
-
-const (
-	pollInterval = 1 * time.Second
-	waitDuration = 10 * time.Minute
 )
 
 func TestSRO(t *testing.T) {

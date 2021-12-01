@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 	"sync"
+	"time"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
@@ -19,8 +20,10 @@ import (
 )
 
 const (
-	simpleKmodName      = "simple-kmod"
-	simpleKmodChartPath = "../../../charts/example/simple-kmod-0.0.1/simple-kmod.yaml"
+	simpleKmodName         = "simple-kmod"
+	simpleKmodChartPath    = "../../../charts/example/simple-kmod-0.0.1/simple-kmod.yaml"
+	simpleKmodPollInterval = 1 * time.Second
+	simpleKmodWaitDuration = 10 * time.Minute
 )
 
 func createSimpleKmod(cl client.Client) error {
@@ -127,7 +130,7 @@ func waitDaemonSetReady(cs *framework.ClientSet) error {
 }
 
 func waitSimpleKmodDeleted(cs *framework.ClientSet, cl client.Client) error {
-	err := wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
+	err := wait.PollImmediate(simpleKmodPollInterval, simpleKmodWaitDuration, func() (bool, error) {
 		specialresources := &srov1beta1.SpecialResourceList{}
 		err := cl.List(context.Background(), specialresources, []client.ListOption{}...)
 		if err != nil {
@@ -154,7 +157,7 @@ func checkModuleLoaded(cs *framework.ClientSet) error {
 		}
 		unloadCmd := []string{"/bin/sh", "-c", "/host/usr/sbin/lsmod | grep -o simple_kmod"}
 		valExp := "simple_kmod"
-		_, err = WaitForCmdOutputInNode(pollInterval, waitDuration, node.Name, &valExp, true, unloadCmd...)
+		_, err = WaitForCmdOutputInNode(simpleKmodPollInterval, simpleKmodWaitDuration, node.Name, &valExp, true, unloadCmd...)
 		if err != nil {
 			return err
 		}
@@ -173,7 +176,7 @@ func checkModuleUnloaded(cs *framework.ClientSet) error {
 		}
 		unloadCmd := []string{"/bin/sh", "-c", "/host/usr/sbin/lsmod | grep -c simple-kmod || true"}
 		unloadValExp := "0"
-		_, err = WaitForCmdOutputInNode(pollInterval, waitDuration, node.Name, &unloadValExp, true, unloadCmd...)
+		_, err = WaitForCmdOutputInNode(simpleKmodPollInterval, simpleKmodWaitDuration, node.Name, &unloadValExp, true, unloadCmd...)
 		if err != nil {
 			return err
 		}
