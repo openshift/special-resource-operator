@@ -72,17 +72,16 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet --mod=vendor ./...
 
-test: patch manifests generate fmt envtest ## Run tests.
+unit-test: ## Run unit-tests.
 	# Use `go run github.com/onsi/ginkgo/ginkgo` as only the ginkgo binary supports -skipPackage
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" \
-		go run github.com/onsi/ginkgo/ginkgo -skipPackage ./test/e2e -coverprofile cover.out ./...
+	go run github.com/onsi/ginkgo/ginkgo -skipPackage ./test/e2e -coverprofile cover.out ./...
 
 ##@ Build
 
-manager: patch generate fmt ## Build manager binary.
+manager: patch generate ## Build manager binary.
 	go build -mod=vendor -o /tmp/bin/manager main.go
 
-run: manifests generate fmt ## Run against the configured Kubernetes cluster in ~/.kube/config
+run: manifests generate ## Run against the configured Kubernetes cluster in ~/.kube/config
 	go run -mod=vendor ./main.go
 
 local-image-build: patch helm-lint helm-repo-index generate manifests-gen ## Build container image with the manager.

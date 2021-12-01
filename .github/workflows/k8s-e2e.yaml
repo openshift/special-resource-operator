@@ -40,11 +40,11 @@ jobs:
       env:
         TAG: pr-${{ steps.short-sha.outputs.sha }}
   e2e:
-    name: test-e2e
+    name: e2e-test
     needs: build
     runs-on: ubuntu-latest
     concurrency:
-      group: ${{ github.workflow }}_test-e2e_$${ github.head_ref }}
+      group: ${{ github.workflow }}_e2e-test_$${ github.head_ref }}
       cancel-in-progress: true
     if: (github.event.action == 'labeled' && github.event.label.name == 'ok-to-test') ||
         (github.event.pull_request.head.repo.full_name == 'openshift-psap/special-resource-operator')
