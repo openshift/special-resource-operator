@@ -1,43 +1,50 @@
-package leaderelection
+package leaderelection_test
 
 import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"github.com/openshift-psap/special-resource-operator/cmd/leaderelection"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func TestApplyOpenShiftOptions(t *testing.T) {
-	checkValues := func(t *testing.T, opts *ctrl.Options) {
-		t.Helper()
+func TestLeaderelection(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Leaderelection Suite")
+}
 
-		assert.Equal(t, 137*time.Second, *opts.LeaseDuration)
-		assert.Equal(t, 107*time.Second, *opts.RenewDeadline)
-		assert.Equal(t, 26*time.Second, *opts.RetryPeriod)
-	}
-
-	t.Run("opts is nil", func(t *testing.T) {
-		opts := ApplyOpenShiftOptions(nil)
-
-		require.NotNil(t, opts)
-		checkValues(t, opts)
-	})
-
-	t.Run("opts has other values", func(t *testing.T) {
-		oneSecond := 1 * time.Second
-		twoSeconds := 2 * time.Second
-		threeSeconds := 3 * time.Second
-
-		opts := &ctrl.Options{
-			LeaseDuration: &oneSecond,
-			RenewDeadline: &twoSeconds,
-			RetryPeriod:   &threeSeconds,
+var _ = Describe("Leaderelection", func() {
+	Context("ApplyOpenShiftOptions", func() {
+		checkValues := func(opts *ctrl.Options) {
+			Expect(*opts.LeaseDuration).To(Equal(137 * time.Second))
+			Expect(*opts.RenewDeadline).To(Equal(107 * time.Second))
+			Expect(*opts.RetryPeriod).To(Equal(26 * time.Second))
 		}
 
-		opts = ApplyOpenShiftOptions(opts)
+		It("should set correct defaults when opts is nil", func() {
+			opts := leaderelection.ApplyOpenShiftOptions(nil)
 
-		checkValues(t, opts)
+			Expect(opts).NotTo(BeNil())
+			checkValues(opts)
+		})
+
+		It("opts has other values", func() {
+			oneSecond := 1 * time.Second
+			twoSeconds := 2 * time.Second
+			threeSeconds := 3 * time.Second
+
+			opts := &ctrl.Options{
+				LeaseDuration: &oneSecond,
+				RenewDeadline: &twoSeconds,
+				RetryPeriod:   &threeSeconds,
+			}
+
+			opts = leaderelection.ApplyOpenShiftOptions(opts)
+
+			checkValues(opts)
+		})
 	})
-}
+
+})

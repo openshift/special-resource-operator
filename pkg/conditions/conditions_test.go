@@ -1,11 +1,20 @@
-package conditions
+package conditions_test
 
 import (
+	"testing"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
+	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
-	"github.com/stretchr/testify/assert"
-	"testing"
 )
+
+func TestConditions(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Conditions Suite")
+}
 
 type conditionTemplate struct {
 	condType configv1.ClusterStatusConditionType
@@ -14,85 +23,98 @@ type conditionTemplate struct {
 	message  string
 }
 
-func findAndCompareCondition(
-	t *testing.T,
-	conditions []configv1.ClusterOperatorStatusCondition,
-	expected conditionTemplate) {
-	t.Helper()
-
+func findAndCompareCondition(conditions []configv1.ClusterOperatorStatusCondition, expected conditionTemplate) {
 	cond := v1helpers.FindStatusCondition(conditions, expected.condType)
 
-	assert.NotNil(t, cond)
-	assert.Equal(t, expected.status, cond.Status)
-	assert.Equal(t, expected.reason, cond.Reason)
-	assert.Equal(t, expected.message, cond.Message)
-	assert.False(t, cond.LastTransitionTime.IsZero())
+	Expect(cond).NotTo(BeNil())
+	Expect(cond.Status).To(Equal(expected.status))
+	Expect(cond.Reason).To(Equal(expected.reason))
+	Expect(cond.Message).To(Equal(expected.message))
+	Expect(cond.LastTransitionTime).NotTo(BeZero())
 }
 
-func TestAvailableNotProgressingNotDegraded(t *testing.T) {
-	conds := AvailableNotProgressingNotDegraded()
+var _ = Describe("Conditions", func() {
+	Context("AvailableNotProgressingNotDegraded", func() {
+		templates := []conditionTemplate{
+			{
+				condType: configv1.OperatorAvailable,
+				status:   configv1.ConditionTrue,
+				reason:   "AsExpected",
+				message:  "Reconciled all SpecialResources",
+			},
+			{
+				condType: configv1.OperatorProgressing,
+				status:   configv1.ConditionFalse,
+				reason:   "Reconciled",
+				message:  "SpecialResources up to date",
+			},
+			{
+				condType: configv1.OperatorDegraded,
+				status:   configv1.ConditionFalse,
+				reason:   "AsExpected",
+				message:  "Special Resource Operator reconciling special resources",
+			},
+		}
 
-	cases := []conditionTemplate{
-		{
-			condType: configv1.OperatorAvailable,
-			status:   configv1.ConditionTrue,
-			reason:   "AsExpected",
-			message:  "Reconciled all SpecialResources",
-		},
-		{
-			condType: configv1.OperatorProgressing,
-			status:   configv1.ConditionFalse,
-			reason:   "Reconciled",
-			message:  "SpecialResources up to date",
-		},
-		{
-			condType: configv1.OperatorDegraded,
-			status:   configv1.ConditionFalse,
-			reason:   "AsExpected",
-			message:  "Special Resource Operator reconciling special resources",
-		},
-	}
+		entries := make([]TableEntry, 0, len(templates))
 
-	for _, c := range cases {
-		t.Run(string(c.condType), func(t *testing.T) {
-			findAndCompareCondition(t, conds, c)
-		})
-	}
-}
+		for _, ct := range templates {
+			entries = append(entries, Entry(ct.condType, ct))
+		}
 
-func TestNotAvailableProgressingNotDegraded(t *testing.T) {
-	const (
-		msgAvailable   = "some-msg-available"
-		msgProgressing = "some-msg-progressing"
-		msgDegraded    = "some-msg-degraded"
-	)
+		conds := conditions.AvailableNotProgressingNotDegraded()
 
-	conds := NotAvailableProgressingNotDegraded(msgAvailable, msgProgressing, msgDegraded)
+		DescribeTable(
+			"all conditions",
+			func(ct conditionTemplate) {
+				findAndCompareCondition(conds, ct)
+			},
+			entries...,
+		)
+	})
 
-	cases := []conditionTemplate{
-		{
-			condType: configv1.OperatorAvailable,
-			status:   configv1.ConditionFalse,
-			reason:   "Reconciling",
-			message:  msgAvailable,
-		},
-		{
-			condType: configv1.OperatorProgressing,
-			status:   configv1.ConditionTrue,
-			reason:   "Reconciling",
-			message:  msgProgressing,
-		},
-		{
-			condType: configv1.OperatorDegraded,
-			status:   configv1.ConditionFalse,
-			reason:   "Reconciled",
-			message:  msgDegraded,
-		},
-	}
+	Context("NotAvailableProgressingNotDegraded", func() {
+		const (
+			msgAvailable   = "some-msg-available"
+			msgProgressing = "some-msg-progressing"
+			msgDegraded    = "some-msg-degraded"
+		)
 
-	for _, c := range cases {
-		t.Run(string(c.condType), func(t *testing.T) {
-			findAndCompareCondition(t, conds, c)
-		})
-	}
-}
+		conds := conditions.NotAvailableProgressingNotDegraded(msgAvailable, msgProgressing, msgDegraded)
+
+		templates := []conditionTemplate{
+			{
+				condType: configv1.OperatorAvailable,
+				status:   configv1.ConditionFalse,
+				reason:   "Reconciling",
+				message:  msgAvailable,
+			},
+			{
+				condType: configv1.OperatorProgressing,
+				status:   configv1.ConditionTrue,
+				reason:   "Reconciling",
+				message:  msgProgressing,
+			},
+			{
+				condType: configv1.OperatorDegraded,
+				status:   configv1.ConditionFalse,
+				reason:   "Reconciled",
+				message:  msgDegraded,
+			},
+		}
+
+		entries := make([]TableEntry, 0, len(templates))
+
+		for _, ct := range templates {
+			entries = append(entries, Entry(ct.condType, ct))
+		}
+
+		DescribeTable(
+			"all conditions",
+			func(ct conditionTemplate) {
+				findAndCompareCondition(conds, ct)
+			},
+			entries...,
+		)
+	})
+})
