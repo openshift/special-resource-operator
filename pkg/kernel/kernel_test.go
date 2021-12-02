@@ -1,11 +1,19 @@
-package kernel
+package kernel_test
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"testing"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/gomega"
+	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+func TestKernel(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Kernel Suite")
+}
 
 const kernelFullVersion = "4.18.0-305.19.1.el8_4.x86_64"
 
@@ -17,158 +25,180 @@ func newObj(kind, name string) *unstructured.Unstructured {
 	return &obj
 }
 
-func TestSetAffineAttributes(t *testing.T) {
-	const (
-		objName                   = "test-obj"
-		objNameHash               = "bfb16b50984f16f0" // fnv64a(operatingSystemMajorMinor + kernelFullVersion)
-		objNewName                = objName + "-" + objNameHash
-		operatingSystemMajorMinor = "8.4"
-	)
+var _ = Describe("Kernel", func() {
+	Context("AffineAttributes", func() {
+		const (
+			objName                   = "test-obj"
+			objNameHash               = "bfb16b50984f16f0" // fnv64a(operatingSystemMajorMinor + kernelFullVersion)
+			objNewName                = objName + "-" + objNameHash
+			operatingSystemMajorMinor = "8.4"
+		)
 
-	t.Run("BuildRun", func(t *testing.T) {
-		obj := newObj("BuildRun", objName)
+		It("should work for BuildRun", func() {
+			obj := newObj("BuildRun", objName)
 
-		err := SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor)
+			err := kernel.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor)
 
-		require.NoError(t, err)
-		assert.Equal(t, objNewName, obj.GetName())
-	})
-
-	for _, kind := range []string{"Pod", "BuildConfig"} {
-		t.Run(kind, func(t *testing.T) {
-			obj := newObj(kind, objNewName)
-
-			err := SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor)
-
-			expectedSelector := map[string]interface{}{
-				"feature.node.kubernetes.io/kernel-version.full": kernelFullVersion,
-			}
-
-			v, ok, err := unstructured.NestedMap(obj.Object, "spec", "nodeSelector")
-			require.NoError(t, err)
-			assert.True(t, ok)
-			assert.Equal(t, expectedSelector, v)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(obj.GetName()).To(Equal(objNewName))
 		})
-	}
 
-	for _, kind := range []string{"DaemonSet", "Deployment", "StatefulSet"} {
-		t.Run(kind, func(t *testing.T) {
-			obj := newObj(kind, objName)
+		DescribeTable(
+			"should work for these kinds",
+			func(kind string) {
+				obj := newObj(kind, objNewName)
 
-			err := SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor)
+				err := kernel.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor)
+				Expect(err).NotTo(HaveOccurred())
 
-			require.NoError(t, err)
-
-			assert.Equal(t, objNewName, obj.GetLabels()["app"])
-
-			v, ok, err := unstructured.NestedString(obj.Object, "spec", "selector", "matchLabels", "app")
-			require.NoError(t, err)
-			assert.True(t, ok)
-			assert.Equal(t, objNewName, v)
-
-			v, ok, err = unstructured.NestedString(obj.Object, "spec", "template", "metadata", "labels", "app")
-			require.NoError(t, err)
-			assert.True(t, ok)
-			assert.Equal(t, objNewName, v)
-
-			// one if compares the kind to StatefulSet, the other one to StatefulSet (capital S)
-			if kind != "StatefulSet" {
 				expectedSelector := map[string]interface{}{
 					"feature.node.kubernetes.io/kernel-version.full": kernelFullVersion,
 				}
 
-				var m map[string]interface{}
+				v, ok, err := unstructured.NestedMap(obj.Object, "spec", "nodeSelector")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ok).To(BeTrue())
+				Expect(v).To(Equal(expectedSelector))
+			},
+			Entry("Pod", "Pod"),
+			Entry("BuildConfig", "BuildConfig"),
+		)
 
-				m, ok, err = unstructured.NestedMap(obj.Object, "spec", "template", "spec", "nodeSelector")
-				require.NoError(t, err)
-				assert.True(t, ok)
-				assert.Equal(t, expectedSelector, m)
-			}
-		})
-	}
-}
+		DescribeTable(
+			"should work for more kinds",
+			func(kind string) {
+				obj := newObj(kind, objName)
 
-func TestSetVersionNodeAffinity(t *testing.T) {
-	for _, kind := range []string{"Pod", "BuildConfig"} {
-		t.Run(kind, func(t *testing.T) {
-			obj := newObj(kind, "")
+				err := kernel.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(obj.GetLabels()).To(HaveKeyWithValue("app", objNewName))
 
-			err := SetVersionNodeAffinity(obj, kernelFullVersion)
+				v, ok, err := unstructured.NestedString(obj.Object, "spec", "selector", "matchLabels", "app")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ok).To(BeTrue())
+				Expect(v).To(Equal(objNewName))
 
-			expectedSelector := map[string]interface{}{
-				"feature.node.kubernetes.io/kernel-version.full": kernelFullVersion,
-			}
+				v, ok, err = unstructured.NestedString(obj.Object, "spec", "template", "metadata", "labels", "app")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ok).To(BeTrue())
+				Expect(v).To(Equal(objNewName))
 
-			v, ok, err := unstructured.NestedMap(obj.Object, "spec", "nodeSelector")
-			require.NoError(t, err)
-			assert.True(t, ok)
-			assert.Equal(t, expectedSelector, v)
-		})
-	}
+				// one if compares the kind to StatefulSet, the other one to StatefulSet (capital S)
+				if kind != "StatefulSet" {
+					expectedSelector := map[string]interface{}{
+						"feature.node.kubernetes.io/kernel-version.full": kernelFullVersion,
+					}
 
-	for _, kind := range []string{"DaemonSet", "Deployment", "Statefulset"} {
-		t.Run(kind, func(t *testing.T) {
-			obj := newObj(kind, "")
+					var m map[string]interface{}
 
-			err := SetVersionNodeAffinity(obj, kernelFullVersion)
-
-			require.NoError(t, err)
-
-			expectedSelector := map[string]interface{}{
-				"feature.node.kubernetes.io/kernel-version.full": kernelFullVersion,
-			}
-
-			m, ok, err := unstructured.NestedMap(obj.Object, "spec", "template", "spec", "nodeSelector")
-			require.NoError(t, err)
-			assert.True(t, ok)
-			assert.Equal(t, expectedSelector, m)
-		})
-	}
-
-}
-
-func TestIsObjectAffine(t *testing.T) {
-	t.Run("not affine", func(t *testing.T) {
-		affine := IsObjectAffine(&unstructured.Unstructured{})
-
-		assert.False(t, affine)
+					m, ok, err = unstructured.NestedMap(obj.Object, "spec", "template", "spec", "nodeSelector")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(ok).To(BeTrue())
+					Expect(m).To(Equal(expectedSelector))
+				}
+			},
+			Entry("DaemonSet", "DaemonSet"),
+			Entry("Deployment", "Deployment"),
+			Entry("StatefulSet", "StatefulSet"),
+		)
 	})
 
-	t.Run("affine", func(t *testing.T) {
-		obj := &unstructured.Unstructured{}
-		obj.SetAnnotations(map[string]string{"specialresource.openshift.io/kernel-affine": "true"})
+	Context("SetVersionNodeAffinity", func() {
+		DescribeTable(
+			"should work for some kinds",
+			func(kind string) {
+				obj := newObj(kind, "")
 
-		affine := IsObjectAffine(obj)
+				err := kernel.SetVersionNodeAffinity(obj, kernelFullVersion)
+				Expect(err).NotTo(HaveOccurred())
 
-		assert.True(t, affine)
+				expectedSelector := map[string]interface{}{
+					"feature.node.kubernetes.io/kernel-version.full": kernelFullVersion,
+				}
+
+				v, ok, err := unstructured.NestedMap(obj.Object, "spec", "nodeSelector")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ok).To(BeTrue())
+				Expect(v).To(Equal(expectedSelector))
+			},
+			Entry("Pod", "Pod"),
+			Entry("BuildConfig", "BuildConfig"),
+		)
+
+		DescribeTable(
+			"should work for some kinds",
+			func(kind string) {
+				obj := newObj(kind, "")
+
+				err := kernel.SetVersionNodeAffinity(obj, kernelFullVersion)
+
+				Expect(err).NotTo(HaveOccurred())
+
+				expectedSelector := map[string]interface{}{
+					"feature.node.kubernetes.io/kernel-version.full": kernelFullVersion,
+				}
+
+				m, ok, err := unstructured.NestedMap(obj.Object, "spec", "template", "spec", "nodeSelector")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ok).To(BeTrue())
+				Expect(m).To(Equal(expectedSelector))
+			},
+			Entry("DaemonSet", "DaemonSet"),
+			Entry("Deployment", "Deployment"),
+			Entry("Statefulset", "Statefulset"),
+		)
 	})
-}
 
-func TestPatchVersion(t *testing.T) {
-	cases := []struct {
-		input    string
-		expected string
-	}{
-		{
-			input:    kernelFullVersion,
-			expected: "4.18.0-305",
-		},
-		{
-			input:    "4.18.0",
-			expected: "4.18.0",
-		},
-		{
-			input:    "4.18.0-305",
-			expected: "4.18.0-305",
-		},
-	}
-
-	for _, c := range cases {
-		t.Run(c.input, func(t *testing.T) {
-			v, err := PatchVersion(kernelFullVersion)
-			require.NoError(t, err)
-
-			assert.Equal(t, "4.18.0-305", v)
+	Context("TestIsObjectAffine", func() {
+		It("should return false when not affine", func() {
+			Expect(
+				kernel.IsObjectAffine(&unstructured.Unstructured{}),
+			).To(
+				BeFalse(),
+			)
 		})
-	}
-}
+
+		It("should return true when affine", func() {
+			obj := &unstructured.Unstructured{}
+			obj.SetAnnotations(map[string]string{"specialresource.openshift.io/kernel-affine": "true"})
+
+			Expect(kernel.IsObjectAffine(obj)).To(BeTrue())
+		})
+	})
+
+	Context("PatchVersion", func() {
+		cases := []struct {
+			input    string
+			expected string
+		}{
+			{
+				input:    kernelFullVersion,
+				expected: "4.18.0-305",
+			},
+			{
+				input:    "4.18.0",
+				expected: "4.18.0",
+			},
+			{
+				input:    "4.18.0-305",
+				expected: "4.18.0-305",
+			},
+		}
+
+		entries := make([]TableEntry, 0, len(cases))
+
+		for _, c := range cases {
+			entries = append(entries, Entry(c.input, c.input, c.expected))
+		}
+
+		DescribeTable(
+			"should return the expected value",
+			func(input, expected string) {
+				v, err := kernel.PatchVersion(input)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(v).To(Equal(expected))
+			},
+			entries...,
+		)
+	})
+})
