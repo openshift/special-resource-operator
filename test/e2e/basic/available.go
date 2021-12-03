@@ -45,7 +45,9 @@ var _ = ginkgo.Describe("[basic][available] Special Resource Operator availabili
 	)
 
 	cs := framework.NewClientSet()
-	cl := framework.NewControllerRuntimeClient()
+
+	cl, err := framework.NewControllerRuntimeClient()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	var explain error
 

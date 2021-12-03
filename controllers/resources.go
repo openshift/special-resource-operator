@@ -8,7 +8,6 @@ import (
 
 	"github.com/openshift-psap/special-resource-operator/pkg/assets"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
@@ -57,43 +56,54 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 		log.Info("ImagePuller RoleBinding not found, creating")
 		rb.SetName("system:image-puller")
 		rb.SetNamespace(r.specialresource.Spec.Namespace)
-		err := unstructured.SetNestedField(rb.Object, "rbac.authorization.k8s.io", "roleRef", "apiGroup")
-		exit.OnError(err)
-		err = unstructured.SetNestedField(rb.Object, "ClusterRole", "roleRef", "kind")
-		exit.OnError(err)
-		err = unstructured.SetNestedField(rb.Object, "system:image-puller", "roleRef", "name")
-		exit.OnError(err)
+
+		if err = unstructured.SetNestedField(rb.Object, "rbac.authorization.k8s.io", "roleRef", "apiGroup"); err != nil {
+			return err
+		}
+
+		if err = unstructured.SetNestedField(rb.Object, "ClusterRole", "roleRef", "kind"); err != nil {
+			return err
+		}
+
+		if err = unstructured.SetNestedField(rb.Object, "system:image-puller", "roleRef", "name"); err != nil {
+			return err
+		}
 
 		newSubjects = append(newSubjects, newSubject)
 
-		err = unstructured.SetNestedSlice(rb.Object, newSubjects, "subjects")
-		exit.OnError(err)
+		if err = unstructured.SetNestedSlice(rb.Object, newSubjects, "subjects"); err != nil {
+			return err
+		}
 
-		if err := clients.Interface.Create(context.TODO(), rb); err != nil {
-			return errors.Wrap(err, "Couldn't Create Resource")
+		if err = clients.Interface.Create(context.TODO(), rb); err != nil {
+			return fmt.Errorf("couldn't Create Resource: %w", err)
 		}
 
 		return nil
 	}
 
 	if apierrors.IsForbidden(err) {
-		return errors.Wrap(err, "Forbidden check Role, ClusterRole and Bindings for operator")
+		return fmt.Errorf("forbidden - check Role, ClusterRole and Bindings for operator: %w", err)
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "Unexpected error")
+		return fmt.Errorf("unexpected error: %w", err)
 	}
 
 	log.Info("ImageReference RoleBinding found, updating")
 
 	oldSubjects, _, err := unstructured.NestedSlice(rb.Object, "subjects")
-	exit.OnError(err)
+	if err != nil {
+		return err
+	}
 
 	for _, subject := range oldSubjects {
 		switch subject := subject.(type) {
 		case map[string]interface{}:
 			namespace, _, err := unstructured.NestedString(subject, "namespace")
-			exit.OnError(err)
+			if err != nil {
+				return err
+			}
 
 			if namespace == r.parent.Spec.Namespace {
 				log.Info("ImageReference ServiceAccount found, returning")
@@ -106,11 +116,12 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 
 	oldSubjects = append(oldSubjects, newSubject)
 
-	err = unstructured.SetNestedSlice(rb.Object, oldSubjects, "subjects")
-	exit.OnError(err)
+	if err = unstructured.SetNestedSlice(rb.Object, oldSubjects, "subjects"); err != nil {
+		return err
+	}
 
-	if err := clients.Interface.Update(context.TODO(), rb); err != nil {
-		return errors.Wrap(err, "Couldn't Update Resource")
+	if err = clients.Interface.Update(context.TODO(), rb); err != nil {
+		return fmt.Errorf("couldn't Update Resource: %w", err)
 	}
 
 	return nil
@@ -166,7 +177,7 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 		// we're replicating the driver-container DaemonSet to
 		// the number of kernel versions running in the cluster
 		if len(RunInfo.ClusterUpgradeInfo) == 0 {
-			exit.OnError(errors.New("No KernelVersion detected, something is wrong"))
+			return errors.New("no KernelVersion detected, something is wrong")
 		}
 
 		//var replicas is to keep track of the number of replicas
@@ -188,14 +199,21 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 			}
 
 			var err error
+
 			step.Values, err = chartutil.CoalesceValues(&step, r.values.Object)
-			exit.OnError(err)
+			if err != nil {
+				return err
+			}
 
 			rinfo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&RunInfo)
-			exit.OnError(err)
+			if err != nil {
+				return err
+			}
 
 			step.Values, err = chartutil.CoalesceValues(&step, rinfo)
-			exit.OnError(err)
+			if err != nil {
+				return err
+			}
 
 			if r.specialresource.Spec.Debug {
 				d, _ := yaml.Marshal(step.Values)
@@ -210,7 +228,9 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 				RunInfo.KernelFullVersion,
 				RunInfo.OperatingSystemDecimal,
 				r.specialresource.Spec.Debug)
-			//exit.OnError(err)
+			//if err != nil {
+			//	return err
+			//}
 
 			replicas += 1
 
@@ -219,36 +239,42 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 			// then for the second etc.
 			if err != nil && replicas == len(RunInfo.ClusterUpgradeInfo) {
 				metrics.SetCompletedState(r.specialresource.Name, stateYAML.Name, 0)
-				return errors.Wrap(err, "Failed to create state: "+stateYAML.Name)
+				return fmt.Errorf("failed to create state %s: %w ", stateYAML.Name, err)
 			}
 
 			// We're always doing one run to create a non kernel affine resource
 			if !kernelAffine {
 				break
 			}
-
 		}
 
 		metrics.SetCompletedState(r.specialresource.Name, stateYAML.Name, 1)
 		// If resource available, label the nodes according to the current state
 		// if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
 		operatorStatusUpdate(&r.specialresource, state.CurrentName)
-		err := labelNodesAccordingToState(r.specialresource.Spec.NodeSelector)
-		exit.OnError(err)
 
+		if err := labelNodesAccordingToState(r.specialresource.Spec.NodeSelector); err != nil {
+			return err
+		}
 	}
 
 	// We're done with states now execute the part of the chart without
 	// states we need to reconcile the nostate Chart
 	var err error
 	nostate.Values, err = chartutil.CoalesceValues(&nostate, r.values.Object)
-	exit.OnError(err)
+	if err != nil {
+		return err
+	}
 
 	rinfo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&RunInfo)
-	exit.OnError(err)
+	if err != nil {
+		return err
+	}
 
 	nostate.Values, err = chartutil.CoalesceValues(&nostate, rinfo)
-	exit.OnError(err)
+	if err != nil {
+		return err
+	}
 
 	return helmer.Run(nostate, nostate.Values,
 		&r.specialresource,
@@ -260,7 +286,7 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 		false)
 }
 
-func createSpecialResourceNamespace(r *SpecialResourceReconciler) {
+func createSpecialResourceNamespace(r *SpecialResourceReconciler) error {
 
 	ns := []byte(`apiVersion: v1
 kind: Namespace
@@ -280,8 +306,10 @@ metadata:
 	}
 	if err := resource.CreateFromYAML(ns, false, &r.specialresource, "", "", nil, "", ""); err != nil {
 		log.Info("Cannot reconcile specialresource namespace, something went horribly wrong")
-		exit.OnError(err)
+		return err
 	}
+
+	return nil
 }
 
 // ReconcileChart Reconcile Hardware Configurations
@@ -292,13 +320,16 @@ func ReconcileChart(r *SpecialResourceReconciler) error {
 	// Leave this here, this is crucial for all following work
 	// Creating and setting the working namespace for the specialresource
 	// specialresource name == namespace if not metadata.namespace is set
-	createSpecialResourceNamespace(r)
+	if err := createSpecialResourceNamespace(r); err != nil {
+		return fmt.Errorf("could not create the SpecialResource's namespace: %w", err)
+	}
+
 	if err := createImagePullerRoleBinding(r); err != nil {
-		return errors.Wrap(err, "Could not create ImagePuller RoleBinding")
+		return fmt.Errorf("could not create ImagePuller RoleBinding: %w", err)
 	}
 
 	if err := ReconcileChartStates(r, templates); err != nil {
-		return errors.Wrap(err, "Cannot reconcile hardware states")
+		return fmt.Errorf("cannot reconcile hardware states: %w", err)
 	}
 
 	return nil
