@@ -17,10 +17,11 @@ func RenderOperatingSystem(rel string, maj string, min string) (string, string, 
 			rhelMin = "1"
 		case min <= "6":
 			rhelMin = "2"
-		case min <= "7":
+		case min <= "7": // TODO: remove this case. It is covered by <= 8 already.
 			rhelMin = "4"
 		case min <= "8":
 			rhelMin = "4"
+			// TODO: add a default case for >8
 		}
 		return "rhel" + rhelMaj, "rhel" + rhelMaj + "." + rhelMin, rhelMaj + "." + rhelMin, nil
 	}

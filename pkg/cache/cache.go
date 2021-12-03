@@ -48,6 +48,7 @@ func Nodes(matchingLabels map[string]string, force bool) error {
 		opts = append(opts, client.MatchingLabels(matchingLabels))
 	}
 
+	// TODO(qbarrand): use a v1.NodeList?
 	var list unstructured.UnstructuredList
 	list.SetAPIVersion("v1")
 	list.SetKind("NodeList")
