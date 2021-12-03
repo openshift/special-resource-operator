@@ -42,10 +42,10 @@ func SetLabel(obj *unstructured.Unstructured) error {
 	labels[owned] = "true"
 	obj.SetLabels(labels)
 
-	return SetSubResourceLabel(obj)
+	return setSubResourceLabel(obj)
 }
 
-func SetSubResourceLabel(obj *unstructured.Unstructured) error {
+func setSubResourceLabel(obj *unstructured.Unstructured) error {
 
 	if obj.GetKind() == "DaemonSet" || obj.GetKind() == "Deployment" ||
 		obj.GetKind() == "StatefulSet" {
