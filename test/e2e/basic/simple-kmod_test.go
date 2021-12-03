@@ -188,7 +188,10 @@ func checkModuleUnloaded(cs *framework.ClientSet) error {
 var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", func() {
 
 	cs := framework.NewClientSet()
-	cl := framework.NewControllerRuntimeClient()
+
+	cl, err := framework.NewControllerRuntimeClient()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "error while getting a controller client")
+
 	clientSet, err := GetKubeClientSet()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 

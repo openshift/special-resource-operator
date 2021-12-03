@@ -11,7 +11,6 @@ import (
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
@@ -109,7 +108,9 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 		log.Info("Getting Dependency")
 
 		cchart, err := helmer.Load(r.dependency.HelmChart)
-		exit.OnError(err)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 
 		// We save the dependency chain so we can restore specialresources
 		// if one is deleted that is a dependency of another
@@ -118,8 +119,7 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 			Namespace: os.Getenv("OPERATOR_NAMESPACE"),
 			Name:      "special-resource-dependencies",
 		}
-		err = storage.UpdateConfigMapEntry(r.dependency.Name, r.parent.Name, ins)
-		if err != nil {
+		if err = storage.UpdateConfigMapEntry(r.dependency.Name, r.parent.Name, ins); err != nil {
 			operatorStatusUpdate(&r.parent, fmt.Sprintf("%v", err))
 			return reconcile.Result{}, err
 		}
@@ -160,32 +160,41 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 	return reconcile.Result{}, nil
 }
 
-func TemplateFragmentOrDie(sr interface{}) {
-
+func TemplateFragment(sr interface{}) error {
 	spec, err := json.Marshal(sr)
-	exit.OnError(err)
+	if err != nil {
+		return err
+	}
 
 	// We want the json representation of the data no the golang one
 	info, err := json.MarshalIndent(RunInfo, "", "  ")
-	exit.OnError(err)
+	if err != nil {
+		return err
+	}
 
 	obj := &unstructured.Unstructured{
 		Object: map[string]interface{}{},
 	}
-	err = obj.UnmarshalJSON(info)
-	exit.OnError(err)
+
+	if err = obj.UnmarshalJSON(info); err != nil {
+		return err
+	}
 
 	values := make(map[string]interface{})
 	values["Values"] = obj.Object
 
-	t := template.Must(template.New("runtime").Parse(string(spec)))
+	t, err := template.New("runtime").Parse(string(spec))
+	if err != nil {
+		return err
+	}
 
 	var buff bytes.Buffer
-	err = t.Execute(&buff, values)
-	exit.OnError(err)
 
-	err = json.Unmarshal(buff.Bytes(), sr)
-	exit.OnError(err)
+	if err = t.Execute(&buff, values); err != nil {
+		return err
+	}
+
+	return json.Unmarshal(buff.Bytes(), sr)
 }
 
 func ReconcileSpecialResourceChart(r *SpecialResourceReconciler, sr srov1beta1.SpecialResource, chart *chart.Chart, values unstructured.Unstructured) error {
@@ -197,17 +206,24 @@ func ReconcileSpecialResourceChart(r *SpecialResourceReconciler, sr srov1beta1.S
 	log = r.Log.WithName(color.Print(r.specialresource.Name, color.Green))
 	log.Info("Reconciling Chart")
 
-	getRuntimeInformation(r)
+	if err := getRuntimeInformation(r); err != nil {
+		return err
+	}
+
 	logRuntimeInformation()
 
 	for idx, dep := range r.specialresource.Spec.Dependencies {
 		if dep.Set.Object == nil {
 			dep.Set.Object = make(map[string]interface{})
 		}
-		err := unstructured.SetNestedField(dep.Set.Object, "Values", "kind")
-		exit.OnError(err)
-		err = unstructured.SetNestedField(dep.Set.Object, "sro.openshift.io/v1beta1", "apiVersion")
-		exit.OnError(err)
+
+		if err := unstructured.SetNestedField(dep.Set.Object, "Values", "kind"); err != nil {
+			return err
+		}
+
+		if err := unstructured.SetNestedField(dep.Set.Object, "sro.openshift.io/v1beta1", "apiVersion"); err != nil {
+			return err
+		}
 
 		r.specialresource.Spec.Dependencies[idx] = dep
 	}
@@ -216,23 +232,34 @@ func ReconcileSpecialResourceChart(r *SpecialResourceReconciler, sr srov1beta1.S
 		r.specialresource.Spec.Set.Object = make(map[string]interface{})
 	}
 
-	err := unstructured.SetNestedField(r.specialresource.Spec.Set.Object, "Values", "kind")
-	exit.OnError(err)
-	err = unstructured.SetNestedField(r.specialresource.Spec.Set.Object, "sro.openshift.io/v1beta1", "apiVersion")
-	exit.OnError(err)
+	if err := unstructured.SetNestedField(r.specialresource.Spec.Set.Object, "Values", "kind"); err != nil {
+		return err
+	}
 
-	TemplateFragmentOrDie(&r.specialresource)
+	if err := unstructured.SetNestedField(r.specialresource.Spec.Set.Object, "sro.openshift.io/v1beta1", "apiVersion"); err != nil {
+		return err
+	}
+
+	if err := TemplateFragment(&r.specialresource); err != nil {
+		return err
+	}
+
 	r.specialresource.DeepCopyInto(&RunInfo.SpecialResource)
 
 	if r.values.Object == nil {
 		r.values.Object = make(map[string]interface{})
 	}
-	err = unstructured.SetNestedField(r.values.Object, "Values", "kind")
-	exit.OnError(err)
-	err = unstructured.SetNestedField(r.values.Object, "sro.openshift.io/v1beta1", "apiVersion")
-	exit.OnError(err)
+	if err := unstructured.SetNestedField(r.values.Object, "Values", "kind"); err != nil {
+		return err
+	}
 
-	TemplateFragmentOrDie(&r.values)
+	if err := unstructured.SetNestedField(r.values.Object, "sro.openshift.io/v1beta1", "apiVersion"); err != nil {
+		return err
+	}
+
+	if err := TemplateFragment(&r.values); err != nil {
+		return err
+	}
 
 	// Add a finalizer to CR if it does not already have one
 	if !contains(r.specialresource.GetFinalizers(), specialresourceFinalizer) {
@@ -291,9 +318,13 @@ func createSpecialResourceFrom(r *SpecialResourceReconciler, ch *chart.Chart, dp
 	var idx int
 	if idx = slice.FindCRFile(ch.Files, r.dependency.Name); idx == -1 {
 		log.Info("Creating SpecialResource from template, cannot find it in charts directory")
+
 		res, err := clients.Interface.CreateOrUpdate(context.TODO(), &sr, noop)
-		exit.OnError(errors.Wrap(err, string(res)))
-		return errors.New("Created new SpecialResource we need to Reconcile")
+		if err != nil {
+			return fmt.Errorf("%s: %w", res, err)
+		}
+
+		return errors.New("created new SpecialResource we need to Reconcile")
 	}
 
 	log.Info("Creating SpecialResource: " + ch.Files[idx].Name)
@@ -306,7 +337,7 @@ func createSpecialResourceFrom(r *SpecialResourceReconciler, ch *chart.Chart, dp
 		r.specialresource.Spec.NodeSelector,
 		"", ""); err != nil {
 		log.Info("Cannot create, something went horribly wrong")
-		exit.OnError(err)
+		return err
 	}
 
 	return errors.New("Created new SpecialResource we need to Reconcile")

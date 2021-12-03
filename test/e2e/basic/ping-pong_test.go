@@ -28,7 +28,10 @@ const (
 var _ = ginkgo.Describe("[basic][ping-pong] Test ping-pong", func() {
 
 	cs := framework.NewClientSet()
-	cl := framework.NewControllerRuntimeClient()
+
+	cl, err := framework.NewControllerRuntimeClient()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "error while getting a controller client")
+
 	clientSet, err := GetKubeClientSet()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 

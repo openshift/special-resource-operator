@@ -2,15 +2,14 @@ package framework
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
-	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -36,18 +35,16 @@ func init() {
 
 }
 
-func NewControllerRuntimeClient() client.Client {
+func NewControllerRuntimeClient() (client.Client, error) {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: "0",
 	})
-	exit.OnError(errors.Wrap(err, "unable to start manager"))
+	if err != nil {
+		return nil, fmt.Errorf("unable to start manager: %w", err)
+	}
 
-	client, err := client.New(mgr.GetConfig(), client.Options{Scheme: scheme})
-	exit.OnError(err)
-	// caching client
-	// return mgr.GetClient()
-	return client
+	return client.New(mgr.GetConfig(), client.Options{Scheme: scheme})
 }
 
 func CreateFromYAML(yamlFile []byte, cl client.Client) error {
@@ -56,10 +53,15 @@ func CreateFromYAML(yamlFile []byte, cl client.Client) error {
 
 	for scanner.Scan() {
 		yamlSpec := scanner.Bytes()
-		obj := getObjFromYAMLSpec(yamlSpec)
-		message := "Resource created"
-		err := cl.Create(context.TODO(), obj)
+
+		obj, err := getObjFromYAMLSpec(yamlSpec)
 		if err != nil {
+			return err
+		}
+
+		message := "Resource created"
+
+		if err = cl.Create(context.TODO(), obj); err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				message = "Resource already exists"
 			} else {
@@ -71,22 +73,6 @@ func CreateFromYAML(yamlFile []byte, cl client.Client) error {
 	return nil
 }
 
-func UpdateFromYAML(yamlFile []byte, cl client.Client) {
-
-	scanner := yamlutil.NewYAMLScanner(yamlFile)
-
-	for scanner.Scan() {
-		yamlSpec := scanner.Bytes()
-
-		obj := getObjFromYAMLSpec(yamlSpec)
-
-		err := cl.Update(context.TODO(), obj)
-		exit.OnError(err)
-
-		log.Info("Updated", "Kind", obj.GetKind(), "Name", obj.GetName())
-	}
-}
-
 // Don't use this to delete the CRD or undeploy the operator -- CR deletion will fail
 func DeleteFromYAMLWithCR(yamlFile []byte, cl client.Client) error {
 
@@ -94,13 +80,19 @@ func DeleteFromYAMLWithCR(yamlFile []byte, cl client.Client) error {
 
 	for scanner.Scan() {
 		yamlSpec := scanner.Bytes()
-		obj := getObjFromYAMLSpec(yamlSpec)
-		err := cl.Delete(context.TODO(), obj)
+
+		obj, err := getObjFromYAMLSpec(yamlSpec)
+		if err != nil {
+			return err
+		}
+
+		err = cl.Delete(context.TODO(), obj)
 		if err != nil {
 			return err
 		}
 		log.Info("Deleted", "Kind", obj.GetKind(), "Name", obj.GetName())
 	}
+
 	return nil
 }
 
@@ -110,26 +102,34 @@ func DeleteFromYAML(yamlFile []byte, cl client.Client) error {
 
 	for scanner.Scan() {
 		yamlSpec := scanner.Bytes()
-		obj := getObjFromYAMLSpec(yamlSpec)
+
+		obj, err := getObjFromYAMLSpec(yamlSpec)
+		if err != nil {
+			return err
+		}
+
 		// CRD is deleted so CR deletion will fail since already gone
 		if obj.GetKind() == "SpecialResource" {
 			continue
 		}
+
 		message := "Deleted resource"
-		err := cl.Delete(context.TODO(), obj)
-		if err != nil {
+
+		if err = cl.Delete(context.TODO(), obj); err != nil {
 			if apierrors.IsNotFound(err) {
 				message = "Resource didnt exist"
 			} else {
 				return err
 			}
 		}
+
 		log.Info(message, "Kind", obj.GetKind(), "Name", obj.GetName())
 	}
+
 	return nil
 }
 
-func DeleteAllSpecialResources(cl client.Client) {
+func DeleteAllSpecialResources(cl client.Client) error {
 
 	specialresources := &srov1beta1.SpecialResourceList{}
 
@@ -138,28 +138,33 @@ func DeleteAllSpecialResources(cl client.Client) {
 	if err != nil {
 		if strings.Contains(err.Error(), "no matches for kind \"SpecialResource\" in version ") {
 			warn.OnError(err)
-			return
+			return nil
 		}
 		// This should never happen
-		exit.OnError(err)
+		return err
 	}
 
 	delOpts := []client.DeleteOption{}
 	for _, sr := range specialresources.Items {
 		log.Info("Deleting", "SR", sr.GetName())
-		err := cl.Delete(context.TODO(), &sr, delOpts...)
-		exit.OnError(err)
+		if err = cl.Delete(context.TODO(), &sr, delOpts...); err != nil {
+			return err
+		}
 	}
 
+	return nil
 }
 
-func getObjFromYAMLSpec(yamlSpec []byte) *unstructured.Unstructured {
+func getObjFromYAMLSpec(yamlSpec []byte) (*unstructured.Unstructured, error) {
 	obj := &unstructured.Unstructured{}
 	jsonSpec, err := yaml.YAMLToJSON(yamlSpec)
-	exit.OnError(errors.Wrap(err, "Could not convert yaml file to json: "+string(yamlSpec)))
+	if err != nil {
+		return nil, fmt.Errorf("could not convert yaml file to json: %s: %w", yamlSpec, err)
+	}
 
-	err = obj.UnmarshalJSON(jsonSpec)
-	exit.OnError(errors.Wrap(err, "Cannot unmarshall json spec, check your manifests"))
+	if err = obj.UnmarshalJSON(jsonSpec); err != nil {
+		return nil, fmt.Errorf("cannot unmarshall json spec, check your manifests: %w", err)
+	}
 
-	return obj
+	return obj, nil
 }

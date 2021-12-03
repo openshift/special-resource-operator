@@ -15,7 +15,9 @@ func TestSRO(t *testing.T) {
 
 var _ = ginkgo.BeforeSuite(func() {
 	cs := framework.NewClientSet()
-	cl := framework.NewControllerRuntimeClient()
+
+	cl, err := framework.NewControllerRuntimeClient()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ginkgo.By("[pre] Creating kube client set...")
 	clientSet, err := GetKubeClientSet()
