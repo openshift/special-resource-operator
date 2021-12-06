@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
@@ -29,7 +30,9 @@ const (
 	dockerConfigFilePath = "/home/nonroot/.docker/config.json"
 )
 
-var log = zap.New(zap.UseDevMode(true)).WithName(color.Print("registry", color.Brown))
+var (
+	Interface Registry
+)
 
 type DriverToolkitEntry struct {
 	ImageURL            string `json:"imageURL"`
@@ -38,10 +41,28 @@ type DriverToolkitEntry struct {
 	OSVersion           string `json:"OSVersion"`
 }
 
-func writeImageRegistryCredentials() error {
+//go:generate mockgen -source=registry.go -package=registry -destination=mock_registry_api.go
+
+type Registry interface {
+	LastLayer(string) (v1.Layer, error)
+	ExtractToolkitRelease(v1.Layer) (DriverToolkitEntry, error)
+	ReleaseManifests(v1.Layer) (string, string, error)
+}
+
+func NewRegistry() Registry {
+	return &registry{
+		log: zap.New(zap.UseDevMode(true)).WithName(color.Print("registry", color.Brown)),
+	}
+}
+
+type registry struct {
+	log logr.Logger
+}
+
+func (r *registry) writeImageRegistryCredentials() error {
 	_, err := clients.Interface.GetNamespace(context.TODO(), pullSecretNamespace, metav1.GetOptions{})
 	if err != nil {
-		log.Info("Can not find namespace for pull secrets, assuming vanilla k8s")
+		r.log.Info("Can not find namespace for pull secrets, assuming vanilla k8s")
 		return nil
 	}
 
@@ -62,8 +83,8 @@ func writeImageRegistryCredentials() error {
 	return nil
 }
 
-func LastLayer(entry string) (v1.Layer, error) {
-	if err := writeImageRegistryCredentials(); err != nil {
+func (r *registry) LastLayer(entry string) (v1.Layer, error) {
+	if err := r.writeImageRegistryCredentials(); err != nil {
 		return nil, err
 	}
 
@@ -100,20 +121,20 @@ func LastLayer(entry string) (v1.Layer, error) {
 	return crane.PullLayer(repo+"@"+digest, options)
 }
 
-func ExtractToolkitRelease(layer v1.Layer) (DriverToolkitEntry, error) {
+func (r *registry) ExtractToolkitRelease(layer v1.Layer) (DriverToolkitEntry, error) {
 	var dtk DriverToolkitEntry
 
 	targz, err := layer.Compressed()
 	if err != nil {
 		return dtk, err
 	}
-	defer dclose(targz)
+	defer r.dclose(targz)
 
 	gr, err := gzip.NewReader(targz)
 	if err != nil {
 		return dtk, err
 	}
-	defer dclose(gr)
+	defer r.dclose(gr)
 
 	tr := tar.NewReader(gr)
 
@@ -139,21 +160,21 @@ func ExtractToolkitRelease(layer v1.Layer) (DriverToolkitEntry, error) {
 			if err != nil {
 				return dtk, err
 			}
-			log.Info("DTK", "kernel-version", entry)
+			r.log.Info("DTK", "kernel-version", entry)
 			dtk.KernelFullVersion = entry
 
 			entry, _, err = unstructured.NestedString(obj.Object, "RT_KERNEL_VERSION")
 			if err != nil {
 				return dtk, err
 			}
-			log.Info("DTK", "rt-kernel-version", entry)
+			r.log.Info("DTK", "rt-kernel-version", entry)
 			dtk.RTKernelFullVersion = entry
 
 			entry, _, err = unstructured.NestedString(obj.Object, "RHEL_VERSION")
 			if err != nil {
 				return dtk, err
 			}
-			log.Info("DTK", "rhel-version", entry)
+			r.log.Info("DTK", "rhel-version", entry)
 			dtk.OSVersion = entry
 
 			return dtk, err
@@ -164,19 +185,19 @@ func ExtractToolkitRelease(layer v1.Layer) (DriverToolkitEntry, error) {
 	return dtk, errors.New("Missing driver toolkit entry: /etc/driver-toolkit-release.json")
 }
 
-func ReleaseManifests(layer v1.Layer) (string, string, error) {
+func (r *registry) ReleaseManifests(layer v1.Layer) (string, string, error) {
 
 	targz, err := layer.Compressed()
 	if err != nil {
 		return "", "", err
 	}
-	defer dclose(targz)
+	defer r.dclose(targz)
 
 	gr, err := gzip.NewReader(targz)
 	if err != nil {
 		return "", "", err
 	}
-	defer dclose(gr)
+	defer r.dclose(gr)
 
 	tr := tar.NewReader(gr)
 
@@ -248,7 +269,7 @@ func ReleaseManifests(layer v1.Layer) (string, string, error) {
 	return version, imageURL, nil
 }
 
-func dclose(c io.Closer) {
+func (r *registry) dclose(c io.Closer) {
 	if err := c.Close(); err != nil {
 		warn.OnError(err)
 		//log.Error(err)
