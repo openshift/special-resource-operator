@@ -13,6 +13,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
+	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"github.com/pkg/errors"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -125,9 +126,7 @@ func getRuntimeInformation(r *SpecialResourceReconciler) error {
 	}
 
 	RunInfo.PushSecretName, err = retryGetPushSecretName(r)
-	if err != nil {
-		return fmt.Errorf("failed to get push secret name: %w", err)
-	}
+	warn.OnError(err)
 
 	RunInfo.OSImageURL, err = cluster.OSImageURL()
 	if err != nil {
