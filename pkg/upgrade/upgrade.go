@@ -34,7 +34,7 @@ func ClusterInfo() (map[string]NodeVersion, error) {
 		return nil, fmt.Errorf("failed to get upgrade info: %w", err)
 	}
 
-	history, err := cluster.VersionHistory()
+	history, err := cluster.Interface.VersionHistory()
 	if err != nil {
 		return nil, fmt.Errorf("could not get version history: %w", err)
 	}

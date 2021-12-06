@@ -24,6 +24,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/cmd/leaderelection"
 	"github.com/openshift-psap/special-resource-operator/controllers"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
@@ -80,6 +81,8 @@ func main() {
 		setupLog.Error(err, "unable to create k8s clients")
 		os.Exit(1)
 	}
+
+	cluster.Interface = cluster.NewCluster(clients.Interface)
 
 	resource.RuntimeScheme = mgr.GetScheme()
 

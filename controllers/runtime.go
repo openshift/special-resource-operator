@@ -92,7 +92,7 @@ func getRuntimeInformation(r *SpecialResourceReconciler) error {
 		return fmt.Errorf("failed to cache nodes: %w", err)
 	}
 
-	RunInfo.OperatingSystemMajor, RunInfo.OperatingSystemMajorMinor, RunInfo.OperatingSystemDecimal, err = cluster.OperatingSystem()
+	RunInfo.OperatingSystemMajor, RunInfo.OperatingSystemMajorMinor, RunInfo.OperatingSystemDecimal, err = cluster.Interface.OperatingSystem()
 	if err != nil {
 		return fmt.Errorf("failed to get operating system: %w", err)
 	}
@@ -115,7 +115,7 @@ func getRuntimeInformation(r *SpecialResourceReconciler) error {
 		}
 	}
 
-	RunInfo.ClusterVersion, RunInfo.ClusterVersionMajorMinor, err = cluster.Version()
+	RunInfo.ClusterVersion, RunInfo.ClusterVersionMajorMinor, err = cluster.Interface.Version()
 	if err != nil {
 		return fmt.Errorf("failed to get cluster version: %w", err)
 	}
@@ -128,7 +128,7 @@ func getRuntimeInformation(r *SpecialResourceReconciler) error {
 	RunInfo.PushSecretName, err = retryGetPushSecretName(r)
 	warn.OnError(err)
 
-	RunInfo.OSImageURL, err = cluster.OSImageURL()
+	RunInfo.OSImageURL, err = cluster.Interface.OSImageURL()
 	if err != nil {
 		return fmt.Errorf("failed to get OSImageURL: %w", err)
 	}
