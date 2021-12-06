@@ -146,7 +146,7 @@ func DriverToolkitVersion(entries []string, info map[string]NodeVersion) (map[st
 			layer v1.Layer
 		)
 
-		layer, err = registry.LastLayer(entry)
+		layer, err = registry.Interface.LastLayer(entry)
 		if err != nil {
 			return nil, err
 		}
@@ -155,7 +155,7 @@ func DriverToolkitVersion(entries []string, info map[string]NodeVersion) (map[st
 			continue
 		}
 		// For each entry we're fetching the cluster version and dtk URL
-		_, imageURL, err := registry.ReleaseManifests(layer)
+		_, imageURL, err := registry.Interface.ReleaseManifests(layer)
 		if err != nil {
 			return nil, fmt.Errorf("could not extract version from payload: %w", err)
 		}
@@ -165,11 +165,11 @@ func DriverToolkitVersion(entries []string, info map[string]NodeVersion) (map[st
 			return info, nil
 		}
 
-		if layer, err = registry.LastLayer(imageURL); layer == nil {
+		if layer, err = registry.Interface.LastLayer(imageURL); layer == nil {
 			return nil, fmt.Errorf("cannot extract last layer for DTK from %s: %w", imageURL, err)
 		}
 
-		dtk, err := registry.ExtractToolkitRelease(layer)
+		dtk, err := registry.Interface.ExtractToolkitRelease(layer)
 		if err != nil {
 			return nil, err
 		}
