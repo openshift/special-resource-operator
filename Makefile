@@ -40,7 +40,7 @@ test-e2e-upgrade: go-deploy-manifests
 
 test-e2e:
 	for d in basic; do \
-          KUBERNETES_CONFIG="$(KUBECONFIG)" go test -v -timeout 40m ./test/e2e/$$d -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit; \
+          KUBERNETES_CONFIG="$(KUBECONFIG)" go test -v -timeout 40m --tags=e2e ./test/e2e/$$d -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit; \
         done
 
 # Current Operator version
@@ -76,7 +76,7 @@ endif
 all: $(SPECIALRESOURCE)
 
 # Run tests
-test: # generate fmt vet manifests-gen
+test: patch # generate fmt vet manifests-gen
 	go test ./... -coverprofile cover.out
 
 # Build manager binary
