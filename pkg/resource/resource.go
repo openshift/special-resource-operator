@@ -8,16 +8,14 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/hash"
+	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
-	"helm.sh/helm/v3/pkg/kube"
-
-	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
 	"github.com/pkg/errors"
+	"helm.sh/helm/v3/pkg/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -94,22 +92,26 @@ func UpdateResourceVersion(req *unstructured.Unstructured, found *unstructured.U
 
 	if NeedsResourceVersionUpdate(kind) {
 		version, fnd, err := unstructured.NestedString(found.Object, "metadata", "resourceVersion")
-		exit.OnErrorOrNotFound(fnd, err)
+		if err != nil || !fnd {
+			return fmt.Errorf("error or not found: %w", err)
+		}
 
-		if err := unstructured.SetNestedField(req.Object, version, "metadata", "resourceVersion"); err != nil {
-			return errors.Wrap(err, "Couldn't update ResourceVersion")
+		if err = unstructured.SetNestedField(req.Object, version, "metadata", "resourceVersion"); err != nil {
+			return fmt.Errorf("couldn't update ResourceVersion: %w", err)
 		}
 
 	}
 	if kind == "Service" {
 		clusterIP, fnd, err := unstructured.NestedString(found.Object, "spec", "clusterIP")
-		exit.OnErrorOrNotFound(fnd, err)
-
-		if err := unstructured.SetNestedField(req.Object, clusterIP, "spec", "clusterIP"); err != nil {
-			return errors.Wrap(err, "Couldn't update clusterIP")
+		if err != nil || !fnd {
+			return fmt.Errorf("error or not found: %w", err)
 		}
-		return nil
+
+		if err = unstructured.SetNestedField(req.Object, clusterIP, "spec", "clusterIP"); err != nil {
+			return fmt.Errorf("couldn't update clusterIP: %w", err)
+		}
 	}
+
 	return nil
 }
 
@@ -119,17 +121,17 @@ func SetNodeSelectorTerms(obj *unstructured.Unstructured, terms map[string]strin
 		strings.Compare(obj.GetKind(), "Deployment") == 0 ||
 		strings.Compare(obj.GetKind(), "Statefulset") == 0 {
 		if err := nodeSelectorTerms(terms, obj, "spec", "template", "spec", "nodeSelector"); err != nil {
-			return errors.Wrap(err, "Cannot setup "+obj.GetKind()+" nodeSelector")
+			return fmt.Errorf("cannot setup %s nodeSelector: %w", obj.GetKind(), err)
 		}
 	}
 	if strings.Compare(obj.GetKind(), "Pod") == 0 {
 		if err := nodeSelectorTerms(terms, obj, "spec", "nodeSelector"); err != nil {
-			return errors.Wrap(err, "Cannot setup Pod nodeSelector")
+			return fmt.Errorf("cannot setup Pod nodeSelector: %w", err)
 		}
 	}
 	if strings.Compare(obj.GetKind(), "BuildConfig") == 0 {
 		if err := nodeSelectorTerms(terms, obj, "spec", "nodeSelector"); err != nil {
-			return errors.Wrap(err, "Cannot setup BuildConfig nodeSelector")
+			return fmt.Errorf("cannot setup BuildConfig nodeSelector: %w", err)
 		}
 	}
 
@@ -139,7 +141,9 @@ func SetNodeSelectorTerms(obj *unstructured.Unstructured, terms map[string]strin
 func nodeSelectorTerms(terms map[string]string, obj *unstructured.Unstructured, fields ...string) error {
 
 	nodeSelector, found, err := unstructured.NestedMap(obj.Object, fields...)
-	exit.OnError(err)
+	if err != nil {
+		return err
+	}
 
 	if !found {
 		nodeSelector = make(map[string]interface{})
@@ -149,8 +153,8 @@ func nodeSelectorTerms(terms map[string]string, obj *unstructured.Unstructured, 
 		nodeSelector[k] = v
 	}
 
-	if err := unstructured.SetNestedMap(obj.Object, nodeSelector, fields...); err != nil {
-		return errors.Wrap(err, "Cannot update nodeSelector for: "+obj.GetName())
+	if err = unstructured.SetNestedMap(obj.Object, nodeSelector, fields...); err != nil {
+		return fmt.Errorf("cannot update nodeSelector for %s : %w", obj.GetName(), err)
 	}
 
 	return nil
@@ -180,8 +184,9 @@ func CreateFromYAML(yamlFile []byte,
 			return errors.Wrap(err, "Could not convert yaml file to json"+string(yamlSpec))
 		}
 
-		err = obj.UnmarshalJSON(jsonSpec)
-		exit.OnError(errors.Wrap(err, "Cannot unmarshall json spec, check your manifest: "+string(jsonSpec)))
+		if err = obj.UnmarshalJSON(jsonSpec); err != nil {
+			return fmt.Errorf("cannot unmarshall json spec, check your manifest: %s: %w", jsonSpec, err)
+		}
 
 		//  Do not override the namespace if alreayd set
 		if IsNamespaced(obj.GetKind()) && obj.GetNamespace() == "" {
@@ -197,61 +202,70 @@ func CreateFromYAML(yamlFile []byte,
 		// kernel affinity related attributes only set if there is an
 		// annotation specialresource.openshift.io/kernel-affine: true
 		if kernel.IsObjectAffine(obj) {
-			err := kernel.SetAffineAttributes(obj, kernelFullVersion,
-				operatingSystemMajorMinor)
-			exit.OnError(errors.Wrap(err, "Cannot set kernel affine attributes"))
+			if err = kernel.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor); err != nil {
+				return fmt.Errorf("cannot set kernel affine attributes: %w", err)
+			}
 		}
 
 		// Add nodeSelector terms for the specialresource
 		// we do not want to spread HW enablement stacks on all nodes
-		err = SetNodeSelectorTerms(obj, nodeSelector)
-		exit.OnError(errors.Wrap(err, "setting NodeSelectorTerms failed"))
+		if err = SetNodeSelectorTerms(obj, nodeSelector); err != nil {
+			return fmt.Errorf("setting NodeSelectorTerms failed: %w", err)
+		}
 
 		// We are only building a driver-container if we cannot pull the image
 		// We are asuming that vendors provide pre compiled DriverContainers
 		// If err == nil, build a new container, if err != nil skip it
-		if err := rebuildDriverContainer(obj); err != nil {
+		if err = rebuildDriverContainer(obj); err != nil {
 			log.Info("Skipping building driver-container", "Name", obj.GetName())
 			return nil
 		}
 
 		// Callbacks before CRUD will update the manifests
-		if err := BeforeCRUD(obj, owner); err != nil {
-			return errors.Wrap(err, "Before CRUD hooks failed")
+		if err = BeforeCRUD(obj, owner); err != nil {
+			return fmt.Errorf("before CRUD hooks failed: %w", err)
 		}
 		// Create Update Delete Patch resources
 		err = CRUD(obj, releaseInstalled, owner, name, namespace)
 		// The mutating webhook needs a couple of secs to be ready
 		// sleep for 5 secs and requeue
-		if err != nil && strings.Contains(err.Error(), "failed calling webhook") {
-			return errors.Wrap(err, "Webhook not ready, requeue")
+		if err != nil {
+			if strings.Contains(err.Error(), "failed calling webhook") {
+				return fmt.Errorf("webhook not ready, requeue: %w", err)
+			}
+
+			return fmt.Errorf("CRUD exited non-zero on Object: %+v: %w", obj, err)
 		}
-		exit.OnError(errors.Wrapf(err, "CRUD exited non-zero on Object: %+v", obj))
 
 		// Callbacks after CRUD will wait for ressource and check status
-		if err := AfterCRUD(obj, namespace); err != nil {
-			return errors.Wrap(err, "After CRUD hooks failed")
+		if err = AfterCRUD(obj, namespace); err != nil {
+			return fmt.Errorf("after CRUD hooks failed: %w", err)
 		}
 
 	}
 
 	if err := scanner.Err(); err != nil {
-		return errors.Wrap(err, "Failed to scan manifest")
+		return fmt.Errorf("failed to scan manifest: %w", err)
 	}
+
 	return nil
 }
 
-func IsOneTimer(obj *unstructured.Unstructured) bool {
+func IsOneTimer(obj *unstructured.Unstructured) (bool, error) {
 
 	// We are not recreating Pods that have restartPolicy: Never
 	if obj.GetKind() == "Pod" {
 		restartPolicy, found, err := unstructured.NestedString(obj.Object, "spec", "restartPolicy")
-		exit.OnErrorOrNotFound(found, err)
+		if err != nil || !found {
+			return false, fmt.Errorf("error or not found: %w", err)
+		}
+
 		if restartPolicy == "Never" {
-			return true
+			return true, nil
 		}
 	}
-	return false
+
+	return false, nil
 }
 
 // CRUD Create Update Delete Resource
@@ -267,8 +281,9 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 	// SpecialResource is the parent, all other objects are childs and need a reference
 	// but only set the ownerreference if created by SRO do not set ownerreference per default
 	if obj.GetKind() != "SpecialResource" && obj.GetKind() != "Namespace" {
-		err := controllerutil.SetControllerReference(owner, obj, RuntimeScheme)
-		exit.OnError(err)
+		if err := controllerutil.SetControllerReference(owner, obj, RuntimeScheme); err != nil {
+			return err
+		}
 
 		SetMetaData(obj, name, namespace)
 	}
@@ -280,8 +295,12 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 	err := clients.Interface.Get(context.TODO(), key, found)
 
 	if apierrors.IsNotFound(err) {
+		oneTimer, err := IsOneTimer(obj)
+		if err != nil {
+			return fmt.Errorf("could not determine if the object is a one-timer: %w", err)
+		}
 		// We are not recreating all objects if a release is already installed
-		if releaseInstalled && IsOneTimer(obj) {
+		if releaseInstalled && oneTimer {
 			logg.Info("Skipping creation")
 			return nil
 		}
@@ -289,32 +308,34 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 		logg.Info("Not found, creating")
 
 		logg.Info("Release", "Installed", releaseInstalled)
-		logg.Info("Is", "OneTimer", IsOneTimer(obj))
+		logg.Info("Is", "OneTimer", oneTimer)
 
 		hash.Annotate(obj)
 
 		// If we create the resource set the owner reference
-		err := controllerutil.SetControllerReference(owner, obj, RuntimeScheme)
-		exit.OnError(err)
+		if err = controllerutil.SetControllerReference(owner, obj, RuntimeScheme); err != nil {
+			return fmt.Errorf("could not set the owner reference: %w", err)
+		}
 
 		SetMetaData(obj, name, namespace)
 
-		if err := clients.Interface.Create(context.TODO(), obj); err != nil {
+		if err = clients.Interface.Create(context.TODO(), obj); err != nil {
 			if apierrors.IsForbidden(err) {
-				return errors.Wrap(err, "API error is forbidden")
+				return fmt.Errorf("API error: forbidden: %w", err)
 			}
-			return errors.Wrap(err, "Unknown error")
+
+			return fmt.Errorf("unknown error: %w", err)
 		}
 
 		return nil
 	}
 
 	if apierrors.IsForbidden(err) {
-		return errors.Wrap(err, "Forbidden check Role, ClusterRole and Bindings for operator")
+		return fmt.Errorf("forbidden: check Role, ClusterRole and Bindings for operator: %w", err)
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "Unexpected error")
+		return fmt.Errorf("unexpected error: %w", err)
 	}
 
 	// Not updating Pod because we can only update image and some other
@@ -324,7 +345,11 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 		return nil
 	}
 
-	if hash.AnnotationEqual(found, obj) {
+	equal, err := hash.AnnotationEqual(found, obj)
+	if err != nil {
+		return err
+	}
+	if !equal {
 		logg.Info("Found, not updating, hash the same: " + found.GetKind() + "/" + found.GetName())
 		return nil
 	}
@@ -337,12 +362,12 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 	// required.ResourceVersion = found.ResourceVersion this is only needed
 	// before we update a resource, we do not care when creating, hence
 	// !leave this here!
-	if err := UpdateResourceVersion(required, found); err != nil {
-		return errors.Wrap(err, "Couldn't Update ResourceVersion")
+	if err = UpdateResourceVersion(required, found); err != nil {
+		return fmt.Errorf("couldn't Update ResourceVersion: %w", err)
 	}
 
-	if err := clients.Interface.Update(context.TODO(), required); err != nil {
-		return errors.Wrap(err, "Couldn't Update Resource")
+	if err = clients.Interface.Update(context.TODO(), required); err != nil {
+		return fmt.Errorf("couldn't Update Resource: %w", err)
 	}
 
 	return nil
@@ -406,7 +431,7 @@ func BeforeCRUD(obj *unstructured.Unstructured, sr interface{}) error {
 
 	if valid, found := annotations["specialresource.openshift.io/proxy"]; found && valid == "true" {
 		if err := proxy.Setup(obj); err != nil {
-			return errors.Wrap(err, "Could not setup Proxy")
+			return fmt.Errorf("could not setup Proxy: %w", err)
 		}
 	}
 
@@ -416,7 +441,7 @@ func BeforeCRUD(obj *unstructured.Unstructured, sr interface{}) error {
 
 	if prefix, ok := customCallback[todo]; ok {
 		if err := prefix(obj, sr); err != nil {
-			return errors.Wrap(err, "Could not run prefix callback")
+			return fmt.Errorf("could not run prefix callback: %w", err)
 		}
 	}
 	return nil
@@ -430,35 +455,35 @@ func AfterCRUD(obj *unstructured.Unstructured, namespace string) error {
 	if state, found := annotations["specialresource.openshift.io/state"]; found && state == "driver-container" {
 		log.Info("specialresource.openshift.io/state")
 		if err := checkForImagePullBackOff(obj, namespace); err != nil {
-			return errors.Wrap(err, "Cannot check for ImagePullBackOff")
+			return fmt.Errorf("cannot check for ImagePullBackOff: %w", err)
 		}
 	}
 
 	if wait, found := annotations["specialresource.openshift.io/wait"]; found && wait == "true" {
 		log.Info("specialresource.openshift.io/wait")
 		if err := poll.ForResource(obj); err != nil {
-			return errors.Wrap(err, "Could not wait for resource")
+			return fmt.Errorf("could not wait for resource: %w", err)
 		}
 	}
 
 	if pattern, found := annotations["specialresource.openshift.io/wait-for-logs"]; found && len(pattern) > 0 {
 		log.Info("specialresource.openshift.io/wait-for-logs")
 		if err := poll.ForDaemonSetLogs(obj, pattern); err != nil {
-			return errors.Wrap(err, "Could not wait for DaemonSet logs")
+			return fmt.Errorf("could not wait for DaemonSet logs: %w", err)
 		}
 	}
 
 	if _, found := annotations["helm.sh/hook"]; found {
 		// In the case of hooks we're always waiting for all ressources
 		if err := poll.ForResource(obj); err != nil {
-			return errors.Wrap(err, "Could not wait for resource")
+			return fmt.Errorf("could not wait for resource: %w", err)
 		}
 	}
 
 	// Always wait for CRDs to be present
 	if obj.GetKind() == "CustomResourceDefinition" {
 		if err := poll.ForResource(obj); err != nil {
-			return errors.Wrap(err, "Could not wait for CRD")
+			return fmt.Errorf("could not wait for CRD: %w", err)
 		}
 	}
 
@@ -504,24 +529,28 @@ func checkForImagePullBackOff(obj *unstructured.Unstructured, namespace string) 
 	for _, pod := range pods.Items {
 		log.Info("checkForImagePullBackOff", "PodName", pod.GetName())
 
-		var err error
 		var found bool
 		var containerStatuses []interface{}
 
 		if containerStatuses, found, err = unstructured.NestedSlice(pod.Object, "status", "containerStatuses"); !found || err != nil {
-			phase, found, err := unstructured.NestedString(pod.Object, "status", "phase")
-			exit.OnErrorOrNotFound(found, err)
+			var phase string
+
+			phase, found, err = unstructured.NestedString(pod.Object, "status", "phase")
+			if err != nil || !found {
+				return fmt.Errorf("error or not found: %w", err)
+			}
+
 			log.Info("Pod is in phase: " + phase)
 			continue
 		}
 
 		for _, containerStatus := range containerStatuses {
-			switch containerStatus := containerStatus.(type) {
+			switch cs := containerStatus.(type) {
 			case map[string]interface{}:
-				reason, _, _ = unstructured.NestedString(containerStatus, "state", "waiting", "reason")
+				reason, _, _ = unstructured.NestedString(cs, "state", "waiting", "reason")
 				log.Info("Reason", "reason", reason)
 			default:
-				log.Info("checkForImagePullBackOff", "DEFAULT NOT THE CORRECT TYPE", containerStatus)
+				log.Info("checkForImagePullBackOff", "DEFAULT NOT THE CORRECT TYPE", cs)
 			}
 			break
 		}
@@ -530,7 +559,7 @@ func checkForImagePullBackOff(obj *unstructured.Unstructured, namespace string) 
 			annotations := obj.GetAnnotations()
 			if vendor, ok := annotations["specialresource.openshift.io/driver-container-vendor"]; ok {
 				UpdateVendor = vendor
-				return errors.New("ImagePullBackOff need to rebuild " + UpdateVendor + " driver-container")
+				return fmt.Errorf("ImagePullBackOff need to rebuild %s driver-container", UpdateVendor)
 			}
 		}
 
@@ -539,5 +568,5 @@ func checkForImagePullBackOff(obj *unstructured.Unstructured, namespace string) 
 		return nil
 	}
 
-	return errors.New("Unexpected Phase of Pods in DameonSet: " + obj.GetName())
+	return fmt.Errorf("unexpected Phase of Pods in DameonSet: %s", obj.GetName())
 }

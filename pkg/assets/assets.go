@@ -1,6 +1,7 @@
 package assets
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -9,10 +10,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
-	"github.com/pkg/errors"
-	"helm.sh/helm/v3/pkg/chart"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -54,9 +51,8 @@ func filePathWalkDir(root string, ext string) ([]string, error) {
 	var files []string
 
 	if _, err := os.Stat(root); os.IsNotExist(err) {
-		if errors.Wrap(err, "Directory does note exists, giving up: "+root) != nil {
-			log.Info("Exiting On", "error", err)
-			os.Exit(1)
+		if fmt.Errorf("Directory %s does not exist, giving up: %w ", root, err) != nil {
+			return nil, err
 		}
 	}
 
@@ -106,21 +102,4 @@ var reState = regexp.MustCompile(`^[0-9]{4}[-_].*\.yaml$`)
 
 func ValidStateName(path string) bool {
 	return reState.MatchString(filepath.Base(path))
-}
-
-func FromConfigMap(templates *unstructured.Unstructured) []*chart.File {
-	states := []*chart.File{}
-
-	manifests, found, err := unstructured.NestedMap(templates.Object, "data")
-	exit.OnErrorOrNotFound(found, err)
-
-	for key := range manifests {
-		state := &chart.File{}
-		state.Name = key
-		state.Data = []byte(manifests[key].(string))
-		states = append(states, state)
-		log.Info("Adding", "state", state.Name)
-	}
-
-	return states
 }

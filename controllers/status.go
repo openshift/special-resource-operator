@@ -2,12 +2,12 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/exit"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -63,8 +63,10 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusGetOrCreate() error {
 	clusterOperators := &configv1.ClusterOperatorList{}
 
 	opts := []client.ListOption{}
-	err := clients.Interface.List(context.TODO(), clusterOperators, opts...)
-	exit.OnError(err)
+
+	if err := clients.Interface.List(context.TODO(), clusterOperators, opts...); err != nil {
+		return err
+	}
 
 	for _, clusterOperator := range clusterOperators.Items {
 		if clusterOperator.GetName() == r.GetName() {
@@ -79,11 +81,13 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusGetOrCreate() error {
 
 	co := &configv1.ClusterOperator{ObjectMeta: metav1.ObjectMeta{Name: r.GetName()}}
 
-	co, err = clients.Interface.ClusterOperators().Create(context.TODO(), co, metav1.CreateOptions{})
+	co, err := clients.Interface.ClusterOperators().Create(context.TODO(), co, metav1.CreateOptions{})
 	if err != nil {
-		return errors.Wrap(err, "Failed to create ClusterOperator "+co.Name)
+		return fmt.Errorf("failed to create ClusterOperator %s: %w", co.Name, err)
 	}
+
 	co.DeepCopyInto(&r.clusterOperator)
+
 	return nil
 }
 
@@ -99,21 +103,21 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusReconcile(
 	conditions []configv1.ClusterOperatorStatusCondition) error {
 	// First get the latest clusterOperator before changing anything
 	if err := r.clusterOperatorGetLatest(); err != nil {
-		return errors.Wrap(err, "Failed to update clusterOperator with latest from API server")
+		return fmt.Errorf("failed to update clusterOperator with latest from API server: %w", err)
 	}
 
 	r.clusterOperator.Status.Conditions = conditions
 
 	if err := r.clusterOperatorUpdateRelatedObjects(); err != nil {
-		return errors.Wrap(err, "Cannot set ClusterOperator related objects")
+		return fmt.Errorf("cannot set ClusterOperator related objects: %w", err)
 	}
 
 	if err := r.clusterOperatorStatusSet(); err != nil {
-		return errors.Wrap(err, "Cannot update the ClusterOperator status")
+		return fmt.Errorf("cannot update the ClusterOperator status: %w", err)
 	}
 
 	if err := r.clusterOperatorStatusUpdate(); err != nil {
-		return errors.Wrap(err, "Could not update ClusterOperator")
+		return fmt.Errorf("could not update ClusterOperator: %w", err)
 	}
 
 	return nil
@@ -168,18 +172,18 @@ func SpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request, cond
 	clusterOperatorAvailable, err := clients.HasResource(configv1.SchemeGroupVersion.WithResource("clusteroperators"))
 
 	if err != nil {
-		return reconcile.Result{Requeue: true}, errors.Wrap(err, "Cannot discover ClusterOperator api resource")
+		return reconcile.Result{Requeue: true}, fmt.Errorf("Cannot discover ClusterOperator api resource: %w", err)
 	}
 
 	if clusterOperatorAvailable {
 		// If clusterOperator CRD does not exist, warn and return nil,
-		if err := r.clusterOperatorStatusGetOrCreate(); err != nil {
-			return reconcile.Result{Requeue: true}, errors.Wrap(err, "Cannot get or create ClusterOperator")
+		if err = r.clusterOperatorStatusGetOrCreate(); err != nil {
+			return reconcile.Result{Requeue: true}, fmt.Errorf("Cannot get or create ClusterOperator: %w", err)
 		}
 
 		log.Info("Reconciling ClusterOperator")
-		if err := r.clusterOperatorStatusReconcile(cond); err != nil {
-			return reconcile.Result{Requeue: true}, errors.Wrap(err, "Reconciling ClusterOperator failed")
+		if err = r.clusterOperatorStatusReconcile(cond); err != nil {
+			return reconcile.Result{Requeue: true}, fmt.Errorf("Reconciling ClusterOperator failed: %w", err)
 		}
 	} else {
 		log.Info("Warning: ClusterOperator resource not available. Can be ignored on vanilla k8s.")

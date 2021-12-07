@@ -197,7 +197,8 @@ func simpleKmodDelete(cs *framework.ClientSet, cl client.Client) {
 var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", func() {
 
 	cs := framework.NewClientSet()
-	cl := framework.NewControllerRuntimeClient()
+	cl, err := framework.NewControllerRuntimeClient()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Check that operator deployment has 1 available pod
 	ginkgo.It("Can create driver-container-base and deploy simple-kmod", func() {

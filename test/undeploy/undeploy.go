@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"log"
 	"os"
 	"time"
 
@@ -35,16 +36,22 @@ func main() {
 		os.Exit(0)
 	}
 
-	cl := framework.NewControllerRuntimeClient()
+	cl, err := framework.NewControllerRuntimeClient()
+	if err != nil {
+		log.Fatalf("Error getting a controller client: %v", err)
+	}
 
-	framework.DeleteAllSpecialResources(cl)
+	if err = framework.DeleteAllSpecialResources(cl); err != nil {
+		log.Fatalf("Error deleting all special resources: %v", err)
+	}
 	// sleep 10 for finalizers to kick in
 	time.Sleep(10 * time.Second)
 
 	manifests := assets.GetFrom(*path)
 
 	for _, manifest := range manifests {
-		framework.DeleteFromYAML(manifest.Content, cl)
+		if err = framework.DeleteFromYAML(manifest.Content, cl); err != nil {
+			log.Fatalf("Error deleting from YAML: %v", err)
+		}
 	}
-
 }

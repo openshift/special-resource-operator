@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"log"
 	"os"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
@@ -34,12 +35,16 @@ func main() {
 		os.Exit(0)
 	}
 
-	cl := framework.NewControllerRuntimeClient()
+	cl, err := framework.NewControllerRuntimeClient()
+	if err != nil {
+		log.Fatalf("Error getting a controller client: %v", err)
+	}
 
 	manifests := assets.GetFrom(*path)
 
 	for _, manifest := range manifests {
-		framework.CreateFromYAML(manifest.Content, cl)
+		if err = framework.CreateFromYAML(manifest.Content, cl); err != nil {
+			log.Fatalf("Error creating an object from YAML: %v", err)
+		}
 	}
-
 }

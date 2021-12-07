@@ -28,7 +28,10 @@ var clientSet kubernetes.Clientset
 var _ = ginkgo.Describe("[basic][ping-pong] create and deploy ping-poing", func() {
 
 	cs := framework.NewClientSet()
-	cl := framework.NewControllerRuntimeClient()
+
+	cl, err := framework.NewControllerRuntimeClient()
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
 	ginkgo.It("Can create and deploy ping-pong", func() {
 		ginkgo.By("Creating ping-pong #1")
 		specialResourceCreate(cs, cl, "../../../charts/example/ping-pong-0.0.1/ping-pong.yaml")
