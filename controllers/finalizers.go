@@ -9,7 +9,6 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -57,12 +56,9 @@ func finalizeNodes(r *SpecialResourceReconciler, remove string) error {
 			return errors.Wrap(err, "forbidden check Role, ClusterRole and Bindings for operator %s")
 		}
 		if apierrors.IsConflict(err) {
-			var err error
-
-			if err = cache.Nodes(r.specialresource.Spec.NodeSelector, true); err != nil {
-				return errors.Wrap(err, "Could not cache nodes for api conflict")
+			if cacheErr := cache.Nodes(r.specialresource.Spec.NodeSelector, true); cacheErr != nil {
+				return errors.Wrap(cacheErr, "Could not cache nodes for api conflict")
 			}
-
 			return fmt.Errorf("node Conflict Label %s err %s", state.CurrentName, err)
 		}
 
@@ -80,10 +76,15 @@ func finalizeSpecialResource(r *SpecialResourceReconciler) error {
 	// specialresource labels from the nodes.
 	if r.specialresource.Name == "special-resource-preamble" {
 		err := finalizeNodes(r, "specialresource.openshift.io")
-		warn.OnError(err)
+		if err != nil {
+			log.Error(err, "finalizeSpecialResource special-resource-preamble failed")
+			return err
+		}
 	}
 	err := finalizeNodes(r, "specialresource.openshift.io/state-"+r.specialresource.Name)
-	warn.OnError(err)
+	if err != nil {
+		return err
+	}
 
 	if r.specialresource.Name != "special-resource-preamble" {
 		ns := unstructured.Unstructured{}
@@ -94,20 +95,29 @@ func finalizeSpecialResource(r *SpecialResourceReconciler) error {
 		key := client.ObjectKeyFromObject(&ns)
 
 		err := clients.Interface.Get(context.TODO(), key, &ns)
-		if apierrors.IsNotFound(err) {
-			log.Info("Successfully finalized (IsNotFound)", "SpecialResource:", r.specialresource.Name)
-			return nil
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				log.Info("Successfully finalized (Namespace IsNotFound)", "SpecialResource:", r.specialresource.Name)
+				return nil
+			} else {
+				log.Error(err, "Failed to get namespace", "namespace", r.specialresource.Spec.Namespace, "SpecialResource", r.specialresource.Name)
+				return err
+			}
 		}
 
 		for _, owner := range ns.GetOwnerReferences() {
 			if owner.Kind == "SpecialResource" {
 				log.Info("Namespaces is owned by SpecialResource deleting")
 				err = clients.Interface.Delete(context.TODO(), &ns)
-				if !apierrors.IsNotFound(err) {
-					warn.OnError(err)
+				if err != nil {
+					log.Error(err, "Failed to delete namespace", "namespace", r.specialresource.Spec.Namespace)
+					return err
 				}
 				err = pollActions.ForResourceUnavailability(&ns)
-				warn.OnError(err)
+				if err != nil {
+					log.Error(err, "Failed to delete namespace", "namespace", r.specialresource.Spec.Namespace)
+					return err
+				}
 			}
 		}
 	}
