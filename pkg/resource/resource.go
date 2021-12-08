@@ -94,7 +94,7 @@ func UpdateResourceVersion(req *unstructured.Unstructured, found *unstructured.U
 	if NeedsResourceVersionUpdate(kind) {
 		version, fnd, err := unstructured.NestedString(found.Object, "metadata", "resourceVersion")
 		if err != nil || !fnd {
-			return fmt.Errorf("error or not found: %w", err)
+			return fmt.Errorf("error or resourceVersion not found: %w", err)
 		}
 
 		if err = unstructured.SetNestedField(req.Object, version, "metadata", "resourceVersion"); err != nil {
@@ -105,7 +105,7 @@ func UpdateResourceVersion(req *unstructured.Unstructured, found *unstructured.U
 	if kind == "Service" {
 		clusterIP, fnd, err := unstructured.NestedString(found.Object, "spec", "clusterIP")
 		if err != nil || !fnd {
-			return fmt.Errorf("error or not found: %w", err)
+			return fmt.Errorf("error or clusterIP not found: %w", err)
 		}
 
 		if err = unstructured.SetNestedField(req.Object, clusterIP, "spec", "clusterIP"); err != nil {
@@ -120,7 +120,7 @@ func SetNodeSelectorTerms(obj *unstructured.Unstructured, terms map[string]strin
 
 	if strings.Compare(obj.GetKind(), "DaemonSet") == 0 ||
 		strings.Compare(obj.GetKind(), "Deployment") == 0 ||
-		strings.Compare(obj.GetKind(), "Statefulset") == 0 {
+		strings.Compare(obj.GetKind(), "Statefulset") == 0 { // TODO(qbarrand) should this be StatefulSet?
 		if err := nodeSelectorTerms(terms, obj, "spec", "template", "spec", "nodeSelector"); err != nil {
 			return fmt.Errorf("cannot setup %s nodeSelector: %w", obj.GetKind(), err)
 		}
@@ -288,7 +288,7 @@ func IsOneTimer(obj *unstructured.Unstructured) (bool, error) {
 	if obj.GetKind() == "Pod" {
 		restartPolicy, found, err := unstructured.NestedString(obj.Object, "spec", "restartPolicy")
 		if err != nil || !found {
-			return false, fmt.Errorf("error or not found: %w", err)
+			return false, fmt.Errorf("error or restartPolicy not found: %w", err)
 		}
 
 		if restartPolicy == "Never" {
@@ -330,6 +330,7 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 		if err != nil {
 			return fmt.Errorf("could not determine if the object is a one-timer: %w", err)
 		}
+
 		// We are not recreating all objects if a release is already installed
 		if releaseInstalled && oneTimer {
 			logg.Info("Skipping creation")
