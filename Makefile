@@ -97,7 +97,7 @@ run: manifests generate fmt vet ## Run against the configured Kubernetes cluster
 	go run -mod=vendor ./main.go
 
 local-image-build: patch helm-lint helm-repo-index generate manifests-gen ## Build container image with the manager.
-	podman build -t $(IMG) -f Dockerfile.ubi8 --no-cache .
+	podman build -t $(IMG) --no-cache .
 
 local-image-push: ## Push docker image with the manager.
 	podman push $(IMG)

@@ -8,6 +8,7 @@ COPY go.mod go.mod
 COPY go.sum go.sum
 
 COPY hack/ hack/
+COPY helm-plugins/ helm-plugins/
 COPY Makefile.specialresource.mk Makefile.specialresource.mk
 COPY Makefile.helm.mk Makefile.helm.mk
 COPY Makefile.helper.mk Makefile.helper.mk
@@ -15,12 +16,13 @@ COPY Makefile Makefile
 COPY scripts/ scripts/
 
 # Copy the go source
+COPY vendor/ vendor/
+COPY .patches/ .patches/
 COPY main.go main.go
 COPY api/ api/
 COPY cmd/ cmd/
 COPY controllers/ controllers/
 COPY pkg/ pkg/
-COPY vendor/ vendor/
 
 RUN ["make", "manager", "helm-plugins/cm-getter/cm-getter"]
 
@@ -36,7 +38,6 @@ COPY --from=builder /workspace/manager .
 COPY --from=builder /workspace/helm-plugins ${HELM_PLUGINS}
 
 COPY charts/ /charts/
-COPY manifests /manifests
 
 RUN useradd  -r -u 499 nonroot
 RUN getent group nonroot || groupadd -o -g 499 nonroot
