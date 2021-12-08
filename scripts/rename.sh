@@ -1,9 +1,8 @@
 #!/bin/bash
 
-set -e 
+set -e
 
-# shellcheck disable=SC2045
-for i  in $(ls [0-9][0-9][0-9][0-9].yaml)
+for i in [0-9][0-9][0-9][0-9].yaml
 do
   K=$(grep ^kind "$i")
   N=$(grep -e '^  name: ' "$i" | head -n1)

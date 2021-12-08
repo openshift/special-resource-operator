@@ -3,9 +3,13 @@ layout: go.kubebuilder.io/v2
 projectName: openshift-special-resource-operator
 repo: github.com/openshift-psap/special-resource-operator
 resources:
-- group: sro
+- controller: true
+  domain: openshift.io
+  group: sro
   kind: SpecialResource
+  path: github.com/openshift-psap/special-resource-operator/api/v1beta1
   version: v1beta1
-version: 3-alpha
+version: "3"
 plugins:
-  go.sdk.operatorframework.io/v2-alpha: {}
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}

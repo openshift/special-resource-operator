@@ -148,7 +148,7 @@ specialresource:
   metadata:
     creationTimestamp: "2021-06-15T08:24:12Z"
     finalizers:
-    - finalizer.sro.openshift.io
+    - sro.openshift.io/finalizer
     generation: 2
     name: simple-kmod
     resourceVersion: "16169837"

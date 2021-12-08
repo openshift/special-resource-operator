@@ -64,4 +64,5 @@ spec:
           emptyDir: {}
         - name: cred-volume
           emptyDir: {}
+      serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
