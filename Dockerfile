@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.17-openshift-4.10 as builder
+FROM golang:1.17-bullseye AS builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -22,7 +22,11 @@ COPY vendor/ vendor/
 # Build
 RUN CGO_ENABLED=0 GO111MODULE=on go build -mod=vendor -a -o manager main.go
 
-FROM registry.ci.openshift.org/ocp/4.10:base
+FROM debian:bullseye-slim
+
+RUN ["apt", "update"]
+RUN ["apt", "install", "-y", "ca-certificates"]
+
 WORKDIR /
 COPY --from=builder /workspace/manager .
 

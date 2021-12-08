@@ -85,7 +85,7 @@ run: manifests generate ## Run against the configured Kubernetes cluster in ~/.k
 	go run -mod=vendor ./main.go
 
 local-image-build: patch helm-lint helm-repo-index generate manifests-gen ## Build container image with the manager.
-	$(CONTAINER_COMMAND) build -t $(IMG) -f Dockerfile.ubi8 --no-cache .
+	$(CONTAINER_COMMAND) build -t $(IMG) --no-cache .
 
 local-image-push: ## Push docker image with the manager.
 	$(CONTAINER_COMMAND) push $(IMG)
