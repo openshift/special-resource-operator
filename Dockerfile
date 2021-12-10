@@ -10,17 +10,25 @@ COPY go.sum go.sum
 # and so that source changes don't invalidate our downloaded layer
 # RUN go mod download
 
+COPY hack/ hack/
+COPY Makefile.specialresource.mk Makefile.specialresource.mk
+COPY Makefile.helm.mk Makefile.helm.mk
+COPY Makefile.helper.mk Makefile.helper.mk
+COPY Makefile Makefile
+COPY scripts/ scripts/
+
 # Copy the go source
+COPY vendor/ vendor/
+COPY .patches/ .patches/
 COPY main.go main.go
 COPY api/ api/
 COPY cmd/ cmd/
 COPY controllers/ controllers/
-
 COPY pkg/ pkg/
-COPY vendor/ vendor/
 
-# Build
-RUN CGO_ENABLED=0 GO111MODULE=on go build -mod=vendor -a -o manager main.go
+RUN ["apt", "update"]
+RUN ["apt", "install", "-y", "patch"]
+RUN ["make", "manager"]
 
 FROM debian:bullseye-slim
 
@@ -31,7 +39,6 @@ WORKDIR /
 COPY --from=builder /workspace/manager .
 
 COPY charts/ /charts/
-COPY manifests /manifests
 
 RUN useradd  -r -u 499 nonroot
 RUN getent group nonroot || groupadd -o -g 499 nonroot
