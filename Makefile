@@ -75,13 +75,23 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet --mod=vendor ./...
 
-test: patch manifests generate fmt vet envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
+unit-test: patch ## Run unit-tests.
+	# Use `go run github.com/onsi/ginkgo/ginkgo` as only the ginkgo binary supports -skipPackage
+	go run github.com/onsi/ginkgo/ginkgo -skipPackage ./test/e2e -coverprofile cover.out ./...
 
 ##@ Build
 
-manager: patch generate fmt vet ## Build manager binary.
-	go build -mod=vendor -o /tmp/bin/manager main.go
+helm-plugins/cm-getter/cm-getter: $(shell find cmd/helm-cm-getter -type f -name '*.go')
+	go build -o $@ ./cmd/helm-cm-getter
+
+.PHONY: helm-plugins/cm-getter
+helm-plugins/cm-getter: helm-plugins/cm-getter/cm-getter
+
+.PHONY: helm-plugins
+helm-plugins: helm-plugins/cm-getter
+
+manager: patch generate ## Build manager binary.
+	go build -o manager main.go
 
 run: manifests generate fmt vet ## Run against the configured Kubernetes cluster in ~/.kube/config
 	go run -mod=vendor ./main.go
