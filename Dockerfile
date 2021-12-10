@@ -8,6 +8,7 @@ COPY go.mod go.mod
 COPY go.sum go.sum
 
 COPY hack/ hack/
+COPY helm-plugins/ helm-plugins/
 COPY Makefile.specialresource.mk Makefile.specialresource.mk
 COPY Makefile.helm.mk Makefile.helm.mk
 COPY Makefile.helper.mk Makefile.helper.mk
@@ -29,8 +30,6 @@ FROM debian:bullseye-slim
 
 RUN ["apt", "update"]
 RUN ["apt", "install", "-y", "ca-certificates"]
-
-COPY helm-plugins/ helm-plugins/
 
 WORKDIR /
 
