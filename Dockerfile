@@ -2,13 +2,10 @@
 FROM golang:1.17-bullseye AS builder
 
 WORKDIR /workspace
+
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
-
-# cache deps before building and copying source so that we don't need to re-download as much
-# and so that source changes don't invalidate our downloaded layer
-# RUN go mod download
 
 COPY hack/ hack/
 COPY Makefile.specialresource.mk Makefile.specialresource.mk
@@ -26,17 +23,21 @@ COPY cmd/ cmd/
 COPY controllers/ controllers/
 COPY pkg/ pkg/
 
-RUN ["apt", "update"]
-RUN ["apt", "install", "-y", "patch"]
-RUN ["make", "manager"]
+RUN ["make", "manager", "helm-plugins/cm-getter/cm-getter"]
 
 FROM debian:bullseye-slim
 
 RUN ["apt", "update"]
 RUN ["apt", "install", "-y", "ca-certificates"]
 
+COPY helm-plugins/ helm-plugins/
+
 WORKDIR /
+
+ENV HELM_PLUGINS /opt/helm-plugins
+
 COPY --from=builder /workspace/manager .
+COPY --from=builder /workspace/helm-plugins ${HELM_PLUGINS}
 
 COPY charts/ /charts/
 

@@ -72,11 +72,20 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet --mod=vendor ./...
 
-unit-test: ## Run unit-tests.
+unit-test: patch ## Run unit-tests.
 	# Use `go run github.com/onsi/ginkgo/ginkgo` as only the ginkgo binary supports -skipPackage
 	go run github.com/onsi/ginkgo/ginkgo -skipPackage ./test/e2e -coverprofile cover.out ./...
 
 ##@ Build
+
+helm-plugins/cm-getter/cm-getter: $(shell find cmd/helm-cm-getter -type f -name '*.go')
+	go build -o $@ ./cmd/helm-cm-getter
+
+.PHONY: helm-plugins/cm-getter
+helm-plugins/cm-getter: helm-plugins/cm-getter/cm-getter
+
+.PHONY: helm-plugins
+helm-plugins: helm-plugins/cm-getter
 
 manager: patch generate ## Build manager binary.
 	go build -o manager main.go
