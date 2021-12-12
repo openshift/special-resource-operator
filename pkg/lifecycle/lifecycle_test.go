@@ -76,7 +76,7 @@ var _ = Describe("GetPodFromDaemonSet", func() {
 		gomock.InOrder(
 			mockClient.EXPECT().
 				Get(context.TODO(), nsn, unstructuredMatcher).
-				Do(func(ctx context.Context, _ types.NamespacedName, uo *unstructured.Unstructured) {
+				Do(func(ctx context.Context, key types.NamespacedName, uo *unstructured.Unstructured) {
 					m := make(map[string]interface{}, len(labels))
 
 					for k, v := range labels {
@@ -85,6 +85,7 @@ var _ = Describe("GetPodFromDaemonSet", func() {
 
 					err := unstructured.SetNestedMap(uo.Object, m, "spec", "selector", "matchLabels")
 					Expect(err).NotTo(HaveOccurred())
+					uo.SetNamespace(key.Namespace)
 				}),
 			mockClient.EXPECT().
 				List(context.TODO(), unstructuredListMatcher, optNs, optLabels).
@@ -123,10 +124,11 @@ var _ = Describe("UpdateDaemonSetPods", func() {
 			Name:      cmName,
 		}
 
+		// [TODO] - update the mocks, once storage package becomes typed interface with mock
 		gomock.InOrder(
 			mockClient.EXPECT().
 				Get(context.TODO(), nsn, unstructuredMatcher).
-				Do(func(_ context.Context, _ types.NamespacedName, uo *unstructured.Unstructured) {
+				Do(func(_ context.Context, key types.NamespacedName, uo *unstructured.Unstructured) {
 					m := make(map[string]interface{}, len(labels))
 
 					for k, v := range labels {
@@ -135,6 +137,7 @@ var _ = Describe("UpdateDaemonSetPods", func() {
 
 					err := unstructured.SetNestedMap(uo.Object, m, "spec", "selector", "matchLabels")
 					Expect(err).NotTo(HaveOccurred())
+					uo.SetNamespace(key.Namespace)
 				}),
 			mockClient.EXPECT().
 				List(context.TODO(), unstructuredListMatcher, optNs, optLabels).

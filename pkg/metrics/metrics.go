@@ -10,6 +10,7 @@ const (
 	createdSpecialResourcesQuery = "sro_managed_resources_total"
 	completedStatesQuery         = "sro_states_completed_info"
 	completedKindQuery           = "sro_kind_completed_info"
+	usedNodesQuery               = "sro_used_nodes"
 )
 
 var (
@@ -34,14 +35,22 @@ var (
 		},
 		[]string{"specialresource", "kind", "name", "namespace"},
 	)
+	usedNodes = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: usedNodesQuery,
+			Help: "Nodes that the deployments/daemonsets' pods are running on",
+		},
+		[]string{"cr", "kind", "name", "namespace", "nodes"},
+	)
 )
 
 func init() {
 	// Register custom metrics with the global prometheus registry
 	metrics.Registry.MustRegister(
-		createdSpecialResources,
 		completedStates,
+		createdSpecialResources,
 		completedKinds,
+		usedNodes,
 	)
 }
 
@@ -52,6 +61,7 @@ type Metrics interface {
 	SetSpecialResourcesCreated(value int)
 	SetCompletedState(specialResource, state string, value int)
 	SetCompletedKind(specialResource, kind, name, namespace string, value int)
+	SetUsedNodes(crName, kind, name, namespace, nodes string)
 }
 
 func New() Metrics {
@@ -70,4 +80,8 @@ func (m *metricsImpl) SetCompletedState(specialResource, state string, value int
 
 func (m *metricsImpl) SetCompletedKind(specialResource, kind, name, namespace string, value int) {
 	completedKinds.WithLabelValues(specialResource, kind, name, namespace).Set(float64(value))
+}
+
+func (m *metricsImpl) SetUsedNodes(crName, kind, name, namespace, nodes string) {
+	usedNodes.WithLabelValues(crName, kind, name, namespace, nodes).Set(float64(1))
 }

@@ -19,11 +19,6 @@ import (
 var log = zap.New(zap.UseDevMode(true)).WithName(color.Print("lifecycle", color.Green))
 
 func GetPodFromDaemonSet(key types.NamespacedName) unstructured.UnstructuredList {
-
-	pl := unstructured.UnstructuredList{}
-	pl.SetKind("PodList")
-	pl.SetAPIVersion("v1")
-
 	ds := &unstructured.Unstructured{}
 	ds.SetAPIVersion("apps/v1")
 	ds.SetKind("DaemonSet")
@@ -31,10 +26,33 @@ func GetPodFromDaemonSet(key types.NamespacedName) unstructured.UnstructuredList
 	err := clients.Interface.Get(context.TODO(), key, ds)
 	if apierrors.IsNotFound(err) || err != nil {
 		warn.OnError(err)
-		return pl
+		return unstructured.UnstructuredList{}
 	}
 
-	labels, found, err := unstructured.NestedMap(ds.Object, "spec", "selector", "matchLabels")
+	return getPodListForUpperObject(ds)
+}
+
+func GetPodFromDeployment(key types.NamespacedName) unstructured.UnstructuredList {
+
+	dp := &unstructured.Unstructured{}
+	dp.SetAPIVersion("apps/v1")
+	dp.SetKind("Deployment")
+
+	err := clients.Interface.Get(context.TODO(), key, dp)
+	if apierrors.IsNotFound(err) || err != nil {
+		warn.OnError(err)
+		return unstructured.UnstructuredList{}
+	}
+
+	return getPodListForUpperObject(dp)
+}
+
+func getPodListForUpperObject(obj *unstructured.Unstructured) unstructured.UnstructuredList {
+	pl := unstructured.UnstructuredList{}
+	pl.SetKind("PodList")
+	pl.SetAPIVersion("v1")
+
+	labels, found, err := unstructured.NestedMap(obj.Object, "spec", "selector", "matchLabels")
 	if err != nil || !found {
 		warn.OnError(err)
 		return pl
@@ -46,7 +64,7 @@ func GetPodFromDaemonSet(key types.NamespacedName) unstructured.UnstructuredList
 	}
 
 	opts := []client.ListOption{
-		client.InNamespace(key.Namespace),
+		client.InNamespace(obj.GetNamespace()),
 		client.MatchingLabels(matchLabels),
 	}
 
