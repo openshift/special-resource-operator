@@ -1,22 +1,31 @@
-HELM_REPOS = $(shell ls -d charts/*/)
+HELM_CHARTS_DIR = charts
+HELM_BUILD_ROOT_DIR = build
+HELM_BUILD_DIR = $(HELM_BUILD_ROOT_DIR)/$(HELM_CHARTS_DIR)
+HELM_REPOS = $(shell ls -d $(HELM_BUILD_DIR)/*/)
 
 
-helm-lint: helm
+helm-lint: helm helm-copy-charts
 	echo $(HELM_REPOS)
 	@for repo in $(HELM_REPOS); do                          \
 		cd $$repo;                              \
 		helm lint -f ../global-values.yaml `ls -d */`; \
-		cd ../..;                                      \
+		cd ../../..;                                    \
 	done
 
 helm-repo-index: helm-lint
-	@for repo in $(HELM_REPOS); do                          \
+	@for repo in $(HELM_REPOS); do                  \
 		cd $$repo;                              \
-		helm package `ls -d */`;                      \
-		helm repo index . --url=file:///$$repo; \
-		cd ../..;                                      \
+		helm package `ls -d */`;                \
+		file_url=`echo $$repo |sed 's/$(HELM_BUILD_ROOT_DIR)\///g'`;   \
+		helm repo index . --url=file:///$$file_url; \
+		cd ../../..;	                        \
 	done
 
+
+helm-copy-charts:
+	rm -rf $(HELM_BUILD_DIR)
+	mkdir -p $(HELM_BUILD_DIR)
+	cp -r $(HELM_CHARTS_DIR)/* $(HELM_BUILD_DIR)
 
 
 helm:
