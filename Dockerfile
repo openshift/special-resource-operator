@@ -38,7 +38,7 @@ ENV HELM_PLUGINS /opt/helm-plugins
 COPY --from=builder /workspace/manager .
 COPY --from=builder /workspace/helm-plugins ${HELM_PLUGINS}
 
-COPY charts/ /charts/
+COPY build/charts/ /charts/
 
 RUN useradd  -r -u 499 nonroot
 RUN getent group nonroot || groupadd -o -g 499 nonroot
