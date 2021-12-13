@@ -21,10 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var (
-	Interface Cluster
-)
-
 //go:generate mockgen -source=cluster.go -package=cluster -destination=mock_cluster_api.go
 
 type Cluster interface {

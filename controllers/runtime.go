@@ -9,7 +9,6 @@ import (
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
@@ -92,7 +91,7 @@ func getRuntimeInformation(r *SpecialResourceReconciler) error {
 		return fmt.Errorf("failed to cache nodes: %w", err)
 	}
 
-	RunInfo.OperatingSystemMajor, RunInfo.OperatingSystemMajorMinor, RunInfo.OperatingSystemDecimal, err = cluster.Interface.OperatingSystem()
+	RunInfo.OperatingSystemMajor, RunInfo.OperatingSystemMajorMinor, RunInfo.OperatingSystemDecimal, err = r.Cluster.OperatingSystem()
 	if err != nil {
 		return fmt.Errorf("failed to get operating system: %w", err)
 	}
@@ -115,12 +114,12 @@ func getRuntimeInformation(r *SpecialResourceReconciler) error {
 		}
 	}
 
-	RunInfo.ClusterVersion, RunInfo.ClusterVersionMajorMinor, err = cluster.Interface.Version()
+	RunInfo.ClusterVersion, RunInfo.ClusterVersionMajorMinor, err = r.Cluster.Version()
 	if err != nil {
 		return fmt.Errorf("failed to get cluster version: %w", err)
 	}
 
-	RunInfo.ClusterUpgradeInfo, err = upgrade.ClusterInfo()
+	RunInfo.ClusterUpgradeInfo, err = r.ClusterInfo.GetClusterInfo()
 	if err != nil {
 		return fmt.Errorf("failed to get upgrade info: %w", err)
 	}
@@ -128,7 +127,7 @@ func getRuntimeInformation(r *SpecialResourceReconciler) error {
 	RunInfo.PushSecretName, err = retryGetPushSecretName(r)
 	warn.OnError(err)
 
-	RunInfo.OSImageURL, err = cluster.Interface.OSImageURL()
+	RunInfo.OSImageURL, err = r.Cluster.OSImageURL()
 	if err != nil {
 		return fmt.Errorf("failed to get OSImageURL: %w", err)
 	}

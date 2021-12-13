@@ -23,10 +23,12 @@ import (
 	"github.com/go-logr/logr"
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
+	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
 	buildv1 "github.com/openshift/api/build/v1"
 	secv1 "github.com/openshift/api/security/v1"
 
@@ -56,7 +58,9 @@ type SpecialResourceReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 
-	Metrics metrics.Metrics
+	Metrics     metrics.Metrics
+	Cluster     cluster.Cluster
+	ClusterInfo upgrade.ClusterInfo
 
 	specialresource srov1beta1.SpecialResource
 	parent          srov1beta1.SpecialResource

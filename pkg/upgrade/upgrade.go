@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -17,7 +18,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var log = zap.New(zap.UseDevMode(true)).WithName(color.Print("upgrade", color.Blue))
+const (
+	labelKernelVersionFull    = "feature.node.kubernetes.io/kernel-version.full"
+	labelOSReleaseVersionID   = "feature.node.kubernetes.io/system-os_release.VERSION_ID"
+	labelOSReleaseRHELVersion = "feature.node.kubernetes.io/system-os_release.RHEL_VERSION"
+
+	labelOSReleaseID             = "feature.node.kubernetes.io/system-os_release.ID"
+	labelOSReleaseVersionIDMajor = "feature.node.kubernetes.io/system-os_release.VERSION_ID.major"
+	labelOSReleaseVersionIDMinor = "feature.node.kubernetes.io/system-os_release.VERSION_ID.minor"
+)
 
 type NodeVersion struct {
 	OSVersion      string                      `json:"OSVersion"`
@@ -27,19 +36,40 @@ type NodeVersion struct {
 	DriverToolkit  registry.DriverToolkitEntry `json:"driverToolkit"`
 }
 
-func ClusterInfo() (map[string]NodeVersion, error) {
+//go:generate mockgen -source=upgrade.go -package=upgrade -destination=mock_upgrade_api.go
 
-	info, err := NodeVersionInfo()
+type ClusterInfo interface {
+	GetClusterInfo() (map[string]NodeVersion, error)
+}
+
+func NewClusterInfo(registry registry.Registry, cluster cluster.Cluster) ClusterInfo {
+	return &clusterInfo{
+		log:      zap.New(zap.UseDevMode(true)).WithName(color.Print("upgrade", color.Blue)),
+		registry: registry,
+		cluster:  cluster,
+	}
+}
+
+type clusterInfo struct {
+	log      logr.Logger
+	registry registry.Registry
+	cluster  cluster.Cluster
+}
+
+// GetClusterInfo returns a map[full kernel version]NodeVersion
+func (ci *clusterInfo) GetClusterInfo() (map[string]NodeVersion, error) {
+
+	info, err := ci.nodeVersionInfo()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get upgrade info: %w", err)
 	}
 
-	history, err := cluster.Interface.VersionHistory()
+	history, err := ci.cluster.VersionHistory()
 	if err != nil {
 		return nil, fmt.Errorf("could not get version history: %w", err)
 	}
 
-	versions, err := DriverToolkitVersion(history, info)
+	versions, err := ci.driverToolkitVersion(history, info)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +78,7 @@ func ClusterInfo() (map[string]NodeVersion, error) {
 
 }
 
-func NodeVersionInfo() (map[string]NodeVersion, error) {
+func (ci *clusterInfo) nodeVersionInfo() (map[string]NodeVersion, error) {
 
 	var found bool
 	var info = make(map[string]NodeVersion)
@@ -64,21 +94,18 @@ func NodeVersionInfo() (map[string]NodeVersion, error) {
 		labels := node.GetLabels()
 		// We only need to check for the key, the value
 		// is available if the key is there
-		short := "feature.node.kubernetes.io/kernel-version.full"
-		if kernelFullVersion, found = labels[short]; !found {
-			return nil, fmt.Errorf("label %s not found is NFD running? Check node labels", short)
+		if kernelFullVersion, found = labels[labelKernelVersionFull]; !found {
+			return nil, fmt.Errorf("label %s not found is NFD running? Check node labels", labelKernelVersionFull)
 		}
 
-		short = "feature.node.kubernetes.io/system-os_release.VERSION_ID"
-		if clusterVersion, found = labels[short]; !found {
-			return nil, fmt.Errorf("label %s not found is NFD running? Check node labels", short)
+		if clusterVersion, found = labels[labelOSReleaseVersionID]; !found {
+			return nil, fmt.Errorf("label %s not found is NFD running? Check node labels", labelOSReleaseVersionID)
 		}
 
-		short = "feature.node.kubernetes.io/system-os_release.RHEL_VERSION"
-		if rhelVersion, found = labels[short]; !found {
-			nodeOSrel := labels["feature.node.kubernetes.io/system-os_release.ID"]
-			nodeOSmaj := labels["feature.node.kubernetes.io/system-os_release.VERSION_ID.major"]
-			nodeOSmin := labels["feature.node.kubernetes.io/system-os_release.VERSION_ID.minor"]
+		if rhelVersion, found = labels[labelOSReleaseRHELVersion]; !found {
+			nodeOSrel := labels[labelOSReleaseID]
+			nodeOSmaj := labels[labelOSReleaseVersionIDMajor]
+			nodeOSmin := labels[labelOSReleaseVersionIDMinor]
 			info[kernelFullVersion] = NodeVersion{OSVersion: nodeOSmaj + "." + nodeOSmin, OSMajor: nodeOSrel + nodeOSmaj, OSMajorMinor: nodeOSrel + nodeOSmaj + "." + nodeOSmin, ClusterVersion: clusterVersion}
 		} else {
 			rhelMaj := rhelVersion[0:1]
@@ -89,7 +116,7 @@ func NodeVersionInfo() (map[string]NodeVersion, error) {
 	return info, nil
 }
 
-func UpdateInfo(info map[string]NodeVersion, dtk registry.DriverToolkitEntry, imageURL string) (map[string]NodeVersion, error) {
+func (ci *clusterInfo) updateInfo(info map[string]NodeVersion, dtk registry.DriverToolkitEntry, imageURL string) (map[string]NodeVersion, error) {
 	dtk.ImageURL = imageURL
 	osDTK := dtk.OSVersion
 	// Assumes all nodes have the same architecture
@@ -100,7 +127,7 @@ func UpdateInfo(info map[string]NodeVersion, dtk registry.DriverToolkitEntry, im
 	if !strings.Contains(dtk.KernelFullVersion, runningArch) {
 		dtk.KernelFullVersion = dtk.KernelFullVersion + "." + runningArch
 		dtk.RTKernelFullVersion = dtk.RTKernelFullVersion + "." + runningArch
-		log.Info("Updating version:", "dtk.KernelFullVersion", dtk.KernelFullVersion, "dtk.RTKernelFullVersion", dtk.RTKernelFullVersion)
+		ci.log.Info("Updating version:", "dtk.KernelFullVersion", dtk.KernelFullVersion, "dtk.RTKernelFullVersion", dtk.RTKernelFullVersion)
 	}
 
 	if _, ok := info[dtk.KernelFullVersion]; ok {
@@ -135,18 +162,18 @@ func UpdateInfo(info map[string]NodeVersion, dtk registry.DriverToolkitEntry, im
 	return info, nil
 }
 
-func DriverToolkitVersion(entries []string, info map[string]NodeVersion) (map[string]NodeVersion, error) {
+func (ci *clusterInfo) driverToolkitVersion(entries []string, info map[string]NodeVersion) (map[string]NodeVersion, error) {
 
 	for _, entry := range entries {
 
-		log.Info("History", "entry", entry)
+		ci.log.Info("History", "entry", entry)
 
 		var (
 			err   error
 			layer v1.Layer
 		)
 
-		layer, err = registry.Interface.LastLayer(entry)
+		layer, err = ci.registry.LastLayer(entry)
 		if err != nil {
 			return nil, err
 		}
@@ -155,7 +182,7 @@ func DriverToolkitVersion(entries []string, info map[string]NodeVersion) (map[st
 			continue
 		}
 		// For each entry we're fetching the cluster version and dtk URL
-		_, imageURL, err := registry.Interface.ReleaseManifests(layer)
+		_, imageURL, err := ci.registry.ReleaseManifests(layer)
 		if err != nil {
 			return nil, fmt.Errorf("could not extract version from payload: %w", err)
 		}
@@ -165,11 +192,11 @@ func DriverToolkitVersion(entries []string, info map[string]NodeVersion) (map[st
 			return info, nil
 		}
 
-		if layer, err = registry.Interface.LastLayer(imageURL); layer == nil {
+		if layer, err = ci.registry.LastLayer(imageURL); layer == nil {
 			return nil, fmt.Errorf("cannot extract last layer for DTK from %s: %w", imageURL, err)
 		}
 
-		dtk, err := registry.Interface.ExtractToolkitRelease(layer)
+		dtk, err := ci.registry.ExtractToolkitRelease(layer)
 		if err != nil {
 			return nil, err
 		}
@@ -180,7 +207,7 @@ func DriverToolkitVersion(entries []string, info map[string]NodeVersion) (map[st
 		// We could have many entries with DTKs that are from an old update
 		// The objects that are kernel affine should only be replicated
 		// for valid kernels.
-		return UpdateInfo(info, dtk, imageURL)
+		return ci.updateInfo(info, dtk, imageURL)
 
 	}
 

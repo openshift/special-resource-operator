@@ -29,6 +29,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
+	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -82,16 +83,16 @@ func main() {
 		setupLog.Error(err, "unable to create k8s clients")
 		os.Exit(1)
 	}
-	registry.Interface = registry.NewRegistry()
-
-	cluster.Interface = cluster.NewCluster(clients.Interface)
+	clusterCluster := cluster.NewCluster(clients.Interface)
 
 	resource.RuntimeScheme = mgr.GetScheme()
 
 	if err = (&controllers.SpecialResourceReconciler{
-		Log:     ctrl.Log,
-		Scheme:  mgr.GetScheme(),
-		Metrics: metrics.New(),
+		Log:         ctrl.Log,
+		Scheme:      mgr.GetScheme(),
+		Metrics:     metrics.New(),
+		Cluster:     clusterCluster,
+		ClusterInfo: upgrade.NewClusterInfo(registry.NewRegistry(), clusterCluster),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
 		os.Exit(1)
