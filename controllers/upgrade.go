@@ -5,7 +5,6 @@ import (
 
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -19,7 +18,7 @@ func SpecialResourceUpgrade(r *SpecialResourceReconciler, req ctrl.Request) (ctr
 		return ctrl.Result{}, fmt.Errorf("failed to cache nodes: %w", err)
 	}
 
-	RunInfo.ClusterUpgradeInfo, err = upgrade.ClusterInfo()
+	RunInfo.ClusterUpgradeInfo, err = r.ClusterInfo.GetClusterInfo()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
