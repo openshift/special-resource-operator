@@ -68,3 +68,15 @@ func (mr *MockMetricsMockRecorder) SetSpecialResourcesCreated(value interface{})
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSpecialResourcesCreated", reflect.TypeOf((*MockMetrics)(nil).SetSpecialResourcesCreated), value)
 }
+
+// SetUsedNodes mocks base method.
+func (m *MockMetrics) SetUsedNodes(crName, kind, name, namespace, nodes string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetUsedNodes", crName, kind, name, namespace, nodes)
+}
+
+// SetUsedNodes indicates an expected call of SetUsedNodes.
+func (mr *MockMetricsMockRecorder) SetUsedNodes(crName, kind, name, namespace, nodes interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUsedNodes", reflect.TypeOf((*MockMetrics)(nil).SetUsedNodes), crName, kind, name, namespace, nodes)
+}

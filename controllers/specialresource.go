@@ -14,7 +14,6 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/pkg/errors"
@@ -329,7 +328,7 @@ func createSpecialResourceFrom(r *SpecialResourceReconciler, ch *chart.Chart, dp
 
 	log.Info("Creating SpecialResource: " + ch.Files[idx].Name)
 
-	if err := resource.CreateFromYAML(ch.Files[idx].Data,
+	if err := r.Creator.CreateFromYAML(ch.Files[idx].Data,
 		false,
 		&r.specialresource,
 		r.specialresource.Name,

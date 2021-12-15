@@ -1,19 +1,30 @@
 package resource_test
 
 import (
+	"context"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
+	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	buildv1 "github.com/openshift/api/build/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	kubetypes "k8s.io/apimachinery/pkg/types"
+)
+
+var (
+	unstructuredMatcher = gomock.AssignableToTypeOf(&unstructured.Unstructured{})
 )
 
 func TestResource(t *testing.T) {
@@ -313,8 +324,191 @@ var _ = Describe("SetNodeSelectorTerms", func() {
 	})
 })
 
-// TODO(qbarrand)
-//var _ = Describe("CreateFromYAML", func() {})
+var _ = Describe("creator_CreateFromYAML", func() {
+	var (
+		ctrl          *gomock.Controller
+		kubeClient    *clients.MockClientsInterface
+		metricsClient *metrics.MockMetrics
+		pollActions   *poll.MockPollActions
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		kubeClient = clients.NewMockClientsInterface(ctrl)
+		metricsClient = metrics.NewMockMetrics(ctrl)
+		pollActions = poll.NewMockPollActions(ctrl)
+	})
+
+	AfterEach(func() {
+		ctrl.Finish()
+	})
+
+	yamlSpec := []byte(`---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.14.2
+    ports:
+    - containerPort: 80
+  restartPolicy: Always
+`)
+
+	It("should not return an error when the resource is already there", func() {
+		const (
+			kernelFullVersion         = "1.2.3"
+			namespace                 = "ns"
+			operatingSystemMajorMinor = "8.5"
+			specialResourceName       = "special-resource"
+		)
+
+		nodeSelector := map[string]string{"key": "value"}
+
+		owner := v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "owner",
+				Namespace: namespace,
+			},
+		}
+
+		nsn := kubetypes.NamespacedName{
+			Namespace: namespace,
+			Name:      "nginx",
+		}
+
+		gomock.InOrder(
+			kubeClient.EXPECT().Get(context.TODO(), nsn, unstructuredMatcher),
+			metricsClient.EXPECT().SetCompletedKind(specialResourceName, "Pod", "nginx", namespace, 1),
+		)
+
+		scheme := runtime.NewScheme()
+
+		err := v1.AddToScheme(scheme)
+		Expect(err).NotTo(HaveOccurred())
+
+		err = resource.
+			NewCreator(kubeClient, metricsClient, pollActions, scheme).
+			CreateFromYAML(
+				yamlSpec,
+				false,
+				&owner,
+				specialResourceName,
+				namespace,
+				nodeSelector,
+				kernelFullVersion,
+				operatingSystemMajorMinor,
+			)
+
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should create the resource when it is not already there", func() {
+		const (
+			kernelFullVersion         = "1.2.3"
+			name                      = "nginx"
+			namespace                 = "ns"
+			operatingSystemMajorMinor = "8.5"
+			ownerName                 = "owner"
+			specialResourceName       = "special-resource"
+		)
+
+		nodeSelector := map[string]string{"key": "value"}
+
+		owner := v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      ownerName,
+				Namespace: namespace,
+			},
+		}
+
+		trueVar := true
+
+		newPod := unstructured.Unstructured{}
+		newPod.SetAPIVersion("v1")
+		newPod.SetKind("Pod")
+		newPod.SetName(name)
+		newPod.SetNamespace(namespace)
+		newPod.SetAnnotations(map[string]string{
+			"meta.helm.sh/release-name":         specialResourceName,
+			"meta.helm.sh/release-namespace":    namespace,
+			"specialresource.openshift.io/hash": "5473155173593167161",
+		})
+		newPod.SetLabels(map[string]string{
+			"app.kubernetes.io/managed-by":       "Helm",
+			"specialresource.openshift.io/owned": "true",
+		})
+		newPod.SetOwnerReferences([]metav1.OwnerReference{
+			{
+				APIVersion:         "v1",
+				Kind:               "Pod",
+				Name:               ownerName,
+				BlockOwnerDeletion: &trueVar,
+				Controller:         &trueVar,
+			},
+		})
+
+		container := map[string]interface{}{
+			"name":  "nginx",
+			"image": "nginx:1.14.2",
+			"ports": []interface{}{
+				map[string]interface{}{"containerPort": int64(80)},
+				// YAML deserializer converts all integers to int64, so use an int64 here as well
+			},
+		}
+
+		// Setting this manually because unstructured.SetNestedMap struggles to deep copy the container ports
+		newPod.Object["spec"] = map[string]interface{}{
+			"containers": []interface{}{container},
+		}
+
+		err := unstructured.SetNestedStringMap(newPod.Object, nodeSelector, "spec", "nodeSelector")
+		Expect(err).NotTo(HaveOccurred())
+
+		err = unstructured.SetNestedField(newPod.Object, "Always", "spec", "restartPolicy")
+		Expect(err).NotTo(HaveOccurred())
+
+		nsn := kubetypes.NamespacedName{
+			Namespace: namespace,
+			Name:      name,
+		}
+
+		gomock.InOrder(
+			kubeClient.
+				EXPECT().
+				Get(context.TODO(), nsn, unstructuredMatcher).
+				Return(errors.NewNotFound(v1.Resource("pod"), name)),
+			kubeClient.
+				EXPECT().
+				Create(context.TODO(), &newPod),
+			metricsClient.
+				EXPECT().
+				SetCompletedKind(specialResourceName, "Pod", name, namespace, 1),
+		)
+
+		scheme := runtime.NewScheme()
+
+		err = v1.AddToScheme(scheme)
+		Expect(err).NotTo(HaveOccurred())
+
+		err = resource.
+			NewCreator(kubeClient, metricsClient, pollActions, scheme).
+			CreateFromYAML(
+				yamlSpec,
+				false,
+				&owner,
+				specialResourceName,
+				namespace,
+				nodeSelector,
+				kernelFullVersion,
+				operatingSystemMajorMinor,
+			)
+
+		Expect(err).NotTo(HaveOccurred())
+	})
+})
 
 var _ = Describe("TestIsOneTimer", func() {
 	It("should return false for Service", func() {
