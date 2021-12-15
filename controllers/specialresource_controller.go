@@ -28,6 +28,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
+	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
 	buildv1 "github.com/openshift/api/build/v1"
 	secv1 "github.com/openshift/api/security/v1"
@@ -61,6 +62,7 @@ type SpecialResourceReconciler struct {
 	Metrics     metrics.Metrics
 	Cluster     cluster.Cluster
 	ClusterInfo upgrade.ClusterInfo
+	Creator     resource.Creator
 
 	specialresource srov1beta1.SpecialResource
 	parent          srov1beta1.SpecialResource

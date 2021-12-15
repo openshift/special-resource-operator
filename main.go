@@ -25,7 +25,9 @@ import (
 	"github.com/openshift-psap/special-resource-operator/controllers"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
+	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
+	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
@@ -85,14 +87,20 @@ func main() {
 	}
 	clusterCluster := cluster.NewCluster(clients.Interface)
 
-	resource.RuntimeScheme = mgr.GetScheme()
+	metricsClient := metrics.New()
+
+	creator := resource.NewCreator(clients.Interface, metricsClient, poll.New(), scheme)
+
+	// TODO(qbarrand): remove when pkg/helmer is a type that accepts a resource.Creator
+	helmer.Creator = creator
 
 	if err = (&controllers.SpecialResourceReconciler{
 		Log:         ctrl.Log,
-		Scheme:      mgr.GetScheme(),
-		Metrics:     metrics.New(),
+		Scheme:      scheme,
+		Metrics:     metricsClient,
 		Cluster:     clusterCluster,
 		ClusterInfo: upgrade.NewClusterInfo(registry.NewRegistry(), clusterCluster),
+		Creator:     creator,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
 		os.Exit(1)

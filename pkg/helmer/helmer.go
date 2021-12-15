@@ -43,6 +43,7 @@ var (
 	}
 
 	ActionConfig *action.Configuration
+	Creator      resource.Creator
 )
 
 func init() {
@@ -169,7 +170,7 @@ func InstallCRDs(crds []chart.CRD, owner v1.Object, name string, namespace strin
 	for _, crd := range crds {
 		fmt.Fprintf(&manifests, "---\n# Source: %s\n%s\n", crd.Filename, crd.File.Data)
 	}
-	if err := resource.CreateFromYAML([]byte(manifests.Bytes()),
+	if err := Creator.CreateFromYAML([]byte(manifests.Bytes()),
 		false, owner, name, namespace, nil, "", ""); err != nil {
 		return err
 	}
@@ -277,7 +278,7 @@ func Run(ch chart.Chart, vals map[string]interface{},
 	}
 
 	log.Info("Release manifests")
-	err = resource.CreateFromYAML([]byte(rel.Manifest),
+	err = Creator.CreateFromYAML([]byte(rel.Manifest),
 		ReleaseInstalled(name),
 		owner,
 		name,
@@ -383,7 +384,7 @@ func ExecHook(rl *release.Release, hook release.HookEvent, timeout time.Duration
 		// the most appropriate value to surface.
 		h.LastRun.Phase = release.HookPhaseUnknown
 
-		if err := resource.CreateFromYAML([]byte(h.Manifest), false, owner, name, namespace, nil, "", ""); err != nil {
+		if err := Creator.CreateFromYAML([]byte(h.Manifest), false, owner, name, namespace, nil, "", ""); err != nil {
 
 			h.LastRun.CompletedAt = helmtime.Now()
 			h.LastRun.Phase = release.HookPhaseFailed

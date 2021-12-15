@@ -15,7 +15,9 @@ KUBECONFIG       ?= ${HOME}/.kube/config
 export PATH := go/bin:$(PATH)
 
 patch:
-	./scripts/patch.sh
+	cp .patches/options.patch.go vendor/github.com/google/go-containerregistry/pkg/crane/.
+	cp .patches/action.patch.go vendor/helm.sh/helm/v3/pkg/action/.
+	cp .patches/install.patch.go vendor/helm.sh/helm/v3/pkg/action/.
 
 kube-lint: kube-linter
 	$(KUBELINTER) lint $(YAMLFILES)

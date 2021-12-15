@@ -9,7 +9,6 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/assets"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
-	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
@@ -303,7 +302,8 @@ metadata:
 		add := []byte(r.specialresource.Spec.Namespace)
 		ns = append(ns, add...)
 	}
-	if err := resource.CreateFromYAML(ns, false, &r.specialresource, r.specialresource.Name, "", nil, "", ""); err != nil {
+
+	if err := r.Creator.CreateFromYAML(ns, false, &r.specialresource, r.specialresource.Name, "", nil, "", ""); err != nil {
 		log.Info("Cannot reconcile specialresource namespace, something went horribly wrong")
 		return err
 	}
