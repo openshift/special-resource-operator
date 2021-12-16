@@ -14,16 +14,15 @@ export PATH := go/bin:$(PATH)
 
 patch:
 	cp .patches/options.patch.go vendor/github.com/google/go-containerregistry/pkg/crane/.
-	cp .patches/getter.patch.go vendor/helm.sh/helm/v3/pkg/getter/.
 	cp .patches/action.patch.go vendor/helm.sh/helm/v3/pkg/action/.
 	cp .patches/install.patch.go vendor/helm.sh/helm/v3/pkg/action/.
-	OUT="$(shell patch -p1 -N -i .patches/helm.patch)" || echo "${OUT}" | grep "Skipping patch" -q || (echo $OUT && false)
 
 kube-lint: kube-linter
 	$(KUBELINTER) lint $(YAMLFILES)
 
 lint: patch golangci-lint
 	$(GOLANGCILINT) run -v --timeout 5m0s
+	shellcheck helm-plugins/file-getter/cat-wrapper
 
 verify: patch fmt vet
 

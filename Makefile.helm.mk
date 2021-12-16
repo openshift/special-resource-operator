@@ -33,5 +33,5 @@ ifeq (, $(shell which helm))
 	}
 HELM=/usr/local/bin/helm
 else
-KUSTOMIZE=$(shell which helm)
+HELM=$(shell which helm)
 endif
