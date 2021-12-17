@@ -58,11 +58,11 @@ var _ = Describe("CheckConfigMapEntry", func() {
 		Expect(err).To(Equal(randomError))
 	})
 
-	It("should return an error with an empty ConfigMap", func() {
+	It("should not return an error with an empty ConfigMap", func() {
 		mockClient.EXPECT().Get(context.TODO(), nsn, unstructuredMatcher)
 
 		_, err := storage.CheckConfigMapEntry(key, nsn)
-		Expect(err).To(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("should return the expected value with a good ConfigMap", func() {

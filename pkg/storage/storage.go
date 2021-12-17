@@ -37,8 +37,12 @@ func CheckConfigMapEntry(key string, ins types.NamespacedName) (string, error) {
 	}
 
 	data, found, err := unstructured.NestedMap(cm.Object, "data")
-	if err != nil || !found {
-		return "", fmt.Errorf("error or data not found: %v", err)
+	if err != nil {
+		return "", fmt.Errorf("error getting the Data field: %v", err)
+	}
+
+	if !found {
+		return "", nil
 	}
 
 	if value, found := data[key]; found {
