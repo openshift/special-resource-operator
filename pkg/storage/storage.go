@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
@@ -36,8 +37,12 @@ func CheckConfigMapEntry(key string, ins types.NamespacedName) (string, error) {
 	}
 
 	data, found, err := unstructured.NestedMap(cm.Object, "data")
-	if err != nil || !found {
-		return "", err
+	if err != nil {
+		return "", fmt.Errorf("error getting the Data field: %v", err)
+	}
+
+	if !found {
+		return "", nil
 	}
 
 	if value, found := data[key]; found {
