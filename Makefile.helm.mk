@@ -6,19 +6,19 @@ HELM_REPOS = $(shell ls -d $(HELM_BUILD_DIR)/*/)
 
 helm-lint: helm helm-copy-charts
 	echo $(HELM_REPOS)
-	@for repo in $(HELM_REPOS); do                          \
-		cd $$repo;                              \
+	@for repo in $(HELM_REPOS); do \
+		cd $$repo; \
 		helm lint -f ../global-values.yaml `ls -d */`; \
-		cd ../../..;                                    \
+		cd ../../..; \
 	done
 
 helm-repo-index: helm-lint
-	@for repo in $(HELM_REPOS); do                  \
-		cd $$repo;                              \
-		helm package `ls -d */`;                \
-		file_url=`echo $$repo |sed 's/$(HELM_BUILD_ROOT_DIR)\///g'`;   \
+	@for repo in $(HELM_REPOS); do \
+		cd $$repo; \
+		helm package `ls -d */`; \
+		file_url=`echo $$repo |sed 's/$(HELM_BUILD_ROOT_DIR)\///g'`; \
 		helm repo index . --url=file:///$$file_url; \
-		cd ../../..;	                        \
+		cd ../../..; \
 	done
 
 

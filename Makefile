@@ -93,8 +93,8 @@ manager: patch generate ## Build manager binary.
 run: manifests generate ## Run against the configured Kubernetes cluster in ~/.kube/config
 	go run -mod=vendor ./main.go
 
-local-image-build: patch helm-lint helm-repo-index generate manifests-gen ## Build container image with the manager.
-	podman build -t $(IMG) --no-cache .
+local-image-build: ## Build container image with the manager.
+	$(CONTAINER_COMMAND) build -t $(IMG) .
 
 local-image-push: ## Push docker image with the manager.
 	podman push $(IMG)
