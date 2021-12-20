@@ -43,6 +43,7 @@ type Creator interface {
 
 type creator struct {
 	kubeClient    clients.ClientsInterface
+	lc            lifecycle.Lifecycle
 	log           logr.Logger
 	metricsClient metrics.Metrics
 	pollActions   poll.PollActions
@@ -54,9 +55,11 @@ func NewCreator(
 	metricsClient metrics.Metrics,
 	pollActions poll.PollActions,
 	scheme *runtime.Scheme,
+	lc lifecycle.Lifecycle,
 ) Creator {
 	return &creator{
 		kubeClient:    kubeClient,
+		lc:            lc,
 		log:           zap.New(zap.UseDevMode(true)).WithName(color.Print("resource", color.Blue)),
 		metricsClient: metricsClient,
 		pollActions:   pollActions,
@@ -453,9 +456,9 @@ func (c *creator) sendNodesMetrics(obj *unstructured.Unstructured, crName string
 		Namespace: obj.GetNamespace(),
 		Name:      obj.GetName(),
 	}
-	getPodsFunc := lifecycle.GetPodFromDaemonSet
+	getPodsFunc := c.lc.GetPodFromDaemonSet
 	if kind == "Deployment" {
-		getPodsFunc = lifecycle.GetPodFromDeployment
+		getPodsFunc = c.lc.GetPodFromDeployment
 	}
 
 	pl := getPodsFunc(objKey)

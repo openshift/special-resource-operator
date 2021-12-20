@@ -38,6 +38,7 @@ type PollActions interface {
 }
 
 type pollActions struct {
+	lc      lifecycle.Lifecycle
 	log     logr.Logger
 	waitFor map[string]func(obj *unstructured.Unstructured) error
 }
@@ -47,8 +48,9 @@ const (
 	timeout       = time.Second * 30
 )
 
-func New() PollActions {
+func New(lc lifecycle.Lifecycle) PollActions {
 	actions := pollActions{
+		lc:  lc,
 		log: zap.New(zap.UseDevMode(true)).WithName(color.Print("wait", color.Brown)),
 	}
 	waitFor := map[string]func(obj *unstructured.Unstructured) error{
@@ -378,7 +380,7 @@ func (p *pollActions) forLifecycleAvailability(obj *unstructured.Unstructured) e
 
 		p.log.Info("Waiting for lifecycle update of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
 
-		pl := lifecycle.GetPodFromDaemonSet(objKey)
+		pl := p.lc.GetPodFromDaemonSet(objKey)
 
 		for _, pod := range pl.Items {
 			p.log.Info("Checking lifecycle of", "Pod", pod.GetName())

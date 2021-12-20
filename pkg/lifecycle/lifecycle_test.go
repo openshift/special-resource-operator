@@ -40,13 +40,10 @@ func TestLifecycle(t *testing.T) {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockClient = clients.NewMockClientsInterface(ctrl)
-
-		clients.Interface = mockClient
 	})
 
 	AfterEach(func() {
 		ctrl.Finish()
-		clients.Interface = nil
 	})
 
 	RunSpecs(t, "Lifecycle Suite")
@@ -65,7 +62,7 @@ var _ = Describe("GetPodFromDaemonSet", func() {
 			Get(context.TODO(), nsn, gomock.Any()).
 			Return(err)
 
-		pl := lifecycle.GetPodFromDaemonSet(nsn)
+		pl := lifecycle.New(mockClient).GetPodFromDaemonSet(nsn)
 
 		Expect(pl.Items).To(BeEmpty())
 	})
@@ -94,7 +91,9 @@ var _ = Describe("GetPodFromDaemonSet", func() {
 				}),
 		)
 
-		pl := lifecycle.GetPodFromDaemonSet(types.NamespacedName{Namespace: "ns", Name: "test"})
+		pl := lifecycle.
+			New(mockClient).
+			GetPodFromDaemonSet(types.NamespacedName{Namespace: "ns", Name: "test"})
 
 		Expect(pl.Items).To(HaveLen(nPod))
 	})
@@ -109,6 +108,13 @@ var _ = Describe("UpdateDaemonSetPods", func() {
 	})
 
 	It("should update the ConfigMap", func() {
+		// TODO(qbarrand) remove this when pkg/storage can be injected a clients.Interface
+		clients.Interface = mockClient
+
+		defer func() {
+			clients.Interface = nil
+		}()
+
 		err := os.Setenv(namespaceEnvVar, namespace)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -178,7 +184,7 @@ var _ = Describe("UpdateDaemonSetPods", func() {
 		obj.SetNamespace(namespace)
 		obj.SetName(name)
 
-		err = lifecycle.UpdateDaemonSetPods(&obj)
+		err = lifecycle.New(mockClient).UpdateDaemonSetPods(&obj)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
