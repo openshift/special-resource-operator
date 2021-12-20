@@ -44,7 +44,7 @@ type cluster struct {
 
 func (c *cluster) Version() (string, string, error) {
 
-	available, err := c.ClusterVersionAvailable()
+	available, err := c.clusterVersionAvailable()
 	if err != nil {
 		return "", "", err
 	}
@@ -81,7 +81,7 @@ func (c *cluster) VersionHistory() ([]string, error) {
 
 	stat := []string{}
 
-	available, err := c.ClusterVersionAvailable()
+	available, err := c.clusterVersionAvailable()
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +171,7 @@ func (c *cluster) OperatingSystem() (string, string, string, error) {
 	return osversion.RenderOperatingSystem(nodeOSrel, nodeOSmaj, nodeOSmin)
 }
 
-func (c *cluster) ClusterVersionAvailable() (bool, error) {
+func (c *cluster) clusterVersionAvailable() (bool, error) {
 
 	clusterVersionAvailable, err := c.clients.HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions"))
 	if err != nil {
