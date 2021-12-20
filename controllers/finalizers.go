@@ -7,7 +7,6 @@ import (
 
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -17,8 +16,6 @@ import (
 )
 
 const specialresourceFinalizer = "sro.openshift.io/finalizer"
-
-var pollActions = poll.New()
 
 func reconcileFinalizers(r *SpecialResourceReconciler) error {
 	if contains(r.specialresource.GetFinalizers(), specialresourceFinalizer) {
@@ -113,7 +110,7 @@ func finalizeSpecialResource(r *SpecialResourceReconciler) error {
 					log.Error(err, "Failed to delete namespace", "namespace", r.specialresource.Spec.Namespace)
 					return err
 				}
-				err = pollActions.ForResourceUnavailability(&ns)
+				err = r.PollActions.ForResourceUnavailability(&ns)
 				if err != nil {
 					log.Error(err, "Failed to delete namespace", "namespace", r.specialresource.Spec.Namespace)
 					return err

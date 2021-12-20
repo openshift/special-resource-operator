@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
@@ -328,6 +329,7 @@ var _ = Describe("creator_CreateFromYAML", func() {
 	var (
 		ctrl          *gomock.Controller
 		kubeClient    *clients.MockClientsInterface
+		mockLifecycle *lifecycle.MockLifecycle
 		metricsClient *metrics.MockMetrics
 		pollActions   *poll.MockPollActions
 	)
@@ -335,6 +337,7 @@ var _ = Describe("creator_CreateFromYAML", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		kubeClient = clients.NewMockClientsInterface(ctrl)
+		mockLifecycle = lifecycle.NewMockLifecycle(ctrl)
 		metricsClient = metrics.NewMockMetrics(ctrl)
 		pollActions = poll.NewMockPollActions(ctrl)
 	})
@@ -390,7 +393,7 @@ spec:
 		Expect(err).NotTo(HaveOccurred())
 
 		err = resource.
-			NewCreator(kubeClient, metricsClient, pollActions, scheme).
+			NewCreator(kubeClient, metricsClient, pollActions, scheme, mockLifecycle).
 			CreateFromYAML(
 				yamlSpec,
 				false,
@@ -494,7 +497,7 @@ spec:
 		Expect(err).NotTo(HaveOccurred())
 
 		err = resource.
-			NewCreator(kubeClient, metricsClient, pollActions, scheme).
+			NewCreator(kubeClient, metricsClient, pollActions, scheme, mockLifecycle).
 			CreateFromYAML(
 				yamlSpec,
 				false,

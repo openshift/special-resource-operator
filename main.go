@@ -26,6 +26,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
+	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
@@ -89,7 +90,14 @@ func main() {
 
 	metricsClient := metrics.New()
 
-	creator := resource.NewCreator(clients.Interface, metricsClient, poll.New(), scheme)
+	lc := lifecycle.New(clients.Interface)
+
+	creator := resource.NewCreator(
+		clients.Interface,
+		metricsClient,
+		poll.New(lc),
+		scheme,
+		lc)
 
 	// TODO(qbarrand): remove when pkg/helmer is a type that accepts a resource.Creator
 	helmer.Creator = creator

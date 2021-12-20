@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/hash"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
@@ -199,7 +200,7 @@ func Predicate() predicate.Predicate {
 					log.Info(Mode+" Owned Generation or resourceVersion Changed for kernel affine object",
 						"Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
 					if reflect.TypeOf(obj).String() == "*v1.DaemonSet" && e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
-						err := lifecycle.UpdateDaemonSetPods(obj)
+						err := lifecycle.New(clients.Interface).UpdateDaemonSetPods(obj)
 						warn.OnError(err)
 					}
 					return true
@@ -233,7 +234,7 @@ func Predicate() predicate.Predicate {
 					"Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
 
 				if reflect.TypeOf(obj).String() == "*v1.DaemonSet" {
-					err := lifecycle.UpdateDaemonSetPods(obj)
+					err := lifecycle.New(clients.Interface).UpdateDaemonSetPods(obj)
 					warn.OnError(err)
 				}
 

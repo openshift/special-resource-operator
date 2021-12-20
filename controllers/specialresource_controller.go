@@ -28,6 +28,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
+	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
 	buildv1 "github.com/openshift/api/build/v1"
@@ -63,6 +64,7 @@ type SpecialResourceReconciler struct {
 	Cluster     cluster.Cluster
 	ClusterInfo upgrade.ClusterInfo
 	Creator     resource.Creator
+	PollActions poll.PollActions
 
 	specialresource srov1beta1.SpecialResource
 	parent          srov1beta1.SpecialResource
