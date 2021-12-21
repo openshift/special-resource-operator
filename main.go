@@ -25,6 +25,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/controllers"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
+	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
@@ -109,6 +110,7 @@ func main() {
 		Cluster:     clusterCluster,
 		ClusterInfo: upgrade.NewClusterInfo(registry.NewRegistry(), clusterCluster),
 		Creator:     creator,
+		Filter:      filter.NewFilter(lc),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
 		os.Exit(1)
