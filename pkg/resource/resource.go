@@ -374,7 +374,7 @@ func (c *creator) createObjFromYAML(yamlSpec []byte,
 	// We used this for predicate filtering, we're watching a lot of
 	// API Objects we want to ignore all objects that do not have this
 	// label.
-	if err = filter.SetLabel(obj); err != nil {
+	if err = SetLabel(obj); err != nil {
 		return fmt.Errorf("could not set label: %w", err)
 	}
 	// kernel affinity related attributes only set if there is an
@@ -661,5 +661,65 @@ func BeforeCRUD(obj *unstructured.Unstructured, sr interface{}) error {
 			return fmt.Errorf("could not run prefix callback: %w", err)
 		}
 	}
+	return nil
+}
+
+func SetLabel(obj *unstructured.Unstructured) error {
+
+	var labels map[string]string
+
+	if labels = obj.GetLabels(); labels == nil {
+		labels = make(map[string]string)
+	}
+
+	labels[filter.OwnedLabel] = "true"
+	obj.SetLabels(labels)
+
+	return setSubResourceLabel(obj)
+}
+
+func setSubResourceLabel(obj *unstructured.Unstructured) error {
+
+	if obj.GetKind() == "DaemonSet" || obj.GetKind() == "Deployment" ||
+		obj.GetKind() == "StatefulSet" {
+
+		labels, found, err := unstructured.NestedMap(obj.Object, "spec", "template", "metadata", "labels")
+		if err != nil {
+			return err
+		}
+		if !found {
+			return errors.New("Labels not found")
+		}
+
+		labels[filter.OwnedLabel] = "true"
+		if err := unstructured.SetNestedMap(obj.Object, labels, "spec", "template", "metadata", "labels"); err != nil {
+			return err
+		}
+	}
+
+	// TODO: how to set label ownership for Builds and related Pods
+	/*
+		if obj.GetKind() == "BuildConfig" {
+			output, found, err := unstructured.NestedMap(obj.Object, "spec", "output")
+			if err != nil {
+				return err
+			}
+			if !found {
+				return errors.New("output not found")
+			}
+
+			label := make(map[string]interface{})
+			label["name"] = filter.OwnedLabel
+			label["value"] = "true"
+			imageLabels := append(make([]interface{}, 0), label)
+
+			if _, found := output["imageLabels"]; !found {
+				err := unstructured.SetNestedSlice(obj.Object, imageLabels, "spec", "output", "imageLabels")
+				if err != nil {
+					return err
+				}
+			}
+		}
+	*/
 	return nil
 }

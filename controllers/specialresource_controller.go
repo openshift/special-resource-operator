@@ -65,6 +65,7 @@ type SpecialResourceReconciler struct {
 	ClusterInfo upgrade.ClusterInfo
 	Creator     resource.Creator
 	PollActions poll.PollActions
+	Filter      filter.Filter
 
 	specialresource srov1beta1.SpecialResource
 	parent          srov1beta1.SpecialResource
@@ -144,7 +145,7 @@ func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			WithOptions(controller.Options{
 				MaxConcurrentReconciles: 1,
 			}).
-			WithEventFilter(filter.Predicate()).
+			WithEventFilter(r.Filter.GetPredicates()).
 			Complete(r)
 	} else {
 		log.Info("Warning: assuming vanilla K8s. Manager will own a limited set of resources.")
@@ -164,7 +165,7 @@ func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			WithOptions(controller.Options{
 				MaxConcurrentReconciles: 1,
 			}).
-			WithEventFilter(filter.Predicate()).
+			WithEventFilter(r.Filter.GetPredicates()).
 			Complete(r)
 	}
 }

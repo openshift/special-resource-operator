@@ -11,7 +11,6 @@ import (
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
@@ -33,7 +32,7 @@ func (r *SpecialResourceReconciler) GetName() string {
 // SpecialResourcesReconcile Takes care of all specialresources in the cluster
 func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
 
-	log = r.Log.WithName(color.Print("reconcile: "+filter.Mode, color.Purple))
+	log = r.Log.WithName(color.Print("reconcile: "+r.Filter.GetMode(), color.Purple))
 
 	log.Info("Reconciling SpecialResource(s) in all Namespaces")
 

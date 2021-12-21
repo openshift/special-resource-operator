@@ -1,93 +1,30 @@
-package filter_test
+package filter
 
 import (
+	"io/ioutil"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+
 	"github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/filter"
-	buildv1 "github.com/openshift/api/build/v1"
-	v1 "k8s.io/api/apps/v1"
+	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestFilter(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Filter Suite")
 }
-
-var _ = Describe("SetLabel", func() {
-	objs := []runtime.Object{
-		&v1.DaemonSet{
-			TypeMeta: metav1.TypeMeta{Kind: "DaemonSet"},
-		},
-		&v1.Deployment{
-			TypeMeta: metav1.TypeMeta{Kind: "Deployment"},
-		},
-		&v1.StatefulSet{
-			TypeMeta: metav1.TypeMeta{Kind: "StatefulSet"},
-		},
-	}
-
-	entries := make([]TableEntry, 0, len(objs))
-
-	for _, o := range objs {
-		entries = append(entries, Entry(o.GetObjectKind().GroupVersionKind().Kind, o))
-	}
-
-	testFunc := func(o client.Object) {
-		mo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(o)
-		Expect(err).NotTo(HaveOccurred())
-
-		uo := unstructured.Unstructured{Object: mo}
-
-		// Create the map manually, otherwise SetLabel returns an error
-		err = unstructured.SetNestedStringMap(uo.Object, map[string]string{}, "spec", "template", "metadata", "labels")
-		Expect(err).NotTo(HaveOccurred())
-
-		err = filter.SetLabel(&uo)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(uo.GetLabels()).To(HaveKeyWithValue("specialresource.openshift.io/owned", "true"))
-
-		v, found, err := unstructured.NestedString(
-			uo.Object,
-			"spec",
-			"template",
-			"metadata",
-			"labels",
-			"specialresource.openshift.io/owned")
-
-		Expect(err).NotTo(HaveOccurred())
-		Expect(found).To(BeTrue())
-		Expect(v).To(Equal("true"))
-	}
-
-	DescribeTable("should the label", testFunc, entries...)
-
-	It("should the label for BuildConfig", func() {
-		bc := buildv1.BuildConfig{
-			TypeMeta: metav1.TypeMeta{Kind: "BuildConfig"},
-		}
-
-		mo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&bc)
-		Expect(err).NotTo(HaveOccurred())
-
-		uo := unstructured.Unstructured{Object: mo}
-
-		err = filter.SetLabel(&uo)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(uo.GetLabels()).To(HaveKeyWithValue("specialresource.openshift.io/owned", "true"))
-	})
-})
 
 var _ = Describe("IsSpecialResource", func() {
 	cases := []struct {
@@ -96,9 +33,9 @@ var _ = Describe("IsSpecialResource", func() {
 		matcher types.GomegaMatcher
 	}{
 		{
-			name: "SpecialResource",
+			name: Kind,
 			obj: &v1beta1.SpecialResource{
-				TypeMeta: metav1.TypeMeta{Kind: "SpecialResource"},
+				TypeMeta: metav1.TypeMeta{Kind: Kind},
 			},
 			matcher: BeTrue(),
 		},
@@ -106,7 +43,7 @@ var _ = Describe("IsSpecialResource", func() {
 			name: "Pod owned by SRO",
 			obj: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"specialresource.openshift.io/owned": "true"},
+					Labels: map[string]string{OwnedLabel: "true"},
 				},
 			},
 			matcher: BeFalse(),
@@ -147,7 +84,10 @@ var _ = Describe("IsSpecialResource", func() {
 	DescribeTable(
 		"should return the correct value",
 		func(obj client.Object, m types.GomegaMatcher) {
-			Expect(filter.IsSpecialResource(obj)).To(m)
+			f := filter{
+				log: zap.New(zap.WriteTo(ioutil.Discard)),
+			}
+			Expect(f.isSpecialResource(obj)).To(m)
 		},
 		entries...)
 })
@@ -163,7 +103,7 @@ var _ = Describe("Owned", func() {
 			obj: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					OwnerReferences: []metav1.OwnerReference{
-						{Kind: "SpecialResource"},
+						{Kind: Kind},
 					},
 				},
 			},
@@ -173,7 +113,7 @@ var _ = Describe("Owned", func() {
 			name: "via labels",
 			obj: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"specialresource.openshift.io/owned": "whatever"},
+					Labels: map[string]string{OwnedLabel: "whatever"},
 				},
 			},
 			matcher: BeTrue(),
@@ -194,16 +134,30 @@ var _ = Describe("Owned", func() {
 	DescribeTable(
 		"should return the expected value",
 		func(obj client.Object, m types.GomegaMatcher) {
-			Expect(filter.Owned(obj)).To(m)
+			f := filter{
+				log: zap.New(zap.WriteTo(ioutil.Discard)),
+			}
+			Expect(f.owned(obj)).To(m)
 		},
 		entries...,
 	)
 })
 
 var _ = Describe("Predicate", func() {
-	resetMode := func() { filter.Mode = "" }
+	var (
+		ctrl          *gomock.Controller
+		mockLifecycle *lifecycle.MockLifecycle
+		f             filter
+	)
 
-	AfterEach(resetMode)
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		mockLifecycle = lifecycle.NewMockLifecycle(ctrl)
+		f = filter{
+			log:       zap.New(zap.WriteTo(ioutil.Discard)),
+			lifecycle: mockLifecycle,
+		}
+	})
 
 	Context("CreateFunc", func() {
 		cases := []struct {
@@ -221,7 +175,7 @@ var _ = Describe("Predicate", func() {
 				obj: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: "SpecialResource"},
+							{Kind: Kind},
 						},
 					},
 				},
@@ -243,19 +197,217 @@ var _ = Describe("Predicate", func() {
 		DescribeTable(
 			"should work as expected",
 			func(obj client.Object, m types.GomegaMatcher) {
-				ret := filter.Predicate().Create(event.CreateEvent{Object: obj})
+				ret := f.GetPredicates().Create(event.CreateEvent{Object: obj})
 
 				Expect(ret).To(m)
-				Expect(filter.Mode).To(Equal("CREATE"))
+				Expect(f.GetMode()).To(Equal("CREATE"))
 			},
 			entries...,
 		)
 	})
 
 	Context("UpdateFunc", func() {
-		It("should work as expected", func() {
-			Skip("Testing this function requires injecting a fake ClientSet")
-		})
+
+		cases := []struct {
+			name       string
+			mockSetup  func()
+			old        client.Object
+			new        client.Object
+			retMatcher types.GomegaMatcher
+		}{
+			{
+				name:      "No change to object's Generation or ResourceVersion",
+				mockSetup: func() {},
+				old: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						OwnerReferences: []metav1.OwnerReference{
+							{Kind: Kind},
+						},
+						Generation:      1,
+						ResourceVersion: "dummy1",
+					},
+				},
+				new: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						OwnerReferences: []metav1.OwnerReference{
+							{Kind: Kind},
+						},
+						Generation:      1,
+						ResourceVersion: "dummy1",
+					},
+				},
+				retMatcher: BeFalse(),
+			},
+			{
+				name:      "Object's Generation changed, no change to ResourceVersion",
+				mockSetup: func() {},
+				old: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						OwnerReferences: []metav1.OwnerReference{
+							{Kind: Kind},
+						},
+						Generation:      1,
+						ResourceVersion: "dummy1",
+					},
+				},
+				new: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						OwnerReferences: []metav1.OwnerReference{
+							{Kind: Kind},
+						},
+						Generation:      2,
+						ResourceVersion: "dummy1",
+					},
+				},
+				retMatcher: BeFalse(),
+			},
+			{
+				name:      "Object has changed but is not owned by SRO",
+				mockSetup: func() {},
+				old: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Generation:      1,
+						ResourceVersion: "dummy1",
+					},
+				},
+				new: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Generation:      2,
+						ResourceVersion: "dummy2",
+					},
+				},
+				retMatcher: BeFalse(),
+			},
+			{
+				name: "Object has changed and it's a SRO owned DaemonSet",
+				mockSetup: func() {
+					mockLifecycle.EXPECT().UpdateDaemonSetPods(gomock.Any()).Return(nil)
+				},
+				old: &appsv1.DaemonSet{
+					ObjectMeta: metav1.ObjectMeta{
+						OwnerReferences: []metav1.OwnerReference{
+							{Kind: Kind},
+						},
+						Generation:      1,
+						ResourceVersion: "dummy1",
+					},
+				},
+				new: &appsv1.DaemonSet{
+					ObjectMeta: metav1.ObjectMeta{
+						OwnerReferences: []metav1.OwnerReference{
+							{Kind: Kind},
+						},
+						Generation:      2,
+						ResourceVersion: "dummy2",
+					},
+				},
+				retMatcher: BeTrue(),
+			},
+			{
+				name:      "Object is a SRO owned & kernel affine DaemonSet, but did not change",
+				mockSetup: func() {},
+				old: &appsv1.DaemonSet{
+					ObjectMeta: metav1.ObjectMeta{
+						OwnerReferences: []metav1.OwnerReference{
+							{Kind: Kind},
+						},
+						Annotations: map[string]string{
+							"specialresource.openshift.io/kernel-affine": "true",
+						},
+						Generation:      0,
+						ResourceVersion: "dummy",
+					},
+				},
+				new: &appsv1.DaemonSet{
+					ObjectMeta: metav1.ObjectMeta{
+						OwnerReferences: []metav1.OwnerReference{
+							{Kind: Kind},
+						},
+						Annotations: map[string]string{
+							"specialresource.openshift.io/kernel-affine": "true",
+						},
+						Generation:      0,
+						ResourceVersion: "dummy",
+					},
+				},
+				retMatcher: BeFalse(),
+			},
+			{
+				name: "Object is a SRO owned & kernel affine DaemonSet",
+				mockSetup: func() {
+					mockLifecycle.EXPECT().UpdateDaemonSetPods(gomock.Any()).Return(nil)
+				},
+				old: &appsv1.DaemonSet{
+					ObjectMeta: metav1.ObjectMeta{
+						OwnerReferences: []metav1.OwnerReference{
+							{Kind: Kind},
+						},
+						Annotations: map[string]string{
+							"specialresource.openshift.io/kernel-affine": "true",
+						},
+						Generation:      0,
+						ResourceVersion: "dummy",
+					},
+				},
+				new: &appsv1.DaemonSet{
+					ObjectMeta: metav1.ObjectMeta{
+						OwnerReferences: []metav1.OwnerReference{
+							{Kind: Kind},
+						},
+						Annotations: map[string]string{
+							"specialresource.openshift.io/kernel-affine": "true",
+						},
+						Generation:      1,
+						ResourceVersion: "dummy",
+					},
+				},
+				retMatcher: BeTrue(),
+			},
+			{
+				name:      "Object is a SpecialResource with both Generation and ResourceVersion changed",
+				mockSetup: func() {},
+				old: &v1beta1.SpecialResource{
+					ObjectMeta: metav1.ObjectMeta{
+						OwnerReferences: []metav1.OwnerReference{
+							{Kind: Kind},
+						},
+						Generation:      1,
+						ResourceVersion: "dummy1",
+					},
+				},
+				new: &v1beta1.SpecialResource{
+					ObjectMeta: metav1.ObjectMeta{
+						OwnerReferences: []metav1.OwnerReference{
+							{Kind: Kind},
+						},
+						Generation:      2,
+						ResourceVersion: "dummy2",
+					},
+				},
+				retMatcher: BeTrue(),
+			},
+		}
+
+		entries := make([]TableEntry, 0, len(cases))
+		for _, c := range cases {
+			entries = append(entries, Entry(c.name, c.mockSetup, c.old, c.new, c.retMatcher))
+		}
+
+		DescribeTable(
+			"should work as expected",
+			func(mockSetup func(), old client.Object, new client.Object, m types.GomegaMatcher) {
+				mockSetup()
+
+				ret := f.GetPredicates().Update(event.UpdateEvent{
+					ObjectOld: old,
+					ObjectNew: new,
+				})
+
+				Expect(ret).To(m)
+				Expect(f.GetMode()).To(Equal("UPDATE"))
+			},
+			entries...,
+		)
 	})
 
 	Context("DeleteFunc", func() {
@@ -269,7 +421,7 @@ var _ = Describe("Predicate", func() {
 				obj:        &v1beta1.SpecialResource{},
 				retMatcher: BeTrue(),
 			},
-			// TODO(qbarrand) testing this function requires injecting a fake ClientSet
+			// TODO(qbarrand) testing this function requires injecting a fake pkg/storage
 			//{ name: "owned" },
 			{
 				name:       "random pod",
@@ -287,10 +439,10 @@ var _ = Describe("Predicate", func() {
 		DescribeTable(
 			"should work as expected",
 			func(obj client.Object, m types.GomegaMatcher) {
-				ret := filter.Predicate().Delete(event.DeleteEvent{Object: obj})
+				ret := f.GetPredicates().Delete(event.DeleteEvent{Object: obj})
 
 				Expect(ret).To(m)
-				Expect(filter.Mode).To(Equal("DELETE"))
+				Expect(f.GetMode()).To(Equal("DELETE"))
 			},
 			entries...,
 		)
@@ -312,7 +464,7 @@ var _ = Describe("Predicate", func() {
 				obj: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: "SpecialResource"},
+							{Kind: Kind},
 						},
 					},
 				},
@@ -334,10 +486,10 @@ var _ = Describe("Predicate", func() {
 		DescribeTable(
 			"should return the correct value",
 			func(obj client.Object, m types.GomegaMatcher) {
-				ret := filter.Predicate().Generic(event.GenericEvent{Object: obj})
+				ret := f.GetPredicates().Generic(event.GenericEvent{Object: obj})
 
 				Expect(ret).To(m)
-				Expect(filter.Mode).To(Equal("GENERIC"))
+				Expect(f.GetMode()).To(Equal("GENERIC"))
 			},
 			entries...,
 		)
