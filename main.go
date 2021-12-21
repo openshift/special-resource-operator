@@ -92,11 +92,12 @@ func main() {
 	metricsClient := metrics.New()
 
 	lc := lifecycle.New(clients.Interface)
+	pollActions := poll.New(lc)
 
 	creator := resource.NewCreator(
 		clients.Interface,
 		metricsClient,
-		poll.New(lc),
+		pollActions,
 		scheme,
 		lc)
 
@@ -110,6 +111,7 @@ func main() {
 		Cluster:     clusterCluster,
 		ClusterInfo: upgrade.NewClusterInfo(registry.NewRegistry(), clusterCluster),
 		Creator:     creator,
+		PollActions: pollActions,
 		Filter:      filter.NewFilter(lc),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
