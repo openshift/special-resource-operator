@@ -27,6 +27,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
+	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
@@ -66,6 +67,7 @@ type SpecialResourceReconciler struct {
 	ClusterInfo upgrade.ClusterInfo
 	Creator     resource.Creator
 	Filter      filter.Filter
+	Helmer      helmer.Helmer
 	PollActions poll.PollActions
 	Storage     storage.Storage
 

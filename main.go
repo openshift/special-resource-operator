@@ -103,19 +103,16 @@ func main() {
 		scheme,
 		lc)
 
-	// TODO(qbarrand): remove when pkg/helmer is a type that accepts a resource.Creator
-	helmer.Creator = creator
-
-	if err = (&controllers.SpecialResourceReconciler{
-		Log:         ctrl.Log,
-		Scheme:      scheme,
-		Metrics:     metricsClient,
-		Cluster:     clusterCluster,
+	if err = (&controllers.SpecialResourceReconciler{Cluster: clusterCluster,
 		ClusterInfo: upgrade.NewClusterInfo(registry.NewRegistry(), clusterCluster),
 		Creator:     creator,
 		PollActions: pollActions,
 		Filter:      filter.NewFilter(lc, st),
 		Storage:     st,
+		Helmer:      helmer.NewHelmer(creator, helmer.DefaultSettings()),
+		Log:         ctrl.Log,
+		Metrics:     metricsClient,
+		Scheme:      scheme,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
 		os.Exit(1)
