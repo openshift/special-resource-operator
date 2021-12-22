@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kelseyhightower/envconfig"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"github.com/openshift-psap/special-resource-operator/test/framework"
@@ -157,7 +158,7 @@ func checkModuleLoaded(cs *framework.ClientSet) error {
 		}
 		unloadCmd := []string{"/bin/sh", "-c", "/host/usr/sbin/lsmod | grep -o simple_kmod"}
 		valExp := "simple_kmod"
-		_, err = WaitForCmdOutputInNode(simpleKmodPollInterval, simpleKmodWaitDuration, node.Name, &valExp, true, unloadCmd...)
+		_, err = WaitForCmdOutputInNode(simpleKmodPollInterval, simpleKmodWaitDuration, node.Name, cs.Config.Namespace, &valExp, true, unloadCmd...)
 		if err != nil {
 			return err
 		}
@@ -176,7 +177,7 @@ func checkModuleUnloaded(cs *framework.ClientSet) error {
 		}
 		unloadCmd := []string{"/bin/sh", "-c", "/host/usr/sbin/lsmod | grep -c simple-kmod || true"}
 		unloadValExp := "0"
-		_, err = WaitForCmdOutputInNode(simpleKmodPollInterval, simpleKmodWaitDuration, node.Name, &unloadValExp, true, unloadCmd...)
+		_, err = WaitForCmdOutputInNode(simpleKmodPollInterval, simpleKmodWaitDuration, node.Name, cs.Config.Namespace, &unloadValExp, true, unloadCmd...)
 		if err != nil {
 			return err
 		}
@@ -187,7 +188,11 @@ func checkModuleUnloaded(cs *framework.ClientSet) error {
 
 var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", func() {
 
-	cs := framework.NewClientSet()
+	var config framework.Config
+	err := envconfig.Process("sro", &config)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	cs := framework.NewClientSet(config)
 
 	cl, err := framework.NewControllerRuntimeClient()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())

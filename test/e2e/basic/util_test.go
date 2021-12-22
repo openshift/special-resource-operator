@@ -60,14 +60,14 @@ func execCommand(name string, args ...string) (bytes.Buffer, bytes.Buffer, error
 // The function returns the retrieved standard output and an error returned when
 // running 'cmd'.  Non-nil error is also returned when standard output of 'cmd'
 // did not match non-nil 'valExp' by the time duration 'duration' elapsed.
-func WaitForCmdOutputInNode(interval, duration time.Duration, nodename string, valExp *string, trim bool, cmd ...string) (string, error) {
+func WaitForCmdOutputInNode(interval, duration time.Duration, nodename, namespace string, valExp *string, trim bool, cmd ...string) (string, error) {
 	var (
 		val          string
 		err, explain error
 	)
 	err = wait.PollImmediate(interval, duration, func() (bool, error) {
 		// Run oc debug  node/nodename -- cmd...
-		ocArgs := []string{"debug", "-n", "openshift-special-resource-operator", "node/" + nodename, "--"}
+		ocArgs := []string{"debug", "-n", namespace, "node/" + nodename, "--"}
 		ocArgs = append(ocArgs, cmd...)
 
 		stdout, stderr, err := execCommand("oc", ocArgs...)
@@ -208,7 +208,7 @@ func WaitClusterOperatorNamespace(clientSet *framework.ClientSet) error {
 				if co.Name == "special-resource-operator" {
 					for _, relatedObject := range co.Status.RelatedObjects {
 						if relatedObject.Resource == "namespaces" &&
-							relatedObject.Name == "openshift-special-resource-operator" {
+							relatedObject.Name == clientSet.Config.Namespace {
 							wg.Done()
 						}
 					}

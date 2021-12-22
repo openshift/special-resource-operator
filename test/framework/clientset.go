@@ -15,7 +15,12 @@ import (
 	//clientmachineconfigv1 "github.com/openshift/machine-config-operator/pkg/generated/clientset/versioned/typed/machineconfiguration.openshift.io/v1"
 )
 
+type Config struct {
+	Namespace string `envconfig:"NAMESPACE" default:"openshift-special-resource-operator"`
+}
+
 type ClientSet struct {
+	Config Config
 	corev1client.CoreV1Interface
 	appsv1client.AppsV1Interface
 	clientconfigv1.ConfigV1Interface
@@ -24,13 +29,14 @@ type ClientSet struct {
 }
 
 // NewClientSet returns a *ClientBuilder with the given kubeconfig.
-func NewClientSet() *ClientSet {
+func NewClientSet(config Config) *ClientSet {
 	kubeconfig, err := getConfig()
 	if err != nil {
 		panic(err)
 	}
 
 	clientSet := &ClientSet{}
+	clientSet.Config = config
 	clientSet.CoreV1Interface = corev1client.NewForConfigOrDie(kubeconfig)
 	clientSet.ConfigV1Interface = clientconfigv1.NewForConfigOrDie(kubeconfig)
 	//clientSet.TunedV1Interface = tunedv1client.NewForConfigOrDie(kubeconfig)

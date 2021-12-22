@@ -139,7 +139,7 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusUpdate() error {
 
 func (r *SpecialResourceReconciler) clusterOperatorUpdateRelatedObjects() error {
 	relatedObjects := []configv1.ObjectReference{
-		{Group: "", Resource: "namespaces", Name: "openshift-special-resource-operator"},
+		{Group: "", Resource: "namespaces", Name: os.Getenv("OPERATOR_NAMESPACE")},
 		{Group: "sro.openshift.io", Resource: "specialresources", Name: ""},
 	}
 
