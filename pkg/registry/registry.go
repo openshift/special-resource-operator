@@ -96,9 +96,7 @@ func (r *registry) LastLayer(entry string) (v1.Layer, error) {
 		repo = tag[0]
 	}
 
-	options := crane.NilOption
-
-	manifest, err := crane.Manifest(entry, options)
+	manifest, err := crane.Manifest(entry)
 	if err != nil {
 		warn.OnError(fmt.Errorf("cannot extract manifest: %v", err))
 		return nil, nil
@@ -118,7 +116,7 @@ func (r *registry) LastLayer(entry string) (v1.Layer, error) {
 
 	digest := last.(map[string]interface{})["digest"].(string)
 
-	return crane.PullLayer(repo+"@"+digest, options)
+	return crane.PullLayer(repo + "@" + digest)
 }
 
 func (r *registry) ExtractToolkitRelease(layer v1.Layer) (DriverToolkitEntry, error) {

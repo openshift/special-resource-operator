@@ -11,7 +11,6 @@ import (
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
 	"github.com/pkg/errors"
@@ -92,7 +91,7 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 
 	log.Info("Resolving Dependencies")
 
-	pchart, err := helmer.Load(r.parent.Spec.Chart)
+	pchart, err := r.Helmer.Load(r.parent.Spec.Chart)
 	if err != nil {
 		operatorStatusUpdate(&r.parent, fmt.Sprintf("%v", err))
 		return reconcile.Result{}, err
@@ -104,7 +103,7 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 		log = r.Log.WithName(color.Print(r.dependency.Name, color.Purple))
 		log.Info("Getting Dependency")
 
-		cchart, err := helmer.Load(r.dependency.HelmChart)
+		cchart, err := r.Helmer.Load(r.dependency.HelmChart)
 		if err != nil {
 			return ctrl.Result{}, err
 		}

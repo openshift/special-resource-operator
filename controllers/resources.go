@@ -8,7 +8,6 @@ import (
 
 	"github.com/openshift-psap/special-resource-operator/pkg/assets"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
@@ -218,7 +217,7 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 				fmt.Printf("STEP VALUES --------------------------------------------------\n%s\n\n", d)
 			}
 
-			err = helmer.Run(step, step.Values,
+			err = r.Helmer.Run(step, step.Values,
 				&r.specialresource,
 				r.specialresource.Name,
 				r.specialresource.Spec.Namespace,
@@ -274,7 +273,7 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 		return err
 	}
 
-	return helmer.Run(nostate, nostate.Values,
+	return r.Helmer.Run(nostate, nostate.Values,
 		&r.specialresource,
 		r.specialresource.Name,
 		r.specialresource.Spec.Namespace,
