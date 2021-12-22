@@ -40,6 +40,7 @@ type PollActions interface {
 type pollActions struct {
 	lc      lifecycle.Lifecycle
 	log     logr.Logger
+	storage storage.Storage
 	waitFor map[string]func(obj *unstructured.Unstructured) error
 }
 
@@ -48,10 +49,11 @@ const (
 	timeout       = time.Second * 30
 )
 
-func New(lc lifecycle.Lifecycle) PollActions {
+func New(lc lifecycle.Lifecycle, storage storage.Storage) PollActions {
 	actions := pollActions{
-		lc:  lc,
-		log: zap.New(zap.UseDevMode(true)).WithName(color.Print("wait", color.Brown)),
+		lc:      lc,
+		log:     zap.New(zap.UseDevMode(true)).WithName(color.Print("wait", color.Brown)),
+		storage: storage,
 	}
 	waitFor := map[string]func(obj *unstructured.Unstructured) error{
 		"Pod":                      actions.forPod,
@@ -388,7 +390,7 @@ func (p *pollActions) forLifecycleAvailability(obj *unstructured.Unstructured) e
 			if err != nil {
 				return false, err
 			}
-			value, err := storage.CheckConfigMapEntry(hs, ins)
+			value, err := p.storage.CheckConfigMapEntry(hs, ins)
 			if err != nil {
 				return false, err
 			}

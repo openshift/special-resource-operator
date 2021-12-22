@@ -2,7 +2,6 @@ package storage_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -11,8 +10,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -22,10 +20,11 @@ const (
 )
 
 var (
-	ctrl                *gomock.Controller
-	mockClient          *clients.MockClientsInterface
-	nsn                 = types.NamespacedName{Namespace: namespaceName, Name: resourceName}
-	unstructuredMatcher = gomock.AssignableToTypeOf(&unstructured.Unstructured{})
+	ctrl       *gomock.Controller
+	mockClient *clients.MockClientsInterface
+	notFound   = k8serrors.NewNotFound(v1.Resource("configmap"), resourceName)
+	nsn        = types.NamespacedName{Namespace: namespaceName, Name: resourceName}
+	cmMatcher  = gomock.AssignableToTypeOf(&v1.ConfigMap{})
 )
 
 func TestStorage(t *testing.T) {
@@ -46,79 +45,53 @@ func TestStorage(t *testing.T) {
 	RunSpecs(t, "Storage Suite")
 }
 
-var _ = Describe("CheckConfigMapEntry", func() {
+var _ = Describe("storage_CheckConfigMapEntry", func() {
 	const key = "test-key"
 
 	It("should return an error with no ConfigMap present", func() {
-		randomError := errors.New("random error")
+		mockClient.
+			EXPECT().
+			Get(context.TODO(), nsn, &v1.ConfigMap{}).
+			Return(notFound)
 
-		mockClient.EXPECT().Get(context.TODO(), nsn, unstructuredMatcher).Return(randomError)
-
-		_, err := storage.CheckConfigMapEntry(key, nsn)
-		Expect(err).To(Equal(randomError))
+		_, err := storage.NewStorage(mockClient).CheckConfigMapEntry(key, nsn)
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("should not return an error with an empty ConfigMap", func() {
-		mockClient.EXPECT().Get(context.TODO(), nsn, unstructuredMatcher)
+		mockClient.
+			EXPECT().
+			Get(context.TODO(), nsn, &v1.ConfigMap{})
 
-		_, err := storage.CheckConfigMapEntry(key, nsn)
+		_, err := storage.NewStorage(mockClient).CheckConfigMapEntry(key, nsn)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("should return the expected value with a good ConfigMap", func() {
 		const data = "test-data"
 
-		mockClient.EXPECT().
-			Get(context.TODO(), nsn, unstructuredMatcher).
-			Do(func(_ context.Context, _ types.NamespacedName, uo *unstructured.Unstructured) {
-				err := unstructured.SetNestedMap(uo.Object, map[string]interface{}{key: data}, "data")
-				Expect(err).NotTo(HaveOccurred())
+		mockClient.
+			EXPECT().
+			Get(context.TODO(), nsn, &v1.ConfigMap{}).
+			Do(func(_ context.Context, _ types.NamespacedName, cm *v1.ConfigMap) {
+				cm.Data = map[string]string{key: data}
 			})
 
-		v, err := storage.CheckConfigMapEntry(key, nsn)
+		v, err := storage.NewStorage(mockClient).CheckConfigMapEntry(key, nsn)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(v).To(Equal(data))
 	})
 })
 
-var _ = Describe("GetConfigMap", func() {
-	It("should return an error with no ConfigMap present", func() {
-		randomError := errors.New("random error")
-
-		mockClient.EXPECT().Get(context.TODO(), nsn, unstructuredMatcher).Return(randomError)
-
-		_, err := storage.GetConfigMap(namespaceName, resourceName)
-		Expect(err).To(HaveOccurred())
-	})
-
-	It("should work as expected", func() {
-		data := map[string]string{"key": "value"}
-
-		mockClient.EXPECT().Get(context.TODO(), nsn, unstructuredMatcher).
-			Do(func(_ context.Context, _ types.NamespacedName, uo *unstructured.Unstructured) {
-				err := unstructured.SetNestedStringMap(uo.Object, data, "data")
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-		res, err := storage.GetConfigMap(namespaceName, resourceName)
-		Expect(err).NotTo(HaveOccurred())
-
-		resData, found, err := unstructured.NestedStringMap(res.Object, "data")
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(found).To(BeTrue())
-		Expect(resData).To(Equal(data))
-	})
-})
-
 var _ = Describe("UpdateConfigMapEntry", func() {
 	It("should return an error when the ConfigMap does not exist", func() {
-		randomError := errors.New("random error")
+		mockClient.
+			EXPECT().
+			Get(context.TODO(), nsn, &v1.ConfigMap{}).
+			Return(notFound)
 
-		mockClient.EXPECT().Get(context.TODO(), nsn, unstructuredMatcher).Return(randomError)
-
-		err := storage.UpdateConfigMapEntry("any-key", "any-value", nsn)
+		err := storage.NewStorage(mockClient).UpdateConfigMapEntry("any-key", "any-value", nsn)
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -129,19 +102,15 @@ var _ = Describe("UpdateConfigMapEntry", func() {
 		)
 
 		gomock.InOrder(
-			mockClient.EXPECT().Get(context.TODO(), nsn, unstructuredMatcher),
+			mockClient.EXPECT().Get(context.TODO(), nsn, &v1.ConfigMap{}),
 			mockClient.EXPECT().
-				Update(context.TODO(), unstructuredMatcher).
-				Do(func(_ context.Context, uo *unstructured.Unstructured) {
-					cm := v1.ConfigMap{}
-
-					err := runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &cm)
-					Expect(err).NotTo(HaveOccurred())
+				Update(context.TODO(), cmMatcher).
+				Do(func(_ context.Context, cm *v1.ConfigMap) {
 					Expect(cm.Data).To(HaveKeyWithValue(key, value))
 				}),
 		)
 
-		err := storage.UpdateConfigMapEntry(key, value, nsn)
+		err := storage.NewStorage(mockClient).UpdateConfigMapEntry(key, value, nsn)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -153,40 +122,39 @@ var _ = Describe("UpdateConfigMapEntry", func() {
 
 		gomock.InOrder(
 			mockClient.EXPECT().
-				Get(context.TODO(), nsn, unstructuredMatcher).
-				Do(func(_ context.Context, _ types.NamespacedName, uo *unstructured.Unstructured) {
-					err := unstructured.SetNestedStringMap(uo.Object, map[string]string{key: "oldvalue"}, "data")
-					Expect(err).NotTo(HaveOccurred())
+				Get(context.TODO(), nsn, &v1.ConfigMap{}).
+				Do(func(_ context.Context, _ types.NamespacedName, cm *v1.ConfigMap) {
+					cm.Data = map[string]string{key: "oldvalue"}
 				}),
 			mockClient.EXPECT().
-				Update(context.TODO(), unstructuredMatcher).
-				Do(func(_ context.Context, uo *unstructured.Unstructured) {
-					cm := v1.ConfigMap{}
-
-					err := runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &cm)
-					Expect(err).NotTo(HaveOccurred())
+				Update(context.TODO(), cmMatcher).
+				Do(func(_ context.Context, cm *v1.ConfigMap) {
 					Expect(cm.Data).To(HaveKeyWithValue(key, newValue))
 				}),
 		)
-		err := storage.UpdateConfigMapEntry(key, newValue, nsn)
+
+		err := storage.NewStorage(mockClient).UpdateConfigMapEntry(key, newValue, nsn)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
 
 var _ = Describe("DeleteConfigMapEntry", func() {
 	It("should return an error when the ConfigMap does not exist", func() {
-		randomError := errors.New("random error")
+		mockClient.
+			EXPECT().
+			Get(context.TODO(), nsn, &v1.ConfigMap{}).
+			Return(notFound)
 
-		mockClient.EXPECT().Get(context.TODO(), nsn, unstructuredMatcher).Return(randomError)
-
-		err := storage.DeleteConfigMapEntry("any-key", nsn)
+		err := storage.NewStorage(mockClient).DeleteConfigMapEntry("any-key", nsn)
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("should not return an error when the key does not exist", func() {
-		mockClient.EXPECT().Get(context.TODO(), nsn, unstructuredMatcher)
+		mockClient.
+			EXPECT().
+			Get(context.TODO(), nsn, &v1.ConfigMap{})
 
-		err := storage.DeleteConfigMapEntry("some-other-key", nsn)
+		err := storage.NewStorage(mockClient).DeleteConfigMapEntry("some-other-key", nsn)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -201,22 +169,19 @@ var _ = Describe("DeleteConfigMapEntry", func() {
 
 		gomock.InOrder(
 			mockClient.EXPECT().
-				Get(context.TODO(), nsn, unstructuredMatcher).
-				Do(func(_ context.Context, _ types.NamespacedName, uo *unstructured.Unstructured) {
-					err := unstructured.SetNestedStringMap(uo.Object, data, "data")
-					Expect(err).NotTo(HaveOccurred())
+				Get(context.TODO(), nsn, &v1.ConfigMap{}).
+				Do(func(_ context.Context, _ types.NamespacedName, cm *v1.ConfigMap) {
+					cm.Data = data
 				}),
 			mockClient.EXPECT().
-				Update(context.TODO(), unstructuredMatcher).
-				Do(func(_ context.Context, uo *unstructured.Unstructured) {
-					data, found, err := unstructured.NestedStringMap(uo.Object, "data")
-					Expect(err).NotTo(HaveOccurred())
-					Expect(found).To(BeTrue())
-					Expect(data).NotTo(HaveKey(otherKey))
-					Expect(data).To(HaveKey(key))
+				Update(context.TODO(), cmMatcher).
+				Do(func(_ context.Context, cm *v1.ConfigMap) {
+					Expect(cm.Data).NotTo(HaveKey(otherKey))
+					Expect(cm.Data).To(HaveKeyWithValue(key, value))
 				}),
 		)
-		err := storage.DeleteConfigMapEntry(otherKey, nsn)
+
+		err := storage.NewStorage(mockClient).DeleteConfigMapEntry(otherKey, nsn)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
