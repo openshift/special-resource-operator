@@ -28,12 +28,14 @@ type Lifecycle interface {
 type lifecycle struct {
 	kubeClient clients.ClientsInterface
 	log        logr.Logger
+	storage    storage.Storage
 }
 
-func New(kubeClient clients.ClientsInterface) Lifecycle {
+func New(kubeClient clients.ClientsInterface, storage storage.Storage) Lifecycle {
 	return &lifecycle{
 		kubeClient: kubeClient,
 		log:        zap.New(zap.UseDevMode(true)).WithName(color.Print("lifecycle", color.Green)),
+		storage:    storage,
 	}
 }
 
@@ -119,7 +121,7 @@ func (l *lifecycle) UpdateDaemonSetPods(obj client.Object) error {
 		}
 		value := "*v1.Pod"
 		l.log.Info(pod.GetName(), "hs", hs, "value", value)
-		err = storage.UpdateConfigMapEntry(hs, value, ins)
+		err = l.storage.UpdateConfigMapEntry(hs, value, ins)
 		if err != nil {
 			warn.OnError(err)
 			return err

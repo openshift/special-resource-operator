@@ -30,16 +30,18 @@ type Filter interface {
 	GetMode() string
 }
 
-func NewFilter(lifecycle lifecycle.Lifecycle) Filter {
+func NewFilter(lifecycle lifecycle.Lifecycle, storage storage.Storage) Filter {
 	return &filter{
 		log:       zap.New(zap.UseDevMode(true)).WithName(color.Print("filter", color.Purple)),
 		lifecycle: lifecycle,
+		storage:   storage,
 	}
 }
 
 type filter struct {
 	log       logr.Logger
 	lifecycle lifecycle.Lifecycle
+	storage   storage.Storage
 
 	mode string
 }
@@ -221,7 +223,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 					warn.OnError(err)
 					return false
 				}
-				err = storage.DeleteConfigMapEntry(key, ins)
+				err = f.storage.DeleteConfigMapEntry(key, ins)
 				warn.OnError(err)
 
 				return true

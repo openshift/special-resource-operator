@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
+	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -23,9 +24,10 @@ const (
 )
 
 var (
-	ctrl       *gomock.Controller
-	labels     = map[string]string{"key": "value"}
-	mockClient *clients.MockClientsInterface
+	ctrl        *gomock.Controller
+	labels      = map[string]string{"key": "value"}
+	mockClient  *clients.MockClientsInterface
+	mockStorage *storage.MockStorage
 
 	optNs     = client.InNamespace(namespace)
 	optLabels = client.MatchingLabels(labels)
@@ -40,6 +42,7 @@ func TestLifecycle(t *testing.T) {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockClient = clients.NewMockClientsInterface(ctrl)
+		mockStorage = storage.NewMockStorage(ctrl)
 	})
 
 	AfterEach(func() {
@@ -62,7 +65,7 @@ var _ = Describe("GetPodFromDaemonSet", func() {
 			Get(context.TODO(), nsn, gomock.Any()).
 			Return(err)
 
-		pl := lifecycle.New(mockClient).GetPodFromDaemonSet(nsn)
+		pl := lifecycle.New(mockClient, mockStorage).GetPodFromDaemonSet(nsn)
 
 		Expect(pl.Items).To(BeEmpty())
 	})
@@ -92,7 +95,7 @@ var _ = Describe("GetPodFromDaemonSet", func() {
 		)
 
 		pl := lifecycle.
-			New(mockClient).
+			New(mockClient, mockStorage).
 			GetPodFromDaemonSet(types.NamespacedName{Namespace: "ns", Name: "test"})
 
 		Expect(pl.Items).To(HaveLen(nPod))
@@ -108,17 +111,8 @@ var _ = Describe("UpdateDaemonSetPods", func() {
 	})
 
 	It("should update the ConfigMap", func() {
-		// TODO(qbarrand) remove this when pkg/storage can be injected a clients.Interface
-		clients.Interface = mockClient
-
-		defer func() {
-			clients.Interface = nil
-		}()
-
 		err := os.Setenv(namespaceEnvVar, namespace)
 		Expect(err).NotTo(HaveOccurred())
-
-		const cmName = "special-resource-lifecycle"
 
 		nsn := types.NamespacedName{
 			Namespace: namespace,
@@ -127,10 +121,9 @@ var _ = Describe("UpdateDaemonSetPods", func() {
 
 		cmNsn := types.NamespacedName{
 			Namespace: namespace,
-			Name:      cmName,
+			Name:      "special-resource-lifecycle",
 		}
 
-		// [TODO] - update the mocks, once storage package becomes typed interface with mock
 		gomock.InOrder(
 			mockClient.EXPECT().
 				Get(context.TODO(), nsn, unstructuredMatcher).
@@ -158,33 +151,15 @@ var _ = Describe("UpdateDaemonSetPods", func() {
 
 					ul.Items = []unstructured.Unstructured{pod1, pod2}
 				}),
-			mockClient.EXPECT().
-				Get(context.TODO(), cmNsn, unstructuredMatcher),
-			mockClient.EXPECT().
-				Update(context.TODO(), unstructuredMatcher).
-				Do(func(_ context.Context, uo *unstructured.Unstructured) {
-					data, found, err := unstructured.NestedMap(uo.Object, "data")
-					Expect(err).NotTo(HaveOccurred())
-					Expect(found).To(BeTrue())
-					Expect(data).To(HaveKeyWithValue("39005a809548c688", "*v1.Pod"))
-				}),
-			mockClient.EXPECT().
-				Get(context.TODO(), cmNsn, unstructuredMatcher),
-			mockClient.EXPECT().
-				Update(context.TODO(), unstructuredMatcher).
-				Do(func(_ context.Context, uo *unstructured.Unstructured) {
-					data, found, err := unstructured.NestedMap(uo.Object, "data")
-					Expect(err).NotTo(HaveOccurred())
-					Expect(found).To(BeTrue())
-					Expect(data).To(HaveKeyWithValue("39005d809548cba1", "*v1.Pod"))
-				}),
+			mockStorage.EXPECT().UpdateConfigMapEntry("39005a809548c688", "*v1.Pod", cmNsn),
+			mockStorage.EXPECT().UpdateConfigMapEntry("39005d809548cba1", "*v1.Pod", cmNsn),
 		)
 
 		obj := unstructured.Unstructured{}
 		obj.SetNamespace(namespace)
 		obj.SetName(name)
 
-		err = lifecycle.New(mockClient).UpdateDaemonSetPods(&obj)
+		err = lifecycle.New(mockClient, mockStorage).UpdateDaemonSetPods(&obj)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })

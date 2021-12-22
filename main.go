@@ -33,6 +33,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
+	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -91,8 +92,9 @@ func main() {
 
 	metricsClient := metrics.New()
 
-	lc := lifecycle.New(clients.Interface)
-	pollActions := poll.New(lc)
+	st := storage.NewStorage(clients.Interface)
+	lc := lifecycle.New(clients.Interface, st)
+	pollActions := poll.New(lc, st)
 
 	creator := resource.NewCreator(
 		clients.Interface,
@@ -112,7 +114,8 @@ func main() {
 		ClusterInfo: upgrade.NewClusterInfo(registry.NewRegistry(), clusterCluster),
 		Creator:     creator,
 		PollActions: pollActions,
-		Filter:      filter.NewFilter(lc),
+		Filter:      filter.NewFilter(lc, st),
+		Storage:     st,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
 		os.Exit(1)

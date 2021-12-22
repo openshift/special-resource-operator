@@ -14,7 +14,6 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
-	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/chart"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -62,7 +61,7 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 			Namespace: os.Getenv("OPERATOR_NAMESPACE"),
 			Name:      "special-resource-dependencies",
 		}
-		parent, err := storage.CheckConfigMapEntry(req.Name, obj)
+		parent, err := r.Storage.CheckConfigMapEntry(req.Name, obj)
 		if err != nil {
 			operatorStatusUpdate(&r.parent, fmt.Sprintf("%v", err))
 			return reconcile.Result{}, err
@@ -117,7 +116,7 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 			Namespace: os.Getenv("OPERATOR_NAMESPACE"),
 			Name:      "special-resource-dependencies",
 		}
-		if err = storage.UpdateConfigMapEntry(r.dependency.Name, r.parent.Name, ins); err != nil {
+		if err = r.Storage.UpdateConfigMapEntry(r.dependency.Name, r.parent.Name, ins); err != nil {
 			operatorStatusUpdate(&r.parent, fmt.Sprintf("%v", err))
 			return reconcile.Result{}, err
 		}
