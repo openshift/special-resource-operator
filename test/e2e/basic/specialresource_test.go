@@ -6,6 +6,8 @@ import (
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"github.com/openshift-psap/special-resource-operator/test/framework"
+
+	"github.com/kelseyhightower/envconfig"
 )
 
 func TestSRO(t *testing.T) {
@@ -14,7 +16,12 @@ func TestSRO(t *testing.T) {
 }
 
 var _ = ginkgo.BeforeSuite(func() {
-	cs := framework.NewClientSet()
+
+	var config framework.Config
+	err := envconfig.Process("sro", &config)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	cs := framework.NewClientSet(config)
 
 	cl, err := framework.NewControllerRuntimeClient()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -24,7 +31,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ginkgo.By("[pre] Checking SRO status...")
-	err = WaitSRORunning(clientSet, "openshift-special-resource-operator")
+	err = WaitSRORunning(clientSet, cs.Config.Namespace)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ginkgo.By("[pre] Creating preamble...")

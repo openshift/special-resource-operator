@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kelseyhightower/envconfig"
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
@@ -27,7 +28,11 @@ const (
 
 var _ = ginkgo.Describe("[basic][ping-pong] Test ping-pong", func() {
 
-	cs := framework.NewClientSet()
+	var config framework.Config
+	err := envconfig.Process("sro", &config)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	cs := framework.NewClientSet(config)
 
 	cl, err := framework.NewControllerRuntimeClient()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred(), "error while getting a controller client")
