@@ -121,6 +121,8 @@ func (ci *clusterInfo) updateInfo(info map[string]NodeVersion, dtk registry.Driv
 	osDTK := dtk.OSVersion
 	// Assumes all nodes have the same architecture
 	runningArch := runtime.GOARCH
+	ci.log.Info("Runtime GOARCH is:", "runningArch", runningArch)
+	ci.log.Info("dtk.KernelFullVersion is:", "kernelVersion", dtk.KernelFullVersion)
 	switch runningArch {
 	case "amd64":
 		runningArch = "x86_64"
