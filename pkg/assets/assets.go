@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 
+	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -20,11 +21,29 @@ type Metadata struct {
 	Content []byte
 }
 
-// GetFrom reads all manifests 0000- from path and returns them
-func GetFrom(assets string) []Metadata {
+//go:generate mockgen -source=assets.go -package=assets -destination=mock_assets_api.go
 
+type Assets interface {
+	GetFrom(assets string) []Metadata
+	ValidStateName(path string) bool
+}
+
+type assets struct {
+	log     logr.Logger
+	reState *regexp.Regexp
+}
+
+func NewAssets() Assets {
+	return &assets{
+		log:     zap.New(zap.UseDevMode(true)).WithName(color.Print("manifests", color.Brown)),
+		reState: regexp.MustCompile(`^[0-9]{4}[-_].*\.yaml$`),
+	}
+}
+
+// GetFrom reads all manifests 0000- from path and returns them
+func (a *assets) GetFrom(assets string) []Metadata {
 	manifests := []Metadata{}
-	files, err := filePathWalkDir(assets, ".yaml")
+	files, err := a.filePathWalkDir(assets, ".yaml")
 	if err != nil {
 		panic(err)
 	}
@@ -39,7 +58,7 @@ func GetFrom(assets string) []Metadata {
 	return manifests
 }
 
-func filePathWalkDir(root string, ext string) ([]string, error) {
+func (a *assets) filePathWalkDir(root string, ext string) ([]string, error) {
 
 	var files []string
 
@@ -64,7 +83,7 @@ func filePathWalkDir(root string, ext string) ([]string, error) {
 			return nil
 		}
 
-		if valid := filePathPatternValid(path); !valid {
+		if valid := a.filePathPatternValid(path); !valid {
 			return nil
 		}
 
@@ -75,7 +94,7 @@ func filePathWalkDir(root string, ext string) ([]string, error) {
 	return files, err
 }
 
-func filePathPatternValid(path string) bool {
+func (a *assets) filePathPatternValid(path string) bool {
 
 	patterns := []string{
 		"[0-9][0-9][0-9][0-9]-*.yaml",
@@ -91,8 +110,6 @@ func filePathPatternValid(path string) bool {
 	return false
 }
 
-var reState = regexp.MustCompile(`^[0-9]{4}[-_].*\.yaml$`)
-
-func ValidStateName(path string) bool {
-	return reState.MatchString(filepath.Base(path))
+func (a *assets) ValidStateName(path string) bool {
+	return a.reState.MatchString(filepath.Base(path))
 }

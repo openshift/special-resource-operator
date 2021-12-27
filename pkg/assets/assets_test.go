@@ -15,6 +15,12 @@ func TestAssets(t *testing.T) {
 }
 
 var _ = Describe("Assets", func() {
+	var assetsInterface assets.Assets
+
+	BeforeEach(func() {
+		assetsInterface = assets.NewAssets()
+	})
+
 	Context("ValidStateName", func() {
 		cases := []struct {
 			input string
@@ -71,7 +77,7 @@ var _ = Describe("Assets", func() {
 		DescribeTable(
 			"all cases",
 			func(input string, valid bool) {
-				Expect(assets.ValidStateName(input)).To(Equal(valid))
+				Expect(assetsInterface.ValidStateName(input)).To(Equal(valid))
 			},
 			entries...,
 		)
