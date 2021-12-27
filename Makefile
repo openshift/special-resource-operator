@@ -106,27 +106,27 @@ generate-mocks:
 ##@ Deployment
 
 install: manifests kustomize  ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) apply -f -
 
 uninstall: manifests kustomize  ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | kubectl delete -f -
+	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete -f -
 
 deploy: manifests kustomize configure ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-	$(KUSTOMIZE) build config/namespace | kubectl apply -f -
-	$(KUSTOMIZE) build config/default$(SUFFIX) | kubectl apply -f -
+	$(KUSTOMIZE) build config/namespace | $(CLUSTER_CLIENT) apply -f -
+	$(KUSTOMIZE) build config/default$(SUFFIX) | $(CLUSTER_CLIENT) apply -f -
 	$(shell sleep 5)
-	$(KUSTOMIZE) build config/cr | kubectl apply -f -
+	$(KUSTOMIZE) build config/cr | $(CLUSTER_CLIENT) apply -f -
 
 # If the CRD is deleted before the CRs the CRD finalizer will hang forever
 # The specialresource finalizer will not execute either
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	if [ ! -z "$$(kubectl get crd | grep specialresource)" ]; then         \
-		kubectl delete --ignore-not-found sr --all;                    \
+	if [ ! -z "$$($(CLUSTER_CLIENT) get crd | grep specialresource)" ]; then         \
+		$(CLUSTER_CLIENT) delete --ignore-not-found sr --all;                    \
 	fi;
 	# Give SRO time to reconcile
 	sleep 10
-	$(KUSTOMIZE) build config/namespace | kubectl delete --ignore-not-found -f -
-	$(KUSTOMIZE) build config/default$(SUFFIX) | kubectl delete --ignore-not-found -f -
+	$(KUSTOMIZE) build config/namespace | $(CLUSTER_CLIENT) delete --ignore-not-found -f -
+	$(KUSTOMIZE) build config/default$(SUFFIX) | $(CLUSTER_CLIENT) delete --ignore-not-found -f -
 
 
 ##@ custom targets
