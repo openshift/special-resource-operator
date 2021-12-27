@@ -40,7 +40,9 @@ func main() {
 		log.Fatalf("Error getting a controller client: %v", err)
 	}
 
-	manifests := assets.GetFrom(*path)
+	assetsInterface := assets.NewAssets()
+
+	manifests := assetsInterface.GetFrom(*path)
 
 	for _, manifest := range manifests {
 		if err = framework.CreateFromYAML(manifest.Content, cl); err != nil {

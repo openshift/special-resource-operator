@@ -47,7 +47,8 @@ func main() {
 	// sleep 10 for finalizers to kick in
 	time.Sleep(10 * time.Second)
 
-	manifests := assets.GetFrom(*path)
+	assetsInterface := assets.NewAssets()
+	manifests := assetsInterface.GetFrom(*path)
 
 	for _, manifest := range manifests {
 		if err = framework.DeleteFromYAML(manifest.Content, cl); err != nil {

@@ -23,6 +23,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/cmd/cli"
 	"github.com/openshift-psap/special-resource-operator/cmd/leaderelection"
 	"github.com/openshift-psap/special-resource-operator/controllers"
+	"github.com/openshift-psap/special-resource-operator/pkg/assets"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
@@ -110,6 +111,7 @@ func main() {
 		Filter:      filter.NewFilter(lc, st),
 		Storage:     st,
 		Helmer:      helmer.NewHelmer(creator, helmer.DefaultSettings()),
+		Assets:      assets.NewAssets(),
 		Log:         ctrl.Log,
 		Metrics:     metricsClient,
 		Scheme:      scheme,

@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/assets"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
@@ -135,7 +134,7 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 	// First get all non-state related files from the templates
 	// and save the states in a temporary slice for single execution
 	for _, template := range r.chart.Templates {
-		if assets.ValidStateName(template.Name) {
+		if r.Assets.ValidStateName(template.Name) {
 			stateYAMLS = append(stateYAMLS, template)
 		} else {
 			nostate.Templates = append(nostate.Templates, template)
