@@ -3,19 +3,36 @@ package kernel
 import (
 	"strings"
 
-	"github.com/pkg/errors"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
+	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/hash"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var log = zap.New(zap.UseDevMode(true)).WithName(color.Print("kernel", color.Green))
+//go:generate mockgen -source=kernel.go -package=kernel -destination=mock_kernel_api.go
 
-func SetAffineAttributes(obj *unstructured.Unstructured,
+type KernelData interface {
+	SetAffineAttributes(obj *unstructured.Unstructured, kernelFullVersion, operatingSystemMajorMinor string) error
+	IsObjectAffine(obj client.Object) bool
+	FullVersion() (string, error)
+	PatchVersion(kernelFullVersion string) (string, error)
+}
+
+type kernelData struct {
+	log logr.Logger
+}
+
+func NewKernelData() KernelData {
+	return &kernelData{
+		log: zap.New(zap.UseDevMode(true)).WithName(color.Print("kernel", color.Green)),
+	}
+}
+
+func (k *kernelData) SetAffineAttributes(obj *unstructured.Unstructured,
 	kernelFullVersion string,
 	operatingSystemMajorMinor string) error {
 
@@ -51,28 +68,28 @@ func SetAffineAttributes(obj *unstructured.Unstructured,
 		}
 	}
 
-	if err := SetVersionNodeAffinity(obj, kernelFullVersion); err != nil {
+	if err := k.setVersionNodeAffinity(obj, kernelFullVersion); err != nil {
 		return errors.Wrap(err, "Cannot set kernel version node affinity for obj: "+obj.GetKind())
 	}
 	return nil
 }
 
-func SetVersionNodeAffinity(obj *unstructured.Unstructured, kernelFullVersion string) error {
+func (k *kernelData) setVersionNodeAffinity(obj *unstructured.Unstructured, kernelFullVersion string) error {
 
 	if strings.Compare(obj.GetKind(), "DaemonSet") == 0 ||
 		strings.Compare(obj.GetKind(), "Deployment") == 0 ||
 		strings.Compare(obj.GetKind(), "Statefulset") == 0 {
-		if err := versionNodeAffinity(kernelFullVersion, obj, "spec", "template", "spec", "nodeSelector"); err != nil {
+		if err := k.versionNodeAffinity(kernelFullVersion, obj, "spec", "template", "spec", "nodeSelector"); err != nil {
 			return errors.Wrap(err, "Cannot setup DaemonSet kernel version affinity")
 		}
 	}
 	if strings.Compare(obj.GetKind(), "Pod") == 0 {
-		if err := versionNodeAffinity(kernelFullVersion, obj, "spec", "nodeSelector"); err != nil {
+		if err := k.versionNodeAffinity(kernelFullVersion, obj, "spec", "nodeSelector"); err != nil {
 			return errors.Wrap(err, "Cannot setup Pod kernel version affinity")
 		}
 	}
 	if strings.Compare(obj.GetKind(), "BuildConfig") == 0 {
-		if err := versionNodeAffinity(kernelFullVersion, obj, "spec", "nodeSelector"); err != nil {
+		if err := k.versionNodeAffinity(kernelFullVersion, obj, "spec", "nodeSelector"); err != nil {
 			return errors.Wrap(err, "Cannot setup BuildConfig kernel version affinity")
 		}
 	}
@@ -80,7 +97,7 @@ func SetVersionNodeAffinity(obj *unstructured.Unstructured, kernelFullVersion st
 	return nil
 }
 
-func versionNodeAffinity(kernelFullVersion string, obj *unstructured.Unstructured, fields ...string) error {
+func (k *kernelData) versionNodeAffinity(kernelFullVersion string, obj *unstructured.Unstructured, fields ...string) error {
 
 	nodeSelector, found, err := unstructured.NestedMap(obj.Object, fields...)
 	if err != nil {
@@ -100,19 +117,19 @@ func versionNodeAffinity(kernelFullVersion string, obj *unstructured.Unstructure
 	return nil
 }
 
-func IsObjectAffine(obj client.Object) bool {
+func (k *kernelData) IsObjectAffine(obj client.Object) bool {
 
 	annotations := obj.GetAnnotations()
 
 	if affine, found := annotations["specialresource.openshift.io/kernel-affine"]; found && affine == "true" {
-		log.Info("Object is Kernel Affine", "Object", obj.GetName())
+		k.log.Info("Object is Kernel Affine", "Object", obj.GetName())
 		return true
 	}
 
 	return false
 }
 
-func FullVersion() (string, error) {
+func (k *kernelData) FullVersion() (string, error) {
 
 	var found bool
 	var kernelFullVersion string
@@ -137,7 +154,7 @@ func FullVersion() (string, error) {
 // xx= Major Revision = 4
 // y = Minor Revision = 0
 // zzz=Patch number = 45
-func PatchVersion(kernelFullVersion string) (string, error) {
+func (k *kernelData) PatchVersion(kernelFullVersion string) (string, error) {
 
 	version := strings.Split(kernelFullVersion, "-")
 	// Happens only if kernel full version has no patch version sep by "-"

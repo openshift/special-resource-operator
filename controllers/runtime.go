@@ -9,7 +9,6 @@ import (
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
@@ -96,12 +95,12 @@ func getRuntimeInformation(r *SpecialResourceReconciler) error {
 		return fmt.Errorf("failed to get operating system: %w", err)
 	}
 
-	RunInfo.KernelFullVersion, err = kernel.FullVersion()
+	RunInfo.KernelFullVersion, err = r.KernelData.FullVersion()
 	if err != nil {
 		return fmt.Errorf("failed to get kernel version: %w", err)
 	}
 
-	RunInfo.KernelPatchVersion, err = kernel.PatchVersion(RunInfo.KernelFullVersion)
+	RunInfo.KernelPatchVersion, err = r.KernelData.PatchVersion(RunInfo.KernelFullVersion)
 	if err != nil {
 		return fmt.Errorf("failed to get kernel patch version: %w", err)
 	}

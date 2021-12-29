@@ -11,7 +11,9 @@ import (
 	"github.com/onsi/gomega/types"
 
 	"github.com/openshift-psap/special-resource-operator/api/v1beta1"
+	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
+	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +29,27 @@ func TestFilter(t *testing.T) {
 }
 
 var _ = Describe("IsSpecialResource", func() {
+	var (
+		ctrl          *gomock.Controller
+		mockLifecycle *lifecycle.MockLifecycle
+		mockStorage   *storage.MockStorage
+		mockKernel    *kernel.MockKernelData
+		f             filter
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		mockLifecycle = lifecycle.NewMockLifecycle(ctrl)
+		mockStorage = storage.NewMockStorage(ctrl)
+		mockKernel = kernel.NewMockKernelData(ctrl)
+		f = filter{
+			log:        zap.New(zap.WriteTo(ioutil.Discard)),
+			lifecycle:  mockLifecycle,
+			storage:    mockStorage,
+			kernelData: mockKernel,
+		}
+	})
+
 	cases := []struct {
 		name    string
 		obj     client.Object
@@ -84,15 +107,33 @@ var _ = Describe("IsSpecialResource", func() {
 	DescribeTable(
 		"should return the correct value",
 		func(obj client.Object, m types.GomegaMatcher) {
-			f := filter{
-				log: zap.New(zap.WriteTo(ioutil.Discard)),
-			}
 			Expect(f.isSpecialResource(obj)).To(m)
 		},
 		entries...)
 })
 
 var _ = Describe("Owned", func() {
+	var (
+		ctrl          *gomock.Controller
+		mockLifecycle *lifecycle.MockLifecycle
+		mockStorage   *storage.MockStorage
+		mockKernel    *kernel.MockKernelData
+		f             filter
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		mockLifecycle = lifecycle.NewMockLifecycle(ctrl)
+		mockStorage = storage.NewMockStorage(ctrl)
+		mockKernel = kernel.NewMockKernelData(ctrl)
+		f = filter{
+			log:        zap.New(zap.WriteTo(ioutil.Discard)),
+			lifecycle:  mockLifecycle,
+			storage:    mockStorage,
+			kernelData: mockKernel,
+		}
+	})
+
 	cases := []struct {
 		name    string
 		obj     client.Object
@@ -134,9 +175,6 @@ var _ = Describe("Owned", func() {
 	DescribeTable(
 		"should return the expected value",
 		func(obj client.Object, m types.GomegaMatcher) {
-			f := filter{
-				log: zap.New(zap.WriteTo(ioutil.Discard)),
-			}
 			Expect(f.owned(obj)).To(m)
 		},
 		entries...,
@@ -147,15 +185,21 @@ var _ = Describe("Predicate", func() {
 	var (
 		ctrl          *gomock.Controller
 		mockLifecycle *lifecycle.MockLifecycle
+		mockStorage   *storage.MockStorage
+		mockKernel    *kernel.MockKernelData
 		f             filter
 	)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockLifecycle = lifecycle.NewMockLifecycle(ctrl)
+		mockStorage = storage.NewMockStorage(ctrl)
+		mockKernel = kernel.NewMockKernelData(ctrl)
 		f = filter{
-			log:       zap.New(zap.WriteTo(ioutil.Discard)),
-			lifecycle: mockLifecycle,
+			log:        zap.New(zap.WriteTo(ioutil.Discard)),
+			lifecycle:  mockLifecycle,
+			storage:    mockStorage,
+			kernelData: mockKernel,
 		}
 	})
 
@@ -216,8 +260,10 @@ var _ = Describe("Predicate", func() {
 			retMatcher types.GomegaMatcher
 		}{
 			{
-				name:      "No change to object's Generation or ResourceVersion",
-				mockSetup: func() {},
+				name: "No change to object's Generation or ResourceVersion",
+				mockSetup: func() {
+					mockKernel.EXPECT().IsObjectAffine(gomock.Any()).Times(1).Return(false)
+				},
 				old: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
@@ -239,8 +285,10 @@ var _ = Describe("Predicate", func() {
 				retMatcher: BeFalse(),
 			},
 			{
-				name:      "Object's Generation changed, no change to ResourceVersion",
-				mockSetup: func() {},
+				name: "Object's Generation changed, no change to ResourceVersion",
+				mockSetup: func() {
+					mockKernel.EXPECT().IsObjectAffine(gomock.Any()).Times(1).Return(false)
+				},
 				old: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
@@ -262,8 +310,10 @@ var _ = Describe("Predicate", func() {
 				retMatcher: BeFalse(),
 			},
 			{
-				name:      "Object has changed but is not owned by SRO",
-				mockSetup: func() {},
+				name: "Object has changed but is not owned by SRO",
+				mockSetup: func() {
+					mockKernel.EXPECT().IsObjectAffine(gomock.Any()).Times(1).Return(false)
+				},
 				old: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Generation:      1,
@@ -281,6 +331,7 @@ var _ = Describe("Predicate", func() {
 			{
 				name: "Object has changed and it's a SRO owned DaemonSet",
 				mockSetup: func() {
+					mockKernel.EXPECT().IsObjectAffine(gomock.Any()).Times(1).Return(true)
 					mockLifecycle.EXPECT().UpdateDaemonSetPods(gomock.Any()).Return(nil)
 				},
 				old: &appsv1.DaemonSet{
@@ -304,8 +355,10 @@ var _ = Describe("Predicate", func() {
 				retMatcher: BeTrue(),
 			},
 			{
-				name:      "Object is a SRO owned & kernel affine DaemonSet, but did not change",
-				mockSetup: func() {},
+				name: "Object is a SRO owned & kernel affine DaemonSet, but did not change",
+				mockSetup: func() {
+					mockKernel.EXPECT().IsObjectAffine(gomock.Any()).Times(1).Return(true)
+				},
 				old: &appsv1.DaemonSet{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
@@ -335,6 +388,7 @@ var _ = Describe("Predicate", func() {
 			{
 				name: "Object is a SRO owned & kernel affine DaemonSet",
 				mockSetup: func() {
+					mockKernel.EXPECT().IsObjectAffine(gomock.Any()).Times(1).Return(true)
 					mockLifecycle.EXPECT().UpdateDaemonSetPods(gomock.Any()).Return(nil)
 				},
 				old: &appsv1.DaemonSet{
@@ -364,8 +418,10 @@ var _ = Describe("Predicate", func() {
 				retMatcher: BeTrue(),
 			},
 			{
-				name:      "Object is a SpecialResource with both Generation and ResourceVersion changed",
-				mockSetup: func() {},
+				name: "Object is a SpecialResource with both Generation and ResourceVersion changed",
+				mockSetup: func() {
+					mockKernel.EXPECT().IsObjectAffine(gomock.Any()).Times(1).Return(false)
+				},
 				old: &v1beta1.SpecialResource{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{

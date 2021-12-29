@@ -30,18 +30,20 @@ type Filter interface {
 	GetMode() string
 }
 
-func NewFilter(lifecycle lifecycle.Lifecycle, storage storage.Storage) Filter {
+func NewFilter(lifecycle lifecycle.Lifecycle, storage storage.Storage, kernelData kernel.KernelData) Filter {
 	return &filter{
-		log:       zap.New(zap.UseDevMode(true)).WithName(color.Print("filter", color.Purple)),
-		lifecycle: lifecycle,
-		storage:   storage,
+		log:        zap.New(zap.UseDevMode(true)).WithName(color.Print("filter", color.Purple)),
+		lifecycle:  lifecycle,
+		storage:    storage,
+		kernelData: kernelData,
 	}
 }
 
 type filter struct {
-	log       logr.Logger
-	lifecycle lifecycle.Lifecycle
-	storage   storage.Storage
+	log        logr.Logger
+	lifecycle  lifecycle.Lifecycle
+	storage    storage.Storage
+	kernelData kernel.KernelData
 
 	mode string
 }
@@ -150,7 +152,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 
 			// Required for the case when pods are deleted due to OS upgrade
 
-			if f.owned(obj) && kernel.IsObjectAffine(obj) {
+			if f.owned(obj) && f.kernelData.IsObjectAffine(obj) {
 				if e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() &&
 					e.ObjectOld.GetResourceVersion() == e.ObjectNew.GetResourceVersion() {
 					return false

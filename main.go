@@ -28,6 +28,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
+	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
@@ -96,11 +97,13 @@ func main() {
 	st := storage.NewStorage(clients.Interface)
 	lc := lifecycle.New(clients.Interface, st)
 	pollActions := poll.New(lc, st)
+	kernelData := kernel.NewKernelData()
 
 	creator := resource.NewCreator(
 		clients.Interface,
 		metricsClient,
 		pollActions,
+		kernelData,
 		scheme,
 		lc)
 
@@ -108,10 +111,11 @@ func main() {
 		ClusterInfo: upgrade.NewClusterInfo(registry.NewRegistry(), clusterCluster),
 		Creator:     creator,
 		PollActions: pollActions,
-		Filter:      filter.NewFilter(lc, st),
+		Filter:      filter.NewFilter(lc, st, kernelData),
 		Storage:     st,
 		Helmer:      helmer.NewHelmer(creator, helmer.DefaultSettings()),
 		Assets:      assets.NewAssets(),
+		KernelData:  kernelData,
 		Log:         ctrl.Log,
 		Metrics:     metricsClient,
 		Scheme:      scheme,
