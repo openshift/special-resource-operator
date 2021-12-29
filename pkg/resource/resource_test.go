@@ -11,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
@@ -337,6 +338,7 @@ var _ = Describe("creator_CreateFromYAML", func() {
 		mockLifecycle *lifecycle.MockLifecycle
 		metricsClient *metrics.MockMetrics
 		pollActions   *poll.MockPollActions
+		kernelData    *kernel.MockKernelData
 	)
 
 	BeforeEach(func() {
@@ -345,6 +347,7 @@ var _ = Describe("creator_CreateFromYAML", func() {
 		mockLifecycle = lifecycle.NewMockLifecycle(ctrl)
 		metricsClient = metrics.NewMockMetrics(ctrl)
 		pollActions = poll.NewMockPollActions(ctrl)
+		kernelData = kernel.NewMockKernelData(ctrl)
 	})
 
 	AfterEach(func() {
@@ -388,8 +391,9 @@ spec:
 		}
 
 		gomock.InOrder(
-			kubeClient.EXPECT().Get(context.TODO(), nsn, unstructuredMatcher),
-			metricsClient.EXPECT().SetCompletedKind(specialResourceName, "Pod", "nginx", namespace, 1),
+			kernelData.EXPECT().IsObjectAffine(gomock.Any()).Times(1).Return(false),
+			kubeClient.EXPECT().Get(context.TODO(), nsn, unstructuredMatcher).Times(1),
+			metricsClient.EXPECT().SetCompletedKind(specialResourceName, "Pod", "nginx", namespace, 1).Times(1),
 		)
 
 		scheme := runtime.NewScheme()
@@ -398,7 +402,7 @@ spec:
 		Expect(err).NotTo(HaveOccurred())
 
 		err = resource.
-			NewCreator(kubeClient, metricsClient, pollActions, scheme, mockLifecycle).
+			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle).
 			CreateFromYAML(
 				yamlSpec,
 				false,
@@ -484,6 +488,7 @@ spec:
 		}
 
 		gomock.InOrder(
+			kernelData.EXPECT().IsObjectAffine(gomock.Any()).Times(1).Return(false),
 			kubeClient.
 				EXPECT().
 				Get(context.TODO(), nsn, unstructuredMatcher).
@@ -502,7 +507,7 @@ spec:
 		Expect(err).NotTo(HaveOccurred())
 
 		err = resource.
-			NewCreator(kubeClient, metricsClient, pollActions, scheme, mockLifecycle).
+			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle).
 			CreateFromYAML(
 				yamlSpec,
 				false,

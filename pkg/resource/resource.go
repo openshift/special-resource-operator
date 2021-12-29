@@ -47,6 +47,7 @@ type creator struct {
 	log           logr.Logger
 	metricsClient metrics.Metrics
 	pollActions   poll.PollActions
+	kernelData    kernel.KernelData
 	scheme        *runtime.Scheme
 }
 
@@ -54,6 +55,7 @@ func NewCreator(
 	kubeClient clients.ClientsInterface,
 	metricsClient metrics.Metrics,
 	pollActions poll.PollActions,
+	kernelData kernel.KernelData,
 	scheme *runtime.Scheme,
 	lc lifecycle.Lifecycle,
 ) Creator {
@@ -63,6 +65,7 @@ func NewCreator(
 		log:           zap.New(zap.UseDevMode(true)).WithName(color.Print("resource", color.Blue)),
 		metricsClient: metricsClient,
 		pollActions:   pollActions,
+		kernelData:    kernelData,
 		scheme:        scheme,
 	}
 }
@@ -379,8 +382,8 @@ func (c *creator) createObjFromYAML(yamlSpec []byte,
 	}
 	// kernel affinity related attributes only set if there is an
 	// annotation specialresource.openshift.io/kernel-affine: true
-	if kernel.IsObjectAffine(obj) {
-		if err = kernel.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor); err != nil {
+	if c.kernelData.IsObjectAffine(obj) {
+		if err = c.kernelData.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor); err != nil {
 			return fmt.Errorf("cannot set kernel affine attributes: %w", err)
 		}
 	}

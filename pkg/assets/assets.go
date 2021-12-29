@@ -13,8 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var log = zap.New(zap.UseDevMode(true)).WithName(color.Print("manifests", color.Brown))
-
 // Metadata manifests filename and content
 type Metadata struct {
 	Name    string
@@ -71,7 +69,7 @@ func (a *assets) filePathWalkDir(root string, ext string) ([]string, error) {
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 
 		if info.IsDir() {
-			log.Info("WalkDir", "path IsDir", path)
+			a.log.Info("WalkDir", "path IsDir", path)
 			// Ignore root directory but skipdir any subdirectories
 			if path == root {
 				return nil
@@ -79,7 +77,7 @@ func (a *assets) filePathWalkDir(root string, ext string) ([]string, error) {
 			return filepath.SkipDir
 		}
 		if filepath.Ext(path) != ext {
-			log.Info("WalkDir", "path does not match *.yaml", path)
+			a.log.Info("WalkDir", "path does not match *.yaml", path)
 			return nil
 		}
 
@@ -87,7 +85,7 @@ func (a *assets) filePathWalkDir(root string, ext string) ([]string, error) {
 			return nil
 		}
 
-		log.Info("WalkDir", "path valid", path)
+		a.log.Info("WalkDir", "path valid", path)
 		files = append(files, path)
 		return nil
 	})
