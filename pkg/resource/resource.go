@@ -48,6 +48,7 @@ type creator struct {
 	metricsClient metrics.Metrics
 	pollActions   poll.PollActions
 	kernelData    kernel.KernelData
+	proxyAPI      proxy.ProxyAPI
 	scheme        *runtime.Scheme
 }
 
@@ -58,6 +59,7 @@ func NewCreator(
 	kernelData kernel.KernelData,
 	scheme *runtime.Scheme,
 	lc lifecycle.Lifecycle,
+	proxyAPI proxy.ProxyAPI,
 ) Creator {
 	return &creator{
 		kubeClient:    kubeClient,
@@ -67,6 +69,7 @@ func NewCreator(
 		pollActions:   pollActions,
 		kernelData:    kernelData,
 		scheme:        scheme,
+		proxyAPI:      proxyAPI,
 	}
 }
 
@@ -403,7 +406,7 @@ func (c *creator) createObjFromYAML(yamlSpec []byte,
 	}
 
 	// Callbacks before CRUD will update the manifests
-	if err = BeforeCRUD(obj, owner); err != nil {
+	if err = c.BeforeCRUD(obj, owner); err != nil {
 		return fmt.Errorf("before CRUD hooks failed: %w", err)
 	}
 	// Create Update Delete Patch resources
@@ -643,14 +646,14 @@ func SetMetaData(obj *unstructured.Unstructured, nm string, ns string) {
 	obj.SetLabels(labels)
 }
 
-func BeforeCRUD(obj *unstructured.Unstructured, sr interface{}) error {
+func (c *creator) BeforeCRUD(obj *unstructured.Unstructured, sr interface{}) error {
 
 	var found bool
 	todo := ""
 	annotations := obj.GetAnnotations()
 
 	if valid, found := annotations["specialresource.openshift.io/proxy"]; found && valid == "true" {
-		if err := proxy.Setup(obj); err != nil {
+		if err := c.proxyAPI.Setup(obj); err != nil {
 			return fmt.Errorf("could not setup Proxy: %w", err)
 		}
 	}

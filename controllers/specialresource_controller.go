@@ -32,6 +32,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
+	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
@@ -74,6 +75,7 @@ type SpecialResourceReconciler struct {
 	PollActions poll.PollActions
 	Storage     storage.Storage
 	KernelData  kernel.KernelData
+	ProxyAPI    proxy.ProxyAPI
 
 	specialresource srov1beta1.SpecialResource
 	parent          srov1beta1.SpecialResource

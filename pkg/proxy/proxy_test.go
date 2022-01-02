@@ -1,16 +1,17 @@
-package proxy_test
+package proxy
 
 import (
+	"io/ioutil"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestProxy(t *testing.T) {
@@ -19,8 +20,11 @@ func TestProxy(t *testing.T) {
 }
 
 var _ = Describe("Setup", func() {
-	AfterEach(func() {
-		proxy.ProxyConfiguration = proxy.Configuration{}
+	var proxyStruct proxy
+	BeforeEach(func() {
+		proxyStruct = proxy{
+			log: zap.New(zap.WriteTo(ioutil.Discard)),
+		}
 	})
 
 	It("should return an error for Pod with empty spec", func() {
@@ -33,7 +37,7 @@ var _ = Describe("Setup", func() {
 
 		uo := unstructured.Unstructured{Object: m}
 
-		err = proxy.Setup(&uo)
+		err = proxyStruct.Setup(&uo)
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -44,7 +48,7 @@ var _ = Describe("Setup", func() {
 			noProxy    = "host-without-proxy"
 		)
 
-		proxy.ProxyConfiguration = proxy.Configuration{
+		proxyStruct.config = Configuration{
 			HttpProxy:  httpProxy,
 			HttpsProxy: httpsProxy,
 			NoProxy:    noProxy,
@@ -67,7 +71,7 @@ var _ = Describe("Setup", func() {
 
 		uo := unstructured.Unstructured{Object: m}
 
-		err = proxy.Setup(&uo)
+		err = proxyStruct.Setup(&uo)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &pod)
@@ -92,7 +96,7 @@ var _ = Describe("Setup", func() {
 
 		uo := unstructured.Unstructured{Object: m}
 
-		err = proxy.Setup(&uo)
+		err = proxyStruct.Setup(&uo)
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -103,7 +107,7 @@ var _ = Describe("Setup", func() {
 			noProxy    = "host-without-proxy"
 		)
 
-		proxy.ProxyConfiguration = proxy.Configuration{
+		proxyStruct.config = Configuration{
 			HttpProxy:  httpProxy,
 			HttpsProxy: httpsProxy,
 			NoProxy:    noProxy,
@@ -130,7 +134,7 @@ var _ = Describe("Setup", func() {
 
 		uo := unstructured.Unstructured{Object: m}
 
-		err = proxy.Setup(&uo)
+		err = proxyStruct.Setup(&uo)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &ds)

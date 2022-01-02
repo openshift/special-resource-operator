@@ -131,7 +131,7 @@ func getRuntimeInformation(r *SpecialResourceReconciler) error {
 		return fmt.Errorf("failed to get OSImageURL: %w", err)
 	}
 
-	RunInfo.Proxy, err = proxy.ClusterConfiguration()
+	RunInfo.Proxy, err = r.ProxyAPI.ClusterConfiguration()
 	if err != nil {
 		return fmt.Errorf("failed to get Proxy Configuration: %w", err)
 	}

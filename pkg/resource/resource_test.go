@@ -15,6 +15,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
+	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	buildv1 "github.com/openshift/api/build/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -339,6 +340,7 @@ var _ = Describe("creator_CreateFromYAML", func() {
 		metricsClient *metrics.MockMetrics
 		pollActions   *poll.MockPollActions
 		kernelData    *kernel.MockKernelData
+		proxyAPI      *proxy.MockProxyAPI
 	)
 
 	BeforeEach(func() {
@@ -348,6 +350,7 @@ var _ = Describe("creator_CreateFromYAML", func() {
 		metricsClient = metrics.NewMockMetrics(ctrl)
 		pollActions = poll.NewMockPollActions(ctrl)
 		kernelData = kernel.NewMockKernelData(ctrl)
+		proxyAPI = proxy.NewMockProxyAPI(ctrl)
 	})
 
 	AfterEach(func() {
@@ -402,7 +405,7 @@ spec:
 		Expect(err).NotTo(HaveOccurred())
 
 		err = resource.
-			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle).
+			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI).
 			CreateFromYAML(
 				yamlSpec,
 				false,
@@ -507,7 +510,7 @@ spec:
 		Expect(err).NotTo(HaveOccurred())
 
 		err = resource.
-			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle).
+			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI).
 			CreateFromYAML(
 				yamlSpec,
 				false,
