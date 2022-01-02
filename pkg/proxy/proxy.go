@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
@@ -16,12 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var (
-	errNotFound        = errors.New("not found")
-	log                = zap.New(zap.UseDevMode(true)).WithName(color.Print("kernel", color.Green))
-	ProxyConfiguration Configuration
-)
-
 type Configuration struct {
 	HttpProxy  string
 	HttpsProxy string
@@ -29,15 +24,33 @@ type Configuration struct {
 	TrustedCA  string
 }
 
-func Setup(obj *unstructured.Unstructured) error {
+//go:generate mockgen -source=proxy.go -package=proxy -destination=mock_proxy_api.go
+
+type ProxyAPI interface {
+	Setup(obj *unstructured.Unstructured) error
+	ClusterConfiguration() (Configuration, error)
+}
+
+type proxy struct {
+	log    logr.Logger
+	config Configuration
+}
+
+func NewProxyAPI() ProxyAPI {
+	return &proxy{
+		log: zap.New(zap.UseDevMode(true)).WithName(color.Print("proxy", color.Green)),
+	}
+}
+
+func (p *proxy) Setup(obj *unstructured.Unstructured) error {
 
 	if strings.Compare(obj.GetKind(), "Pod") == 0 {
-		if err := SetupPod(obj); err != nil {
+		if err := p.setupPod(obj); err != nil {
 			return errors.Wrap(err, "Cannot setup Pod Proxy")
 		}
 	}
 	if strings.Compare(obj.GetKind(), "DaemonSet") == 0 {
-		if err := SetupDaemonSet(obj); err != nil {
+		if err := p.setupDaemonSet(obj); err != nil {
 			return errors.Wrap(err, "Cannot setup DaemonSet Proxy")
 		}
 
@@ -48,41 +61,41 @@ func Setup(obj *unstructured.Unstructured) error {
 
 // We may generalize more depending on how many entities need proxy settings.
 // path... -> Pod, DaemonSet, BuildConfig, etc.
-func SetupDaemonSet(obj *unstructured.Unstructured) error {
+func (p *proxy) setupDaemonSet(obj *unstructured.Unstructured) error {
 	containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
 	if err != nil {
 		return err
 	}
 
 	if !found {
-		return errNotFound
+		return fmt.Errorf("spec.template.spec.containers not found in the daemon yaml")
 	}
 
-	if err = setupContainersProxy(containers); err != nil {
+	if err = p.setupContainersProxy(containers); err != nil {
 		return fmt.Errorf("cannot set proxy for Pod: %w", err)
 	}
 
 	return nil
 }
 
-func SetupPod(obj *unstructured.Unstructured) error {
+func (p *proxy) setupPod(obj *unstructured.Unstructured) error {
 	containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "containers")
 	if err != nil {
 		return err
 	}
 
 	if !found {
-		return errNotFound
+		return fmt.Errorf("spec.containers not found in the pod yaml")
 	}
 
-	if err = setupContainersProxy(containers); err != nil {
+	if err = p.setupContainersProxy(containers); err != nil {
 		return fmt.Errorf("cannot set proxy for Pod: %w", err)
 	}
 
 	return nil
 }
 
-func setupContainersProxy(containers []interface{}) error {
+func (p *proxy) setupContainersProxy(containers []interface{}) error {
 
 	for _, container := range containers {
 		switch container := container.(type) {
@@ -99,13 +112,13 @@ func setupContainersProxy(containers []interface{}) error {
 			noproxy := make(map[string]interface{})
 
 			httpproxy["name"] = "HTTP_PROXY"
-			httpproxy["value"] = ProxyConfiguration.HttpProxy
+			httpproxy["value"] = p.config.HttpProxy
 
 			httpsproxy["name"] = "HTTPS_PROXY"
-			httpsproxy["value"] = ProxyConfiguration.HttpsProxy
+			httpsproxy["value"] = p.config.HttpsProxy
 
 			noproxy["name"] = "NO_PROXY"
-			noproxy["value"] = ProxyConfiguration.NoProxy
+			noproxy["value"] = p.config.NoProxy
 
 			if !found {
 				env = make([]interface{}, 0)
@@ -120,7 +133,7 @@ func setupContainersProxy(containers []interface{}) error {
 			}
 
 		default:
-			log.Info("container", "DEFAULT NOT THE CORRECT TYPE", container)
+			p.log.Info("container", "DEFAULT NOT THE CORRECT TYPE", container)
 		}
 		break
 	}
@@ -128,16 +141,16 @@ func setupContainersProxy(containers []interface{}) error {
 	return nil
 }
 
-func ClusterConfiguration() (Configuration, error) {
+func (p *proxy) ClusterConfiguration() (Configuration, error) {
 
-	proxy := &ProxyConfiguration
+	proxy := &p.config
 
 	proxiesAvailable, err := clients.Interface.HasResource(configv1.SchemeGroupVersion.WithResource("proxies"))
 	if err != nil {
 		return *proxy, errors.Wrap(err, "Error discovering proxies API resource")
 	}
 	if !proxiesAvailable {
-		log.Info("Warning: Could not find proxies API resource. Can be ignored on vanilla K8s.")
+		p.log.Info("Warning: Could not find proxies API resource. Can be ignored on vanilla K8s.")
 		return *proxy, nil
 	}
 

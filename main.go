@@ -32,6 +32,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
+	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
@@ -98,6 +99,7 @@ func main() {
 	lc := lifecycle.New(clients.Interface, st)
 	pollActions := poll.New(lc, st)
 	kernelData := kernel.NewKernelData()
+	proxyAPI := proxy.NewProxyAPI()
 
 	creator := resource.NewCreator(
 		clients.Interface,
@@ -105,7 +107,8 @@ func main() {
 		pollActions,
 		kernelData,
 		scheme,
-		lc)
+		lc,
+		proxyAPI)
 
 	if err = (&controllers.SpecialResourceReconciler{Cluster: clusterCluster,
 		ClusterInfo: upgrade.NewClusterInfo(registry.NewRegistry(), clusterCluster),
@@ -119,6 +122,7 @@ func main() {
 		Log:         ctrl.Log,
 		Metrics:     metricsClient,
 		Scheme:      scheme,
+		ProxyAPI:    proxyAPI,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
 		os.Exit(1)
