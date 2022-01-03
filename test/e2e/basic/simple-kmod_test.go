@@ -27,20 +27,20 @@ const (
 	simpleKmodWaitDuration = 10 * time.Minute
 )
 
-func createSimpleKmod(cl client.Client) error {
+func createSimpleKmod(ctx context.Context, cl client.Client) error {
 	simpleKmodCrYAML, err := ioutil.ReadFile(simpleKmodChartPath)
 	if err != nil {
 		return err
 	}
-	return framework.CreateFromYAML(simpleKmodCrYAML, cl)
+	return framework.CreateFromYAML(ctx, simpleKmodCrYAML, cl)
 }
 
-func deleteSimpleKmod(cl client.Client) error {
+func deleteSimpleKmod(ctx context.Context, cl client.Client) error {
 	simpleKmodCrYAML, err := ioutil.ReadFile(simpleKmodChartPath)
 	if err != nil {
 		return err
 	}
-	return framework.DeleteFromYAMLWithCR(simpleKmodCrYAML, cl)
+	return framework.DeleteFromYAMLWithCR(ctx, simpleKmodCrYAML, cl)
 }
 
 func waitImageReady(clientSet *kubernetes.Clientset) error {
@@ -200,9 +200,11 @@ var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", fu
 	clientSet, err := GetKubeClientSet()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
+	ctx := context.TODO()
+
 	ginkgo.BeforeEach(func() {
 		ginkgo.By("[pre] Creating SpecialResource...")
-		err := createSimpleKmod(cl)
+		err := createSimpleKmod(ctx, cl)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		ginkgo.By("[pre] Waiting build container to complete...")
 		err = waitImageReady(clientSet)
@@ -217,7 +219,7 @@ var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", fu
 
 	ginkgo.AfterEach(func() {
 		ginkgo.By("[post] Deleting SpecialResource...")
-		err := deleteSimpleKmod(cl)
+		err := deleteSimpleKmod(ctx, cl)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		ginkgo.By("[post] Waiting SpecialResource deletion...")
 		err = waitSimpleKmodDeleted(cs, cl)

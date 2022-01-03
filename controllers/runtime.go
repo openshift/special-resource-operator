@@ -83,10 +83,10 @@ func logRuntimeInformation() {
 	log.Info("Runtime Information", "Proxy", RunInfo.Proxy)
 }
 
-func getRuntimeInformation(r *SpecialResourceReconciler) error {
+func getRuntimeInformation(ctx context.Context, r *SpecialResourceReconciler) error {
 	var err error
 
-	if err = cache.Nodes(r.specialresource.Spec.NodeSelector, false); err != nil {
+	if err = cache.Nodes(ctx, r.specialresource.Spec.NodeSelector, false); err != nil {
 		return fmt.Errorf("failed to cache nodes: %w", err)
 	}
 
@@ -113,25 +113,25 @@ func getRuntimeInformation(r *SpecialResourceReconciler) error {
 		}
 	}
 
-	RunInfo.ClusterVersion, RunInfo.ClusterVersionMajorMinor, err = r.Cluster.Version()
+	RunInfo.ClusterVersion, RunInfo.ClusterVersionMajorMinor, err = r.Cluster.Version(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get cluster version: %w", err)
 	}
 
-	RunInfo.ClusterUpgradeInfo, err = r.ClusterInfo.GetClusterInfo()
+	RunInfo.ClusterUpgradeInfo, err = r.ClusterInfo.GetClusterInfo(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get upgrade info: %w", err)
 	}
 
-	RunInfo.PushSecretName, err = retryGetPushSecretName(r)
+	RunInfo.PushSecretName, err = retryGetPushSecretName(ctx, r)
 	warn.OnError(err)
 
-	RunInfo.OSImageURL, err = r.Cluster.OSImageURL()
+	RunInfo.OSImageURL, err = r.Cluster.OSImageURL(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get OSImageURL: %w", err)
 	}
 
-	RunInfo.Proxy, err = r.ProxyAPI.ClusterConfiguration()
+	RunInfo.Proxy, err = r.ProxyAPI.ClusterConfiguration(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get Proxy Configuration: %w", err)
 	}
@@ -141,10 +141,10 @@ func getRuntimeInformation(r *SpecialResourceReconciler) error {
 	return nil
 }
 
-func retryGetPushSecretName(r *SpecialResourceReconciler) (string, error) {
+func retryGetPushSecretName(ctx context.Context, r *SpecialResourceReconciler) (string, error) {
 	for i := 0; i < 3; i++ {
 		time.Sleep(2 * time.Second)
-		pushSecretName, err := getPushSecretName(r)
+		pushSecretName, err := getPushSecretName(ctx, r)
 		if err != nil {
 			log.Info("Cannot find Secret builder-dockercfg " + r.specialresource.Spec.Namespace)
 			continue
@@ -157,7 +157,7 @@ func retryGetPushSecretName(r *SpecialResourceReconciler) (string, error) {
 
 }
 
-func getPushSecretName(r *SpecialResourceReconciler) (string, error) {
+func getPushSecretName(ctx context.Context, r *SpecialResourceReconciler) (string, error) {
 	if RunInfo.Platform == "K8S" {
 		log.Info("Warning: On vanilla K8s. Skipping search for push-secret")
 		return "", nil
@@ -172,7 +172,7 @@ func getPushSecretName(r *SpecialResourceReconciler) (string, error) {
 	opts := []client.ListOption{
 		client.InNamespace(r.specialresource.Spec.Namespace),
 	}
-	err := clients.Interface.List(context.TODO(), secrets, opts...)
+	err := clients.Interface.List(ctx, secrets, opts...)
 	if err != nil {
 		return "", errors.Wrap(err, "Client cannot get SecretList")
 	}

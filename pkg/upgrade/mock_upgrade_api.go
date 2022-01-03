@@ -5,6 +5,7 @@
 package upgrade
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -34,16 +35,16 @@ func (m *MockClusterInfo) EXPECT() *MockClusterInfoMockRecorder {
 }
 
 // GetClusterInfo mocks base method.
-func (m *MockClusterInfo) GetClusterInfo() (map[string]NodeVersion, error) {
+func (m *MockClusterInfo) GetClusterInfo(arg0 context.Context) (map[string]NodeVersion, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetClusterInfo")
+	ret := m.ctrl.Call(m, "GetClusterInfo", arg0)
 	ret0, _ := ret[0].(map[string]NodeVersion)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetClusterInfo indicates an expected call of GetClusterInfo.
-func (mr *MockClusterInfoMockRecorder) GetClusterInfo() *gomock.Call {
+func (mr *MockClusterInfoMockRecorder) GetClusterInfo(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterInfo", reflect.TypeOf((*MockClusterInfo)(nil).GetClusterInfo))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetClusterInfo", reflect.TypeOf((*MockClusterInfo)(nil).GetClusterInfo), arg0)
 }

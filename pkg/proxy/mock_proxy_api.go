@@ -5,6 +5,7 @@
 package proxy
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -35,18 +36,18 @@ func (m *MockProxyAPI) EXPECT() *MockProxyAPIMockRecorder {
 }
 
 // ClusterConfiguration mocks base method.
-func (m *MockProxyAPI) ClusterConfiguration() (Configuration, error) {
+func (m *MockProxyAPI) ClusterConfiguration(ctx context.Context) (Configuration, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClusterConfiguration")
+	ret := m.ctrl.Call(m, "ClusterConfiguration", ctx)
 	ret0, _ := ret[0].(Configuration)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ClusterConfiguration indicates an expected call of ClusterConfiguration.
-func (mr *MockProxyAPIMockRecorder) ClusterConfiguration() *gomock.Call {
+func (mr *MockProxyAPIMockRecorder) ClusterConfiguration(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClusterConfiguration", reflect.TypeOf((*MockProxyAPI)(nil).ClusterConfiguration))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClusterConfiguration", reflect.TypeOf((*MockProxyAPI)(nil).ClusterConfiguration), ctx)
 }
 
 // Setup mocks base method.

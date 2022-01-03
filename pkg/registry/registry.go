@@ -44,7 +44,7 @@ type DriverToolkitEntry struct {
 //go:generate mockgen -source=registry.go -package=registry -destination=mock_registry_api.go
 
 type Registry interface {
-	LastLayer(string) (v1.Layer, error)
+	LastLayer(context.Context, string) (v1.Layer, error)
 	ExtractToolkitRelease(v1.Layer) (DriverToolkitEntry, error)
 	ReleaseManifests(v1.Layer) (string, string, error)
 }
@@ -59,14 +59,14 @@ type registry struct {
 	log logr.Logger
 }
 
-func (r *registry) writeImageRegistryCredentials() error {
-	_, err := clients.Interface.GetNamespace(context.TODO(), pullSecretNamespace, metav1.GetOptions{})
+func (r *registry) writeImageRegistryCredentials(ctx context.Context) error {
+	_, err := clients.Interface.GetNamespace(ctx, pullSecretNamespace, metav1.GetOptions{})
 	if err != nil {
 		r.log.Info("Can not find namespace for pull secrets, assuming vanilla k8s")
 		return nil
 	}
 
-	s, err := clients.Interface.GetSecret(context.TODO(), pullSecretNamespace, pullSecretName, metav1.GetOptions{})
+	s, err := clients.Interface.GetSecret(ctx, pullSecretNamespace, pullSecretName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "Can not retrieve pull secrets")
 	}
@@ -83,8 +83,8 @@ func (r *registry) writeImageRegistryCredentials() error {
 	return nil
 }
 
-func (r *registry) LastLayer(entry string) (v1.Layer, error) {
-	if err := r.writeImageRegistryCredentials(); err != nil {
+func (r *registry) LastLayer(ctx context.Context, entry string) (v1.Layer, error) {
+	if err := r.writeImageRegistryCredentials(ctx); err != nil {
 		return nil, err
 	}
 

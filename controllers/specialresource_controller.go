@@ -101,16 +101,16 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	)
 
 	// Do some preflight checks and get the cluster upgrade info
-	if res, err = SpecialResourceUpgrade(r, req); err != nil {
+	if res, err = SpecialResourceUpgrade(ctx, r); err != nil {
 		return res, errors.Wrap(err, "RECONCILE ERROR: Cannot upgrade special resource")
 	}
 	// A resource is being reconciled set status to not available and only
 	// if the reconcilation succeeds we're updating the conditions
-	if res, err = SpecialResourcesStatus(r, req, conds); err != nil {
+	if res, err = SpecialResourcesStatus(ctx, r, conds); err != nil {
 		return res, errors.Wrap(err, "RECONCILE ERROR: Cannot update special resource status")
 	}
 	// Reconcile all specialresources
-	if res, err = SpecialResourcesReconcile(r, req); err == nil && !res.Requeue {
+	if res, err = SpecialResourcesReconcile(ctx, r, req); err == nil && !res.Requeue {
 		conds = conditions.AvailableNotProgressingNotDegraded()
 	} else {
 		return res, errors.Wrap(err, "RECONCILE ERROR: Cannot reconcile special resource")
@@ -118,7 +118,7 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// Only if we're successfull we're going to update the status to
 	// Available otherwise return the reconcile error
-	if res, err = SpecialResourcesStatus(r, req, conds); err != nil {
+	if res, err = SpecialResourcesStatus(ctx, r, conds); err != nil {
 		log.Info("RECONCILE ERROR: Cannot update special resource status", "error", fmt.Sprintf("%v", err))
 		return res, nil
 	}

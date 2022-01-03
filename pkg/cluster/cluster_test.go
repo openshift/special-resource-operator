@@ -49,7 +49,7 @@ var _ = Describe("cluster_Version", func() {
 			HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions")).
 			Return(false, randomError)
 
-		_, _, err := cluster.NewCluster(mockKubeClients).Version()
+		_, _, err := cluster.NewCluster(mockKubeClients).Version(context.TODO())
 		Expect(err).To(Equal(randomError))
 	})
 
@@ -59,7 +59,7 @@ var _ = Describe("cluster_Version", func() {
 			HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions")).
 			Return(false, nil)
 
-		cvv, v, err := cluster.NewCluster(mockKubeClients).Version()
+		cvv, v, err := cluster.NewCluster(mockKubeClients).Version(context.TODO())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cvv).To(BeEmpty())
 		Expect(v).To(BeEmpty())
@@ -77,7 +77,7 @@ var _ = Describe("cluster_Version", func() {
 				Return(&configv1.ClusterVersion{}, nil),
 		)
 
-		_, _, err := cluster.NewCluster(mockKubeClients).Version()
+		_, _, err := cluster.NewCluster(mockKubeClients).Version(context.TODO())
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -106,7 +106,7 @@ var _ = Describe("cluster_Version", func() {
 					Return(cv, nil),
 			)
 
-			cvv, v, err := cluster.NewCluster(mockKubeClients).Version()
+			cvv, v, err := cluster.NewCluster(mockKubeClients).Version(context.TODO())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(cvv).To(Equal(out0))
 			Expect(v).To(Equal(out1))
@@ -123,7 +123,7 @@ var _ = Describe("cluster_VersionHistory", func() {
 			HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions")).
 			Return(true, randomError)
 
-		_, err := cluster.NewCluster(mockKubeClients).VersionHistory()
+		_, err := cluster.NewCluster(mockKubeClients).VersionHistory(context.TODO())
 		Expect(err).To(Equal(randomError))
 	})
 
@@ -133,7 +133,7 @@ var _ = Describe("cluster_VersionHistory", func() {
 			HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions")).
 			Return(false, nil)
 
-		s, err := cluster.NewCluster(mockKubeClients).VersionHistory()
+		s, err := cluster.NewCluster(mockKubeClients).VersionHistory(context.TODO())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(s).To(BeEmpty())
 	})
@@ -150,7 +150,7 @@ var _ = Describe("cluster_VersionHistory", func() {
 				Return(nil, randomError),
 		)
 
-		_, err := cluster.NewCluster(mockKubeClients).VersionHistory()
+		_, err := cluster.NewCluster(mockKubeClients).VersionHistory(context.TODO())
 		Expect(errors.Is(err, randomError)).To(BeTrue())
 	})
 
@@ -188,7 +188,7 @@ var _ = Describe("cluster_VersionHistory", func() {
 				Return(&cv, nil),
 		)
 
-		s, err := cluster.NewCluster(mockKubeClients).VersionHistory()
+		s, err := cluster.NewCluster(mockKubeClients).VersionHistory(context.TODO())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(s).To(Equal([]string{"desired-image", "completed-0", "completed-1"}))
 	})
@@ -208,7 +208,7 @@ var _ = Describe("cluster_OSImageURL", func() {
 			HasResource(machinev1.SchemeGroupVersion.WithResource("machineconfigs")).
 			Return(true, randomError)
 
-		_, err := cluster.NewCluster(mockKubeClients).OSImageURL()
+		_, err := cluster.NewCluster(mockKubeClients).OSImageURL(context.TODO())
 		Expect(errors.Is(err, randomError)).To(BeTrue())
 	})
 
@@ -218,7 +218,7 @@ var _ = Describe("cluster_OSImageURL", func() {
 			HasResource(machinev1.SchemeGroupVersion.WithResource("machineconfigs")).
 			Return(false, nil)
 
-		s, err := cluster.NewCluster(mockKubeClients).OSImageURL()
+		s, err := cluster.NewCluster(mockKubeClients).OSImageURL(context.TODO())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(s).To(BeEmpty())
 	})
@@ -241,7 +241,7 @@ var _ = Describe("cluster_OSImageURL", func() {
 				Return(errNotFound),
 		)
 
-		_, err := cluster.NewCluster(mockKubeClients).OSImageURL()
+		_, err := cluster.NewCluster(mockKubeClients).OSImageURL(context.TODO())
 		Expect(errors.Is(err, errNotFound)).To(BeTrue())
 	})
 
@@ -264,7 +264,7 @@ var _ = Describe("cluster_OSImageURL", func() {
 				}),
 		)
 
-		_, err := cluster.NewCluster(mockKubeClients).OSImageURL()
+		_, err := cluster.NewCluster(mockKubeClients).OSImageURL(context.TODO())
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -289,7 +289,7 @@ var _ = Describe("cluster_OSImageURL", func() {
 				}),
 		)
 
-		s, err := cluster.NewCluster(mockKubeClients).OSImageURL()
+		s, err := cluster.NewCluster(mockKubeClients).OSImageURL(context.TODO())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(s).To(Equal(s))
 	})

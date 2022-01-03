@@ -5,6 +5,7 @@
 package poll
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -35,57 +36,57 @@ func (m *MockPollActions) EXPECT() *MockPollActionsMockRecorder {
 }
 
 // ForDaemonSet mocks base method.
-func (m *MockPollActions) ForDaemonSet(obj *unstructured.Unstructured) error {
+func (m *MockPollActions) ForDaemonSet(arg0 context.Context, arg1 *unstructured.Unstructured) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ForDaemonSet", obj)
+	ret := m.ctrl.Call(m, "ForDaemonSet", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ForDaemonSet indicates an expected call of ForDaemonSet.
-func (mr *MockPollActionsMockRecorder) ForDaemonSet(obj interface{}) *gomock.Call {
+func (mr *MockPollActionsMockRecorder) ForDaemonSet(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForDaemonSet", reflect.TypeOf((*MockPollActions)(nil).ForDaemonSet), obj)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForDaemonSet", reflect.TypeOf((*MockPollActions)(nil).ForDaemonSet), arg0, arg1)
 }
 
 // ForDaemonSetLogs mocks base method.
-func (m *MockPollActions) ForDaemonSetLogs(obj *unstructured.Unstructured, pattern string) error {
+func (m *MockPollActions) ForDaemonSetLogs(arg0 context.Context, arg1 *unstructured.Unstructured, arg2 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ForDaemonSetLogs", obj, pattern)
+	ret := m.ctrl.Call(m, "ForDaemonSetLogs", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ForDaemonSetLogs indicates an expected call of ForDaemonSetLogs.
-func (mr *MockPollActionsMockRecorder) ForDaemonSetLogs(obj, pattern interface{}) *gomock.Call {
+func (mr *MockPollActionsMockRecorder) ForDaemonSetLogs(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForDaemonSetLogs", reflect.TypeOf((*MockPollActions)(nil).ForDaemonSetLogs), obj, pattern)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForDaemonSetLogs", reflect.TypeOf((*MockPollActions)(nil).ForDaemonSetLogs), arg0, arg1, arg2)
 }
 
 // ForResource mocks base method.
-func (m *MockPollActions) ForResource(obj *unstructured.Unstructured) error {
+func (m *MockPollActions) ForResource(arg0 context.Context, arg1 *unstructured.Unstructured) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ForResource", obj)
+	ret := m.ctrl.Call(m, "ForResource", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ForResource indicates an expected call of ForResource.
-func (mr *MockPollActionsMockRecorder) ForResource(obj interface{}) *gomock.Call {
+func (mr *MockPollActionsMockRecorder) ForResource(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForResource", reflect.TypeOf((*MockPollActions)(nil).ForResource), obj)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForResource", reflect.TypeOf((*MockPollActions)(nil).ForResource), arg0, arg1)
 }
 
 // ForResourceUnavailability mocks base method.
-func (m *MockPollActions) ForResourceUnavailability(obj *unstructured.Unstructured) error {
+func (m *MockPollActions) ForResourceUnavailability(arg0 context.Context, arg1 *unstructured.Unstructured) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ForResourceUnavailability", obj)
+	ret := m.ctrl.Call(m, "ForResourceUnavailability", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ForResourceUnavailability indicates an expected call of ForResourceUnavailability.
-func (mr *MockPollActionsMockRecorder) ForResourceUnavailability(obj interface{}) *gomock.Call {
+func (mr *MockPollActionsMockRecorder) ForResourceUnavailability(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForResourceUnavailability", reflect.TypeOf((*MockPollActions)(nil).ForResourceUnavailability), obj)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForResourceUnavailability", reflect.TypeOf((*MockPollActions)(nil).ForResourceUnavailability), arg0, arg1)
 }

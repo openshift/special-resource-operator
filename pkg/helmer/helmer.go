@@ -54,7 +54,7 @@ func OpenShiftInstallOrder() {
 
 type Helmer interface {
 	Load(helmerv1beta1.HelmChart) (*chart.Chart, error)
-	Run(chart.Chart, map[string]interface{}, v1.Object, string, string, map[string]string, string, string, bool) error
+	Run(context.Context, chart.Chart, map[string]interface{}, v1.Object, string, string, map[string]string, string, string, bool) error
 }
 
 type helmer struct {
@@ -163,14 +163,14 @@ func (h *helmer) logWrap(format string, v ...interface{}) {
 	h.log.Info("Helm", "internal", msg)
 }
 
-func (h *helmer) InstallCRDs(crds []chart.CRD, owner v1.Object, name string, namespace string) error {
+func (h *helmer) InstallCRDs(ctx context.Context, crds []chart.CRD, owner v1.Object, name string, namespace string) error {
 
 	var manifests bytes.Buffer
 
 	for _, crd := range crds {
 		fmt.Fprintf(&manifests, "---\n# Source: %s\n%s\n", crd.Filename, crd.File.Data)
 	}
-	if err := h.creator.CreateFromYAML(manifests.Bytes(),
+	if err := h.creator.CreateFromYAML(ctx, manifests.Bytes(),
 		false, owner, name, namespace, nil, "", ""); err != nil {
 		return err
 	}
@@ -178,7 +178,10 @@ func (h *helmer) InstallCRDs(crds []chart.CRD, owner v1.Object, name string, nam
 	return nil
 }
 
-func (h *helmer) Run(ch chart.Chart, vals map[string]interface{},
+func (h *helmer) Run(
+	ctx context.Context,
+	ch chart.Chart,
+	vals map[string]interface{},
 	owner v1.Object,
 	name string,
 	namespace string,
@@ -220,7 +223,7 @@ func (h *helmer) Run(ch chart.Chart, vals map[string]interface{},
 	if crds := ch.CRDObjects(); !install.ClientOnly && !install.SkipCRDs && len(crds) > 0 {
 
 		h.log.Info("Release CRDs")
-		err := h.InstallCRDs(crds, owner, install.ReleaseName, install.Namespace)
+		err := h.InstallCRDs(ctx, crds, owner, install.ReleaseName, install.Namespace)
 		if err != nil {
 			return fmt.Errorf("Cannot install CRDs: %w", err)
 		}
@@ -262,7 +265,7 @@ func (h *helmer) Run(ch chart.Chart, vals map[string]interface{},
 	h.log.Info("Release pre-install hooks")
 	// pre-install hooks
 	if !install.DisableHooks {
-		if err := h.ExecHook(rel, release.HookPreInstall, install.Timeout, owner, name, namespace); err != nil {
+		if err := h.ExecHook(ctx, rel, release.HookPreInstall, owner, name, namespace); err != nil {
 			_, err := install.FailRelease(rel, fmt.Errorf("failed pre-install: %s", err))
 			return err
 		}
@@ -270,7 +273,9 @@ func (h *helmer) Run(ch chart.Chart, vals map[string]interface{},
 	}
 
 	h.log.Info("Release manifests")
-	err = h.creator.CreateFromYAML([]byte(rel.Manifest),
+	err = h.creator.CreateFromYAML(
+		ctx,
+		[]byte(rel.Manifest),
 		h.ReleaseInstalled(name),
 		owner,
 		name,
@@ -287,7 +292,7 @@ func (h *helmer) Run(ch chart.Chart, vals map[string]interface{},
 
 	h.log.Info("Release post-install hooks")
 	if !install.DisableHooks {
-		if err := h.ExecHook(rel, release.HookPostInstall, install.Timeout, owner, name, namespace); err != nil {
+		if err := h.ExecHook(ctx, rel, release.HookPostInstall, owner, name, namespace); err != nil {
 			_, err := install.FailRelease(rel, fmt.Errorf("failed post-install: %s", err))
 			return err
 		}
@@ -318,7 +323,7 @@ func (x hookByWeight) Less(i, j int) bool {
 	return x[i].Weight < x[j].Weight
 }
 
-func (h *helmer) ExecHook(rl *release.Release, hook release.HookEvent, timeout time.Duration, owner v1.Object, name string, namespace string) error {
+func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release.HookEvent, owner v1.Object, name string, namespace string) error {
 
 	obj := unstructured.Unstructured{}
 	obj.SetKind("ConfigMap")
@@ -330,7 +335,7 @@ func (h *helmer) ExecHook(rl *release.Release, hook release.HookEvent, timeout t
 
 	key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
 
-	if err := clients.Interface.Get(context.TODO(), key, found); err != nil {
+	if err := clients.Interface.Get(ctx, key, found); err != nil {
 
 		if apierrors.IsNotFound(err) {
 			h.log.Info("Hooks", string(hook), "NotReady (IsNotFound)")
@@ -376,7 +381,7 @@ func (h *helmer) ExecHook(rl *release.Release, hook release.HookEvent, timeout t
 		// the most appropriate value to surface.
 		hk.LastRun.Phase = release.HookPhaseUnknown
 
-		if err := h.creator.CreateFromYAML([]byte(hk.Manifest), false, owner, name, namespace, nil, "", ""); err != nil {
+		if err := h.creator.CreateFromYAML(ctx, []byte(hk.Manifest), false, owner, name, namespace, nil, "", ""); err != nil {
 
 			hk.LastRun.CompletedAt = helmtime.Now()
 			hk.LastRun.Phase = release.HookPhaseFailed
@@ -400,7 +405,7 @@ func (h *helmer) ExecHook(rl *release.Release, hook release.HookEvent, timeout t
 		}
 	}
 
-	if err := clients.Interface.Create(context.TODO(), &obj); err != nil {
+	if err := clients.Interface.Create(ctx, &obj); err != nil {
 		h.log.Info(err.Error())
 
 		if apierrors.IsAlreadyExists(err) {

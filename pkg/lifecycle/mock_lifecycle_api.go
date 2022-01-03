@@ -5,6 +5,7 @@
 package lifecycle
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -37,43 +38,43 @@ func (m *MockLifecycle) EXPECT() *MockLifecycleMockRecorder {
 }
 
 // GetPodFromDaemonSet mocks base method.
-func (m *MockLifecycle) GetPodFromDaemonSet(arg0 types.NamespacedName) unstructured.UnstructuredList {
+func (m *MockLifecycle) GetPodFromDaemonSet(arg0 context.Context, arg1 types.NamespacedName) unstructured.UnstructuredList {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPodFromDaemonSet", arg0)
+	ret := m.ctrl.Call(m, "GetPodFromDaemonSet", arg0, arg1)
 	ret0, _ := ret[0].(unstructured.UnstructuredList)
 	return ret0
 }
 
 // GetPodFromDaemonSet indicates an expected call of GetPodFromDaemonSet.
-func (mr *MockLifecycleMockRecorder) GetPodFromDaemonSet(arg0 interface{}) *gomock.Call {
+func (mr *MockLifecycleMockRecorder) GetPodFromDaemonSet(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPodFromDaemonSet", reflect.TypeOf((*MockLifecycle)(nil).GetPodFromDaemonSet), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPodFromDaemonSet", reflect.TypeOf((*MockLifecycle)(nil).GetPodFromDaemonSet), arg0, arg1)
 }
 
 // GetPodFromDeployment mocks base method.
-func (m *MockLifecycle) GetPodFromDeployment(key types.NamespacedName) unstructured.UnstructuredList {
+func (m *MockLifecycle) GetPodFromDeployment(arg0 context.Context, arg1 types.NamespacedName) unstructured.UnstructuredList {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPodFromDeployment", key)
+	ret := m.ctrl.Call(m, "GetPodFromDeployment", arg0, arg1)
 	ret0, _ := ret[0].(unstructured.UnstructuredList)
 	return ret0
 }
 
 // GetPodFromDeployment indicates an expected call of GetPodFromDeployment.
-func (mr *MockLifecycleMockRecorder) GetPodFromDeployment(key interface{}) *gomock.Call {
+func (mr *MockLifecycleMockRecorder) GetPodFromDeployment(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPodFromDeployment", reflect.TypeOf((*MockLifecycle)(nil).GetPodFromDeployment), key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPodFromDeployment", reflect.TypeOf((*MockLifecycle)(nil).GetPodFromDeployment), arg0, arg1)
 }
 
 // UpdateDaemonSetPods mocks base method.
-func (m *MockLifecycle) UpdateDaemonSetPods(obj client.Object) error {
+func (m *MockLifecycle) UpdateDaemonSetPods(arg0 context.Context, arg1 client.Object) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateDaemonSetPods", obj)
+	ret := m.ctrl.Call(m, "UpdateDaemonSetPods", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // UpdateDaemonSetPods indicates an expected call of UpdateDaemonSetPods.
-func (mr *MockLifecycleMockRecorder) UpdateDaemonSetPods(obj interface{}) *gomock.Call {
+func (mr *MockLifecycleMockRecorder) UpdateDaemonSetPods(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateDaemonSetPods", reflect.TypeOf((*MockLifecycle)(nil).UpdateDaemonSetPods), obj)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateDaemonSetPods", reflect.TypeOf((*MockLifecycle)(nil).UpdateDaemonSetPods), arg0, arg1)
 }

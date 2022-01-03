@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
@@ -9,16 +10,16 @@ import (
 )
 
 // SpecialResourceUpgrade upgrade special resources
-func SpecialResourceUpgrade(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
+func SpecialResourceUpgrade(ctx context.Context, r *SpecialResourceReconciler) (ctrl.Result, error) {
 	log = r.Log.WithName(color.Print("upgrade", color.Blue))
 
 	var err error
 
-	if err = cache.Nodes(r.specialresource.Spec.NodeSelector, false); err != nil {
+	if err = cache.Nodes(ctx, r.specialresource.Spec.NodeSelector, false); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to cache nodes: %w", err)
 	}
 
-	RunInfo.ClusterUpgradeInfo, err = r.ClusterInfo.GetClusterInfo()
+	RunInfo.ClusterUpgradeInfo, err = r.ClusterInfo.GetClusterInfo(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

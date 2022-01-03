@@ -57,7 +57,7 @@ var _ = Describe("Nodes", func() {
 
 				mockClients.EXPECT().List(context.TODO(), listMatcher).Return(randomError)
 
-				err := cache.Nodes(nil, force)
+				err := cache.Nodes(context.TODO(), nil, force)
 
 				Expect(errors.Is(err, randomError)).To(BeTrue())
 			},
@@ -88,7 +88,7 @@ var _ = Describe("Nodes", func() {
 					},
 				)
 
-				err := cache.Nodes(nil, false)
+				err := cache.Nodes(context.TODO(), nil, false)
 
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cache.Node.List.Items).To(HaveLen(cacheCount))
@@ -109,7 +109,7 @@ var _ = Describe("Nodes", func() {
 					},
 				}
 
-				err := cache.Nodes(nil, false)
+				err := cache.Nodes(context.TODO(), nil, false)
 
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cache.Node.List.Items).To(
@@ -134,7 +134,7 @@ var _ = Describe("Nodes", func() {
 					},
 				)
 
-				err := cache.Nodes(nil, true)
+				err := cache.Nodes(context.TODO(), nil, true)
 
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cache.Node.List.Items).To(
@@ -162,7 +162,7 @@ var _ = Describe("Nodes", func() {
 					},
 				)
 
-				err := cache.Nodes(nil, force)
+				err := cache.Nodes(context.TODO(), nil, force)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(
 					cache.Node.List.Items).To(HaveLen(len(k8sItems)),
@@ -190,7 +190,7 @@ var _ = Describe("Nodes", func() {
 			},
 		)
 
-		err := cache.Nodes(matchingLabels, false)
+		err := cache.Nodes(context.TODO(), matchingLabels, false)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cache.Node.List.Items).To(HaveLen(1))

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
@@ -45,7 +46,7 @@ func main() {
 	manifests := assetsInterface.GetFrom(*path)
 
 	for _, manifest := range manifests {
-		if err = framework.CreateFromYAML(manifest.Content, cl); err != nil {
+		if err = framework.CreateFromYAML(context.TODO(), manifest.Content, cl); err != nil {
 			log.Fatalf("Error creating an object from YAML: %v", err)
 		}
 	}

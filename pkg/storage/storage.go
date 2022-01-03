@@ -14,9 +14,9 @@ import (
 //go:generate mockgen -source=storage.go -package=storage -destination=mock_storage_api.go
 
 type Storage interface {
-	CheckConfigMapEntry(string, types.NamespacedName) (string, error)
-	UpdateConfigMapEntry(string, string, types.NamespacedName) error
-	DeleteConfigMapEntry(string, types.NamespacedName) error
+	CheckConfigMapEntry(context.Context, string, types.NamespacedName) (string, error)
+	UpdateConfigMapEntry(context.Context, string, string, types.NamespacedName) error
+	DeleteConfigMapEntry(context.Context, string, types.NamespacedName) error
 }
 
 type storage struct {
@@ -27,8 +27,8 @@ func NewStorage(kubeClient clients.ClientsInterface) Storage {
 	return &storage{kubeClient: kubeClient}
 }
 
-func (s *storage) CheckConfigMapEntry(key string, ins types.NamespacedName) (string, error) {
-	cm, err := s.getConfigMap(ins.Namespace, ins.Name)
+func (s *storage) CheckConfigMapEntry(ctx context.Context, key string, ins types.NamespacedName) (string, error) {
+	cm, err := s.getConfigMap(ctx, ins.Namespace, ins.Name)
 	if err != nil {
 		return "", err
 	}
@@ -36,8 +36,8 @@ func (s *storage) CheckConfigMapEntry(key string, ins types.NamespacedName) (str
 	return cm.Data[key], nil
 }
 
-func (s *storage) UpdateConfigMapEntry(key string, value string, ins types.NamespacedName) error {
-	cm, err := s.getConfigMap(ins.Namespace, ins.Name)
+func (s *storage) UpdateConfigMapEntry(ctx context.Context, key string, value string, ins types.NamespacedName) error {
+	cm, err := s.getConfigMap(ctx, ins.Namespace, ins.Name)
 	if err != nil {
 		warn.OnError(err)
 		return err
@@ -50,7 +50,7 @@ func (s *storage) UpdateConfigMapEntry(key string, value string, ins types.Names
 	if cm.Data[key] != value {
 		cm.Data[key] = value
 
-		if err = s.updateObject(context.TODO(), cm); err != nil {
+		if err = s.updateObject(ctx, cm); err != nil {
 			warn.OnError(err)
 			return err
 		}
@@ -59,8 +59,8 @@ func (s *storage) UpdateConfigMapEntry(key string, value string, ins types.Names
 	return nil
 }
 
-func (s *storage) DeleteConfigMapEntry(key string, ins types.NamespacedName) error {
-	cm, err := s.getConfigMap(ins.Namespace, ins.Name)
+func (s *storage) DeleteConfigMapEntry(ctx context.Context, key string, ins types.NamespacedName) error {
+	cm, err := s.getConfigMap(ctx, ins.Namespace, ins.Name)
 	if err != nil {
 		warn.OnError(err)
 		return err
@@ -69,7 +69,7 @@ func (s *storage) DeleteConfigMapEntry(key string, ins types.NamespacedName) err
 	if _, ok := cm.Data[key]; ok {
 		delete(cm.Data, key)
 
-		if err = s.updateObject(context.TODO(), cm); err != nil {
+		if err = s.updateObject(ctx, cm); err != nil {
 			warn.OnError(err)
 			return err
 		}
@@ -78,11 +78,11 @@ func (s *storage) DeleteConfigMapEntry(key string, ins types.NamespacedName) err
 	return nil
 }
 
-func (s *storage) getConfigMap(namespace string, name string) (*v1.ConfigMap, error) {
+func (s *storage) getConfigMap(ctx context.Context, namespace string, name string) (*v1.ConfigMap, error) {
 	cm := &v1.ConfigMap{}
 	dep := types.NamespacedName{Namespace: namespace, Name: name}
 
-	err := s.kubeClient.Get(context.TODO(), dep, cm)
+	err := s.kubeClient.Get(ctx, dep, cm)
 
 	if apierrors.IsNotFound(err) {
 		warn.OnError(err)

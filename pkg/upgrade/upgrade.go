@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"strings"
@@ -39,7 +40,7 @@ type NodeVersion struct {
 //go:generate mockgen -source=upgrade.go -package=upgrade -destination=mock_upgrade_api.go
 
 type ClusterInfo interface {
-	GetClusterInfo() (map[string]NodeVersion, error)
+	GetClusterInfo(context.Context) (map[string]NodeVersion, error)
 }
 
 func NewClusterInfo(registry registry.Registry, cluster cluster.Cluster) ClusterInfo {
@@ -57,19 +58,19 @@ type clusterInfo struct {
 }
 
 // GetClusterInfo returns a map[full kernel version]NodeVersion
-func (ci *clusterInfo) GetClusterInfo() (map[string]NodeVersion, error) {
+func (ci *clusterInfo) GetClusterInfo(ctx context.Context) (map[string]NodeVersion, error) {
 
 	info, err := ci.nodeVersionInfo()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get upgrade info: %w", err)
 	}
 
-	history, err := ci.cluster.VersionHistory()
+	history, err := ci.cluster.VersionHistory(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get version history: %w", err)
 	}
 
-	versions, err := ci.driverToolkitVersion(history, info)
+	versions, err := ci.driverToolkitVersion(ctx, history, info)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +168,7 @@ func (ci *clusterInfo) updateInfo(info map[string]NodeVersion, dtk registry.Driv
 	return info, nil
 }
 
-func (ci *clusterInfo) driverToolkitVersion(entries []string, info map[string]NodeVersion) (map[string]NodeVersion, error) {
+func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, entries []string, info map[string]NodeVersion) (map[string]NodeVersion, error) {
 
 	for _, entry := range entries {
 
@@ -178,7 +179,7 @@ func (ci *clusterInfo) driverToolkitVersion(entries []string, info map[string]No
 			layer v1.Layer
 		)
 
-		layer, err = ci.registry.LastLayer(entry)
+		layer, err = ci.registry.LastLayer(ctx, entry)
 		if err != nil {
 			return nil, err
 		}
@@ -197,7 +198,7 @@ func (ci *clusterInfo) driverToolkitVersion(entries []string, info map[string]No
 			return info, nil
 		}
 
-		if layer, err = ci.registry.LastLayer(imageURL); layer == nil {
+		if layer, err = ci.registry.LastLayer(ctx, imageURL); layer == nil {
 			return nil, fmt.Errorf("cannot extract last layer for DTK from %s: %w", imageURL, err)
 		}
 

@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
+func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconciler) error {
 
 	if found := slice.Contains(r.dependency.Tags, "image-puller"); !found {
 		log.Info("dep", "ImagePuller", found)
@@ -32,7 +32,7 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 	rb.SetKind("RoleBinding")
 
 	namespacedName := types.NamespacedName{Namespace: r.specialresource.Spec.Namespace, Name: "system:image-pullers"}
-	err := clients.Interface.Get(context.TODO(), namespacedName, rb)
+	err := clients.Interface.Get(ctx, namespacedName, rb)
 	if apierrors.IsNotFound(err) {
 		log.Info("Warning: RoleBinding system:image-pullers not found. Can be ignored on vanilla k8s or when namespace is being created.")
 		return nil
@@ -71,7 +71,7 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 			return err
 		}
 
-		if err = clients.Interface.Create(context.TODO(), rb); err != nil {
+		if err = clients.Interface.Create(ctx, rb); err != nil {
 			return fmt.Errorf("couldn't Create Resource: %w", err)
 		}
 
@@ -116,7 +116,7 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 		return err
 	}
 
-	if err = clients.Interface.Update(context.TODO(), rb); err != nil {
+	if err = clients.Interface.Update(ctx, rb); err != nil {
 		return fmt.Errorf("couldn't Update Resource: %w", err)
 	}
 
@@ -124,7 +124,7 @@ func createImagePullerRoleBinding(r *SpecialResourceReconciler) error {
 }
 
 // ReconcileChartStates Reconcile Hardware States
-func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.Unstructured) error {
+func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) error {
 
 	nostate := r.chart
 	nostate.Templates = []*chart.File{}
@@ -216,7 +216,10 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 				fmt.Printf("STEP VALUES --------------------------------------------------\n%s\n\n", d)
 			}
 
-			err = r.Helmer.Run(step, step.Values,
+			err = r.Helmer.Run(
+				ctx,
+				step,
+				step.Values,
 				&r.specialresource,
 				r.specialresource.Name,
 				r.specialresource.Spec.Namespace,
@@ -247,9 +250,9 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 		r.Metrics.SetCompletedState(r.specialresource.Name, stateYAML.Name, 1)
 		// If resource available, label the nodes according to the current state
 		// if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
-		operatorStatusUpdate(&r.specialresource, state.CurrentName)
+		operatorStatusUpdate(ctx, &r.specialresource, state.CurrentName)
 
-		if err := labelNodesAccordingToState(r.specialresource.Spec.NodeSelector); err != nil {
+		if err := labelNodesAccordingToState(ctx, r.specialresource.Spec.NodeSelector); err != nil {
 			return err
 		}
 	}
@@ -272,7 +275,10 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 		return err
 	}
 
-	return r.Helmer.Run(nostate, nostate.Values,
+	return r.Helmer.Run(
+		ctx,
+		nostate,
+		nostate.Values,
 		&r.specialresource,
 		r.specialresource.Name,
 		r.specialresource.Spec.Namespace,
@@ -282,7 +288,7 @@ func ReconcileChartStates(r *SpecialResourceReconciler, templates *unstructured.
 		false)
 }
 
-func createSpecialResourceNamespace(r *SpecialResourceReconciler) error {
+func createSpecialResourceNamespace(ctx context.Context, r *SpecialResourceReconciler) error {
 
 	ns := []byte(`apiVersion: v1
 kind: Namespace
@@ -301,7 +307,7 @@ metadata:
 		ns = append(ns, add...)
 	}
 
-	if err := r.Creator.CreateFromYAML(ns, false, &r.specialresource, r.specialresource.Name, "", nil, "", ""); err != nil {
+	if err := r.Creator.CreateFromYAML(ctx, ns, false, &r.specialresource, r.specialresource.Name, "", nil, "", ""); err != nil {
 		log.Info("Cannot reconcile specialresource namespace, something went horribly wrong")
 		return err
 	}
@@ -310,22 +316,19 @@ metadata:
 }
 
 // ReconcileChart Reconcile Hardware Configurations
-func ReconcileChart(r *SpecialResourceReconciler) error {
-
-	var templates *unstructured.Unstructured
-
+func ReconcileChart(ctx context.Context, r *SpecialResourceReconciler) error {
 	// Leave this here, this is crucial for all following work
 	// Creating and setting the working namespace for the specialresource
 	// specialresource name == namespace if not metadata.namespace is set
-	if err := createSpecialResourceNamespace(r); err != nil {
+	if err := createSpecialResourceNamespace(ctx, r); err != nil {
 		return fmt.Errorf("could not create the SpecialResource's namespace: %w", err)
 	}
 
-	if err := createImagePullerRoleBinding(r); err != nil {
+	if err := createImagePullerRoleBinding(ctx, r); err != nil {
 		return fmt.Errorf("could not create ImagePuller RoleBinding: %w", err)
 	}
 
-	if err := ReconcileChartStates(r, templates); err != nil {
+	if err := ReconcileChartStates(ctx, r); err != nil {
 		return fmt.Errorf("cannot reconcile hardware states: %w", err)
 	}
 

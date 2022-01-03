@@ -1,6 +1,7 @@
 package helmer_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -158,10 +159,10 @@ var _ = Describe("helmer_InstallCRDs", func() {
 
 		mockCreator.
 			EXPECT().
-			CreateFromYAML(nil, false, owner, name, namespace, nil, "", "").
+			CreateFromYAML(context.TODO(), nil, false, owner, name, namespace, nil, "", "").
 			Return(randomError)
 
-		err := helmer.NewHelmer(mockCreator, cli.New()).InstallCRDs(nil, owner, name, namespace)
+		err := helmer.NewHelmer(mockCreator, cli.New()).InstallCRDs(context.TODO(), nil, owner, name, namespace)
 		Expect(err).To(Equal(randomError))
 	})
 
@@ -187,9 +188,9 @@ def
 
 		mockCreator.
 			EXPECT().
-			CreateFromYAML(manifests, false, owner, name, namespace, nil, "", "")
+			CreateFromYAML(context.TODO(), manifests, false, owner, name, namespace, nil, "", "")
 
-		err := helmer.NewHelmer(mockCreator, cli.New()).InstallCRDs(crds, owner, name, namespace)
+		err := helmer.NewHelmer(mockCreator, cli.New()).InstallCRDs(context.TODO(), crds, owner, name, namespace)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
@@ -212,7 +213,7 @@ var _ = Describe("helmer_Run", func() {
 
 		err := helmer.
 			NewHelmer(mockCreator, cli.New()).
-			Run(ch, nil, owner, name, namespace, nil, "", "", false)
+			Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -234,12 +235,12 @@ var _ = Describe("helmer_Run", func() {
 
 		mockCreator.
 			EXPECT().
-			CreateFromYAML(gomock.Any(), false, owner, name, namespace, nil, "", "").
+			CreateFromYAML(context.TODO(), gomock.Any(), false, owner, name, namespace, nil, "", "").
 			Return(randomError)
 
 		err := helmer.
 			NewHelmer(mockCreator, cli.New()).
-			Run(ch, nil, owner, name, namespace, nil, "", "", false)
+			Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
 		Expect(errors.Is(err, randomError)).To(BeTrue())
 	})
 })

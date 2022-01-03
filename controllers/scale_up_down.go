@@ -12,10 +12,10 @@ import (
 
 // If resource available, label the nodes according to the current state
 // if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
-func labelNodesAccordingToState(nodeSelector map[string]string) error {
+func labelNodesAccordingToState(ctx context.Context, nodeSelector map[string]string) error {
 	var err error
 
-	if err = cache.Nodes(nodeSelector, true); err != nil {
+	if err = cache.Nodes(ctx, nodeSelector, true); err != nil {
 		return fmt.Errorf("could not cache nodes for state change: %w", err)
 	}
 
@@ -29,13 +29,13 @@ func labelNodesAccordingToState(nodeSelector map[string]string) error {
 
 		updated.SetLabels(labels)
 
-		if err = clients.Interface.Update(context.TODO(), updated); err != nil {
+		if err = clients.Interface.Update(ctx, updated); err != nil {
 			if apierrors.IsForbidden(err) {
 				return fmt.Errorf("forbidden - check Role, ClusterRole and Bindings: %w", err)
 			}
 
 			if apierrors.IsConflict(err) {
-				if err := cache.Nodes(nodeSelector, true); err != nil {
+				if err := cache.Nodes(ctx, nodeSelector, true); err != nil {
 					return fmt.Errorf("could not cache nodes for api conflict: %w", err)
 				}
 

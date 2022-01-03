@@ -5,6 +5,7 @@
 package cluster
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -34,18 +35,18 @@ func (m *MockCluster) EXPECT() *MockClusterMockRecorder {
 }
 
 // OSImageURL mocks base method.
-func (m *MockCluster) OSImageURL() (string, error) {
+func (m *MockCluster) OSImageURL(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OSImageURL")
+	ret := m.ctrl.Call(m, "OSImageURL", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // OSImageURL indicates an expected call of OSImageURL.
-func (mr *MockClusterMockRecorder) OSImageURL() *gomock.Call {
+func (mr *MockClusterMockRecorder) OSImageURL(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OSImageURL", reflect.TypeOf((*MockCluster)(nil).OSImageURL))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OSImageURL", reflect.TypeOf((*MockCluster)(nil).OSImageURL), arg0)
 }
 
 // OperatingSystem mocks base method.
@@ -66,9 +67,9 @@ func (mr *MockClusterMockRecorder) OperatingSystem() *gomock.Call {
 }
 
 // Version mocks base method.
-func (m *MockCluster) Version() (string, string, error) {
+func (m *MockCluster) Version(arg0 context.Context) (string, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Version")
+	ret := m.ctrl.Call(m, "Version", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
@@ -76,22 +77,22 @@ func (m *MockCluster) Version() (string, string, error) {
 }
 
 // Version indicates an expected call of Version.
-func (mr *MockClusterMockRecorder) Version() *gomock.Call {
+func (mr *MockClusterMockRecorder) Version(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockCluster)(nil).Version))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockCluster)(nil).Version), arg0)
 }
 
 // VersionHistory mocks base method.
-func (m *MockCluster) VersionHistory() ([]string, error) {
+func (m *MockCluster) VersionHistory(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VersionHistory")
+	ret := m.ctrl.Call(m, "VersionHistory", arg0)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // VersionHistory indicates an expected call of VersionHistory.
-func (mr *MockClusterMockRecorder) VersionHistory() *gomock.Call {
+func (mr *MockClusterMockRecorder) VersionHistory(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VersionHistory", reflect.TypeOf((*MockCluster)(nil).VersionHistory))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VersionHistory", reflect.TypeOf((*MockCluster)(nil).VersionHistory), arg0)
 }

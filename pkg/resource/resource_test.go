@@ -2,8 +2,9 @@ package resource_test
 
 import (
 	"context"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
@@ -407,6 +408,7 @@ spec:
 		err = resource.
 			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI).
 			CreateFromYAML(
+				context.TODO(),
 				yamlSpec,
 				false,
 				&owner,
@@ -512,6 +514,7 @@ spec:
 		err = resource.
 			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI).
 			CreateFromYAML(
+				context.TODO(),
 				yamlSpec,
 				false,
 				&owner,
