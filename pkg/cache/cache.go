@@ -28,7 +28,7 @@ var (
 	}
 )
 
-func Nodes(matchingLabels map[string]string, force bool) error {
+func Nodes(ctx context.Context, matchingLabels map[string]string, force bool) error {
 
 	// The initial list is what we're working with
 	// a SharedInformer will update the list of nodes if
@@ -53,7 +53,7 @@ func Nodes(matchingLabels map[string]string, force bool) error {
 	list.SetAPIVersion("v1")
 	list.SetKind("NodeList")
 
-	err := clients.Interface.List(context.TODO(), &list, opts...)
+	err := clients.Interface.List(ctx, &list, opts...)
 	if err != nil {
 		return errors.Wrap(err, "Client cannot get NodeList")
 	}

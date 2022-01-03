@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"testing"
@@ -213,13 +214,15 @@ var _ = Describe("ClusterInfo", func() {
 				cache.Node.Count = int64(len(cache.Node.List.Items))
 			}
 
-			mockCluster.EXPECT().VersionHistory().Return(input.clusterReleaseImages, nil)
-			mockRegistry.EXPECT().LastLayer(input.clusterReleaseImages[0]).Return(&fakeLayer{}, nil)
+			ctx := context.TODO()
+
+			mockCluster.EXPECT().VersionHistory(ctx).Return(input.clusterReleaseImages, nil)
+			mockRegistry.EXPECT().LastLayer(ctx, input.clusterReleaseImages[0]).Return(&fakeLayer{}, nil)
 			mockRegistry.EXPECT().ReleaseManifests(gomock.Any()).Return(input.clusterVersion, input.dtkImage, nil)
-			mockRegistry.EXPECT().LastLayer(input.dtkImage).Return(&fakeLayer{}, nil)
+			mockRegistry.EXPECT().LastLayer(ctx, input.dtkImage).Return(&fakeLayer{}, nil)
 			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(input.dtk, nil)
 
-			m, err := clusterInfo.GetClusterInfo()
+			m, err := clusterInfo.GetClusterInfo(ctx)
 
 			Expect(err).ToNot(HaveOccurred())
 
@@ -233,7 +236,9 @@ var _ = Describe("ClusterInfo", func() {
 		cache.Node.List.Items = []unstructured.Unstructured{{}}
 		cache.Node.Count = int64(len(cache.Node.List.Items))
 
-		_, err := clusterInfo.GetClusterInfo()
+		ctx := context.TODO()
+
+		_, err := clusterInfo.GetClusterInfo(ctx)
 
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("is NFD running?"))
@@ -241,7 +246,7 @@ var _ = Describe("ClusterInfo", func() {
 		cache.Node.List.Items[0].SetLabels(map[string]string{
 			labelKernelVersionFull: "fake",
 		})
-		_, err = clusterInfo.GetClusterInfo()
+		_, err = clusterInfo.GetClusterInfo(ctx)
 
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("is NFD running?"))

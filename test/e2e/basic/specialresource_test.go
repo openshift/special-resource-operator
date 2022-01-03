@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"context"
 	"testing"
 
 	"github.com/onsi/ginkgo"
@@ -35,7 +36,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ginkgo.By("[pre] Creating preamble...")
-	err = CreatePreamble(cl)
+	err = CreatePreamble(context.TODO(), cl)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ginkgo.By("[pre] Checking ClusterOperator conditions...")

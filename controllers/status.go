@@ -21,13 +21,13 @@ import (
 )
 
 // Operator Status
-func operatorStatusUpdate(sr *srov1beta1.SpecialResource, state string) {
+func operatorStatusUpdate(ctx context.Context, sr *srov1beta1.SpecialResource, state string) {
 
 	update := srov1beta1.SpecialResource{}
 
 	// If we cannot find the SR than something bad is going on ..
 	objectKey := types.NamespacedName{Name: sr.GetName(), Namespace: sr.GetNamespace()}
-	err := clients.Interface.Get(context.TODO(), objectKey, &update)
+	err := clients.Interface.Get(ctx, objectKey, &update)
 	if err != nil {
 		warn.OnError(errors.Wrap(err, "Is SR being deleted? Cannot get current instance"))
 		return
@@ -36,10 +36,10 @@ func operatorStatusUpdate(sr *srov1beta1.SpecialResource, state string) {
 	update.Status.State = state
 	update.DeepCopyInto(sr)
 
-	err = clients.Interface.StatusUpdate(context.TODO(), sr)
+	err = clients.Interface.StatusUpdate(ctx, sr)
 	if apierrors.IsConflict(err) {
 		objectKey := types.NamespacedName{Name: sr.Name, Namespace: ""}
-		err := clients.Interface.Get(context.TODO(), objectKey, sr)
+		err := clients.Interface.Get(ctx, objectKey, sr)
 		if apierrors.IsNotFound(err) {
 			return
 		}
@@ -58,13 +58,13 @@ func operatorStatusUpdate(sr *srov1beta1.SpecialResource, state string) {
 }
 
 // ClusterOperator Status ------------------------------------------------------
-func (r *SpecialResourceReconciler) clusterOperatorStatusGetOrCreate() error {
+func (r *SpecialResourceReconciler) clusterOperatorStatusGetOrCreate(ctx context.Context) error {
 
 	clusterOperators := &configv1.ClusterOperatorList{}
 
 	opts := []client.ListOption{}
 
-	if err := clients.Interface.List(context.TODO(), clusterOperators, opts...); err != nil {
+	if err := clients.Interface.List(ctx, clusterOperators, opts...); err != nil {
 		return err
 	}
 
@@ -81,7 +81,7 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusGetOrCreate() error {
 
 	co := &configv1.ClusterOperator{ObjectMeta: metav1.ObjectMeta{Name: r.GetName()}}
 
-	co, err := clients.Interface.ClusterOperatorCreate(context.TODO(), co, metav1.CreateOptions{})
+	co, err := clients.Interface.ClusterOperatorCreate(ctx, co, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create ClusterOperator %s: %w", co.Name, err)
 	}
@@ -100,15 +100,16 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusSet() error {
 }
 
 func (r *SpecialResourceReconciler) clusterOperatorStatusReconcile(
+	ctx context.Context,
 	conditions []configv1.ClusterOperatorStatusCondition) error {
 	// First get the latest clusterOperator before changing anything
-	if err := r.clusterOperatorGetLatest(); err != nil {
+	if err := r.clusterOperatorGetLatest(ctx); err != nil {
 		return fmt.Errorf("failed to update clusterOperator with latest from API server: %w", err)
 	}
 
 	r.clusterOperator.Status.Conditions = conditions
 
-	if err := r.clusterOperatorUpdateRelatedObjects(); err != nil {
+	if err := r.clusterOperatorUpdateRelatedObjects(ctx); err != nil {
 		return fmt.Errorf("cannot set ClusterOperator related objects: %w", err)
 	}
 
@@ -116,28 +117,28 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusReconcile(
 		return fmt.Errorf("cannot update the ClusterOperator status: %w", err)
 	}
 
-	if err := r.clusterOperatorStatusUpdate(); err != nil {
+	if err := r.clusterOperatorStatusUpdate(ctx); err != nil {
 		return fmt.Errorf("could not update ClusterOperator: %w", err)
 	}
 
 	return nil
 }
 
-func (r *SpecialResourceReconciler) clusterOperatorGetLatest() error {
-	co, err := clients.Interface.ClusterOperatorGet(context.TODO(), r.GetName(), metav1.GetOptions{})
+func (r *SpecialResourceReconciler) clusterOperatorGetLatest(ctx context.Context) error {
+	co, err := clients.Interface.ClusterOperatorGet(ctx, r.GetName(), metav1.GetOptions{})
 	co.DeepCopyInto(&r.clusterOperator)
 	return err
 }
 
-func (r *SpecialResourceReconciler) clusterOperatorStatusUpdate() error {
+func (r *SpecialResourceReconciler) clusterOperatorStatusUpdate(ctx context.Context) error {
 
-	if _, err := clients.Interface.ClusterOperatorUpdateStatus(context.TODO(), &r.clusterOperator, metav1.UpdateOptions{}); err != nil {
+	if _, err := clients.Interface.ClusterOperatorUpdateStatus(ctx, &r.clusterOperator, metav1.UpdateOptions{}); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *SpecialResourceReconciler) clusterOperatorUpdateRelatedObjects() error {
+func (r *SpecialResourceReconciler) clusterOperatorUpdateRelatedObjects(ctx context.Context) error {
 	relatedObjects := []configv1.ObjectReference{
 		{Group: "", Resource: "namespaces", Name: os.Getenv("OPERATOR_NAMESPACE")},
 		{Group: "sro.openshift.io", Resource: "specialresources", Name: ""},
@@ -145,7 +146,7 @@ func (r *SpecialResourceReconciler) clusterOperatorUpdateRelatedObjects() error 
 
 	// Get all specialresource objects
 	specialresources := &srov1beta1.SpecialResourceList{}
-	err := clients.Interface.List(context.TODO(), specialresources, []client.ListOption{}...)
+	err := clients.Interface.List(ctx, specialresources, []client.ListOption{}...)
 	if err != nil {
 		return err
 	}
@@ -166,7 +167,7 @@ func (r *SpecialResourceReconciler) clusterOperatorUpdateRelatedObjects() error 
 // SpecialResourcesStatusInit Depending on what error we're getting from the
 // reconciliation loop we're updating the status
 // nil -> All things good and default conditions can be applied
-func SpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request, cond []configv1.ClusterOperatorStatusCondition) (ctrl.Result, error) {
+func SpecialResourcesStatus(ctx context.Context, r *SpecialResourceReconciler, cond []configv1.ClusterOperatorStatusCondition) (ctrl.Result, error) {
 	log = r.Log.WithName(color.Print("status", color.Blue))
 
 	clusterOperatorAvailable, err := clients.Interface.HasResource(configv1.SchemeGroupVersion.WithResource("clusteroperators"))
@@ -177,12 +178,12 @@ func SpecialResourcesStatus(r *SpecialResourceReconciler, req ctrl.Request, cond
 
 	if clusterOperatorAvailable {
 		// If clusterOperator CRD does not exist, warn and return nil,
-		if err = r.clusterOperatorStatusGetOrCreate(); err != nil {
+		if err = r.clusterOperatorStatusGetOrCreate(ctx); err != nil {
 			return reconcile.Result{Requeue: true}, fmt.Errorf("Cannot get or create ClusterOperator: %w", err)
 		}
 
 		log.Info("Reconciling ClusterOperator")
-		if err = r.clusterOperatorStatusReconcile(cond); err != nil {
+		if err = r.clusterOperatorStatusReconcile(ctx, cond); err != nil {
 			return reconcile.Result{Requeue: true}, fmt.Errorf("Reconciling ClusterOperator failed: %w", err)
 		}
 	} else {

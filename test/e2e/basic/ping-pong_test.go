@@ -40,9 +40,11 @@ var _ = ginkgo.Describe("[basic][ping-pong] Test ping-pong", func() {
 	clientSet, err := GetKubeClientSet()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
+	ctx := context.TODO()
+
 	ginkgo.BeforeEach(func() {
 		ginkgo.By("[pre] Creating ping pong SpecialResource...")
-		err := pingPongCreate(cs, cl)
+		err := pingPongCreate(ctx, cl)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		ginkgo.By("[pre] Waiting ping pong pods to be ready...")
 		err = waitPingPongReady(clientSet)
@@ -51,7 +53,7 @@ var _ = ginkgo.Describe("[basic][ping-pong] Test ping-pong", func() {
 
 	ginkgo.AfterEach(func() {
 		ginkgo.By("[post] Deleting ping-pong SpecialResource...")
-		err := pingPongDelete(cs, cl)
+		err := pingPongDelete(ctx, cl)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		err = waitPingPongDeleted(cl)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -118,12 +120,12 @@ func checkPingPong(clientSet *kubernetes.Clientset, cs *framework.ClientSet, cl 
 	return err
 }
 
-func pingPongDelete(cs *framework.ClientSet, cl client.Client) error {
+func pingPongDelete(ctx context.Context, cl client.Client) error {
 	sr, err := ioutil.ReadFile(pingPongChartPath)
 	if err != nil {
 		return err
 	}
-	return framework.DeleteFromYAMLWithCR(sr, cl)
+	return framework.DeleteFromYAMLWithCR(ctx, sr, cl)
 }
 
 func waitPingPongDeleted(cl client.Client) error {
@@ -176,10 +178,10 @@ func waitPingPongReady(clientSet *kubernetes.Clientset) error {
 	return nil
 }
 
-func pingPongCreate(cs *framework.ClientSet, cl client.Client) error {
+func pingPongCreate(ctx context.Context, cl client.Client) error {
 	sr, err := ioutil.ReadFile(pingPongChartPath)
 	if err != nil {
 		return err
 	}
-	return framework.CreateFromYAML(sr, cl)
+	return framework.CreateFromYAML(ctx, sr, cl)
 }

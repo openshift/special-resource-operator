@@ -24,9 +24,9 @@ import (
 //go:generate mockgen -source=cluster.go -package=cluster -destination=mock_cluster_api.go
 
 type Cluster interface {
-	Version() (string, string, error)
-	VersionHistory() ([]string, error)
-	OSImageURL() (string, error)
+	Version(context.Context) (string, string, error)
+	VersionHistory(context.Context) ([]string, error)
+	OSImageURL(context.Context) (string, error)
 	OperatingSystem() (string, string, string, error)
 }
 
@@ -42,7 +42,7 @@ type cluster struct {
 	clients clients.ClientsInterface
 }
 
-func (c *cluster) Version() (string, string, error) {
+func (c *cluster) Version(ctx context.Context) (string, string, error) {
 
 	available, err := c.clusterVersionAvailable()
 	if err != nil {
@@ -52,7 +52,7 @@ func (c *cluster) Version() (string, string, error) {
 		return "", "", nil
 	}
 
-	version, err := c.clients.ClusterVersionGet(context.TODO(), metav1.GetOptions{})
+	version, err := c.clients.ClusterVersionGet(ctx, metav1.GetOptions{})
 	if err != nil {
 		return "", "", fmt.Errorf("ConfigClient unable to get ClusterVersions: %w", err)
 	}
@@ -77,7 +77,7 @@ func (c *cluster) Version() (string, string, error) {
 	return "", "", errors.New("Undefined Cluster Version")
 }
 
-func (c *cluster) VersionHistory() ([]string, error) {
+func (c *cluster) VersionHistory(ctx context.Context) ([]string, error) {
 
 	stat := []string{}
 
@@ -89,7 +89,7 @@ func (c *cluster) VersionHistory() ([]string, error) {
 		return stat, nil
 	}
 
-	version, err := c.clients.ClusterVersionGet(context.TODO(), metav1.GetOptions{})
+	version, err := c.clients.ClusterVersionGet(ctx, metav1.GetOptions{})
 	if err != nil {
 		return stat, fmt.Errorf("ConfigClient unable to get ClusterVersions: %w", err)
 	}
@@ -105,7 +105,7 @@ func (c *cluster) VersionHistory() ([]string, error) {
 	return stat, nil
 }
 
-func (c *cluster) OSImageURL() (string, error) {
+func (c *cluster) OSImageURL(ctx context.Context) (string, error) {
 
 	machineConfigAvailable, err := c.clients.HasResource(machinev1.SchemeGroupVersion.WithResource("machineconfigs"))
 	if err != nil {
@@ -121,7 +121,7 @@ func (c *cluster) OSImageURL() (string, error) {
 	cm.SetKind("ConfigMap")
 
 	namespacedName := types.NamespacedName{Namespace: "openshift-machine-config-operator", Name: "machine-config-osimageurl"}
-	err = c.clients.Get(context.TODO(), namespacedName, cm)
+	err = c.clients.Get(ctx, namespacedName, cm)
 	if apierrors.IsNotFound(err) {
 		return "", fmt.Errorf("ConfigMap machine-config-osimageurl -n  openshift-machine-config-operator not found: %w", err)
 	}

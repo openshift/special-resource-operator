@@ -54,7 +54,7 @@ var _ = Describe("storage_CheckConfigMapEntry", func() {
 			Get(context.TODO(), nsn, &v1.ConfigMap{}).
 			Return(notFound)
 
-		_, err := storage.NewStorage(mockClient).CheckConfigMapEntry(key, nsn)
+		_, err := storage.NewStorage(mockClient).CheckConfigMapEntry(context.TODO(), key, nsn)
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -63,7 +63,7 @@ var _ = Describe("storage_CheckConfigMapEntry", func() {
 			EXPECT().
 			Get(context.TODO(), nsn, &v1.ConfigMap{})
 
-		_, err := storage.NewStorage(mockClient).CheckConfigMapEntry(key, nsn)
+		_, err := storage.NewStorage(mockClient).CheckConfigMapEntry(context.TODO(), key, nsn)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -77,7 +77,7 @@ var _ = Describe("storage_CheckConfigMapEntry", func() {
 				cm.Data = map[string]string{key: data}
 			})
 
-		v, err := storage.NewStorage(mockClient).CheckConfigMapEntry(key, nsn)
+		v, err := storage.NewStorage(mockClient).CheckConfigMapEntry(context.TODO(), key, nsn)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(v).To(Equal(data))
@@ -91,7 +91,7 @@ var _ = Describe("UpdateConfigMapEntry", func() {
 			Get(context.TODO(), nsn, &v1.ConfigMap{}).
 			Return(notFound)
 
-		err := storage.NewStorage(mockClient).UpdateConfigMapEntry("any-key", "any-value", nsn)
+		err := storage.NewStorage(mockClient).UpdateConfigMapEntry(context.TODO(), "any-key", "any-value", nsn)
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -110,7 +110,7 @@ var _ = Describe("UpdateConfigMapEntry", func() {
 				}),
 		)
 
-		err := storage.NewStorage(mockClient).UpdateConfigMapEntry(key, value, nsn)
+		err := storage.NewStorage(mockClient).UpdateConfigMapEntry(context.TODO(), key, value, nsn)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -133,7 +133,7 @@ var _ = Describe("UpdateConfigMapEntry", func() {
 				}),
 		)
 
-		err := storage.NewStorage(mockClient).UpdateConfigMapEntry(key, newValue, nsn)
+		err := storage.NewStorage(mockClient).UpdateConfigMapEntry(context.TODO(), key, newValue, nsn)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
@@ -145,7 +145,7 @@ var _ = Describe("DeleteConfigMapEntry", func() {
 			Get(context.TODO(), nsn, &v1.ConfigMap{}).
 			Return(notFound)
 
-		err := storage.NewStorage(mockClient).DeleteConfigMapEntry("any-key", nsn)
+		err := storage.NewStorage(mockClient).DeleteConfigMapEntry(context.TODO(), "any-key", nsn)
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -154,7 +154,7 @@ var _ = Describe("DeleteConfigMapEntry", func() {
 			EXPECT().
 			Get(context.TODO(), nsn, &v1.ConfigMap{})
 
-		err := storage.NewStorage(mockClient).DeleteConfigMapEntry("some-other-key", nsn)
+		err := storage.NewStorage(mockClient).DeleteConfigMapEntry(context.TODO(), "some-other-key", nsn)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -181,7 +181,7 @@ var _ = Describe("DeleteConfigMapEntry", func() {
 				}),
 		)
 
-		err := storage.NewStorage(mockClient).DeleteConfigMapEntry(otherKey, nsn)
+		err := storage.NewStorage(mockClient).DeleteConfigMapEntry(context.TODO(), otherKey, nsn)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })

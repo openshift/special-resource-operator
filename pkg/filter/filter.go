@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"reflect"
@@ -160,7 +161,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 					f.log.Info(f.mode+" Owned Generation or resourceVersion Changed for kernel affine object",
 						"Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
 					if reflect.TypeOf(obj).String() == "*v1.DaemonSet" && e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
-						err := f.lifecycle.UpdateDaemonSetPods(obj)
+						err := f.lifecycle.UpdateDaemonSetPods(context.TODO(), obj)
 						warn.OnError(err)
 					}
 					return true
@@ -194,7 +195,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 					"Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
 
 				if reflect.TypeOf(obj).String() == "*v1.DaemonSet" {
-					err := f.lifecycle.UpdateDaemonSetPods(obj)
+					err := f.lifecycle.UpdateDaemonSetPods(context.TODO(), obj)
 					warn.OnError(err)
 				}
 
@@ -225,7 +226,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 					warn.OnError(err)
 					return false
 				}
-				err = f.storage.DeleteConfigMapEntry(key, ins)
+				err = f.storage.DeleteConfigMapEntry(context.TODO(), key, ins)
 				warn.OnError(err)
 
 				return true

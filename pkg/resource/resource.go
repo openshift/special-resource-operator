@@ -38,7 +38,7 @@ var (
 //go:generate mockgen -source=resource.go -package=resource -destination=mock_resource_api.go
 
 type Creator interface {
-	CreateFromYAML([]byte, bool, v1.Object, string, string, map[string]string, string, string) error
+	CreateFromYAML(context.Context, []byte, bool, v1.Object, string, string, map[string]string, string, string) error
 }
 
 type creator struct {
@@ -73,42 +73,42 @@ func NewCreator(
 	}
 }
 
-func (c *creator) AfterCRUD(obj *unstructured.Unstructured, namespace string) error {
+func (c *creator) AfterCRUD(ctx context.Context, obj *unstructured.Unstructured, namespace string) error {
 
 	annotations := obj.GetAnnotations()
 	clients.Namespace = namespace
 
 	if state, found := annotations["specialresource.openshift.io/state"]; found && state == "driver-container" {
 		c.log.Info("specialresource.openshift.io/state")
-		if err := c.checkForImagePullBackOff(obj, namespace); err != nil {
+		if err := c.checkForImagePullBackOff(ctx, obj, namespace); err != nil {
 			return fmt.Errorf("cannot check for ImagePullBackOff: %w", err)
 		}
 	}
 
 	if wait, found := annotations["specialresource.openshift.io/wait"]; found && wait == "true" {
 		c.log.Info("specialresource.openshift.io/wait")
-		if err := c.pollActions.ForResource(obj); err != nil {
+		if err := c.pollActions.ForResource(ctx, obj); err != nil {
 			return fmt.Errorf("could not wait for resource: %w", err)
 		}
 	}
 
 	if pattern, found := annotations["specialresource.openshift.io/wait-for-logs"]; found && len(pattern) > 0 {
 		c.log.Info("specialresource.openshift.io/wait-for-logs")
-		if err := c.pollActions.ForDaemonSetLogs(obj, pattern); err != nil {
+		if err := c.pollActions.ForDaemonSetLogs(ctx, obj, pattern); err != nil {
 			return fmt.Errorf("could not wait for DaemonSet logs: %w", err)
 		}
 	}
 
 	if _, found := annotations["helm.sh/hook"]; found {
 		// In the case of hooks we're always waiting for all ressources
-		if err := c.pollActions.ForResource(obj); err != nil {
+		if err := c.pollActions.ForResource(ctx, obj); err != nil {
 			return fmt.Errorf("could not wait for resource: %w", err)
 		}
 	}
 
 	// Always wait for CRDs to be present
 	if obj.GetKind() == "CustomResourceDefinition" {
-		if err := c.pollActions.ForResource(obj); err != nil {
+		if err := c.pollActions.ForResource(ctx, obj); err != nil {
 			return fmt.Errorf("could not wait for CRD: %w", err)
 		}
 	}
@@ -116,7 +116,9 @@ func (c *creator) AfterCRUD(obj *unstructured.Unstructured, namespace string) er
 	return nil
 }
 
-func (c *creator) CreateFromYAML(yamlFile []byte,
+func (c *creator) CreateFromYAML(
+	ctx context.Context,
+	yamlFile []byte,
 	releaseInstalled bool,
 	owner v1.Object,
 	name string,
@@ -131,7 +133,9 @@ func (c *creator) CreateFromYAML(yamlFile []byte,
 
 		yamlSpec := scanner.Bytes()
 
-		err := c.createObjFromYAML(yamlSpec,
+		err := c.createObjFromYAML(
+			ctx,
+			yamlSpec,
 			releaseInstalled,
 			owner,
 			name,
@@ -152,7 +156,7 @@ func (c *creator) CreateFromYAML(yamlFile []byte,
 }
 
 // CRUD Create Update Delete Resource
-func (c *creator) CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object, name string, namespace string) error {
+func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object, name string, namespace string) error {
 
 	var logg logr.Logger
 	if IsNamespaced(obj.GetKind()) {
@@ -175,7 +179,7 @@ func (c *creator) CRUD(obj *unstructured.Unstructured, releaseInstalled bool, ow
 
 	key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
 
-	err := c.kubeClient.Get(context.TODO(), key, found)
+	err := c.kubeClient.Get(ctx, key, found)
 
 	if apierrors.IsNotFound(err) {
 		oneTimer, err := IsOneTimer(obj)
@@ -205,7 +209,7 @@ func (c *creator) CRUD(obj *unstructured.Unstructured, releaseInstalled bool, ow
 
 		SetMetaData(obj, name, namespace)
 
-		if err = c.kubeClient.Create(context.TODO(), obj); err != nil {
+		if err = c.kubeClient.Create(ctx, obj); err != nil {
 			if apierrors.IsForbidden(err) {
 				return fmt.Errorf("API error: forbidden: %w", err)
 			}
@@ -254,16 +258,16 @@ func (c *creator) CRUD(obj *unstructured.Unstructured, releaseInstalled bool, ow
 		return fmt.Errorf("couldn't Update ResourceVersion: %w", err)
 	}
 
-	if err = c.kubeClient.Update(context.TODO(), required); err != nil {
+	if err = c.kubeClient.Update(ctx, required); err != nil {
 		return fmt.Errorf("couldn't Update Resource: %w", err)
 	}
 
 	return nil
 }
 
-func (c *creator) checkForImagePullBackOff(obj *unstructured.Unstructured, namespace string) error {
+func (c *creator) checkForImagePullBackOff(ctx context.Context, obj *unstructured.Unstructured, namespace string) error {
 
-	if err := c.pollActions.ForDaemonSet(obj); err == nil {
+	if err := c.pollActions.ForDaemonSet(ctx, obj); err == nil {
 		return nil
 	}
 
@@ -285,7 +289,7 @@ func (c *creator) checkForImagePullBackOff(obj *unstructured.Unstructured, names
 		client.MatchingLabels(find),
 	}
 
-	err := c.kubeClient.List(context.TODO(), pods, opts...)
+	err := c.kubeClient.List(ctx, pods, opts...)
 	if err != nil {
 		c.log.Error(err, "Could not get PodList")
 		return err
@@ -342,7 +346,9 @@ func (c *creator) checkForImagePullBackOff(obj *unstructured.Unstructured, names
 	return fmt.Errorf("unexpected Phase of Pods in DameonSet: %s", obj.GetName())
 }
 
-func (c *creator) createObjFromYAML(yamlSpec []byte,
+func (c *creator) createObjFromYAML(
+	ctx context.Context,
+	yamlSpec []byte,
 	releaseInstalled bool,
 	owner v1.Object,
 	name string,
@@ -410,7 +416,7 @@ func (c *creator) createObjFromYAML(yamlSpec []byte,
 		return fmt.Errorf("before CRUD hooks failed: %w", err)
 	}
 	// Create Update Delete Patch resources
-	err = c.CRUD(obj, releaseInstalled, owner, name, namespace)
+	err = c.CRUD(ctx, obj, releaseInstalled, owner, name, namespace)
 	if err != nil {
 		if strings.Contains(err.Error(), "failed calling webhook") {
 			return fmt.Errorf("webhook not ready, requeue: %w", err)
@@ -420,11 +426,11 @@ func (c *creator) createObjFromYAML(yamlSpec []byte,
 	}
 
 	// Callbacks after CRUD will wait for ressource and check status
-	if err = c.AfterCRUD(obj, namespace); err != nil {
+	if err = c.AfterCRUD(ctx, obj, namespace); err != nil {
 		return fmt.Errorf("after CRUD hooks failed: %w", err)
 	}
 
-	c.sendNodesMetrics(obj, name)
+	c.sendNodesMetrics(ctx, obj, name)
 
 	metricValue = 1
 	return nil
@@ -452,7 +458,7 @@ func (c *creator) rebuildDriverContainer(obj *unstructured.Unstructured) error {
 	return nil
 }
 
-func (c *creator) sendNodesMetrics(obj *unstructured.Unstructured, crName string) {
+func (c *creator) sendNodesMetrics(ctx context.Context, obj *unstructured.Unstructured, crName string) {
 	kind := obj.GetKind()
 	if kind != "DaemonSet" && kind != "Deployment" {
 		return
@@ -467,7 +473,7 @@ func (c *creator) sendNodesMetrics(obj *unstructured.Unstructured, crName string
 		getPodsFunc = c.lc.GetPodFromDeployment
 	}
 
-	pl := getPodsFunc(objKey)
+	pl := getPodsFunc(ctx, objKey)
 	nodesNames := []string{}
 	for _, pod := range pl.Items {
 		nodeName, found, err := unstructured.NestedString(pod.Object, "spec", "nodeName")

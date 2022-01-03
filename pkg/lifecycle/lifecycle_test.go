@@ -65,7 +65,7 @@ var _ = Describe("GetPodFromDaemonSet", func() {
 			Get(context.TODO(), nsn, gomock.Any()).
 			Return(err)
 
-		pl := lifecycle.New(mockClient, mockStorage).GetPodFromDaemonSet(nsn)
+		pl := lifecycle.New(mockClient, mockStorage).GetPodFromDaemonSet(context.TODO(), nsn)
 
 		Expect(pl.Items).To(BeEmpty())
 	})
@@ -96,7 +96,7 @@ var _ = Describe("GetPodFromDaemonSet", func() {
 
 		pl := lifecycle.
 			New(mockClient, mockStorage).
-			GetPodFromDaemonSet(types.NamespacedName{Namespace: "ns", Name: "test"})
+			GetPodFromDaemonSet(context.TODO(), types.NamespacedName{Namespace: "ns", Name: "test"})
 
 		Expect(pl.Items).To(HaveLen(nPod))
 	})
@@ -151,15 +151,15 @@ var _ = Describe("UpdateDaemonSetPods", func() {
 
 					ul.Items = []unstructured.Unstructured{pod1, pod2}
 				}),
-			mockStorage.EXPECT().UpdateConfigMapEntry("39005a809548c688", "*v1.Pod", cmNsn),
-			mockStorage.EXPECT().UpdateConfigMapEntry("39005d809548cba1", "*v1.Pod", cmNsn),
+			mockStorage.EXPECT().UpdateConfigMapEntry(context.TODO(), "39005a809548c688", "*v1.Pod", cmNsn),
+			mockStorage.EXPECT().UpdateConfigMapEntry(context.TODO(), "39005d809548cba1", "*v1.Pod", cmNsn),
 		)
 
 		obj := unstructured.Unstructured{}
 		obj.SetNamespace(namespace)
 		obj.SetName(name)
 
-		err = lifecycle.New(mockClient, mockStorage).UpdateDaemonSetPods(&obj)
+		err = lifecycle.New(mockClient, mockStorage).UpdateDaemonSetPods(context.TODO(), &obj)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })

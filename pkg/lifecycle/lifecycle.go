@@ -20,9 +20,9 @@ import (
 //go:generate mockgen -source=lifecycle.go -package=lifecycle -destination=mock_lifecycle_api.go
 
 type Lifecycle interface {
-	GetPodFromDaemonSet(types.NamespacedName) unstructured.UnstructuredList
-	GetPodFromDeployment(key types.NamespacedName) unstructured.UnstructuredList
-	UpdateDaemonSetPods(obj client.Object) error
+	GetPodFromDaemonSet(context.Context, types.NamespacedName) unstructured.UnstructuredList
+	GetPodFromDeployment(context.Context, types.NamespacedName) unstructured.UnstructuredList
+	UpdateDaemonSetPods(context.Context, client.Object) error
 }
 
 type lifecycle struct {
@@ -39,36 +39,36 @@ func New(kubeClient clients.ClientsInterface, storage storage.Storage) Lifecycle
 	}
 }
 
-func (l *lifecycle) GetPodFromDaemonSet(key types.NamespacedName) unstructured.UnstructuredList {
+func (l *lifecycle) GetPodFromDaemonSet(ctx context.Context, key types.NamespacedName) unstructured.UnstructuredList {
 	ds := &unstructured.Unstructured{}
 	ds.SetAPIVersion("apps/v1")
 	ds.SetKind("DaemonSet")
 
-	err := l.kubeClient.Get(context.TODO(), key, ds)
+	err := l.kubeClient.Get(ctx, key, ds)
 	if apierrors.IsNotFound(err) || err != nil {
 		warn.OnError(err)
 		return unstructured.UnstructuredList{}
 	}
 
-	return l.getPodListForUpperObject(ds)
+	return l.getPodListForUpperObject(ctx, ds)
 }
 
-func (l *lifecycle) GetPodFromDeployment(key types.NamespacedName) unstructured.UnstructuredList {
+func (l *lifecycle) GetPodFromDeployment(ctx context.Context, key types.NamespacedName) unstructured.UnstructuredList {
 
 	dp := &unstructured.Unstructured{}
 	dp.SetAPIVersion("apps/v1")
 	dp.SetKind("Deployment")
 
-	err := l.kubeClient.Get(context.TODO(), key, dp)
+	err := l.kubeClient.Get(ctx, key, dp)
 	if apierrors.IsNotFound(err) || err != nil {
 		warn.OnError(err)
 		return unstructured.UnstructuredList{}
 	}
 
-	return l.getPodListForUpperObject(dp)
+	return l.getPodListForUpperObject(ctx, dp)
 }
 
-func (l *lifecycle) getPodListForUpperObject(obj *unstructured.Unstructured) unstructured.UnstructuredList {
+func (l *lifecycle) getPodListForUpperObject(ctx context.Context, obj *unstructured.Unstructured) unstructured.UnstructuredList {
 	pl := unstructured.UnstructuredList{}
 	pl.SetKind("PodList")
 	pl.SetAPIVersion("v1")
@@ -89,7 +89,7 @@ func (l *lifecycle) getPodListForUpperObject(obj *unstructured.Unstructured) uns
 		client.MatchingLabels(matchLabels),
 	}
 
-	err = l.kubeClient.List(context.TODO(), &pl, opts...)
+	err = l.kubeClient.List(ctx, &pl, opts...)
 	if err != nil {
 		warn.OnError(err)
 		return pl
@@ -98,7 +98,7 @@ func (l *lifecycle) getPodListForUpperObject(obj *unstructured.Unstructured) uns
 	return pl
 }
 
-func (l *lifecycle) UpdateDaemonSetPods(obj client.Object) error {
+func (l *lifecycle) UpdateDaemonSetPods(ctx context.Context, obj client.Object) error {
 
 	l.log.Info("UpdateDaemonSetPods")
 
@@ -111,7 +111,7 @@ func (l *lifecycle) UpdateDaemonSetPods(obj client.Object) error {
 		Name:      "special-resource-lifecycle",
 	}
 
-	pl := l.GetPodFromDaemonSet(key)
+	pl := l.GetPodFromDaemonSet(ctx, key)
 
 	for _, pod := range pl.Items {
 
@@ -121,7 +121,7 @@ func (l *lifecycle) UpdateDaemonSetPods(obj client.Object) error {
 		}
 		value := "*v1.Pod"
 		l.log.Info(pod.GetName(), "hs", hs, "value", value)
-		err = l.storage.UpdateConfigMapEntry(hs, value, ins)
+		err = l.storage.UpdateConfigMapEntry(ctx, hs, value, ins)
 		if err != nil {
 			warn.OnError(err)
 			return err

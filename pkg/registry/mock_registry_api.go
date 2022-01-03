@@ -5,6 +5,7 @@
 package registry
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -50,18 +51,18 @@ func (mr *MockRegistryMockRecorder) ExtractToolkitRelease(arg0 interface{}) *gom
 }
 
 // LastLayer mocks base method.
-func (m *MockRegistry) LastLayer(arg0 string) (v1.Layer, error) {
+func (m *MockRegistry) LastLayer(arg0 context.Context, arg1 string) (v1.Layer, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LastLayer", arg0)
+	ret := m.ctrl.Call(m, "LastLayer", arg0, arg1)
 	ret0, _ := ret[0].(v1.Layer)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // LastLayer indicates an expected call of LastLayer.
-func (mr *MockRegistryMockRecorder) LastLayer(arg0 interface{}) *gomock.Call {
+func (mr *MockRegistryMockRecorder) LastLayer(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastLayer", reflect.TypeOf((*MockRegistry)(nil).LastLayer), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastLayer", reflect.TypeOf((*MockRegistry)(nil).LastLayer), arg0, arg1)
 }
 
 // ReleaseManifests mocks base method.

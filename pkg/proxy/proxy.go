@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -28,7 +27,7 @@ type Configuration struct {
 
 type ProxyAPI interface {
 	Setup(obj *unstructured.Unstructured) error
-	ClusterConfiguration() (Configuration, error)
+	ClusterConfiguration(ctx context.Context) (Configuration, error)
 }
 
 type proxy struct {
@@ -141,8 +140,7 @@ func (p *proxy) setupContainersProxy(containers []interface{}) error {
 	return nil
 }
 
-func (p *proxy) ClusterConfiguration() (Configuration, error) {
-
+func (p *proxy) ClusterConfiguration(ctx context.Context) (Configuration, error) {
 	proxy := &p.config
 
 	proxiesAvailable, err := clients.Interface.HasResource(configv1.SchemeGroupVersion.WithResource("proxies"))
@@ -158,9 +156,7 @@ func (p *proxy) ClusterConfiguration() (Configuration, error) {
 	cfgs.SetAPIVersion("config.openshift.io/v1")
 	cfgs.SetKind("ProxyList")
 
-	opts := []client.ListOption{}
-
-	err = clients.Interface.List(context.TODO(), cfgs, opts...)
+	err = clients.Interface.List(ctx, cfgs)
 	if err != nil {
 		return *proxy, errors.Wrap(err, "Client cannot get ProxyList")
 	}

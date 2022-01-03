@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"context"
 	"io/ioutil"
 	"testing"
 
@@ -332,7 +333,7 @@ var _ = Describe("Predicate", func() {
 				name: "Object has changed and it's a SRO owned DaemonSet",
 				mockSetup: func() {
 					mockKernel.EXPECT().IsObjectAffine(gomock.Any()).Times(1).Return(true)
-					mockLifecycle.EXPECT().UpdateDaemonSetPods(gomock.Any()).Return(nil)
+					mockLifecycle.EXPECT().UpdateDaemonSetPods(context.TODO(), gomock.Any()).Return(nil)
 				},
 				old: &appsv1.DaemonSet{
 					ObjectMeta: metav1.ObjectMeta{
@@ -389,7 +390,7 @@ var _ = Describe("Predicate", func() {
 				name: "Object is a SRO owned & kernel affine DaemonSet",
 				mockSetup: func() {
 					mockKernel.EXPECT().IsObjectAffine(gomock.Any()).Times(1).Return(true)
-					mockLifecycle.EXPECT().UpdateDaemonSetPods(gomock.Any()).Return(nil)
+					mockLifecycle.EXPECT().UpdateDaemonSetPods(context.TODO(), gomock.Any()).Return(nil)
 				},
 				old: &appsv1.DaemonSet{
 					ObjectMeta: metav1.ObjectMeta{

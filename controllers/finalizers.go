@@ -17,16 +17,16 @@ import (
 
 const specialresourceFinalizer = "sro.openshift.io/finalizer"
 
-func reconcileFinalizers(r *SpecialResourceReconciler) error {
+func reconcileFinalizers(ctx context.Context, r *SpecialResourceReconciler) error {
 	if contains(r.specialresource.GetFinalizers(), specialresourceFinalizer) {
 		// Run finalization logic for specialresource
-		if err := finalizeSpecialResource(r); err != nil {
+		if err := finalizeSpecialResource(ctx, r); err != nil {
 			log.Info("Finalization logic failed.", "error", fmt.Sprintf("%v", err))
 			return err
 		}
 
 		controllerutil.RemoveFinalizer(&r.specialresource, specialresourceFinalizer)
-		err := clients.Interface.Update(context.TODO(), &r.specialresource)
+		err := clients.Interface.Update(ctx, &r.specialresource)
 		if err != nil {
 			log.Info("Could not remove finalizer after running finalization logic", "error", fmt.Sprintf("%v", err))
 			return err
@@ -35,7 +35,7 @@ func reconcileFinalizers(r *SpecialResourceReconciler) error {
 	return nil
 }
 
-func finalizeNodes(r *SpecialResourceReconciler, remove string) error {
+func finalizeNodes(ctx context.Context, r *SpecialResourceReconciler, remove string) error {
 	for _, node := range cache.Node.List.Items {
 		labels := node.GetLabels()
 		update := make(map[string]string)
@@ -48,12 +48,12 @@ func finalizeNodes(r *SpecialResourceReconciler, remove string) error {
 		}
 
 		node.SetLabels(update)
-		err := clients.Interface.Update(context.TODO(), &node)
+		err := clients.Interface.Update(ctx, &node)
 		if apierrors.IsForbidden(err) {
 			return errors.Wrap(err, "forbidden check Role, ClusterRole and Bindings for operator %s")
 		}
 		if apierrors.IsConflict(err) {
-			if cacheErr := cache.Nodes(r.specialresource.Spec.NodeSelector, true); cacheErr != nil {
+			if cacheErr := cache.Nodes(ctx, r.specialresource.Spec.NodeSelector, true); cacheErr != nil {
 				return errors.Wrap(cacheErr, "Could not cache nodes for api conflict")
 			}
 			return fmt.Errorf("node Conflict Label %s err %s", state.CurrentName, err)
@@ -63,7 +63,7 @@ func finalizeNodes(r *SpecialResourceReconciler, remove string) error {
 	return nil
 }
 
-func finalizeSpecialResource(r *SpecialResourceReconciler) error {
+func finalizeSpecialResource(ctx context.Context, r *SpecialResourceReconciler) error {
 	// TODO(user): Add the cleanup steps that the operator
 	// needs to do before the CR can be deleted. Examples
 	// of finalizers include performing backups and deleting
@@ -72,13 +72,13 @@ func finalizeSpecialResource(r *SpecialResourceReconciler) error {
 	// If this special resources is deleted we're going to remove all
 	// specialresource labels from the nodes.
 	if r.specialresource.Name == "special-resource-preamble" {
-		err := finalizeNodes(r, "specialresource.openshift.io")
+		err := finalizeNodes(ctx, r, "specialresource.openshift.io")
 		if err != nil {
 			log.Error(err, "finalizeSpecialResource special-resource-preamble failed")
 			return err
 		}
 	}
-	err := finalizeNodes(r, "specialresource.openshift.io/state-"+r.specialresource.Name)
+	err := finalizeNodes(ctx, r, "specialresource.openshift.io/state-"+r.specialresource.Name)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func finalizeSpecialResource(r *SpecialResourceReconciler) error {
 		ns.SetName(r.specialresource.Spec.Namespace)
 		key := client.ObjectKeyFromObject(&ns)
 
-		err := clients.Interface.Get(context.TODO(), key, &ns)
+		err := clients.Interface.Get(ctx, key, &ns)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				log.Info("Successfully finalized (Namespace IsNotFound)", "SpecialResource:", r.specialresource.Name)
@@ -105,12 +105,12 @@ func finalizeSpecialResource(r *SpecialResourceReconciler) error {
 		for _, owner := range ns.GetOwnerReferences() {
 			if owner.Kind == "SpecialResource" {
 				log.Info("Namespaces is owned by SpecialResource deleting")
-				err = clients.Interface.Delete(context.TODO(), &ns)
+				err = clients.Interface.Delete(ctx, &ns)
 				if err != nil {
 					log.Error(err, "Failed to delete namespace", "namespace", r.specialresource.Spec.Namespace)
 					return err
 				}
-				err = r.PollActions.ForResourceUnavailability(&ns)
+				err = r.PollActions.ForResourceUnavailability(ctx, &ns)
 				if err != nil {
 					log.Error(err, "Failed to delete namespace", "namespace", r.specialresource.Spec.Namespace)
 					return err
@@ -123,12 +123,12 @@ func finalizeSpecialResource(r *SpecialResourceReconciler) error {
 	return nil
 }
 
-func addFinalizer(r *SpecialResourceReconciler) error {
+func addFinalizer(ctx context.Context, r *SpecialResourceReconciler) error {
 	log.Info("Adding finalizer to special resource")
 	controllerutil.AddFinalizer(&r.specialresource, specialresourceFinalizer)
 
 	// Update CR
-	err := clients.Interface.Update(context.TODO(), &r.specialresource)
+	err := clients.Interface.Update(ctx, &r.specialresource)
 	if err != nil {
 		log.Info("Adding finalizer failed", "error", fmt.Sprintf("%v", err))
 		return err

@@ -5,6 +5,7 @@
 package resource
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -35,15 +36,15 @@ func (m *MockCreator) EXPECT() *MockCreatorMockRecorder {
 }
 
 // CreateFromYAML mocks base method.
-func (m *MockCreator) CreateFromYAML(arg0 []byte, arg1 bool, arg2 v1.Object, arg3, arg4 string, arg5 map[string]string, arg6, arg7 string) error {
+func (m *MockCreator) CreateFromYAML(arg0 context.Context, arg1 []byte, arg2 bool, arg3 v1.Object, arg4, arg5 string, arg6 map[string]string, arg7, arg8 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateFromYAML", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	ret := m.ctrl.Call(m, "CreateFromYAML", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateFromYAML indicates an expected call of CreateFromYAML.
-func (mr *MockCreatorMockRecorder) CreateFromYAML(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 interface{}) *gomock.Call {
+func (mr *MockCreatorMockRecorder) CreateFromYAML(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFromYAML", reflect.TypeOf((*MockCreator)(nil).CreateFromYAML), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFromYAML", reflect.TypeOf((*MockCreator)(nil).CreateFromYAML), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
 }

@@ -224,7 +224,7 @@ func WaitClusterOperatorNamespace(clientSet *framework.ClientSet) error {
 
 // CreatePreamble applies the preamble special resource to kickstart SRO reconcile process
 // if it was deployed from OLM. If not, this operation is idempotent.
-func CreatePreamble(cl client.Client) error {
+func CreatePreamble(ctx context.Context, cl client.Client) error {
 	specialresources := &srov1beta1.SpecialResourceList{}
 	err := cl.List(context.TODO(), specialresources, []client.ListOption{}...)
 	if err != nil {
@@ -240,7 +240,7 @@ func CreatePreamble(cl client.Client) error {
 	if err != nil {
 		return err
 	}
-	return framework.CreateFromYAML(preambleYAML, cl)
+	return framework.CreateFromYAML(ctx, preambleYAML, cl)
 }
 
 // IsNodeReady helps determine if a given node is ready or not.
