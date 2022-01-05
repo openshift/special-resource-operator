@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	buildv1 "github.com/openshift/api/build/v1"
 	configv1 "github.com/openshift/api/config/v1"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -31,7 +31,7 @@ const (
 )
 
 var (
-	log       = zap.New(zap.UseDevMode(true)).WithName(color.Print("clients", color.Brown))
+	log       = zap.New(zap.UseDevMode(true)).WithName(utils.Print("clients", utils.Brown))
 	Interface ClientsInterface
 	// TODO need to remove this global variable
 	Namespace string

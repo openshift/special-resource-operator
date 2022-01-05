@@ -1,4 +1,4 @@
-package slice
+package utils
 
 import (
 	"helm.sh/helm/v3/pkg/chart"
@@ -6,7 +6,7 @@ import (
 
 // Find returns the smallest index i at which x == a[i],
 // or len(a) if there is no such index.
-func Find(a []string, x string) int {
+func StringSliceFind(a []string, x string) int {
 	for i, n := range a {
 		if x == n {
 			return i
@@ -16,7 +16,7 @@ func Find(a []string, x string) int {
 }
 
 // Contains tells whether a contains x.
-func Contains(a []string, x string) bool {
+func StringSliceContains(a []string, x string) bool {
 	for _, n := range a {
 		if x == n {
 			return true
@@ -34,7 +34,7 @@ func FindCRFile(a []*chart.File, x string) int {
 	return -1
 }
 
-func Insert(a []string, index int, value string) []string {
+func StringSliceInsert(a []string, index int, value string) []string {
 	if len(a) == index { // nil or empty slice or after last element
 		return append(a, value)
 	}

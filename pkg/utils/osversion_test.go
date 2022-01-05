@@ -1,19 +1,12 @@
-package osversion_test
+package utils
 
 import (
 	"fmt"
-	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"github.com/openshift-psap/special-resource-operator/pkg/osversion"
 )
-
-func TestOsversion(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Osversion Suite")
-}
 
 type testCase struct {
 	rel        string
@@ -107,7 +100,7 @@ var _ = Describe("RenderOperatingSystem", func() {
 
 	DescribeTable("test cases",
 		func(c *testCase) {
-			out0, out1, out2, err := osversion.RenderOperatingSystem(c.rel, c.maj, c.min)
+			out0, out1, out2, err := RenderOperatingSystem(c.rel, c.maj, c.min)
 
 			if c.expectsErr {
 				Expect(err).To(HaveOccurred())

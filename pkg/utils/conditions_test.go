@@ -1,20 +1,12 @@
-package conditions_test
+package utils
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
-	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
 )
-
-func TestConditions(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Conditions Suite")
-}
 
 type conditionTemplate struct {
 	condType configv1.ClusterStatusConditionType
@@ -62,7 +54,7 @@ var _ = Describe("Conditions", func() {
 			entries = append(entries, Entry(ct.condType, ct))
 		}
 
-		conds := conditions.AvailableNotProgressingNotDegraded()
+		conds := AvailableNotProgressingNotDegraded()
 
 		DescribeTable(
 			"all conditions",
@@ -80,7 +72,7 @@ var _ = Describe("Conditions", func() {
 			msgDegraded    = "some-msg-degraded"
 		)
 
-		conds := conditions.NotAvailableProgressingNotDegraded(msgAvailable, msgProgressing, msgDegraded)
+		conds := NotAvailableProgressingNotDegraded(msgAvailable, msgProgressing, msgDegraded)
 
 		templates := []conditionTemplate{
 			{

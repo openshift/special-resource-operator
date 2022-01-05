@@ -13,9 +13,8 @@ import (
 
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -45,7 +44,7 @@ type ClusterInfo interface {
 
 func NewClusterInfo(registry registry.Registry, cluster cluster.Cluster) ClusterInfo {
 	return &clusterInfo{
-		log:      zap.New(zap.UseDevMode(true)).WithName(color.Print("upgrade", color.Blue)),
+		log:      zap.New(zap.UseDevMode(true)).WithName(utils.Print("upgrade", utils.Blue)),
 		registry: registry,
 		cluster:  cluster,
 	}
@@ -194,7 +193,7 @@ func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, entries []strin
 		}
 
 		if imageURL == "" {
-			warn.OnError(errors.New("No DTK image found, DTK cannot be used in a Build"))
+			utils.WarnOnError(errors.New("No DTK image found, DTK cannot be used in a Build"))
 			return info, nil
 		}
 

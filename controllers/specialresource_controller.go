@@ -25,8 +25,6 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/assets"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
@@ -36,6 +34,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	buildv1 "github.com/openshift/api/build/v1"
 	secv1 "github.com/openshift/api/security/v1"
 
@@ -91,13 +90,13 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	var err error
 	var res reconcile.Result
 
-	log = r.Log.WithName(color.Print("preamble", color.Brown))
+	log = r.Log.WithName(utils.Print("preamble", utils.Brown))
 	log.Info("Controller Request", "Name", req.Name, "Namespace", req.Namespace)
 
-	conds := conditions.NotAvailableProgressingNotDegraded(
+	conds := utils.NotAvailableProgressingNotDegraded(
 		"Reconciling "+req.Name,
 		"Reconciling "+req.Name,
-		conditions.DegradedDefaultMsg,
+		utils.DegradedDefaultMsg,
 	)
 
 	// Do some preflight checks and get the cluster upgrade info
@@ -111,7 +110,7 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 	// Reconcile all specialresources
 	if res, err = SpecialResourcesReconcile(ctx, r, req); err == nil && !res.Requeue {
-		conds = conditions.AvailableNotProgressingNotDegraded()
+		conds = utils.AvailableNotProgressingNotDegraded()
 	} else {
 		return res, errors.Wrap(err, "RECONCILE ERROR: Cannot reconcile special resource")
 	}
@@ -128,7 +127,7 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 // SetupWithManager main initalization for manager
 func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	log = r.Log.WithName(color.Print("setup", color.Brown))
+	log = r.Log.WithName(utils.Print("setup", utils.Brown))
 
 	platform, err := clients.Interface.GetPlatform()
 	if err != nil {

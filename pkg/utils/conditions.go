@@ -1,4 +1,4 @@
-package conditions
+package utils
 
 import (
 	configv1 "github.com/openshift/api/config/v1"

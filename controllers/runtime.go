@@ -11,7 +11,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -124,7 +124,7 @@ func getRuntimeInformation(ctx context.Context, r *SpecialResourceReconciler) er
 	}
 
 	RunInfo.PushSecretName, err = retryGetPushSecretName(ctx, r)
-	warn.OnError(err)
+	utils.WarnOnError(err)
 
 	RunInfo.OSImageURL, err = r.Cluster.OSImageURL(ctx)
 	if err != nil {

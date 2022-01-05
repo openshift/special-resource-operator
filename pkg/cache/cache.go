@@ -4,8 +4,7 @@ import (
 	"context"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -18,7 +17,7 @@ type NodesCache struct {
 }
 
 var (
-	log  = zap.New(zap.UseDevMode(true)).WithName(color.Print("cache", color.Brown))
+	log  = zap.New(zap.UseDevMode(true)).WithName(utils.Print("cache", utils.Brown))
 	Node = NodesCache{
 		List: &unstructured.UnstructuredList{
 			Object: map[string]interface{}{},
@@ -66,7 +65,7 @@ func Nodes(ctx context.Context, matchingLabels map[string]string, force bool) er
 
 		taints, ok, err := unstructured.NestedSlice(node.Object, "spec", "taints")
 		if err != nil {
-			warn.OnError(err)
+			utils.WarnOnError(err)
 			return errors.Wrap(err, "Cannot extract taints from Node object")
 		}
 		// Nothing to filter no taints on the current node object, continue
@@ -82,7 +81,7 @@ func Nodes(ctx context.Context, matchingLabels map[string]string, force bool) er
 
 			effect, ok, err := unstructured.NestedString(taint.(map[string]interface{}), "effect")
 			if err != nil {
-				warn.OnError(err)
+				utils.WarnOnError(err)
 				return errors.Wrap(err, "Cannot extract effect from taint object")
 			}
 			// No effect found continuing

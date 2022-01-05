@@ -5,8 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/hash"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,7 +27,7 @@ type kernelData struct {
 
 func NewKernelData() KernelData {
 	return &kernelData{
-		log: zap.New(zap.UseDevMode(true)).WithName(color.Print("kernel", color.Green)),
+		log: zap.New(zap.UseDevMode(true)).WithName(utils.Print("kernel", utils.Green)),
 	}
 }
 
@@ -37,7 +36,7 @@ func (k *kernelData) SetAffineAttributes(obj *unstructured.Unstructured,
 	operatingSystemMajorMinor string) error {
 
 	kernelVersion := strings.ReplaceAll(kernelFullVersion, "_", "-")
-	hash64, err := hash.FNV64a(operatingSystemMajorMinor + "-" + kernelVersion)
+	hash64, err := utils.FNV64a(operatingSystemMajorMinor + "-" + kernelVersion)
 	if err != nil {
 		return err
 	}

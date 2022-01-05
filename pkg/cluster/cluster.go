@@ -9,8 +9,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/osversion"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
+	//"github.com/openshift-psap/special-resource-operator/pkg/osversion"
 	configv1 "github.com/openshift/api/config/v1"
 	machinev1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 
@@ -32,7 +32,7 @@ type Cluster interface {
 
 func NewCluster(clients clients.ClientsInterface) Cluster {
 	return &cluster{
-		log:     zap.New(zap.UseDevMode(true)).WithName(color.Print("cache", color.Brown)),
+		log:     zap.New(zap.UseDevMode(true)).WithName(utils.Print("cache", utils.Brown)),
 		clients: clients,
 	}
 }
@@ -168,7 +168,7 @@ func (c *cluster) OperatingSystem() (string, string, string, error) {
 	}
 
 	// On vanilla k8s and older NFD versions, we need RenderOperatingSystem
-	return osversion.RenderOperatingSystem(nodeOSrel, nodeOSmaj, nodeOSmin)
+	return utils.RenderOperatingSystem(nodeOSrel, nodeOSmaj, nodeOSmin)
 }
 
 func (c *cluster) clusterVersionAvailable() (bool, error) {

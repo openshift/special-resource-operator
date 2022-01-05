@@ -8,12 +8,10 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/hash"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -33,7 +31,7 @@ type Filter interface {
 
 func NewFilter(lifecycle lifecycle.Lifecycle, storage storage.Storage, kernelData kernel.KernelData) Filter {
 	return &filter{
-		log:        zap.New(zap.UseDevMode(true)).WithName(color.Print("filter", color.Purple)),
+		log:        zap.New(zap.UseDevMode(true)).WithName(utils.Print("filter", utils.Purple)),
 		lifecycle:  lifecycle,
 		storage:    storage,
 		kernelData: kernelData,
@@ -162,7 +160,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 						"Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
 					if reflect.TypeOf(obj).String() == "*v1.DaemonSet" && e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
 						err := f.lifecycle.UpdateDaemonSetPods(context.TODO(), obj)
-						warn.OnError(err)
+						utils.WarnOnError(err)
 					}
 					return true
 				}
@@ -196,7 +194,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 
 				if reflect.TypeOf(obj).String() == "*v1.DaemonSet" {
 					err := f.lifecycle.UpdateDaemonSetPods(context.TODO(), obj)
-					warn.OnError(err)
+					utils.WarnOnError(err)
 				}
 
 				return true
@@ -221,13 +219,13 @@ func (f *filter) GetPredicates() predicate.Predicate {
 					Namespace: os.Getenv("OPERATOR_NAMESPACE"),
 					Name:      "special-resource-lifecycle",
 				}
-				key, err := hash.FNV64a(obj.GetNamespace() + obj.GetName())
+				key, err := utils.FNV64a(obj.GetNamespace() + obj.GetName())
 				if err != nil {
-					warn.OnError(err)
+					utils.WarnOnError(err)
 					return false
 				}
 				err = f.storage.DeleteConfigMapEntry(context.TODO(), key, ins)
-				warn.OnError(err)
+				utils.WarnOnError(err)
 
 				return true
 			}

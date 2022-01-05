@@ -1,28 +1,20 @@
-package hash_test
+package utils
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"github.com/openshift-psap/special-resource-operator/pkg/hash"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const emptyHash = "12161962213042174405"
 
-func TestHash(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Hash Suite")
-}
-
 var _ = Describe("TestFNV64a", func() {
 	DescribeTable(
 		"hash value",
 		func(input, output string) {
-			s, err := hash.FNV64a(input)
+			s, err := FNV64a(input)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(s).To(Equal(output))
@@ -36,7 +28,7 @@ var _ = Describe("Annotate", func() {
 	It("should work as expected", func() {
 		obj := &unstructured.Unstructured{}
 
-		err := hash.Annotate(obj)
+		err := Annotate(obj)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(obj.GetAnnotations()).To(HaveKeyWithValue("specialresource.openshift.io/hash", emptyHash))
 	})
@@ -51,7 +43,7 @@ var _ = Describe("AnnotationEqual", func() {
 
 			objNew.SetAnnotations(map[string]string{"specialresource.openshift.io/hash": h})
 
-			isEqual, err := hash.AnnotationEqual(objNew, objOld)
+			isEqual, err := AnnotationEqual(objNew, objOld)
 
 			Expect(err).NotTo(HaveOccurred())
 			Expect(isEqual).To(m)

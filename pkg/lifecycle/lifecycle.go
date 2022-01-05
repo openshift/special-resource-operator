@@ -6,10 +6,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/hash"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -34,7 +32,7 @@ type lifecycle struct {
 func New(kubeClient clients.ClientsInterface, storage storage.Storage) Lifecycle {
 	return &lifecycle{
 		kubeClient: kubeClient,
-		log:        zap.New(zap.UseDevMode(true)).WithName(color.Print("lifecycle", color.Green)),
+		log:        zap.New(zap.UseDevMode(true)).WithName(utils.Print("lifecycle", utils.Green)),
 		storage:    storage,
 	}
 }
@@ -46,7 +44,7 @@ func (l *lifecycle) GetPodFromDaemonSet(ctx context.Context, key types.Namespace
 
 	err := l.kubeClient.Get(ctx, key, ds)
 	if apierrors.IsNotFound(err) || err != nil {
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		return unstructured.UnstructuredList{}
 	}
 
@@ -61,7 +59,7 @@ func (l *lifecycle) GetPodFromDeployment(ctx context.Context, key types.Namespac
 
 	err := l.kubeClient.Get(ctx, key, dp)
 	if apierrors.IsNotFound(err) || err != nil {
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		return unstructured.UnstructuredList{}
 	}
 
@@ -75,7 +73,7 @@ func (l *lifecycle) getPodListForUpperObject(ctx context.Context, obj *unstructu
 
 	labels, found, err := unstructured.NestedMap(obj.Object, "spec", "selector", "matchLabels")
 	if err != nil || !found {
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		return pl
 	}
 
@@ -91,7 +89,7 @@ func (l *lifecycle) getPodListForUpperObject(ctx context.Context, obj *unstructu
 
 	err = l.kubeClient.List(ctx, &pl, opts...)
 	if err != nil {
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		return pl
 	}
 
@@ -115,7 +113,7 @@ func (l *lifecycle) UpdateDaemonSetPods(ctx context.Context, obj client.Object) 
 
 	for _, pod := range pl.Items {
 
-		hs, err := hash.FNV64a(pod.GetNamespace() + pod.GetName())
+		hs, err := utils.FNV64a(pod.GetNamespace() + pod.GetName())
 		if err != nil {
 			return err
 		}
@@ -123,7 +121,7 @@ func (l *lifecycle) UpdateDaemonSetPods(ctx context.Context, obj client.Object) 
 		l.log.Info(pod.GetName(), "hs", hs, "value", value)
 		err = l.storage.UpdateConfigMapEntry(ctx, hs, value, ins)
 		if err != nil {
-			warn.OnError(err)
+			utils.WarnOnError(err)
 			return err
 		}
 	}

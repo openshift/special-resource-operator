@@ -14,8 +14,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -51,7 +50,7 @@ type Registry interface {
 
 func NewRegistry() Registry {
 	return &registry{
-		log: zap.New(zap.UseDevMode(true)).WithName(color.Print("registry", color.Brown)),
+		log: zap.New(zap.UseDevMode(true)).WithName(utils.Print("registry", utils.Brown)),
 	}
 }
 
@@ -98,7 +97,7 @@ func (r *registry) LastLayer(ctx context.Context, entry string) (v1.Layer, error
 
 	manifest, err := crane.Manifest(entry)
 	if err != nil {
-		warn.OnError(fmt.Errorf("cannot extract manifest: %v", err))
+		utils.WarnOnError(fmt.Errorf("cannot extract manifest: %v", err))
 		return nil, nil
 	}
 
@@ -269,7 +268,7 @@ func (r *registry) ReleaseManifests(layer v1.Layer) (string, string, error) {
 
 func (r *registry) dclose(c io.Closer) {
 	if err := c.Close(); err != nil {
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		//log.Error(err)
 	}
 }

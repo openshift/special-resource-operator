@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,7 +39,7 @@ func (s *storage) CheckConfigMapEntry(ctx context.Context, key string, ins types
 func (s *storage) UpdateConfigMapEntry(ctx context.Context, key string, value string, ins types.NamespacedName) error {
 	cm, err := s.getConfigMap(ctx, ins.Namespace, ins.Name)
 	if err != nil {
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		return err
 	}
 
@@ -51,7 +51,7 @@ func (s *storage) UpdateConfigMapEntry(ctx context.Context, key string, value st
 		cm.Data[key] = value
 
 		if err = s.updateObject(ctx, cm); err != nil {
-			warn.OnError(err)
+			utils.WarnOnError(err)
 			return err
 		}
 	}
@@ -62,7 +62,7 @@ func (s *storage) UpdateConfigMapEntry(ctx context.Context, key string, value st
 func (s *storage) DeleteConfigMapEntry(ctx context.Context, key string, ins types.NamespacedName) error {
 	cm, err := s.getConfigMap(ctx, ins.Namespace, ins.Name)
 	if err != nil {
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		return err
 	}
 
@@ -70,7 +70,7 @@ func (s *storage) DeleteConfigMapEntry(ctx context.Context, key string, ins type
 		delete(cm.Data, key)
 
 		if err = s.updateObject(ctx, cm); err != nil {
-			warn.OnError(err)
+			utils.WarnOnError(err)
 			return err
 		}
 	}
@@ -85,7 +85,7 @@ func (s *storage) getConfigMap(ctx context.Context, namespace string, name strin
 	err := s.kubeClient.Get(ctx, dep, cm)
 
 	if apierrors.IsNotFound(err) {
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		return nil, err
 	}
 
