@@ -97,7 +97,7 @@ func main() {
 
 	st := storage.NewStorage(clients.Interface)
 	lc := lifecycle.New(clients.Interface, st)
-	pollActions := poll.New(lc, st)
+	pollActions := poll.New(clients.Interface, lc, st)
 	kernelData := kernel.NewKernelData()
 	proxyAPI := proxy.NewProxyAPI()
 

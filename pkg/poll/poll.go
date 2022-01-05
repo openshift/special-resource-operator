@@ -36,10 +36,11 @@ type PollActions interface {
 }
 
 type pollActions struct {
-	lc      lifecycle.Lifecycle
-	log     logr.Logger
-	storage storage.Storage
-	waitFor map[string]func(context.Context, *unstructured.Unstructured) error
+	kubeClient clients.ClientsInterface
+	lc         lifecycle.Lifecycle
+	log        logr.Logger
+	storage    storage.Storage
+	waitFor    map[string]func(context.Context, *unstructured.Unstructured) error
 }
 
 const (
@@ -47,11 +48,12 @@ const (
 	timeout       = time.Second * 30
 )
 
-func New(lc lifecycle.Lifecycle, storage storage.Storage) PollActions {
+func New(kubeClient clients.ClientsInterface, lc lifecycle.Lifecycle, storage storage.Storage) PollActions {
 	actions := pollActions{
-		lc:      lc,
-		log:     zap.New(zap.UseDevMode(true)).WithName(utils.Print("wait", utils.Brown)),
-		storage: storage,
+		kubeClient: kubeClient,
+		lc:         lc,
+		log:        zap.New(zap.UseDevMode(true)).WithName(utils.Print("wait", utils.Brown)),
+		storage:    storage,
 	}
 	waitFor := map[string]func(context.Context, *unstructured.Unstructured) error{
 		"Pod":                      actions.forPod,
@@ -75,7 +77,7 @@ func (p *pollActions) forResourceAvailability(ctx context.Context, obj *unstruct
 
 	found := obj.DeepCopy()
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
-		err = clients.Interface.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
+		err = p.kubeClient.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				p.log.Info("Waiting for creation of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
@@ -92,7 +94,7 @@ func (p *pollActions) ForResourceUnavailability(ctx context.Context, obj *unstru
 
 	found := obj.DeepCopy()
 	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
-		err = clients.Interface.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
+		err = p.kubeClient.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				p.log.Info("Waiting done for deletion of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
@@ -165,13 +167,13 @@ func (p *pollActions) forSecret(ctx context.Context, obj *unstructured.Unstructu
 
 func (p *pollActions) forCRD(ctx context.Context, obj *unstructured.Unstructured) error {
 
-	clients.Interface.Invalidate()
+	p.kubeClient.Invalidate()
 	// Lets wait some time for the API server to register the new CRD
 	if err := p.forResourceAvailability(ctx, obj); err != nil {
 		return err
 	}
 
-	_, err := clients.Interface.ServerGroups()
+	_, err := p.kubeClient.ServerGroups()
 	utils.WarnOnError(err)
 
 	return nil
@@ -211,7 +213,7 @@ func (p *pollActions) forDeployment(ctx context.Context, obj *unstructured.Unstr
 		rss.SetKind("ReplicaSetList")
 		rss.SetAPIVersion("apps/v1")
 
-		err = clients.Interface.List(ctx, &rss, opts...)
+		err = p.kubeClient.List(ctx, &rss, opts...)
 		if err != nil {
 			p.log.Info("Could not get ReplicaSet", "Deployment", obj.GetName(), "error", err)
 			return false, nil
@@ -424,7 +426,7 @@ func (p *pollActions) forBuild(ctx context.Context, obj *unstructured.Unstructur
 	opts := []client.ListOption{
 		client.InNamespace(clients.Namespace),
 	}
-	if err := clients.Interface.List(ctx, builds, opts...); err != nil {
+	if err := p.kubeClient.List(ctx, builds, opts...); err != nil {
 		return errors.Wrap(err, "Could not get BuildList")
 	}
 
@@ -443,7 +445,7 @@ func (p *pollActions) forResourceFullAvailability(ctx context.Context, obj *unst
 	found := obj.DeepCopy()
 
 	return wait.Poll(retryInterval, timeout, func() (bool, error) {
-		err := clients.Interface.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
+		err := p.kubeClient.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
 		if err != nil {
 			p.log.Error(err, "")
 			return false, err
@@ -487,7 +489,7 @@ func (p *pollActions) ForDaemonSetLogs(ctx context.Context, obj *unstructured.Un
 		client.MatchingLabels(label),
 	}
 
-	err := clients.Interface.List(ctx, pods, opts...)
+	err := p.kubeClient.List(ctx, pods, opts...)
 	if err != nil {
 		return errors.Wrap(err, "Could not get PodList")
 	}
@@ -495,7 +497,7 @@ func (p *pollActions) ForDaemonSetLogs(ctx context.Context, obj *unstructured.Un
 	for _, pod := range pods.Items {
 		p.log.Info("WaitForDaemonSetLogs", "Pod", pod.GetName())
 		podLogOpts := v1.PodLogOptions{}
-		req := clients.Interface.GetPodLogs(pod.GetNamespace(), pod.GetName(), &podLogOpts)
+		req := p.kubeClient.GetPodLogs(pod.GetNamespace(), pod.GetName(), &podLogOpts)
 		podLogs, err := req.Stream(ctx)
 		if err != nil {
 			return fmt.Errorf("error in opening stream: %w", err)
