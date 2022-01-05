@@ -1,4 +1,4 @@
-package osversion
+package utils
 
 // Given 3 labels from NFD returns the node OS version in 3 formats:
 // <name><major>, <name><major>.<minor>, and <major.minor>

@@ -9,7 +9,7 @@ import (
 	"regexp"
 
 	"github.com/go-logr/logr"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -33,7 +33,7 @@ type assets struct {
 
 func NewAssets() Assets {
 	return &assets{
-		log:     zap.New(zap.UseDevMode(true)).WithName(color.Print("manifests", color.Brown)),
+		log:     zap.New(zap.UseDevMode(true)).WithName(utils.Print("manifests", utils.Brown)),
 		reState: regexp.MustCompile(`^[0-9]{4}[-_].*\.yaml$`),
 	}
 }

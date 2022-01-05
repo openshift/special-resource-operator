@@ -10,11 +10,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
-	"github.com/openshift-psap/special-resource-operator/pkg/slice"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -44,12 +42,12 @@ func DefaultSettings() *cli.EnvSettings {
 
 func OpenShiftInstallOrder() {
 	// Mutates helm package exported variables
-	idx := slice.Find(releaseutil.InstallOrder, "Service")
-	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "BuildConfig")
-	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "ImageStream")
-	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "SecurityContextConstraints")
-	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "Issuer")
-	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "Certificates")
+	idx := utils.StringSliceFind(releaseutil.InstallOrder, "Service")
+	releaseutil.InstallOrder = utils.StringSliceInsert(releaseutil.InstallOrder, idx, "BuildConfig")
+	releaseutil.InstallOrder = utils.StringSliceInsert(releaseutil.InstallOrder, idx, "ImageStream")
+	releaseutil.InstallOrder = utils.StringSliceInsert(releaseutil.InstallOrder, idx, "SecurityContextConstraints")
+	releaseutil.InstallOrder = utils.StringSliceInsert(releaseutil.InstallOrder, idx, "Issuer")
+	releaseutil.InstallOrder = utils.StringSliceInsert(releaseutil.InstallOrder, idx, "Certificates")
 }
 
 type Helmer interface {
@@ -70,7 +68,7 @@ func NewHelmer(creator resource.Creator, settings *cli.EnvSettings) *helmer {
 	return &helmer{
 		creator:         creator,
 		getterProviders: getter.All(settings),
-		log:             zap.New(zap.UseDevMode(true)).WithName(color.Print("helmer", color.Blue)),
+		log:             zap.New(zap.UseDevMode(true)).WithName(utils.Print("helmer", utils.Blue)),
 		repoFile: &repo.File{
 			APIVersion:   "",
 			Generated:    time.Time{},
@@ -124,7 +122,7 @@ func (h *helmer) Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 	}
 
 	if err := h.AddorUpdateRepo(entry); err != nil {
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		return nil, err
 	}
 
@@ -231,7 +229,7 @@ func (h *helmer) Run(
 
 	rel, err := install.Run(&ch, vals)
 	if err != nil {
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		return err
 	}
 
@@ -258,7 +256,7 @@ func (h *helmer) Run(
 		// We could try to recover gracefully here, but since nothing has been installed
 		// yet, this is probably safer than trying to continue when we know storage is
 		// not working.
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		//return err
 	}
 
@@ -286,7 +284,7 @@ func (h *helmer) Run(
 
 	if err != nil {
 		_, err := install.FailRelease(rel, err)
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		return err
 	}
 
@@ -305,7 +303,7 @@ func (h *helmer) Run(
 	}
 
 	if err := install.RecordRelease(rel); err != nil {
-		warn.OnError(fmt.Errorf("failed to record the release: %w", err))
+		utils.WarnOnError(fmt.Errorf("failed to record the release: %w", err))
 	}
 
 	return nil

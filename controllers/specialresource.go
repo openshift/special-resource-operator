@@ -10,9 +10,8 @@ import (
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/slice"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/chart"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -30,7 +29,7 @@ func (r *SpecialResourceReconciler) GetName() string {
 // SpecialResourcesReconcile Takes care of all specialresources in the cluster
 func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
 
-	log = r.Log.WithName(color.Print("reconcile: "+r.Filter.GetMode(), color.Purple))
+	log = r.Log.WithName(utils.Print("reconcile: "+r.Filter.GetMode(), utils.Purple))
 
 	log.Info("Reconciling SpecialResource(s) in all Namespaces")
 
@@ -82,7 +81,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		return reconcile.Result{}, err
 	}
 
-	log = r.Log.WithName(color.Print(r.parent.Name, color.Green))
+	log = r.Log.WithName(utils.Print(r.parent.Name, utils.Green))
 
 	if r.parent.Name == "special-resource-preamble" {
 		log.Info("Preamble done, waiting for specialresource requests")
@@ -100,7 +99,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 	// Only one level dependency support for now
 	for _, r.dependency = range r.parent.Spec.Dependencies {
 
-		log = r.Log.WithName(color.Print(r.dependency.Name, color.Purple))
+		log = r.Log.WithName(utils.Print(r.dependency.Name, utils.Purple))
 		log.Info("Getting Dependency")
 
 		cchart, err := r.Helmer.Load(r.dependency.HelmChart)
@@ -199,7 +198,7 @@ func ReconcileSpecialResourceChart(ctx context.Context, r *SpecialResourceReconc
 	r.chart = *chart
 	r.values = values
 
-	log = r.Log.WithName(color.Print(r.specialresource.Name, color.Green))
+	log = r.Log.WithName(utils.Print(r.specialresource.Name, utils.Green))
 	log.Info("Reconciling Chart")
 
 	if err := getRuntimeInformation(ctx, r); err != nil {
@@ -312,7 +311,7 @@ func createSpecialResourceFrom(ctx context.Context, r *SpecialResourceReconciler
 	sr.Spec.Dependencies = make([]srov1beta1.SpecialResourceDependency, 0)
 
 	var idx int
-	if idx = slice.FindCRFile(ch.Files, r.dependency.Name); idx == -1 {
+	if idx = utils.FindCRFile(ch.Files, r.dependency.Name); idx == -1 {
 		log.Info("Creating SpecialResource from template, cannot find it in charts directory")
 
 		res, err := clients.Interface.CreateOrUpdate(ctx, &sr, noop)

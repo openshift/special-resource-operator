@@ -7,14 +7,13 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
-	"github.com/openshift-psap/special-resource-operator/pkg/hash"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -64,7 +63,7 @@ func NewCreator(
 	return &creator{
 		kubeClient:    kubeClient,
 		lc:            lc,
-		log:           zap.New(zap.UseDevMode(true)).WithName(color.Print("resource", color.Blue)),
+		log:           zap.New(zap.UseDevMode(true)).WithName(utils.Print("resource", utils.Blue)),
 		metricsClient: metricsClient,
 		pollActions:   pollActions,
 		kernelData:    kernelData,
@@ -198,7 +197,7 @@ func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, rele
 		logg.Info("Release", "Installed", releaseInstalled)
 		logg.Info("Is", "OneTimer", oneTimer)
 
-		if err = hash.Annotate(obj); err != nil {
+		if err = utils.Annotate(obj); err != nil {
 			return fmt.Errorf("can not annotate with hash: %w", err)
 		}
 
@@ -235,7 +234,7 @@ func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, rele
 		return nil
 	}
 
-	equal, err := hash.AnnotationEqual(found, obj)
+	equal, err := utils.AnnotationEqual(found, obj)
 	if err != nil {
 		return err
 	}
@@ -247,7 +246,7 @@ func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, rele
 	logg.Info("Found, updating")
 	required := obj.DeepCopy()
 
-	if err = hash.Annotate(required); err != nil {
+	if err = utils.Annotate(required); err != nil {
 		return fmt.Errorf("can not annotate with hash: %w", err)
 	}
 

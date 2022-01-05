@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/slice"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	"helm.sh/helm/v3/pkg/chart"
@@ -22,7 +22,7 @@ import (
 
 func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconciler) error {
 
-	if found := slice.Contains(r.dependency.Tags, "image-puller"); !found {
+	if found := utils.StringSliceContains(r.dependency.Tags, "image-puller"); !found {
 		log.Info("dep", "ImagePuller", found)
 	}
 

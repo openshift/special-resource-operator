@@ -12,11 +12,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/hash"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
@@ -52,7 +50,7 @@ const (
 func New(lc lifecycle.Lifecycle, storage storage.Storage) PollActions {
 	actions := pollActions{
 		lc:      lc,
-		log:     zap.New(zap.UseDevMode(true)).WithName(color.Print("wait", color.Brown)),
+		log:     zap.New(zap.UseDevMode(true)).WithName(utils.Print("wait", utils.Brown)),
 		storage: storage,
 	}
 	waitFor := map[string]func(context.Context, *unstructured.Unstructured) error{
@@ -155,7 +153,7 @@ func (p *pollActions) ForResource(ctx context.Context, obj *unstructured.Unstruc
 			return errors.Wrap(err, "Waiting too long for resource")
 		}
 	} else {
-		warn.OnError(errors.New("No wait function registered for Kind: " + obj.GetKind()))
+		utils.WarnOnError(errors.New("No wait function registered for Kind: " + obj.GetKind()))
 	}
 
 	return nil
@@ -174,7 +172,7 @@ func (p *pollActions) forCRD(ctx context.Context, obj *unstructured.Unstructured
 	}
 
 	_, err := clients.Interface.ServerGroups()
-	warn.OnError(err)
+	utils.WarnOnError(err)
 
 	return nil
 }
@@ -194,7 +192,7 @@ func (p *pollActions) forDeployment(ctx context.Context, obj *unstructured.Unstr
 	return p.forResourceFullAvailability(ctx, obj, func(ctx context.Context, obj *unstructured.Unstructured) (bool, error) {
 
 		labels, found, err := unstructured.NestedMap(obj.Object, "spec", "selector", "matchLabels")
-		warn.OnError(err)
+		utils.WarnOnError(err)
 
 		if !found {
 			return false, err
@@ -222,7 +220,7 @@ func (p *pollActions) forDeployment(ctx context.Context, obj *unstructured.Unstr
 		for _, rs := range rss.Items {
 			p.log.Info("Checking ReplicaSet", "name", rs.GetName())
 			status, found, err := unstructured.NestedMap(rs.Object, "status")
-			warn.OnError(err)
+			utils.WarnOnError(err)
 			if !found {
 				p.log.Info("No status for ReplicaSet", "name", rs.GetName())
 				return false, nil
@@ -259,13 +257,13 @@ func (p *pollActions) forStatefulSet(ctx context.Context, obj *unstructured.Unst
 	return p.forResourceFullAvailability(ctx, obj, func(_ context.Context, obj *unstructured.Unstructured) (bool, error) {
 
 		repls, found, err := unstructured.NestedInt64(obj.Object, "spec", "replicas")
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		if !found {
 			return false, errors.New("Something went horribly wrong, cannot read .spec.replicas from StatefulSet")
 		}
 		p.log.Info("DEBUG", ".spec.replicas", repls)
 		status, found, err := unstructured.NestedMap(obj.Object, "status")
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		if !found {
 			p.log.Info("No status for StatefulSet", "name", obj.GetName())
 			return false, nil
@@ -295,7 +293,7 @@ func (p *pollActions) forJob(ctx context.Context, obj *unstructured.Unstructured
 	return p.forResourceFullAvailability(ctx, obj, func(_ context.Context, obj *unstructured.Unstructured) (bool, error) {
 
 		conditions, found, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
-		warn.OnError(err)
+		utils.WarnOnError(err)
 
 		if !found {
 			return false, nil
@@ -384,7 +382,7 @@ func (p *pollActions) forLifecycleAvailability(ctx context.Context, obj *unstruc
 
 		for _, pod := range pl.Items {
 			p.log.Info("Checking lifecycle of", "Pod", pod.GetName())
-			hs, err := hash.FNV64a(pod.GetNamespace() + pod.GetName())
+			hs, err := utils.FNV64a(pod.GetNamespace() + pod.GetName())
 			if err != nil {
 				return false, err
 			}

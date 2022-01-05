@@ -7,8 +7,7 @@ import (
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 	"github.com/pkg/errors"
@@ -29,7 +28,7 @@ func operatorStatusUpdate(ctx context.Context, sr *srov1beta1.SpecialResource, s
 	objectKey := types.NamespacedName{Name: sr.GetName(), Namespace: sr.GetNamespace()}
 	err := clients.Interface.Get(ctx, objectKey, &update)
 	if err != nil {
-		warn.OnError(errors.Wrap(err, "Is SR being deleted? Cannot get current instance"))
+		utils.WarnOnError(errors.Wrap(err, "Is SR being deleted? Cannot get current instance"))
 		return
 	}
 
@@ -76,7 +75,7 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusGetOrCreate(ctx context
 	}
 
 	// If we land here there is no clusteroperator object for SRO, create it.
-	log = r.Log.WithName(color.Print("status", color.Blue))
+	log = r.Log.WithName(utils.Print("status", utils.Blue))
 	log.Info("No ClusterOperator found... Creating ClusterOperator for SRO")
 
 	co := &configv1.ClusterOperator{ObjectMeta: metav1.ObjectMeta{Name: r.GetName()}}
@@ -168,7 +167,7 @@ func (r *SpecialResourceReconciler) clusterOperatorUpdateRelatedObjects(ctx cont
 // reconciliation loop we're updating the status
 // nil -> All things good and default conditions can be applied
 func SpecialResourcesStatus(ctx context.Context, r *SpecialResourceReconciler, cond []configv1.ClusterOperatorStatusCondition) (ctrl.Result, error) {
-	log = r.Log.WithName(color.Print("status", color.Blue))
+	log = r.Log.WithName(utils.Print("status", utils.Blue))
 
 	clusterOperatorAvailable, err := clients.Interface.HasResource(configv1.SchemeGroupVersion.WithResource("clusteroperators"))
 

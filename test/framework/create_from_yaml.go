@@ -6,9 +6,8 @@ import (
 	"strings"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -23,7 +22,7 @@ import (
 
 var (
 	scheme = runtime.NewScheme()
-	log    = ctrl.Log.WithName(color.Print("deploy", color.Blue))
+	log    = ctrl.Log.WithName(utils.Print("deploy", utils.Blue))
 )
 
 func init() {
@@ -137,7 +136,7 @@ func DeleteAllSpecialResources(ctx context.Context, cl client.Client) error {
 	err := cl.List(ctx, specialresources, opts...)
 	if err != nil {
 		if strings.Contains(err.Error(), "no matches for kind \"SpecialResource\" in version ") {
-			warn.OnError(err)
+			utils.WarnOnError(err)
 			return nil
 		}
 		// This should never happen

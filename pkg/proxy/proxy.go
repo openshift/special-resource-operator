@@ -7,8 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -37,7 +36,7 @@ type proxy struct {
 
 func NewProxyAPI() ProxyAPI {
 	return &proxy{
-		log: zap.New(zap.UseDevMode(true)).WithName(color.Print("proxy", color.Green)),
+		log: zap.New(zap.UseDevMode(true)).WithName(utils.Print("proxy", utils.Green)),
 	}
 }
 
@@ -170,22 +169,22 @@ func (p *proxy) ClusterConfiguration(ctx context.Context) (Configuration, error)
 		// and initialized the Proxy struct with zero sized strings
 		if strings.Contains(cfgName, "cluster") {
 			if proxy.HttpProxy, fnd, err = unstructured.NestedString(cfg.Object, "spec", "httpProxy"); err != nil {
-				warn.OnErrorOrNotFound(fnd, err)
+				utils.WarnOnErrorOrNotFound(fnd, err)
 				proxy.HttpProxy = ""
 			}
 
 			if proxy.HttpsProxy, fnd, err = unstructured.NestedString(cfg.Object, "spec", "httpsProxy"); err != nil {
-				warn.OnErrorOrNotFound(fnd, err)
+				utils.WarnOnErrorOrNotFound(fnd, err)
 				proxy.HttpsProxy = ""
 			}
 
 			if proxy.NoProxy, fnd, err = unstructured.NestedString(cfg.Object, "spec", "noProxy"); err != nil {
-				warn.OnErrorOrNotFound(fnd, err)
+				utils.WarnOnErrorOrNotFound(fnd, err)
 				proxy.NoProxy = ""
 			}
 
 			if proxy.TrustedCA, fnd, err = unstructured.NestedString(cfg.Object, "spec", "trustedCA", "name"); err != nil {
-				warn.OnErrorOrNotFound(fnd, err)
+				utils.WarnOnErrorOrNotFound(fnd, err)
 				proxy.TrustedCA = ""
 			}
 		}
