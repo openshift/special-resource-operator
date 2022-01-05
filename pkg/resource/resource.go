@@ -349,7 +349,7 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 	if err != nil {
 		return err
 	}
-	if !equal {
+	if equal {
 		logg.Info("Found, not updating, hash the same: " + found.GetKind() + "/" + found.GetName())
 		return nil
 	}
