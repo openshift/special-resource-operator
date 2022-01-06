@@ -1,8 +1,7 @@
 package utils
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/library-go/pkg/config/clusteroperator/v1helpers"
@@ -23,6 +22,10 @@ func findAndCompareCondition(conditions []configv1.ClusterOperatorStatusConditio
 	Expect(cond.Reason).To(Equal(expected.reason))
 	Expect(cond.Message).To(Equal(expected.message))
 	Expect(cond.LastTransitionTime).NotTo(BeZero())
+}
+
+func descFromConditionTemplate(ct conditionTemplate) string {
+	return string(ct.condType)
 }
 
 var _ = Describe("Conditions", func() {
@@ -48,12 +51,6 @@ var _ = Describe("Conditions", func() {
 			},
 		}
 
-		entries := make([]TableEntry, 0, len(templates))
-
-		for _, ct := range templates {
-			entries = append(entries, Entry(ct.condType, ct))
-		}
-
 		conds := AvailableNotProgressingNotDegraded()
 
 		DescribeTable(
@@ -61,7 +58,10 @@ var _ = Describe("Conditions", func() {
 			func(ct conditionTemplate) {
 				findAndCompareCondition(conds, ct)
 			},
-			entries...,
+			descFromConditionTemplate,
+			Entry(nil, templates[0]),
+			Entry(nil, templates[1]),
+			Entry(nil, templates[2]),
 		)
 	})
 
@@ -95,18 +95,15 @@ var _ = Describe("Conditions", func() {
 			},
 		}
 
-		entries := make([]TableEntry, 0, len(templates))
-
-		for _, ct := range templates {
-			entries = append(entries, Entry(ct.condType, ct))
-		}
-
 		DescribeTable(
 			"all conditions",
 			func(ct conditionTemplate) {
 				findAndCompareCondition(conds, ct)
 			},
-			entries...,
+			descFromConditionTemplate,
+			Entry(nil, templates[0]),
+			Entry(nil, templates[1]),
+			Entry(nil, templates[2]),
 		)
 	})
 })

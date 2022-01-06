@@ -1,8 +1,7 @@
 package utils
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,8 +18,9 @@ var _ = Describe("TestFNV64a", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(s).To(Equal(output))
 		},
-		Entry("empty string", "", "cbf29ce484222325"),
-		Entry("random string", "special-resource-operator", "20db61ac8744a54a"),
+		EntryDescription("%q => %q"),
+		Entry(nil, "", "cbf29ce484222325"),
+		Entry(nil, "special-resource-operator", "20db61ac8744a54a"),
 	)
 })
 

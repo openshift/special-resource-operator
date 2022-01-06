@@ -3,8 +3,7 @@ package scheme_test
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/openshift-psap/special-resource-operator/pkg/scheme"
 	buildV1 "github.com/openshift/api/build/v1"
@@ -27,25 +26,15 @@ var _ = Describe("AddToScheme", func() {
 	err := scheme.AddToScheme(s)
 	Expect(err).NotTo(HaveOccurred())
 
-	gv := []schema.GroupVersion{
-		routev1.GroupVersion,
-		secv1.GroupVersion,
-		buildV1.GroupVersion,
-		imageV1.GroupVersion,
-		monitoringV1.SchemeGroupVersion,
-	}
-
-	entries := make([]TableEntry, 0, len(gv))
-
-	for _, g := range gv {
-		entries = append(entries, Entry(g.String(), g))
-	}
-
 	DescribeTable(
 		"all GroupVersions should be registered",
 		func(g schema.GroupVersion) {
 			Expect(s.IsVersionRegistered(g)).To(BeTrue())
 		},
-		entries...,
+		Entry(nil, routev1.GroupVersion),
+		Entry(nil, secv1.GroupVersion),
+		Entry(nil, buildV1.GroupVersion),
+		Entry(nil, imageV1.GroupVersion),
+		Entry(nil, monitoringV1.SchemeGroupVersion),
 	)
 })

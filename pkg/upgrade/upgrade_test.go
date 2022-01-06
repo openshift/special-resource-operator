@@ -7,8 +7,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -114,7 +113,30 @@ var _ = Describe("ClusterInfo", func() {
 	}
 
 	Context("has all required data (happy flow)", func() {
-		testCases := []TableEntry{
+		DescribeTable("returns information for", func(input testInput, testExpects map[string]NodeVersion) {
+			for _, labels := range input.nodesLabels {
+				node := unstructured.Unstructured{}
+				node.SetLabels(labels)
+				cache.Node.List.Items = append(cache.Node.List.Items, node)
+				cache.Node.Count = int64(len(cache.Node.List.Items))
+			}
+
+			ctx := context.TODO()
+
+			mockCluster.EXPECT().VersionHistory(ctx).Return(input.clusterReleaseImages, nil)
+			mockRegistry.EXPECT().LastLayer(ctx, input.clusterReleaseImages[0]).Return(&fakeLayer{}, nil)
+			mockRegistry.EXPECT().ReleaseManifests(gomock.Any()).Return(input.clusterVersion, input.dtkImage, nil)
+			mockRegistry.EXPECT().LastLayer(ctx, input.dtkImage).Return(&fakeLayer{}, nil)
+			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(input.dtk, nil)
+
+			m, err := clusterInfo.GetClusterInfo(ctx)
+
+			Expect(err).ToNot(HaveOccurred())
+
+			for expectedKernel, expectedNodeVersion := range testExpects {
+				Expect(m).To(HaveKeyWithValue(expectedKernel, expectedNodeVersion))
+			}
+		},
 			Entry(
 				"1 node with RT kernel",
 				testInput{
@@ -204,32 +226,7 @@ var _ = Describe("ClusterInfo", func() {
 					},
 				},
 			),
-		}
-
-		DescribeTable("returns information for", func(input testInput, testExpects map[string]NodeVersion) {
-			for _, labels := range input.nodesLabels {
-				node := unstructured.Unstructured{}
-				node.SetLabels(labels)
-				cache.Node.List.Items = append(cache.Node.List.Items, node)
-				cache.Node.Count = int64(len(cache.Node.List.Items))
-			}
-
-			ctx := context.TODO()
-
-			mockCluster.EXPECT().VersionHistory(ctx).Return(input.clusterReleaseImages, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, input.clusterReleaseImages[0]).Return(&fakeLayer{}, nil)
-			mockRegistry.EXPECT().ReleaseManifests(gomock.Any()).Return(input.clusterVersion, input.dtkImage, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, input.dtkImage).Return(&fakeLayer{}, nil)
-			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(input.dtk, nil)
-
-			m, err := clusterInfo.GetClusterInfo(ctx)
-
-			Expect(err).ToNot(HaveOccurred())
-
-			for expectedKernel, expectedNodeVersion := range testExpects {
-				Expect(m).To(HaveKeyWithValue(expectedKernel, expectedNodeVersion))
-			}
-		}, testCases...)
+		)
 	})
 
 	It("will hint that with an error message when NFD is not installed", func() {

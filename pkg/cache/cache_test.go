@@ -6,8 +6,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
@@ -61,8 +60,9 @@ var _ = Describe("Nodes", func() {
 
 				Expect(errors.Is(err, randomError)).To(BeTrue())
 			},
-			Entry("force=true", true),
-			Entry("force=false", false),
+			EntryDescription("force=%t"),
+			Entry(nil, true),
+			Entry(nil, false),
 		)
 
 		DescribeTable("force=false, one node with TaintEffect",
@@ -94,10 +94,11 @@ var _ = Describe("Nodes", func() {
 				Expect(cache.Node.List.Items).To(HaveLen(cacheCount))
 				Expect(cache.Node.List.Items[0].GetName()).To(Equal(validNodeName))
 			},
-			Entry("<empty>", v1.TaintEffect(""), 2),
-			Entry("PreferNoSchedule", v1.TaintEffectPreferNoSchedule, 2),
-			Entry("NoExecute", v1.TaintEffectNoExecute, 1),
-			Entry("NoSchedule", v1.TaintEffectNoSchedule, 1),
+			EntryDescription("taint=%s, nodes=%d"),
+			Entry(nil, v1.TaintEffect(""), 2),
+			Entry(nil, v1.TaintEffectPreferNoSchedule, 2),
+			Entry(nil, v1.TaintEffectNoExecute, 1),
+			Entry(nil, v1.TaintEffectNoSchedule, 1),
 		)
 
 		Context("valid cache", func() {
@@ -169,8 +170,9 @@ var _ = Describe("Nodes", func() {
 					"with the discrepancy between Node.Count and Node.List, the cache should always be updated",
 				)
 			},
-			Entry("force=false", false),
-			Entry("force=true", true),
+			EntryDescription("force=%t"),
+			Entry(nil, false),
+			Entry(nil, true),
 		)
 	})
 

@@ -1,14 +1,13 @@
 package utils
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"helm.sh/helm/v3/pkg/chart"
 )
 
-var _ = Describe("Find", func() {
+var _ = Describe("StringSliceFind", func() {
 	s := []string{"a", "b", "c", "d"}
 
 	DescribeTable(
@@ -21,7 +20,7 @@ var _ = Describe("Find", func() {
 	)
 })
 
-var _ = Describe("Contains", func() {
+var _ = Describe("StringSliceContains", func() {
 	s := []string{"a", "b", "c", "d"}
 
 	DescribeTable(
@@ -50,7 +49,7 @@ var _ = Describe("FindCRFile", func() {
 	)
 })
 
-var _ = Describe("Insert", func() {
+var _ = Describe("StringSliceInsert", func() {
 	var a []string
 
 	BeforeEach(func() {
