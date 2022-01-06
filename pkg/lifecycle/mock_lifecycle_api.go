@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	v1 "k8s.io/api/core/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -38,10 +38,10 @@ func (m *MockLifecycle) EXPECT() *MockLifecycleMockRecorder {
 }
 
 // GetPodFromDaemonSet mocks base method.
-func (m *MockLifecycle) GetPodFromDaemonSet(arg0 context.Context, arg1 types.NamespacedName) unstructured.UnstructuredList {
+func (m *MockLifecycle) GetPodFromDaemonSet(arg0 context.Context, arg1 types.NamespacedName) *v1.PodList {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPodFromDaemonSet", arg0, arg1)
-	ret0, _ := ret[0].(unstructured.UnstructuredList)
+	ret0, _ := ret[0].(*v1.PodList)
 	return ret0
 }
 
@@ -52,10 +52,10 @@ func (mr *MockLifecycleMockRecorder) GetPodFromDaemonSet(arg0, arg1 interface{})
 }
 
 // GetPodFromDeployment mocks base method.
-func (m *MockLifecycle) GetPodFromDeployment(arg0 context.Context, arg1 types.NamespacedName) unstructured.UnstructuredList {
+func (m *MockLifecycle) GetPodFromDeployment(arg0 context.Context, arg1 types.NamespacedName) *v1.PodList {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPodFromDeployment", arg0, arg1)
-	ret0, _ := ret[0].(unstructured.UnstructuredList)
+	ret0, _ := ret[0].(*v1.PodList)
 	return ret0
 }
 
