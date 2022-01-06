@@ -99,7 +99,7 @@ func main() {
 	lc := lifecycle.New(clients.Interface, st)
 	pollActions := poll.New(clients.Interface, lc, st)
 	kernelData := kernel.NewKernelData()
-	proxyAPI := proxy.NewProxyAPI()
+	proxyAPI := proxy.NewProxyAPI(clients.Interface)
 
 	creator := resource.NewCreator(
 		clients.Interface,
@@ -111,12 +111,12 @@ func main() {
 		proxyAPI)
 
 	if err = (&controllers.SpecialResourceReconciler{Cluster: clusterCluster,
-		ClusterInfo: upgrade.NewClusterInfo(registry.NewRegistry(), clusterCluster),
+		ClusterInfo: upgrade.NewClusterInfo(registry.NewRegistry(clients.Interface), clusterCluster),
 		Creator:     creator,
 		PollActions: pollActions,
 		Filter:      filter.NewFilter(lc, st, kernelData),
 		Storage:     st,
-		Helmer:      helmer.NewHelmer(creator, helmer.DefaultSettings()),
+		Helmer:      helmer.NewHelmer(creator, helmer.DefaultSettings(), clients.Interface),
 		Assets:      assets.NewAssets(),
 		KernelData:  kernelData,
 		Log:         ctrl.Log,

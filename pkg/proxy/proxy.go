@@ -30,13 +30,15 @@ type ProxyAPI interface {
 }
 
 type proxy struct {
-	log    logr.Logger
-	config Configuration
+	kubeClient clients.ClientsInterface
+	log        logr.Logger
+	config     Configuration
 }
 
-func NewProxyAPI() ProxyAPI {
+func NewProxyAPI(kubeClient clients.ClientsInterface) ProxyAPI {
 	return &proxy{
-		log: zap.New(zap.UseDevMode(true)).WithName(utils.Print("proxy", utils.Green)),
+		kubeClient: kubeClient,
+		log:        zap.New(zap.UseDevMode(true)).WithName(utils.Print("proxy", utils.Green)),
 	}
 }
 
@@ -142,7 +144,7 @@ func (p *proxy) setupContainersProxy(containers []interface{}) error {
 func (p *proxy) ClusterConfiguration(ctx context.Context) (Configuration, error) {
 	proxy := &p.config
 
-	proxiesAvailable, err := clients.Interface.HasResource(configv1.SchemeGroupVersion.WithResource("proxies"))
+	proxiesAvailable, err := p.kubeClient.HasResource(configv1.SchemeGroupVersion.WithResource("proxies"))
 	if err != nil {
 		return *proxy, errors.Wrap(err, "Error discovering proxies API resource")
 	}
@@ -155,7 +157,7 @@ func (p *proxy) ClusterConfiguration(ctx context.Context) (Configuration, error)
 	cfgs.SetAPIVersion("config.openshift.io/v1")
 	cfgs.SetKind("ProxyList")
 
-	err = clients.Interface.List(ctx, cfgs)
+	err = p.kubeClient.List(ctx, cfgs)
 	if err != nil {
 		return *proxy, errors.Wrap(err, "Client cannot get ProxyList")
 	}

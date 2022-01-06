@@ -60,15 +60,17 @@ type helmer struct {
 	creator         resource.Creator
 	getterProviders getter.Providers
 	log             logr.Logger
+	kubeClient      clients.ClientsInterface
 	repoFile        *repo.File
 	settings        *cli.EnvSettings
 }
 
-func NewHelmer(creator resource.Creator, settings *cli.EnvSettings) *helmer {
+func NewHelmer(creator resource.Creator, settings *cli.EnvSettings, kubeClient clients.ClientsInterface) *helmer {
 	return &helmer{
 		creator:         creator,
 		getterProviders: getter.All(settings),
 		log:             zap.New(zap.UseDevMode(true)).WithName(utils.Print("helmer", utils.Blue)),
+		kubeClient:      kubeClient,
 		repoFile: &repo.File{
 			APIVersion:   "",
 			Generated:    time.Time{},
@@ -333,7 +335,7 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 
 	key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
 
-	if err := clients.Interface.Get(ctx, key, found); err != nil {
+	if err := h.kubeClient.Get(ctx, key, found); err != nil {
 
 		if apierrors.IsNotFound(err) {
 			h.log.Info("Hooks", string(hook), "NotReady (IsNotFound)")
@@ -403,7 +405,7 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 		}
 	}
 
-	if err := clients.Interface.Create(ctx, &obj); err != nil {
+	if err := h.kubeClient.Create(ctx, &obj); err != nil {
 		h.log.Info(err.Error())
 
 		if apierrors.IsAlreadyExists(err) {

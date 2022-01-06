@@ -48,24 +48,26 @@ type Registry interface {
 	ReleaseManifests(v1.Layer) (string, string, error)
 }
 
-func NewRegistry() Registry {
+func NewRegistry(kubeClient clients.ClientsInterface) Registry {
 	return &registry{
-		log: zap.New(zap.UseDevMode(true)).WithName(utils.Print("registry", utils.Brown)),
+		kubeClient: kubeClient,
+		log:        zap.New(zap.UseDevMode(true)).WithName(utils.Print("registry", utils.Brown)),
 	}
 }
 
 type registry struct {
-	log logr.Logger
+	kubeClient clients.ClientsInterface
+	log        logr.Logger
 }
 
 func (r *registry) writeImageRegistryCredentials(ctx context.Context) error {
-	_, err := clients.Interface.GetNamespace(ctx, pullSecretNamespace, metav1.GetOptions{})
+	_, err := r.kubeClient.GetNamespace(ctx, pullSecretNamespace, metav1.GetOptions{})
 	if err != nil {
 		r.log.Info("Can not find namespace for pull secrets, assuming vanilla k8s")
 		return nil
 	}
 
-	s, err := clients.Interface.GetSecret(ctx, pullSecretNamespace, pullSecretName, metav1.GetOptions{})
+	s, err := r.kubeClient.GetSecret(ctx, pullSecretNamespace, pullSecretName, metav1.GetOptions{})
 	if err != nil {
 		return errors.Wrap(err, "Can not retrieve pull secrets")
 	}
