@@ -16,6 +16,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -273,19 +274,14 @@ func (c *creator) checkForImagePullBackOff(ctx context.Context, obj *unstructure
 	labels := obj.GetLabels()
 	value := labels["app"]
 
-	find := make(map[string]string)
-	find["app"] = value
-
 	// DaemonSet is not coming up, lets check if we have to rebuild
-	pods := &unstructured.UnstructuredList{}
-	pods.SetAPIVersion("v1")
-	pods.SetKind("PodList")
+	pods := &corev1.PodList{}
 
 	c.log.Info("checkForImagePullBackOff get PodList from: " + namespace)
 
 	opts := []client.ListOption{
 		client.InNamespace(namespace),
-		client.MatchingLabels(find),
+		client.MatchingLabels(map[string]string{"app": value}),
 	}
 
 	err := c.kubeClient.List(ctx, pods, opts...)
@@ -303,30 +299,22 @@ func (c *creator) checkForImagePullBackOff(ctx context.Context, obj *unstructure
 	for _, pod := range pods.Items {
 		c.log.Info("checkForImagePullBackOff", "PodName", pod.GetName())
 
-		var found bool
-		var containerStatuses []interface{}
+		containerStatuses := pod.Status.ContainerStatuses
 
-		if containerStatuses, found, err = unstructured.NestedSlice(pod.Object, "status", "containerStatuses"); !found || err != nil {
-			var phase string
+		if containerStatuses == nil {
+			phase := pod.Status.Phase
 
-			phase, found, err = unstructured.NestedString(pod.Object, "status", "phase")
-			if err != nil || !found {
-				return fmt.Errorf("error or not found: %w", err)
+			if phase == "" {
+				return errors.New("pod has an empty phase")
 			}
 
-			c.log.Info("Pod is in phase: " + phase)
+			c.log.Info("Pod is in phase: " + string(phase))
 			continue
 		}
 
 		for _, containerStatus := range containerStatuses {
-			switch cs := containerStatus.(type) {
-			case map[string]interface{}:
-				reason, _, _ = unstructured.NestedString(cs, "state", "waiting", "reason")
-				c.log.Info("Reason", "reason", reason)
-			default:
-				c.log.Info("checkForImagePullBackOff", "DEFAULT NOT THE CORRECT TYPE", cs)
-			}
-			break
+			reason = containerStatus.State.Waiting.Reason
+			c.log.Info("Reason", "reason", reason)
 		}
 
 		if reason == "ImagePullBackOff" || reason == "ErrImagePull" {
@@ -475,10 +463,7 @@ func (c *creator) sendNodesMetrics(ctx context.Context, obj *unstructured.Unstru
 	pl := getPodsFunc(ctx, objKey)
 	nodesNames := []string{}
 	for _, pod := range pl.Items {
-		nodeName, found, err := unstructured.NestedString(pod.Object, "spec", "nodeName")
-		if err == nil && found {
-			nodesNames = append(nodesNames, nodeName)
-		}
+		nodesNames = append(nodesNames, pod.Spec.NodeName)
 	}
 
 	if len(nodesNames) != 0 {

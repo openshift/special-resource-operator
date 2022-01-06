@@ -11,8 +11,10 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,9 +33,6 @@ var (
 
 	optNs     = client.InNamespace(namespace)
 	optLabels = client.MatchingLabels(labels)
-
-	unstructuredMatcher     = gomock.AssignableToTypeOf(&unstructured.Unstructured{})
-	unstructuredListMatcher = gomock.AssignableToTypeOf(&unstructured.UnstructuredList{})
 )
 
 func TestLifecycle(t *testing.T) {
@@ -75,28 +74,64 @@ var _ = Describe("GetPodFromDaemonSet", func() {
 
 		gomock.InOrder(
 			mockClient.EXPECT().
-				Get(context.TODO(), nsn, unstructuredMatcher).
-				Do(func(ctx context.Context, key types.NamespacedName, uo *unstructured.Unstructured) {
-					m := make(map[string]interface{}, len(labels))
-
-					for k, v := range labels {
-						m[k] = v
-					}
-
-					err := unstructured.SetNestedMap(uo.Object, m, "spec", "selector", "matchLabels")
-					Expect(err).NotTo(HaveOccurred())
-					uo.SetNamespace(key.Namespace)
+				Get(context.TODO(), nsn, &appsv1.DaemonSet{}).
+				Do(func(ctx context.Context, key types.NamespacedName, ds *appsv1.DaemonSet) {
+					ds.Spec.Selector = &metav1.LabelSelector{MatchLabels: labels}
+					ds.SetNamespace(key.Namespace)
 				}),
 			mockClient.EXPECT().
-				List(context.TODO(), unstructuredListMatcher, optNs, optLabels).
-				Do(func(_ context.Context, ul *unstructured.UnstructuredList, _, _ client.ListOption) {
-					ul.Items = make([]unstructured.Unstructured, nPod)
+				List(context.TODO(), &v1.PodList{}, optNs, optLabels).
+				Do(func(_ context.Context, pl *v1.PodList, _, _ client.ListOption) {
+					pl.Items = make([]v1.Pod, nPod)
 				}),
 		)
 
 		pl := lifecycle.
 			New(mockClient, mockStorage).
 			GetPodFromDaemonSet(context.TODO(), types.NamespacedName{Namespace: "ns", Name: "test"})
+
+		Expect(pl.Items).To(HaveLen(nPod))
+	})
+})
+
+var _ = Describe("GetPodFromDeployment", func() {
+	nsn := types.NamespacedName{
+		Namespace: namespace,
+		Name:      name,
+	}
+
+	It("should be empty when Deployment does not exist", func() {
+		err := errors.NewNotFound(v1.Resource("deployment"), name)
+
+		mockClient.EXPECT().
+			Get(context.TODO(), nsn, gomock.Any()).
+			Return(err)
+
+		pl := lifecycle.New(mockClient, mockStorage).GetPodFromDeployment(context.TODO(), nsn)
+
+		Expect(pl.Items).To(BeEmpty())
+	})
+
+	It("should return two pods when DaemonSet has 2 pods", func() {
+		const nPod = 2
+
+		gomock.InOrder(
+			mockClient.EXPECT().
+				Get(context.TODO(), nsn, &appsv1.Deployment{}).
+				Do(func(ctx context.Context, key types.NamespacedName, dp *appsv1.Deployment) {
+					dp.Spec.Selector = &metav1.LabelSelector{MatchLabels: labels}
+					dp.SetNamespace(key.Namespace)
+				}),
+			mockClient.EXPECT().
+				List(context.TODO(), &v1.PodList{}, optNs, optLabels).
+				Do(func(_ context.Context, pl *v1.PodList, _, _ client.ListOption) {
+					pl.Items = make([]v1.Pod, nPod)
+				}),
+		)
+
+		pl := lifecycle.
+			New(mockClient, mockStorage).
+			GetPodFromDeployment(context.TODO(), types.NamespacedName{Namespace: namespace, Name: name})
 
 		Expect(pl.Items).To(HaveLen(nPod))
 	})
@@ -126,30 +161,28 @@ var _ = Describe("UpdateDaemonSetPods", func() {
 
 		gomock.InOrder(
 			mockClient.EXPECT().
-				Get(context.TODO(), nsn, unstructuredMatcher).
-				Do(func(_ context.Context, key types.NamespacedName, uo *unstructured.Unstructured) {
-					m := make(map[string]interface{}, len(labels))
-
-					for k, v := range labels {
-						m[k] = v
-					}
-
-					err := unstructured.SetNestedMap(uo.Object, m, "spec", "selector", "matchLabels")
-					Expect(err).NotTo(HaveOccurred())
-					uo.SetNamespace(key.Namespace)
+				Get(context.TODO(), nsn, &appsv1.DaemonSet{}).
+				Do(func(_ context.Context, key types.NamespacedName, ds *appsv1.DaemonSet) {
+					ds.Spec.Selector = &metav1.LabelSelector{MatchLabels: labels}
+					ds.SetNamespace(key.Namespace)
 				}),
 			mockClient.EXPECT().
-				List(context.TODO(), unstructuredListMatcher, optNs, optLabels).
-				Do(func(_ context.Context, ul *unstructured.UnstructuredList, _, _ client.ListOption) {
-					pod1 := unstructured.Unstructured{}
-					pod1.SetNamespace(namespace)
-					pod1.SetName("pod1")
-
-					pod2 := unstructured.Unstructured{}
-					pod2.SetNamespace(namespace)
-					pod2.SetName("pod2")
-
-					ul.Items = []unstructured.Unstructured{pod1, pod2}
+				List(context.TODO(), &v1.PodList{}, optNs, optLabels).
+				Do(func(_ context.Context, pl *v1.PodList, _, _ client.ListOption) {
+					pl.Items = []v1.Pod{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "pod1",
+								Namespace: namespace,
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "pod2",
+								Namespace: namespace,
+							},
+						},
+					}
 				}),
 			mockStorage.EXPECT().UpdateConfigMapEntry(context.TODO(), "39005a809548c688", "*v1.Pod", cmNsn),
 			mockStorage.EXPECT().UpdateConfigMapEntry(context.TODO(), "39005d809548cba1", "*v1.Pod", cmNsn),
