@@ -53,7 +53,7 @@ func finalizeNodes(ctx context.Context, r *SpecialResourceReconciler, remove str
 			return errors.Wrap(err, "forbidden check Role, ClusterRole and Bindings for operator %s")
 		}
 		if apierrors.IsConflict(err) {
-			if cacheErr := cache.Nodes(ctx, r.specialresource.Spec.NodeSelector, true); cacheErr != nil {
+			if cacheErr := r.NodesCacher.Nodes(ctx, r.specialresource.Spec.NodeSelector, true); cacheErr != nil {
 				return errors.Wrap(cacheErr, "Could not cache nodes for api conflict")
 			}
 			return fmt.Errorf("node Conflict Label %s err %s", state.CurrentName, err)

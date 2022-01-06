@@ -252,7 +252,7 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		// if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
 		operatorStatusUpdate(ctx, &r.specialresource, state.CurrentName)
 
-		if err := labelNodesAccordingToState(ctx, r.specialresource.Spec.NodeSelector); err != nil {
+		if err := r.labelNodesAccordingToState(ctx, r.specialresource.Spec.NodeSelector); err != nil {
 			return err
 		}
 	}

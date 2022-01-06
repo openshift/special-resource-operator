@@ -12,10 +12,10 @@ import (
 
 // If resource available, label the nodes according to the current state
 // if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
-func labelNodesAccordingToState(ctx context.Context, nodeSelector map[string]string) error {
+func (r *SpecialResourceReconciler) labelNodesAccordingToState(ctx context.Context, nodeSelector map[string]string) error {
 	var err error
 
-	if err = cache.Nodes(ctx, nodeSelector, true); err != nil {
+	if err = r.NodesCacher.Nodes(ctx, nodeSelector, true); err != nil {
 		return fmt.Errorf("could not cache nodes for state change: %w", err)
 	}
 
@@ -35,7 +35,7 @@ func labelNodesAccordingToState(ctx context.Context, nodeSelector map[string]str
 			}
 
 			if apierrors.IsConflict(err) {
-				if err := cache.Nodes(ctx, nodeSelector, true); err != nil {
+				if err := r.NodesCacher.Nodes(ctx, nodeSelector, true); err != nil {
 					return fmt.Errorf("could not cache nodes for api conflict: %w", err)
 				}
 

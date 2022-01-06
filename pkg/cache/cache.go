@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 
+	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
@@ -16,18 +17,33 @@ type NodesCache struct {
 	Count int64
 }
 
-var (
-	log  = zap.New(zap.UseDevMode(true)).WithName(utils.Print("cache", utils.Brown))
-	Node = NodesCache{
-		List: &unstructured.UnstructuredList{
-			Object: map[string]interface{}{},
-			Items:  []unstructured.Unstructured{},
-		},
-		Count: 0xDEADBEEF,
-	}
-)
+var Node = NodesCache{
+	List: &unstructured.UnstructuredList{
+		Object: map[string]interface{}{},
+		Items:  []unstructured.Unstructured{},
+	},
+	Count: 0xDEADBEEF,
+}
 
-func Nodes(ctx context.Context, matchingLabels map[string]string, force bool) error {
+//go:generate mockgen -source=cache.go -package=cache -destination=mock_cache_api.go
+
+type NodesCacher interface {
+	Nodes(context.Context, map[string]string, bool) error
+}
+
+type nodesCacher struct {
+	kubeClient clients.ClientsInterface
+	log        logr.Logger
+}
+
+func NewNodesCacher(kubeClient clients.ClientsInterface) NodesCacher {
+	return &nodesCacher{
+		kubeClient: kubeClient,
+		log:        zap.New(zap.UseDevMode(true)).WithName(utils.Print("cache", utils.Brown)),
+	}
+}
+
+func (nc *nodesCacher) Nodes(ctx context.Context, matchingLabels map[string]string, force bool) error {
 
 	// The initial list is what we're working with
 	// a SharedInformer will update the list of nodes if
@@ -52,7 +68,7 @@ func Nodes(ctx context.Context, matchingLabels map[string]string, force bool) er
 	list.SetAPIVersion("v1")
 	list.SetKind("NodeList")
 
-	err := clients.Interface.List(ctx, &list, opts...)
+	err := nc.kubeClient.List(ctx, &list, opts...)
 	if err != nil {
 		return errors.Wrap(err, "Client cannot get NodeList")
 	}
@@ -71,7 +87,7 @@ func Nodes(ctx context.Context, matchingLabels map[string]string, force bool) er
 		// Nothing to filter no taints on the current node object, continue
 		if !ok {
 			Node.List.Items = append(Node.List.Items, list.Items[idx])
-			log.Info("Nodes cached", "name", node.GetName())
+			nc.log.Info("Nodes cached", "name", node.GetName())
 			continue
 		}
 
@@ -95,17 +111,17 @@ func Nodes(ctx context.Context, matchingLabels map[string]string, force bool) er
 
 		if keep {
 			Node.List.Items = append(Node.List.Items, list.Items[idx])
-			log.Info("Nodes cached", "name", node.GetName())
+			nc.log.Info("Nodes cached", "name", node.GetName())
 		}
 
 	}
 
-	log.Info("Node list:", "length", len(Node.List.Items))
+	nc.log.Info("Node list:", "length", len(Node.List.Items))
 	if len(Node.List.Items) == 0 {
-		log.Info("No nodes found for the SpecialResource. Consider setting .Spec.Node.Selector in the CR or labeling worker nodes.")
+		nc.log.Info("No nodes found for the SpecialResource. Consider setting .Spec.Node.Selector in the CR or labeling worker nodes.")
 	}
 
-	log.Info("Nodes", "num", len(Node.List.Items))
+	nc.log.Info("Nodes", "num", len(Node.List.Items))
 
 	return err
 }

@@ -20,7 +20,7 @@ func TestCache(t *testing.T) {
 	RunSpecs(t, "Cache Suite")
 }
 
-var _ = Describe("Nodes", func() {
+var _ = Describe("NodesCacher_Nodes", func() {
 	var (
 		ctrl        *gomock.Controller
 		mockClients *clients.MockClientsInterface
@@ -29,16 +29,12 @@ var _ = Describe("Nodes", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockClients = clients.NewMockClientsInterface(ctrl)
-
-		clients.Interface = mockClients
 	})
 
 	AfterEach(func() {
 		ctrl.Finish()
 
 		// reset globals
-		clients.Interface = nil
-
 		cache.Node.Count = 0xDEADBEEF
 		cache.Node.List = &unstructured.UnstructuredList{
 			Object: map[string]interface{}{},
@@ -56,7 +52,7 @@ var _ = Describe("Nodes", func() {
 
 				mockClients.EXPECT().List(context.TODO(), listMatcher).Return(randomError)
 
-				err := cache.Nodes(context.TODO(), nil, force)
+				err := cache.NewNodesCacher(mockClients).Nodes(context.TODO(), nil, force)
 
 				Expect(errors.Is(err, randomError)).To(BeTrue())
 			},
@@ -88,7 +84,7 @@ var _ = Describe("Nodes", func() {
 					},
 				)
 
-				err := cache.Nodes(context.TODO(), nil, false)
+				err := cache.NewNodesCacher(mockClients).Nodes(context.TODO(), nil, false)
 
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cache.Node.List.Items).To(HaveLen(cacheCount))
@@ -110,7 +106,7 @@ var _ = Describe("Nodes", func() {
 					},
 				}
 
-				err := cache.Nodes(context.TODO(), nil, false)
+				err := cache.NewNodesCacher(mockClients).Nodes(context.TODO(), nil, false)
 
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cache.Node.List.Items).To(
@@ -135,7 +131,7 @@ var _ = Describe("Nodes", func() {
 					},
 				)
 
-				err := cache.Nodes(context.TODO(), nil, true)
+				err := cache.NewNodesCacher(mockClients).Nodes(context.TODO(), nil, true)
 
 				Expect(err).NotTo(HaveOccurred())
 				Expect(cache.Node.List.Items).To(
@@ -163,7 +159,7 @@ var _ = Describe("Nodes", func() {
 					},
 				)
 
-				err := cache.Nodes(context.TODO(), nil, force)
+				err := cache.NewNodesCacher(mockClients).Nodes(context.TODO(), nil, force)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(
 					cache.Node.List.Items).To(HaveLen(len(k8sItems)),
@@ -192,7 +188,7 @@ var _ = Describe("Nodes", func() {
 			},
 		)
 
-		err := cache.Nodes(context.TODO(), matchingLabels, false)
+		err := cache.NewNodesCacher(mockClients).Nodes(context.TODO(), matchingLabels, false)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cache.Node.List.Items).To(HaveLen(1))
