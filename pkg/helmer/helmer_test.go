@@ -10,6 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
@@ -22,8 +23,9 @@ import (
 const pluginsDir = "../../helm-plugins"
 
 var (
-	ctrl        *gomock.Controller
-	mockCreator *resource.MockCreator
+	ctrl           *gomock.Controller
+	mockCreator    *resource.MockCreator
+	mockKubeClient *clients.MockClientsInterface
 )
 
 func TestHelmer(t *testing.T) {
@@ -32,6 +34,7 @@ func TestHelmer(t *testing.T) {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockCreator = resource.NewMockCreator(ctrl)
+		mockKubeClient = clients.NewMockClientsInterface(ctrl)
 	})
 
 	RunSpecs(t, "Helmer Suite")
@@ -54,7 +57,7 @@ var _ = Describe("helmer_AddorUpdateRepo", func() {
 		settings.RepositoryConfig = repoConfigFile
 		settings.RepositoryCache = filepath.Join(tempDir, "cache")
 
-		err := helmer.NewHelmer(mockCreator, settings).AddorUpdateRepo(&entry)
+		err := helmer.NewHelmer(mockCreator, settings, mockKubeClient).AddorUpdateRepo(&entry)
 		Expect(err).NotTo(HaveOccurred())
 
 		expectedContents := []byte(`apiVersion: ""
@@ -91,7 +94,7 @@ var _ = Describe("helmer_Load", func() {
 
 			settings.PluginsDirectory = pluginsDir
 
-			_, err := helmer.NewHelmer(mockCreator, settings).Load(spec)
+			_, err := helmer.NewHelmer(mockCreator, settings, mockKubeClient).Load(spec)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -114,7 +117,7 @@ var _ = Describe("helmer_Load", func() {
 			settings.RepositoryConfig = repoConfigFile
 			settings.RepositoryCache = filepath.Join(tempDir, "cache")
 
-			_, err := helmer.NewHelmer(mockCreator, settings).Load(spec)
+			_, err := helmer.NewHelmer(mockCreator, settings, mockKubeClient).Load(spec)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -137,7 +140,7 @@ var _ = Describe("helmer_Load", func() {
 			settings.RepositoryConfig = repoConfigFile
 			settings.RepositoryCache = filepath.Join(tempDir, "cache")
 
-			chart, err := helmer.NewHelmer(mockCreator, settings).Load(spec)
+			chart, err := helmer.NewHelmer(mockCreator, settings, mockKubeClient).Load(spec)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(chart.Name()).To(Equal("test-chart"))
@@ -162,7 +165,7 @@ var _ = Describe("helmer_InstallCRDs", func() {
 			CreateFromYAML(context.TODO(), nil, false, owner, name, namespace, nil, "", "").
 			Return(randomError)
 
-		err := helmer.NewHelmer(mockCreator, cli.New()).InstallCRDs(context.TODO(), nil, owner, name, namespace)
+		err := helmer.NewHelmer(mockCreator, cli.New(), mockKubeClient).InstallCRDs(context.TODO(), nil, owner, name, namespace)
 		Expect(err).To(Equal(randomError))
 	})
 
@@ -190,7 +193,7 @@ def
 			EXPECT().
 			CreateFromYAML(context.TODO(), manifests, false, owner, name, namespace, nil, "", "")
 
-		err := helmer.NewHelmer(mockCreator, cli.New()).InstallCRDs(context.TODO(), crds, owner, name, namespace)
+		err := helmer.NewHelmer(mockCreator, cli.New(), mockKubeClient).InstallCRDs(context.TODO(), crds, owner, name, namespace)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
@@ -212,7 +215,7 @@ var _ = Describe("helmer_Run", func() {
 		}
 
 		err := helmer.
-			NewHelmer(mockCreator, cli.New()).
+			NewHelmer(mockCreator, cli.New(), mockKubeClient).
 			Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
 		Expect(err).To(HaveOccurred())
 	})
@@ -239,7 +242,7 @@ var _ = Describe("helmer_Run", func() {
 			Return(randomError)
 
 		err := helmer.
-			NewHelmer(mockCreator, cli.New()).
+			NewHelmer(mockCreator, cli.New(), mockKubeClient).
 			Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
 		Expect(errors.Is(err, randomError)).To(BeTrue())
 	})

@@ -1,11 +1,15 @@
 package proxy
 
 import (
+	"context"
+	"fmt"
 	"io/ioutil"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -151,4 +155,50 @@ var _ = Describe("Setup", func() {
 })
 
 // TODO(qbarrand) make the DiscoveryClient in clients.HasResource injectable, so we can mock it.
-//var _ = Describe("ClusterConfiguration", func() {})
+var _ = Describe("ClusterConfiguration", func() {
+	var (
+		ctrl           *gomock.Controller
+		proxyStruct    proxy
+		mockKubeClient *clients.MockClientsInterface
+	)
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		mockKubeClient = clients.NewMockClientsInterface(ctrl)
+		proxyStruct = proxy{
+			kubeClient: mockKubeClient,
+			log:        zap.New(zap.WriteTo(ioutil.Discard)),
+		}
+	})
+
+	It("HasResource failed", func() {
+		mockKubeClient.EXPECT().HasResource(gomock.Any()).Times(1).Return(false, fmt.Errorf("some error"))
+		_, err := proxyStruct.ClusterConfiguration(context.TODO())
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("Unavailble proxy", func() {
+		mockKubeClient.EXPECT().HasResource(gomock.Any()).Times(1).Return(false, nil)
+		mockKubeClient.EXPECT().List(gomock.Any(), gomock.Any()).Times(0)
+		_, err := proxyStruct.ClusterConfiguration(context.TODO())
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("Proxy List failed", func() {
+		mockKubeClient.EXPECT().HasResource(gomock.Any()).Times(1).Return(true, nil)
+		mockKubeClient.EXPECT().List(gomock.Any(), gomock.Any()).Times(1).Return(fmt.Errorf("some error"))
+		_, err := proxyStruct.ClusterConfiguration(context.TODO())
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("Config Proxy", func() {
+		mockKubeClient.EXPECT().HasResource(gomock.Any()).Times(1).Return(true, nil)
+		mockKubeClient.EXPECT().List(gomock.Any(), gomock.Any()).Times(1).Return(nil)
+		proxy, err := proxyStruct.ClusterConfiguration(context.TODO())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(proxy.HttpProxy).To(BeEmpty())
+		Expect(proxy.HttpsProxy).To(BeEmpty())
+		Expect(proxy.NoProxy).To(BeEmpty())
+		Expect(proxy.TrustedCA).To(BeEmpty())
+	})
+
+})
