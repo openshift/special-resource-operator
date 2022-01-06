@@ -7,7 +7,6 @@ import (
 	"time"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
@@ -86,7 +85,7 @@ func logRuntimeInformation() {
 func getRuntimeInformation(ctx context.Context, r *SpecialResourceReconciler) error {
 	var err error
 
-	if err = cache.Nodes(ctx, r.specialresource.Spec.NodeSelector, false); err != nil {
+	if err = r.NodesCacher.Nodes(ctx, r.specialresource.Spec.NodeSelector, false); err != nil {
 		return fmt.Errorf("failed to cache nodes: %w", err)
 	}
 

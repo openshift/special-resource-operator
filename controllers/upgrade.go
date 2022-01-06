@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -15,7 +14,7 @@ func SpecialResourceUpgrade(ctx context.Context, r *SpecialResourceReconciler) (
 
 	var err error
 
-	if err = cache.Nodes(ctx, r.specialresource.Spec.NodeSelector, false); err != nil {
+	if err = r.NodesCacher.Nodes(ctx, r.specialresource.Spec.NodeSelector, false); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to cache nodes: %w", err)
 	}
 

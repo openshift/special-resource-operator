@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/assets"
+	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
@@ -70,6 +71,7 @@ type SpecialResourceReconciler struct {
 	Creator     resource.Creator
 	Filter      filter.Filter
 	Helmer      helmer.Helmer
+	NodesCacher cache.NodesCacher
 	Assets      assets.Assets
 	PollActions poll.PollActions
 	Storage     storage.Storage
