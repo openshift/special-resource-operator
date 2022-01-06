@@ -73,8 +73,8 @@ vet: ## Run go vet against code.
 	go vet --mod=vendor ./...
 
 unit-test: patch ## Run unit-tests.
-	# Use `go run github.com/onsi/ginkgo/ginkgo` as only the ginkgo binary supports -skipPackage
-	go run github.com/onsi/ginkgo/ginkgo -skipPackage ./test/e2e -coverprofile cover.out ./...
+	# Use `go run github.com/onsi/ginkgo/v2/ginkgo` as only the ginkgo binary supports --skip-package
+	go run github.com/onsi/ginkgo/v2/ginkgo --skip-package ./test/e2e -coverprofile cover.out ./...
 
 ##@ Build
 

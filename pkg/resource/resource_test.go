@@ -7,8 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
@@ -44,60 +43,29 @@ func TestResource(t *testing.T) {
 var _ = Describe("IsNamespaced", func() {
 	Expect(resource.IsNamespaced("Pod")).To(BeTrue())
 
-	clusterScopedTypes := []string{
-		"Namespace",
-		"ClusterRole",
-		"ClusterRoleBinding",
-		"SecurityContextConstraint",
-		"SpecialResource",
-	}
-
-	entries := make([]TableEntry, 0, len(clusterScopedTypes))
-
-	for _, cst := range clusterScopedTypes {
-		entries = append(entries, Entry(cst, cst))
-	}
-
 	DescribeTable(
 		"cluster-scoped types should not be namespaced",
 		func(typeName string) {
 			Expect(resource.IsNamespaced(typeName)).To(BeFalse())
 		},
-		entries...,
+		Entry(nil, "Namespace"),
+		Entry(nil, "ClusterRole"),
+		Entry(nil, "ClusterRoleBinding"),
+		Entry(nil, "SecurityContextConstraint"),
+		Entry(nil, "SpecialResource"),
 	)
 })
 
 var _ = Describe("IsNotUpdateable", func() {
-	cases := []struct {
-		typeName string
-		matcher  types.GomegaMatcher
-	}{
-		{
-			typeName: "Deployment",
-			matcher:  BeFalse(),
-		},
-		{
-			typeName: "ServiceAccount",
-			matcher:  BeTrue(),
-		},
-		{
-			typeName: "Pod",
-			matcher:  BeTrue(),
-		},
-	}
-
-	entries := make([]TableEntry, 0, len(cases))
-
-	for _, c := range cases {
-		entries = append(entries, Entry(c.typeName, c.typeName, c.matcher))
-	}
-
 	DescribeTable(
 		"should not be updateable",
 		func(typeName string, m types.GomegaMatcher) {
 			Expect(resource.IsNotUpdateable(typeName)).To(m)
 		},
-		entries...,
+		EntryDescription("%s"),
+		Entry(nil, "Deployment", BeFalse()),
+		Entry(nil, "ServiceAccount", BeTrue()),
+		Entry(nil, "Pod", BeTrue()),
 	)
 })
 
@@ -106,41 +74,31 @@ var _ = Describe("NeedsResourceVersionUpdate", func() {
 		Expect(resource.NeedsResourceVersionUpdate("Pod")).To(BeFalse())
 	})
 
-	resourceTypes := []string{
-		"SecurityContextConstraints",
-		"Service",
-		"ServiceMonitor",
-		"Route",
-		"Build",
-		"BuildRun",
-		"BuildConfig",
-		"ImageStream",
-		"PrometheusRule",
-		"CSIDriver",
-		"Issuer",
-		"CustomResourceDefinition",
-		"Certificate",
-		"SpecialResource",
-		"OperatorGroup",
-		"CertManager",
-		"MutatingWebhookConfiguration",
-		"ValidatingWebhookConfiguration",
-		"Deployment",
-		"ImagePolicy",
-	}
-
-	entries := make([]TableEntry, 0, len(resourceTypes))
-
-	for _, rt := range resourceTypes {
-		entries = append(entries, Entry(rt, rt))
-	}
-
 	DescribeTable(
 		"requires a resource version update",
 		func(rt string) {
 			Expect(resource.NeedsResourceVersionUpdate(rt)).To(BeTrue())
 		},
-		entries...,
+		Entry(nil, "SecurityContextConstraints"),
+		Entry(nil, "Service"),
+		Entry(nil, "ServiceMonitor"),
+		Entry(nil, "Route"),
+		Entry(nil, "Build"),
+		Entry(nil, "BuildRun"),
+		Entry(nil, "BuildConfig"),
+		Entry(nil, "ImageStream"),
+		Entry(nil, "PrometheusRule"),
+		Entry(nil, "CSIDriver"),
+		Entry(nil, "Issuer"),
+		Entry(nil, "CustomResourceDefinition"),
+		Entry(nil, "Certificate"),
+		Entry(nil, "SpecialResource"),
+		Entry(nil, "OperatorGroup"),
+		Entry(nil, "CertManager"),
+		Entry(nil, "MutatingWebhookConfiguration"),
+		Entry(nil, "ValidatingWebhookConfiguration"),
+		Entry(nil, "Deployment"),
+		Entry(nil, "ImagePolicy"),
 	)
 })
 
@@ -600,24 +558,6 @@ var _ = Describe("SetMetaData", func() {
 //var _ = Describe("AfterCRUD", func() {})
 
 var _ = Describe("SetLabel", func() {
-	objs := []runtime.Object{
-		&appsv1.DaemonSet{
-			TypeMeta: metav1.TypeMeta{Kind: "DaemonSet"},
-		},
-		&appsv1.Deployment{
-			TypeMeta: metav1.TypeMeta{Kind: "Deployment"},
-		},
-		&appsv1.StatefulSet{
-			TypeMeta: metav1.TypeMeta{Kind: "StatefulSet"},
-		},
-	}
-
-	entries := make([]TableEntry, 0, len(objs))
-
-	for _, o := range objs {
-		entries = append(entries, Entry(o.GetObjectKind().GroupVersionKind().Kind, o))
-	}
-
 	testFunc := func(o client.Object) {
 		mo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(o)
 		Expect(err).NotTo(HaveOccurred())
@@ -646,7 +586,29 @@ var _ = Describe("SetLabel", func() {
 		Expect(v).To(Equal("true"))
 	}
 
-	DescribeTable("should the label", testFunc, entries...)
+	DescribeTable(
+		"should the label",
+		testFunc,
+		func(o client.Object) string { return o.GetObjectKind().GroupVersionKind().Kind },
+		Entry(
+			nil,
+			&appsv1.DaemonSet{
+				TypeMeta: metav1.TypeMeta{Kind: "DaemonSet"},
+			},
+		),
+		Entry(
+			nil,
+			&appsv1.Deployment{
+				TypeMeta: metav1.TypeMeta{Kind: "Deployment"},
+			},
+		),
+		Entry(
+			nil,
+			&appsv1.StatefulSet{
+				TypeMeta: metav1.TypeMeta{Kind: "StatefulSet"},
+			},
+		),
+	)
 
 	It("should the label for BuildConfig", func() {
 		bc := buildv1.BuildConfig{

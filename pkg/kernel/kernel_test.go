@@ -4,8 +4,7 @@ import (
 	"io/ioutil"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -108,9 +107,9 @@ var _ = Describe("AffineAttributes", func() {
 				Expect(m).To(Equal(expectedSelector))
 			}
 		},
-		Entry("DaemonSet", "DaemonSet"),
-		Entry("Deployment", "Deployment"),
-		Entry("StatefulSet", "StatefulSet"),
+		Entry(nil, "DaemonSet"),
+		Entry(nil, "Deployment"),
+		Entry(nil, "StatefulSet"),
 	)
 })
 
@@ -178,30 +177,6 @@ var _ = Describe("TestIsObjectAffine", func() {
 })
 
 var _ = Describe("PatchVersion", func() {
-	cases := []struct {
-		input    string
-		expected string
-	}{
-		{
-			input:    kernelFullVersion,
-			expected: "4.18.0-305",
-		},
-		{
-			input:    "4.18.0",
-			expected: "4.18.0",
-		},
-		{
-			input:    "4.18.0-305",
-			expected: "4.18.0-305",
-		},
-	}
-
-	entries := make([]TableEntry, 0, len(cases))
-
-	for _, c := range cases {
-		entries = append(entries, Entry(c.input, c.input, c.expected))
-	}
-
 	DescribeTable(
 		"should return the expected value",
 		func(input, expected string) {
@@ -209,6 +184,9 @@ var _ = Describe("PatchVersion", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(v).To(Equal(expected))
 		},
-		entries...,
+		EntryDescription("%q => %q"),
+		Entry(nil, kernelFullVersion, "4.18.0-305"),
+		Entry(nil, "4.18.0", "4.18.0"),
+		Entry(nil, "4.18.0-305", "4.18.0-305"),
 	)
 })

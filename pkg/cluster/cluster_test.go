@@ -6,8 +6,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	. "github.com/onsi/ginkgo"
-	"github.com/onsi/ginkgo/extensions/table"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
@@ -81,7 +80,7 @@ var _ = Describe("cluster_Version", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	table.DescribeTable(
+	DescribeTable(
 		"should return expected values when the ClusterVersion has the expected condition",
 		func(input, out0, out1 string) {
 			cv := &configv1.ClusterVersion{
@@ -111,8 +110,8 @@ var _ = Describe("cluster_Version", func() {
 			Expect(cvv).To(Equal(out0))
 			Expect(v).To(Equal(out1))
 		},
-		table.Entry("version with a dot", "1.2", "1.2", "1.2"),
-		table.Entry("version with no dot", "1", "1", "1"),
+		Entry("version with a dot", "1.2", "1.2", "1.2"),
+		Entry("version with no dot", "1", "1", "1"),
 	)
 })
 
