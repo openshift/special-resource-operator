@@ -72,7 +72,7 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet --mod=vendor ./...
 
-unit-test: patch ## Run unit-tests.
+unit-test:
 	# Use `go run github.com/onsi/ginkgo/v2/ginkgo` as only the ginkgo binary supports --skip-package
 	go run github.com/onsi/ginkgo/v2/ginkgo --skip-package ./test/e2e -coverprofile cover.out ./...
 
@@ -87,7 +87,7 @@ helm-plugins/cm-getter: helm-plugins/cm-getter/cm-getter
 .PHONY: helm-plugins
 helm-plugins: helm-plugins/cm-getter
 
-manager: patch generate ## Build manager binary.
+manager: generate ## Build manager binary.
 	go build -o manager main.go
 
 run: manifests generate ## Run against the configured Kubernetes cluster in ~/.kube/config

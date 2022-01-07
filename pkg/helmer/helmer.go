@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -163,6 +164,43 @@ func (h *helmer) logWrap(format string, v ...interface{}) {
 	h.log.Info("Helm", "internal", msg)
 }
 
+func (h *helmer) failRelease(rel *release.Release, err error) error {
+	rel.SetStatus(release.StatusFailed, fmt.Sprintf("Release %q failed: %s", rel.Name, err.Error()))
+	if e := h.actionConfig.Releases.Update(rel); e != nil {
+		return fmt.Errorf("unable to update release status: %w", e)
+	}
+	return err
+}
+
+func (h *helmer) deleteHookByPolicy(hook *release.Hook, policy release.HookDeletePolicy) error {
+	if hook.Kind == "CustomResourceDefinition" {
+		return nil
+	}
+	found := false
+	for _, v := range hook.DeletePolicies {
+		if policy == v {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil
+	}
+	resources, err := h.actionConfig.KubeClient.Build(bytes.NewBufferString(hook.Manifest), false)
+	if err != nil {
+		return fmt.Errorf("unable to build kubernetes object for deleting hook %s: %w", hook.Path, err)
+	}
+	_, errs := h.actionConfig.KubeClient.Delete(resources)
+	if len(errs) > 0 {
+		es := make([]string, 0, len(errs))
+		for _, e := range errs {
+			es = append(es, e.Error())
+		}
+		return fmt.Errorf("unable to delete hook resource %s: %s", hook.Path, strings.Join(es, "; "))
+	}
+	return nil
+}
+
 func (h *helmer) InstallCRDs(ctx context.Context, crds []chart.CRD, owner v1.Object, name string, namespace string) error {
 
 	var manifests bytes.Buffer
@@ -266,8 +304,7 @@ func (h *helmer) Run(
 	// pre-install hooks
 	if !install.DisableHooks {
 		if err := h.ExecHook(ctx, rel, release.HookPreInstall, owner, name, namespace); err != nil {
-			_, err := install.FailRelease(rel, fmt.Errorf("failed pre-install: %s", err))
-			return err
+			return h.failRelease(rel, fmt.Errorf("failed pre-install: %s", err))
 		}
 
 	}
@@ -285,16 +322,13 @@ func (h *helmer) Run(
 		operatingSystemMajorMinor)
 
 	if err != nil {
-		_, err := install.FailRelease(rel, err)
-		utils.WarnOnError(err)
-		return err
+		return h.failRelease(rel, err)
 	}
 
 	h.log.Info("Release post-install hooks")
 	if !install.DisableHooks {
 		if err := h.ExecHook(ctx, rel, release.HookPostInstall, owner, name, namespace); err != nil {
-			_, err := install.FailRelease(rel, fmt.Errorf("failed post-install: %s", err))
-			return err
+			return h.failRelease(rel, fmt.Errorf("failed post-install: %s", err))
 		}
 	}
 
@@ -304,8 +338,8 @@ func (h *helmer) Run(
 		rel.SetStatus(release.StatusDeployed, "Install complete")
 	}
 
-	if err := install.RecordRelease(rel); err != nil {
-		utils.WarnOnError(fmt.Errorf("failed to record the release: %w", err))
+	if err := h.actionConfig.Releases.Update(rel); err != nil {
+		return err
 	}
 
 	return nil
@@ -366,7 +400,7 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 			hk.DeletePolicies = []release.HookDeletePolicy{release.HookBeforeHookCreation}
 		}
 
-		if err := h.actionConfig.DeleteHookByPolicy(hk, release.HookBeforeHookCreation); err != nil {
+		if err := h.deleteHookByPolicy(hk, release.HookBeforeHookCreation); err != nil {
 			return err
 		}
 
@@ -374,7 +408,9 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 			StartedAt: helmtime.Now(),
 			Phase:     release.HookPhaseRunning,
 		}
-		h.actionConfig.RecordRelease(rl)
+		if err := h.actionConfig.Releases.Update(rl); err != nil {
+			return fmt.Errorf("unable to update release status: %w", err)
+		}
 
 		// As long as the implementation of WatchUntilReady does not panic, HookPhaseFailed or HookPhaseSucceeded
 		// should always be set by this function. If we fail to do that for any reason, then HookPhaseUnknown is
@@ -385,7 +421,7 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 
 			hk.LastRun.CompletedAt = helmtime.Now()
 			hk.LastRun.Phase = release.HookPhaseFailed
-			if err := h.actionConfig.DeleteHookByPolicy(hk, release.HookFailed); err != nil {
+			if err := h.deleteHookByPolicy(hk, release.HookFailed); err != nil {
 				return fmt.Errorf("failed to delete hook by policy %s %s: %w", hk.Name, hk.Path, err)
 			}
 			return fmt.Errorf("hook execution failed %s %s: %w", hk.Name, hk.Path, err)
@@ -400,7 +436,7 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 	// If all hooks are successful, check the annotation of each hook to determine whether the hook should be deleted
 	// under succeeded condition. If so, then clear the corresponding resource object in each hook
 	for _, hk := range hooks {
-		if err := h.actionConfig.DeleteHookByPolicy(hk, release.HookSucceeded); err != nil {
+		if err := h.deleteHookByPolicy(hk, release.HookSucceeded); err != nil {
 			return err
 		}
 	}
