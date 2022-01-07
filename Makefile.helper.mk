@@ -15,18 +15,14 @@ KUBECONFIG       ?= ${HOME}/.kube/config
 
 export PATH := go/bin:$(PATH)
 
-patch:
-	cp .patches/action.patch.go vendor/helm.sh/helm/v3/pkg/action/.
-	cp .patches/install.patch.go vendor/helm.sh/helm/v3/pkg/action/.
-
 kube-lint: kube-linter
 	$(KUBELINTER) lint $(YAMLFILES)
 
-lint: patch golangci-lint
+lint: golangci-lint
 	$(GOLANGCILINT) run -v --timeout 5m0s
 	shellcheck helm-plugins/file-getter/cat-wrapper
 
-verify: patch vet
+verify: vet
 	if [ `gofmt -l . | grep -v vendor | wc -l` -ne 0 ]; then \
 		echo There are some malformated files, please make sure to run \'make fmt\'; \
 		exit 1; \
