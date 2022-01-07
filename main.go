@@ -87,23 +87,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	clients.Interface, err = clients.NewClients(mgr.GetClient(), mgr.GetConfig(), mgr.GetEventRecorderFor("specialresource"))
+	kubeClient, err := clients.NewClients(mgr.GetClient(), mgr.GetConfig(), mgr.GetEventRecorderFor("specialresource"))
 	if err != nil {
 		setupLog.Error(err, "unable to create k8s clients")
 		os.Exit(1)
 	}
-	clusterCluster := cluster.NewCluster(clients.Interface)
+	clusterCluster := cluster.NewCluster(kubeClient)
 
 	metricsClient := metrics.New()
 
-	st := storage.NewStorage(clients.Interface)
-	lc := lifecycle.New(clients.Interface, st)
-	pollActions := poll.New(clients.Interface, lc, st)
+	st := storage.NewStorage(kubeClient)
+	lc := lifecycle.New(kubeClient, st)
+	pollActions := poll.New(kubeClient, lc, st)
 	kernelData := kernel.NewKernelData()
-	proxyAPI := proxy.NewProxyAPI(clients.Interface)
+	proxyAPI := proxy.NewProxyAPI(kubeClient)
 
 	creator := resource.NewCreator(
-		clients.Interface,
+		kubeClient,
 		metricsClient,
 		pollActions,
 		kernelData,
@@ -112,19 +112,20 @@ func main() {
 		proxyAPI)
 
 	if err = (&controllers.SpecialResourceReconciler{Cluster: clusterCluster,
-		ClusterInfo: upgrade.NewClusterInfo(registry.NewRegistry(clients.Interface), clusterCluster),
+		ClusterInfo: upgrade.NewClusterInfo(registry.NewRegistry(kubeClient), clusterCluster),
 		Creator:     creator,
 		PollActions: pollActions,
 		Filter:      filter.NewFilter(lc, st, kernelData),
 		Storage:     st,
-		Helmer:      helmer.NewHelmer(creator, helmer.DefaultSettings(), clients.Interface),
-		NodesCacher: cache.NewNodesCacher(clients.Interface),
+		Helmer:      helmer.NewHelmer(creator, helmer.DefaultSettings(), kubeClient),
+		NodesCacher: cache.NewNodesCacher(kubeClient),
 		Assets:      assets.NewAssets(),
 		KernelData:  kernelData,
 		Log:         ctrl.Log,
 		Metrics:     metricsClient,
 		Scheme:      scheme,
 		ProxyAPI:    proxyAPI,
+		KubeClient:  kubeClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
 		os.Exit(1)

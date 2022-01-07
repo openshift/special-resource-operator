@@ -77,6 +77,7 @@ type SpecialResourceReconciler struct {
 	Storage     storage.Storage
 	KernelData  kernel.KernelData
 	ProxyAPI    proxy.ProxyAPI
+	KubeClient  clients.ClientsInterface
 
 	specialresource srov1beta1.SpecialResource
 	parent          srov1beta1.SpecialResource
@@ -131,7 +132,7 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	log = r.Log.WithName(utils.Print("setup", utils.Brown))
 
-	platform, err := clients.Interface.GetPlatform()
+	platform, err := r.KubeClient.GetPlatform()
 	if err != nil {
 		return err
 	}
