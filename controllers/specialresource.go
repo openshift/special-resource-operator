@@ -9,7 +9,6 @@ import (
 	"text/template"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
@@ -36,7 +35,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 	specialresources := &srov1beta1.SpecialResourceList{}
 
 	opts := []client.ListOption{}
-	err := clients.Interface.List(ctx, specialresources, opts...)
+	err := r.KubeClient.List(ctx, specialresources, opts...)
 	if err != nil {
 		// Error reading the object - requeue the request.
 		// This should never happen
@@ -61,7 +60,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		}
 		parent, err := r.Storage.CheckConfigMapEntry(ctx, req.Name, obj)
 		if err != nil {
-			operatorStatusUpdate(ctx, &r.parent, fmt.Sprintf("%v", err))
+			r.operatorStatusUpdate(ctx, &r.parent, fmt.Sprintf("%v", err))
 			return reconcile.Result{}, err
 		}
 		request, found = FindSR(specialresources.Items, parent, "Name")
@@ -92,7 +91,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 
 	pchart, err := r.Helmer.Load(r.parent.Spec.Chart)
 	if err != nil {
-		operatorStatusUpdate(ctx, &r.parent, fmt.Sprintf("%v", err))
+		r.operatorStatusUpdate(ctx, &r.parent, fmt.Sprintf("%v", err))
 		return reconcile.Result{}, err
 	}
 
@@ -115,7 +114,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 			Name:      "special-resource-dependencies",
 		}
 		if err = r.Storage.UpdateConfigMapEntry(ctx, r.dependency.Name, r.parent.Name, ins); err != nil {
-			operatorStatusUpdate(ctx, &r.parent, fmt.Sprintf("%v", err))
+			r.operatorStatusUpdate(ctx, &r.parent, fmt.Sprintf("%v", err))
 			return reconcile.Result{}, err
 		}
 
@@ -133,7 +132,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		if err := ReconcileSpecialResourceChart(ctx, r, child, cchart, r.dependency.Set); err != nil {
 			// We do not want a stacktrace here, errors.Wrap already created
 			// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
-			operatorStatusUpdate(ctx, &child, fmt.Sprintf("%v", err))
+			r.operatorStatusUpdate(ctx, &child, fmt.Sprintf("%v", err))
 			log.Info("RECONCILE REQUEUE: Could not reconcile chart", "error", fmt.Sprintf("%v", err))
 			//return reconcile.Result{}, errors.New("Reconciling failed")
 			return reconcile.Result{Requeue: true}, nil
@@ -145,7 +144,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 	if err := ReconcileSpecialResourceChart(ctx, r, r.parent, pchart, r.parent.Spec.Set); err != nil {
 		// We do not want a stacktrace here, errors.Wrap already created
 		// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
-		operatorStatusUpdate(ctx, &r.parent, fmt.Sprintf("%v", err))
+		r.operatorStatusUpdate(ctx, &r.parent, fmt.Sprintf("%v", err))
 		log.Info("RECONCILE REQUEUE: Could not reconcile chart", "error", fmt.Sprintf("%v", err))
 		//return reconcile.Result{}, errors.New("Reconciling failed")
 		return reconcile.Result{Requeue: true}, nil
@@ -314,7 +313,7 @@ func createSpecialResourceFrom(ctx context.Context, r *SpecialResourceReconciler
 	if idx = utils.FindCRFile(ch.Files, r.dependency.Name); idx == -1 {
 		log.Info("Creating SpecialResource from template, cannot find it in charts directory")
 
-		res, err := clients.Interface.CreateOrUpdate(ctx, &sr, noop)
+		res, err := r.KubeClient.CreateOrUpdate(ctx, &sr, noop)
 		if err != nil {
 			return fmt.Errorf("%s: %w", res, err)
 		}

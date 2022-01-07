@@ -31,8 +31,7 @@ const (
 )
 
 var (
-	log       = zap.New(zap.UseDevMode(true)).WithName(utils.Print("clients", utils.Brown))
-	Interface ClientsInterface
+	log = zap.New(zap.UseDevMode(true)).WithName(utils.Print("clients", utils.Brown))
 	// TODO need to remove this global variable
 	Namespace string
 )

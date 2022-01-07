@@ -6,7 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
@@ -32,7 +31,7 @@ func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconci
 	rb.SetKind("RoleBinding")
 
 	namespacedName := types.NamespacedName{Namespace: r.specialresource.Spec.Namespace, Name: "system:image-pullers"}
-	err := clients.Interface.Get(ctx, namespacedName, rb)
+	err := r.KubeClient.Get(ctx, namespacedName, rb)
 	if apierrors.IsNotFound(err) {
 		log.Info("Warning: RoleBinding system:image-pullers not found. Can be ignored on vanilla k8s or when namespace is being created.")
 		return nil
@@ -71,7 +70,7 @@ func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconci
 			return err
 		}
 
-		if err = clients.Interface.Create(ctx, rb); err != nil {
+		if err = r.KubeClient.Create(ctx, rb); err != nil {
 			return fmt.Errorf("couldn't Create Resource: %w", err)
 		}
 
@@ -116,7 +115,7 @@ func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconci
 		return err
 	}
 
-	if err = clients.Interface.Update(ctx, rb); err != nil {
+	if err = r.KubeClient.Update(ctx, rb); err != nil {
 		return fmt.Errorf("couldn't Update Resource: %w", err)
 	}
 
@@ -250,7 +249,7 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		r.Metrics.SetCompletedState(r.specialresource.Name, stateYAML.Name, 1)
 		// If resource available, label the nodes according to the current state
 		// if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
-		operatorStatusUpdate(ctx, &r.specialresource, state.CurrentName)
+		r.operatorStatusUpdate(ctx, &r.specialresource, state.CurrentName)
 
 		if err := r.labelNodesAccordingToState(ctx, r.specialresource.Spec.NodeSelector); err != nil {
 			return err

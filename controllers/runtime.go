@@ -7,7 +7,6 @@ import (
 	"time"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
@@ -106,7 +105,7 @@ func getRuntimeInformation(ctx context.Context, r *SpecialResourceReconciler) er
 
 	// Only want to initialize the platform once.
 	if RunInfo.Platform == "" {
-		RunInfo.Platform, err = clients.Interface.GetPlatform()
+		RunInfo.Platform, err = r.KubeClient.GetPlatform()
 		if err != nil {
 			return fmt.Errorf("failed to determine platform: %v", err)
 		}
@@ -171,7 +170,7 @@ func getPushSecretName(ctx context.Context, r *SpecialResourceReconciler) (strin
 	opts := []client.ListOption{
 		client.InNamespace(r.specialresource.Spec.Namespace),
 	}
-	err := clients.Interface.List(ctx, secrets, opts...)
+	err := r.KubeClient.List(ctx, secrets, opts...)
 	if err != nil {
 		return "", errors.Wrap(err, "Client cannot get SecretList")
 	}

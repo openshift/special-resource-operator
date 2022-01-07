@@ -6,7 +6,6 @@ import (
 	"os"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
@@ -20,13 +19,13 @@ import (
 )
 
 // Operator Status
-func operatorStatusUpdate(ctx context.Context, sr *srov1beta1.SpecialResource, state string) {
+func (r *SpecialResourceReconciler) operatorStatusUpdate(ctx context.Context, sr *srov1beta1.SpecialResource, state string) {
 
 	update := srov1beta1.SpecialResource{}
 
 	// If we cannot find the SR than something bad is going on ..
 	objectKey := types.NamespacedName{Name: sr.GetName(), Namespace: sr.GetNamespace()}
-	err := clients.Interface.Get(ctx, objectKey, &update)
+	err := r.KubeClient.Get(ctx, objectKey, &update)
 	if err != nil {
 		utils.WarnOnError(errors.Wrap(err, "Is SR being deleted? Cannot get current instance"))
 		return
@@ -35,10 +34,10 @@ func operatorStatusUpdate(ctx context.Context, sr *srov1beta1.SpecialResource, s
 	update.Status.State = state
 	update.DeepCopyInto(sr)
 
-	err = clients.Interface.StatusUpdate(ctx, sr)
+	err = r.KubeClient.StatusUpdate(ctx, sr)
 	if apierrors.IsConflict(err) {
 		objectKey := types.NamespacedName{Name: sr.Name, Namespace: ""}
-		err := clients.Interface.Get(ctx, objectKey, sr)
+		err := r.KubeClient.Get(ctx, objectKey, sr)
 		if apierrors.IsNotFound(err) {
 			return
 		}
@@ -63,7 +62,7 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusGetOrCreate(ctx context
 
 	opts := []client.ListOption{}
 
-	if err := clients.Interface.List(ctx, clusterOperators, opts...); err != nil {
+	if err := r.KubeClient.List(ctx, clusterOperators, opts...); err != nil {
 		return err
 	}
 
@@ -80,7 +79,7 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusGetOrCreate(ctx context
 
 	co := &configv1.ClusterOperator{ObjectMeta: metav1.ObjectMeta{Name: r.GetName()}}
 
-	co, err := clients.Interface.ClusterOperatorCreate(ctx, co, metav1.CreateOptions{})
+	co, err := r.KubeClient.ClusterOperatorCreate(ctx, co, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create ClusterOperator %s: %w", co.Name, err)
 	}
@@ -124,14 +123,14 @@ func (r *SpecialResourceReconciler) clusterOperatorStatusReconcile(
 }
 
 func (r *SpecialResourceReconciler) clusterOperatorGetLatest(ctx context.Context) error {
-	co, err := clients.Interface.ClusterOperatorGet(ctx, r.GetName(), metav1.GetOptions{})
+	co, err := r.KubeClient.ClusterOperatorGet(ctx, r.GetName(), metav1.GetOptions{})
 	co.DeepCopyInto(&r.clusterOperator)
 	return err
 }
 
 func (r *SpecialResourceReconciler) clusterOperatorStatusUpdate(ctx context.Context) error {
 
-	if _, err := clients.Interface.ClusterOperatorUpdateStatus(ctx, &r.clusterOperator, metav1.UpdateOptions{}); err != nil {
+	if _, err := r.KubeClient.ClusterOperatorUpdateStatus(ctx, &r.clusterOperator, metav1.UpdateOptions{}); err != nil {
 		return err
 	}
 	return nil
@@ -145,7 +144,7 @@ func (r *SpecialResourceReconciler) clusterOperatorUpdateRelatedObjects(ctx cont
 
 	// Get all specialresource objects
 	specialresources := &srov1beta1.SpecialResourceList{}
-	err := clients.Interface.List(ctx, specialresources, []client.ListOption{}...)
+	err := r.KubeClient.List(ctx, specialresources, []client.ListOption{}...)
 	if err != nil {
 		return err
 	}
@@ -169,7 +168,7 @@ func (r *SpecialResourceReconciler) clusterOperatorUpdateRelatedObjects(ctx cont
 func SpecialResourcesStatus(ctx context.Context, r *SpecialResourceReconciler, cond []configv1.ClusterOperatorStatusCondition) (ctrl.Result, error) {
 	log = r.Log.WithName(utils.Print("status", utils.Blue))
 
-	clusterOperatorAvailable, err := clients.Interface.HasResource(configv1.SchemeGroupVersion.WithResource("clusteroperators"))
+	clusterOperatorAvailable, err := r.KubeClient.HasResource(configv1.SchemeGroupVersion.WithResource("clusteroperators"))
 
 	if err != nil {
 		return reconcile.Result{Requeue: true}, fmt.Errorf("Cannot discover ClusterOperator api resource: %w", err)

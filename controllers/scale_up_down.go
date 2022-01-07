@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -29,7 +28,7 @@ func (r *SpecialResourceReconciler) labelNodesAccordingToState(ctx context.Conte
 
 		updated.SetLabels(labels)
 
-		if err = clients.Interface.Update(ctx, updated); err != nil {
+		if err = r.KubeClient.Update(ctx, updated); err != nil {
 			if apierrors.IsForbidden(err) {
 				return fmt.Errorf("forbidden - check Role, ClusterRole and Bindings: %w", err)
 			}

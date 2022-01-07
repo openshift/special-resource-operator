@@ -33,13 +33,10 @@ func TestStorage(t *testing.T) {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockClient = clients.NewMockClientsInterface(ctrl)
-
-		clients.Interface = mockClient
 	})
 
 	AfterEach(func() {
 		ctrl.Finish()
-		clients.Interface = nil
 	})
 
 	RunSpecs(t, "Storage Suite")

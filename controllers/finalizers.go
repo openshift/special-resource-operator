@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,7 +25,7 @@ func reconcileFinalizers(ctx context.Context, r *SpecialResourceReconciler) erro
 		}
 
 		controllerutil.RemoveFinalizer(&r.specialresource, specialresourceFinalizer)
-		err := clients.Interface.Update(ctx, &r.specialresource)
+		err := r.KubeClient.Update(ctx, &r.specialresource)
 		if err != nil {
 			log.Info("Could not remove finalizer after running finalization logic", "error", fmt.Sprintf("%v", err))
 			return err
@@ -48,7 +47,7 @@ func finalizeNodes(ctx context.Context, r *SpecialResourceReconciler, remove str
 		}
 
 		node.SetLabels(update)
-		err := clients.Interface.Update(ctx, &node)
+		err := r.KubeClient.Update(ctx, &node)
 		if apierrors.IsForbidden(err) {
 			return errors.Wrap(err, "forbidden check Role, ClusterRole and Bindings for operator %s")
 		}
@@ -91,7 +90,7 @@ func finalizeSpecialResource(ctx context.Context, r *SpecialResourceReconciler) 
 		ns.SetName(r.specialresource.Spec.Namespace)
 		key := client.ObjectKeyFromObject(&ns)
 
-		err := clients.Interface.Get(ctx, key, &ns)
+		err := r.KubeClient.Get(ctx, key, &ns)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				log.Info("Successfully finalized (Namespace IsNotFound)", "SpecialResource:", r.specialresource.Name)
@@ -105,7 +104,7 @@ func finalizeSpecialResource(ctx context.Context, r *SpecialResourceReconciler) 
 		for _, owner := range ns.GetOwnerReferences() {
 			if owner.Kind == "SpecialResource" {
 				log.Info("Namespaces is owned by SpecialResource deleting")
-				err = clients.Interface.Delete(ctx, &ns)
+				err = r.KubeClient.Delete(ctx, &ns)
 				if err != nil {
 					log.Error(err, "Failed to delete namespace", "namespace", r.specialresource.Spec.Namespace)
 					return err
@@ -128,7 +127,7 @@ func addFinalizer(ctx context.Context, r *SpecialResourceReconciler) error {
 	controllerutil.AddFinalizer(&r.specialresource, specialresourceFinalizer)
 
 	// Update CR
-	err := clients.Interface.Update(ctx, &r.specialresource)
+	err := r.KubeClient.Update(ctx, &r.specialresource)
 	if err != nil {
 		log.Info("Adding finalizer failed", "error", fmt.Sprintf("%v", err))
 		return err
