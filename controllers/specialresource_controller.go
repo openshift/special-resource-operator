@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
@@ -121,7 +120,7 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	// Only if we're successfull we're going to update the status to
 	// Available otherwise return the reconcile error
 	if res, err = SpecialResourcesStatus(ctx, r, conds); err != nil {
-		log.Info("RECONCILE ERROR: Cannot update special resource status", "error", fmt.Sprintf("%v", err))
+		log.Error(err, "RECONCILE ERROR: Cannot update special resource status")
 		return res, nil
 	}
 	log.Info("RECONCILE SUCCESS: Reconcile")
