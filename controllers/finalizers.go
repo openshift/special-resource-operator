@@ -20,14 +20,14 @@ func reconcileFinalizers(ctx context.Context, r *SpecialResourceReconciler) erro
 	if contains(r.specialresource.GetFinalizers(), specialresourceFinalizer) {
 		// Run finalization logic for specialresource
 		if err := finalizeSpecialResource(ctx, r); err != nil {
-			log.Info("Finalization logic failed.", "error", fmt.Sprintf("%v", err))
+			log.Error(err, "Finalization logic failed.")
 			return err
 		}
 
 		controllerutil.RemoveFinalizer(&r.specialresource, specialresourceFinalizer)
 		err := r.KubeClient.Update(ctx, &r.specialresource)
 		if err != nil {
-			log.Info("Could not remove finalizer after running finalization logic", "error", fmt.Sprintf("%v", err))
+			log.Error(err, "Could not remove finalizer after running finalization logic")
 			return err
 		}
 	}
@@ -129,7 +129,7 @@ func addFinalizer(ctx context.Context, r *SpecialResourceReconciler) error {
 	// Update CR
 	err := r.KubeClient.Update(ctx, &r.specialresource)
 	if err != nil {
-		log.Info("Adding finalizer failed", "error", fmt.Sprintf("%v", err))
+		log.Error(err, "Adding finalizer failed")
 		return err
 	}
 	return nil

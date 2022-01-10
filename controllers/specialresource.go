@@ -121,9 +121,9 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		var child srov1beta1.SpecialResource
 		// Assign the specialresource to the reconciler object
 		if child, err = getDependencyFrom(specialresources, r.dependency.Name); err != nil {
-			log.Info("Could not get SpecialResource dependency", "error", fmt.Sprintf("%v", err))
+			log.Error(err, "Could not get SpecialResource dependency")
 			if err = createSpecialResourceFrom(ctx, r, cchart, r.dependency.HelmChart); err != nil {
-				log.Info("RECONCILE REQUEUE: Dependency creation failed ", "error", fmt.Sprintf("%v", err))
+				log.Error(err, "RECONCILE REQUEUE: Dependency creation failed ")
 				return reconcile.Result{Requeue: true}, nil
 			}
 			// We need to fetch the newly created SpecialResources, reconciling
@@ -133,7 +133,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 			// We do not want a stacktrace here, errors.Wrap already created
 			// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
 			r.operatorStatusUpdate(ctx, &child, fmt.Sprintf("%v", err))
-			log.Info("RECONCILE REQUEUE: Could not reconcile chart", "error", fmt.Sprintf("%v", err))
+			log.Error(err, "RECONCILE REQUEUE: Could not reconcile chart")
 			//return reconcile.Result{}, errors.New("Reconciling failed")
 			return reconcile.Result{Requeue: true}, nil
 		}
@@ -145,7 +145,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		// We do not want a stacktrace here, errors.Wrap already created
 		// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
 		r.operatorStatusUpdate(ctx, &r.parent, fmt.Sprintf("%v", err))
-		log.Info("RECONCILE REQUEUE: Could not reconcile chart", "error", fmt.Sprintf("%v", err))
+		log.Error(err, "RECONCILE REQUEUE: Could not reconcile chart")
 		//return reconcile.Result{}, errors.New("Reconciling failed")
 		return reconcile.Result{Requeue: true}, nil
 	}
@@ -258,7 +258,7 @@ func ReconcileSpecialResourceChart(ctx context.Context, r *SpecialResourceReconc
 	// Add a finalizer to CR if it does not already have one
 	if !contains(r.specialresource.GetFinalizers(), specialresourceFinalizer) {
 		if err := addFinalizer(ctx, r); err != nil {
-			log.Info("Failed to add finalizer", "error", fmt.Sprintf("%v", err))
+			log.Error(err, "Failed to add finalizer")
 			return err
 		}
 	}

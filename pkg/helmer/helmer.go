@@ -442,7 +442,7 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 	}
 
 	if err := h.kubeClient.Create(ctx, &obj); err != nil {
-		h.log.Info(err.Error())
+		h.log.Error(err, "Could not create the ConfigMap")
 
 		if apierrors.IsAlreadyExists(err) {
 			h.log.Info("Hooks", string(hook), "Ready (IsAlreadyExists)")

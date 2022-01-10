@@ -215,7 +215,7 @@ func (p *pollActions) forDeployment(ctx context.Context, obj *unstructured.Unstr
 
 		err = p.kubeClient.List(ctx, &rss, opts...)
 		if err != nil {
-			p.log.Info("Could not get ReplicaSet", "Deployment", obj.GetName(), "error", err)
+			p.log.Error(err, "Could not get ReplicaSet", "Deployment", obj.GetName())
 			return false, nil
 		}
 
