@@ -54,6 +54,7 @@ type ClientsInterface interface {
 	StatusUpdate(ctx context.Context, obj client.Object) error
 	CreateOrUpdate(ctx context.Context, obj client.Object, fn controllerutil.MutateFn) (controllerutil.OperationResult, error)
 	HasResource(resource schema.GroupVersionResource) (bool, error)
+	GetNodesByLabels(ctx context.Context, matchingLabels map[string]string) (*v1.NodeList, error)
 	GetPlatform() (string, error)
 }
 
@@ -194,6 +195,37 @@ func (k *k8sClients) GetPlatform() (string, error) {
 	} else {
 		return "K8S", nil
 	}
+}
+
+func (k *k8sClients) GetNodesByLabels(ctx context.Context, matchingLabels map[string]string) (*v1.NodeList, error) {
+	opts := []client.ListOption{
+		client.MatchingLabels(matchingLabels),
+	}
+	nodes := v1.NodeList{}
+	err := k.runtimeClient.List(ctx, &nodes, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	// filter nodes by taints
+	nodesWithoutTaints := nodes.Items[:0]
+	for _, node := range nodes.Items {
+		if k.isNodeNotExecOrSchedule(&node) {
+			continue
+		}
+		nodesWithoutTaints = append(nodesWithoutTaints, node)
+	}
+	nodes.Items = nodesWithoutTaints
+	return &nodes, nil
+}
+
+func (k *k8sClients) isNodeNotExecOrSchedule(node *v1.Node) bool {
+	for _, taint := range node.Spec.Taints {
+		if taint.Effect == v1.TaintEffectNoSchedule || taint.Effect == v1.TaintEffectNoExecute {
+			return true
+		}
+	}
+	return false
 }
 
 // getKubeClientSet returns a native non-caching client for advanced CRUD operations

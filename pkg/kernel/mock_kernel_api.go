@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	v1 "k8s.io/api/core/v1"
 	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -36,18 +37,18 @@ func (m *MockKernelData) EXPECT() *MockKernelDataMockRecorder {
 }
 
 // FullVersion mocks base method.
-func (m *MockKernelData) FullVersion() (string, error) {
+func (m *MockKernelData) FullVersion(arg0 *v1.NodeList) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FullVersion")
+	ret := m.ctrl.Call(m, "FullVersion", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // FullVersion indicates an expected call of FullVersion.
-func (mr *MockKernelDataMockRecorder) FullVersion() *gomock.Call {
+func (mr *MockKernelDataMockRecorder) FullVersion(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FullVersion", reflect.TypeOf((*MockKernelData)(nil).FullVersion))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FullVersion", reflect.TypeOf((*MockKernelData)(nil).FullVersion), arg0)
 }
 
 // IsObjectAffine mocks base method.

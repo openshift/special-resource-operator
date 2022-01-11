@@ -9,12 +9,11 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	corev1 "k8s.io/api/core/v1"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
 )
@@ -54,6 +53,7 @@ var _ = Describe("ClusterInfo", func() {
 		mockRegistry *registry.MockRegistry
 		mockCluster  *cluster.MockCluster
 		clusterInfo  ClusterInfo
+		nodesList    corev1.NodeList
 	)
 
 	BeforeEach(func() {
@@ -61,16 +61,8 @@ var _ = Describe("ClusterInfo", func() {
 		mockRegistry = registry.NewMockRegistry(mockCtrl)
 		mockCluster = cluster.NewMockCluster(mockCtrl)
 		clusterInfo = NewClusterInfo(mockRegistry, mockCluster)
-
-		cache.Node = cache.NodesCache{
-			List: &unstructured.UnstructuredList{
-				Object: map[string]interface{}{},
-				Items:  []unstructured.Unstructured{},
-			},
-			Count: 0,
-		}
-		cache.Node.List.SetAPIVersion("v1")
-		cache.Node.List.SetKind("NodeList")
+		nodesList = corev1.NodeList{}
+		nodesList.Items = []corev1.Node{}
 	})
 
 	AfterEach(func() {
@@ -115,10 +107,9 @@ var _ = Describe("ClusterInfo", func() {
 	Context("has all required data (happy flow)", func() {
 		DescribeTable("returns information for", func(input testInput, testExpects map[string]NodeVersion) {
 			for _, labels := range input.nodesLabels {
-				node := unstructured.Unstructured{}
+				node := corev1.Node{}
 				node.SetLabels(labels)
-				cache.Node.List.Items = append(cache.Node.List.Items, node)
-				cache.Node.Count = int64(len(cache.Node.List.Items))
+				nodesList.Items = append(nodesList.Items, node)
 			}
 
 			ctx := context.TODO()
@@ -129,7 +120,7 @@ var _ = Describe("ClusterInfo", func() {
 			mockRegistry.EXPECT().LastLayer(ctx, input.dtkImage).Return(&fakeLayer{}, nil)
 			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(input.dtk, nil)
 
-			m, err := clusterInfo.GetClusterInfo(ctx)
+			m, err := clusterInfo.GetClusterInfo(ctx, &nodesList)
 
 			Expect(err).ToNot(HaveOccurred())
 
@@ -230,20 +221,18 @@ var _ = Describe("ClusterInfo", func() {
 	})
 
 	It("will hint that with an error message when NFD is not installed", func() {
-		cache.Node.List.Items = []unstructured.Unstructured{{}}
-		cache.Node.Count = int64(len(cache.Node.List.Items))
-
+		nodesList.Items = append(nodesList.Items, corev1.Node{})
 		ctx := context.TODO()
 
-		_, err := clusterInfo.GetClusterInfo(ctx)
+		_, err := clusterInfo.GetClusterInfo(ctx, &nodesList)
 
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("is NFD running?"))
 
-		cache.Node.List.Items[0].SetLabels(map[string]string{
+		nodesList.Items[0].SetLabels(map[string]string{
 			labelKernelVersionFull: "fake",
 		})
-		_, err = clusterInfo.GetClusterInfo(ctx)
+		_, err = clusterInfo.GetClusterInfo(ctx, &nodesList)
 
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("is NFD running?"))

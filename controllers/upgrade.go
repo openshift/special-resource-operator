@@ -14,11 +14,12 @@ func SpecialResourceUpgrade(ctx context.Context, r *SpecialResourceReconciler) (
 
 	var err error
 
-	if err = r.NodesCacher.Nodes(ctx, r.specialresource.Spec.NodeSelector, false); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to cache nodes: %w", err)
+	nodeList, err := r.KubeClient.GetNodesByLabels(ctx, r.specialresource.Spec.NodeSelector)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to get nodes: %w", err)
 	}
 
-	RunInfo.ClusterUpgradeInfo, err = r.ClusterInfo.GetClusterInfo(ctx)
+	RunInfo.ClusterUpgradeInfo, err = r.ClusterInfo.GetClusterInfo(ctx, nodeList)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

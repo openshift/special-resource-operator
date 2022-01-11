@@ -11,10 +11,10 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -39,7 +39,7 @@ type NodeVersion struct {
 //go:generate mockgen -source=upgrade.go -package=upgrade -destination=mock_upgrade_api.go
 
 type ClusterInfo interface {
-	GetClusterInfo(context.Context) (map[string]NodeVersion, error)
+	GetClusterInfo(context.Context, *corev1.NodeList) (map[string]NodeVersion, error)
 }
 
 func NewClusterInfo(registry registry.Registry, cluster cluster.Cluster) ClusterInfo {
@@ -57,9 +57,9 @@ type clusterInfo struct {
 }
 
 // GetClusterInfo returns a map[full kernel version]NodeVersion
-func (ci *clusterInfo) GetClusterInfo(ctx context.Context) (map[string]NodeVersion, error) {
+func (ci *clusterInfo) GetClusterInfo(ctx context.Context, nodeList *corev1.NodeList) (map[string]NodeVersion, error) {
 
-	info, err := ci.nodeVersionInfo()
+	info, err := ci.nodeVersionInfo(nodeList)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get upgrade info: %w", err)
 	}
@@ -78,14 +78,14 @@ func (ci *clusterInfo) GetClusterInfo(ctx context.Context) (map[string]NodeVersi
 
 }
 
-func (ci *clusterInfo) nodeVersionInfo() (map[string]NodeVersion, error) {
+func (ci *clusterInfo) nodeVersionInfo(nodeList *corev1.NodeList) (map[string]NodeVersion, error) {
 
 	var found bool
 	var info = make(map[string]NodeVersion)
 
 	// Assuming all nodes are running the same kernel version,
 	// one could easily add driver-kernel-versions for each node.
-	for _, node := range cache.Node.List.Items {
+	for _, node := range nodeList.Items {
 
 		var rhelVersion string
 		var kernelFullVersion string

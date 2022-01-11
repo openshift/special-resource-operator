@@ -4,9 +4,9 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -17,7 +17,7 @@ import (
 type KernelData interface {
 	SetAffineAttributes(obj *unstructured.Unstructured, kernelFullVersion, operatingSystemMajorMinor string) error
 	IsObjectAffine(obj client.Object) bool
-	FullVersion() (string, error)
+	FullVersion(*corev1.NodeList) (string, error)
 	PatchVersion(kernelFullVersion string) (string, error)
 }
 
@@ -128,13 +128,13 @@ func (k *kernelData) IsObjectAffine(obj client.Object) bool {
 	return false
 }
 
-func (k *kernelData) FullVersion() (string, error) {
+func (k *kernelData) FullVersion(nodeList *corev1.NodeList) (string, error) {
 
 	var found bool
 	var kernelFullVersion string
 	// Assuming all nodes are running the same kernel version,
 	// one could easily add driver-kernel-versions for each node.
-	for _, node := range cache.Node.List.Items {
+	for _, node := range nodeList.Items {
 		labels := node.GetLabels()
 
 		// We only need to check for the key, the value

@@ -8,9 +8,9 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	configv1 "github.com/openshift/api/config/v1"
 	machinev1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	v1 "k8s.io/api/apps/v1"
@@ -295,45 +295,29 @@ var _ = Describe("cluster_OSImageURL", func() {
 })
 
 var _ = Describe("cluster_OperatingSystem", func() {
-	AfterEach(func() {
-		cache.Node.List.Items = nil
-	})
 
 	It("should return an error when feature.node.kubernetes.io/system-os_release.ID is empty", func() {
-		cache.Node.List.Items = make([]unstructured.Unstructured, 1)
-
-		_, _, _, err := cluster.NewCluster(nil).OperatingSystem()
+		nodesList := utils.CreateNodesList(1, nil)
+		_, _, _, err := cluster.NewCluster(nil).OperatingSystem(nodesList)
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("should return an error when feature.node.kubernetes.io/system-os_release.VERSION_ID.major is empty", func() {
-		cache.Node.List.Items = []unstructured.Unstructured{
-			func() unstructured.Unstructured {
-				uo := unstructured.Unstructured{}
-				uo.SetLabels(map[string]string{"feature.node.kubernetes.io/system-os_release.ID": "abcd"})
-
-				return uo
-			}(),
-		}
-		_, _, _, err := cluster.NewCluster(nil).OperatingSystem()
+		labels := map[string]string{"feature.node.kubernetes.io/system-os_release.ID": "abcd"}
+		nodesList := utils.CreateNodesList(1, labels)
+		_, _, _, err := cluster.NewCluster(nil).OperatingSystem(nodesList)
 		Expect(err).To(HaveOccurred())
 	})
 
 	It("should use RHEL version when it has 3 digits", func() {
-		cache.Node.List.Items = []unstructured.Unstructured{
-			func() unstructured.Unstructured {
-				uo := unstructured.Unstructured{}
-				uo.SetLabels(map[string]string{
-					"feature.node.kubernetes.io/system-os_release.ID":               "abc",
-					"feature.node.kubernetes.io/system-os_release.VERSION_ID.major": "def",
-					"feature.node.kubernetes.io/system-os_release.RHEL_VERSION":     "123",
-				})
-
-				return uo
-			}(),
+		labels := map[string]string{
+			"feature.node.kubernetes.io/system-os_release.ID":               "abc",
+			"feature.node.kubernetes.io/system-os_release.VERSION_ID.major": "def",
+			"feature.node.kubernetes.io/system-os_release.RHEL_VERSION":     "123",
 		}
+		nodesList := utils.CreateNodesList(1, labels)
 
-		o0, o1, o2, err := cluster.NewCluster(nil).OperatingSystem()
+		o0, o1, o2, err := cluster.NewCluster(nil).OperatingSystem(nodesList)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(o0).To(Equal("rhel1"))
 		Expect(o1).To(Equal("rhel123"))
@@ -341,20 +325,13 @@ var _ = Describe("cluster_OperatingSystem", func() {
 	})
 
 	It("should call osversion.RenderOperatingSystem when all labels are present", func() {
-		cache.Node.List.Items = []unstructured.Unstructured{
-			func() unstructured.Unstructured {
-				uo := unstructured.Unstructured{}
-				uo.SetLabels(map[string]string{
-					"feature.node.kubernetes.io/system-os_release.ID":               "123",
-					"feature.node.kubernetes.io/system-os_release.VERSION_ID.major": "456",
-					"feature.node.kubernetes.io/system-os_release.VERSION_ID.minor": "789",
-				})
-
-				return uo
-			}(),
+		labels := map[string]string{
+			"feature.node.kubernetes.io/system-os_release.ID":               "123",
+			"feature.node.kubernetes.io/system-os_release.VERSION_ID.major": "456",
+			"feature.node.kubernetes.io/system-os_release.VERSION_ID.minor": "789",
 		}
-
-		o0, o1, o2, err := cluster.NewCluster(nil).OperatingSystem()
+		nodesList := utils.CreateNodesList(1, labels)
+		o0, o1, o2, err := cluster.NewCluster(nil).OperatingSystem(nodesList)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(o0).To(Equal("123456"))
 		Expect(o1).To(Equal("123456.789"))

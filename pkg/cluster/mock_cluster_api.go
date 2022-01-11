@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	v1 "k8s.io/api/core/v1"
 )
 
 // MockCluster is a mock of Cluster interface.
@@ -50,9 +51,9 @@ func (mr *MockClusterMockRecorder) OSImageURL(arg0 interface{}) *gomock.Call {
 }
 
 // OperatingSystem mocks base method.
-func (m *MockCluster) OperatingSystem() (string, string, string, error) {
+func (m *MockCluster) OperatingSystem(arg0 *v1.NodeList) (string, string, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OperatingSystem")
+	ret := m.ctrl.Call(m, "OperatingSystem", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(string)
@@ -61,9 +62,9 @@ func (m *MockCluster) OperatingSystem() (string, string, string, error) {
 }
 
 // OperatingSystem indicates an expected call of OperatingSystem.
-func (mr *MockClusterMockRecorder) OperatingSystem() *gomock.Call {
+func (mr *MockClusterMockRecorder) OperatingSystem(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OperatingSystem", reflect.TypeOf((*MockCluster)(nil).OperatingSystem))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OperatingSystem", reflect.TypeOf((*MockCluster)(nil).OperatingSystem), arg0)
 }
 
 // Version mocks base method.
