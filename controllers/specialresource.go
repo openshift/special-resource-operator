@@ -9,6 +9,7 @@ import (
 	"text/template"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
+	"github.com/openshift-psap/special-resource-operator/internal/controllers/finalizers"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
@@ -76,7 +77,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 	if isMarkedToBeDeleted {
 		r.specialresource = r.parent
 		log.Info("Marked to be deleted, reconciling finalizer")
-		err = reconcileFinalizers(ctx, r)
+		err = r.Finalizer.Finalize(ctx, &r.specialresource)
 		return reconcile.Result{}, err
 	}
 
@@ -256,8 +257,8 @@ func ReconcileSpecialResourceChart(ctx context.Context, r *SpecialResourceReconc
 	}
 
 	// Add a finalizer to CR if it does not already have one
-	if !contains(r.specialresource.GetFinalizers(), specialresourceFinalizer) {
-		if err := addFinalizer(ctx, r); err != nil {
+	if !utils.StringSliceContains(r.specialresource.GetFinalizers(), finalizers.FinalizerString) {
+		if err := r.Finalizer.AddToSpecialResource(ctx, &r.specialresource); err != nil {
 			log.Error(err, "Failed to add finalizer")
 			return err
 		}

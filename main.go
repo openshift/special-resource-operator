@@ -23,6 +23,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/cmd/cli"
 	"github.com/openshift-psap/special-resource-operator/cmd/leaderelection"
 	"github.com/openshift-psap/special-resource-operator/controllers"
+	"github.com/openshift-psap/special-resource-operator/internal/controllers/finalizers"
 	"github.com/openshift-psap/special-resource-operator/pkg/assets"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
@@ -115,6 +116,7 @@ func main() {
 		Creator:     creator,
 		PollActions: pollActions,
 		Filter:      filter.NewFilter(lc, st, kernelData),
+		Finalizer:   finalizers.NewSpecialResourceFinalizer(kubeClient, pollActions),
 		Storage:     st,
 		Helmer:      helmer.NewHelmer(creator, helmer.DefaultSettings(), kubeClient),
 		Assets:      assets.NewAssets(),

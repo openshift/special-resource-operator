@@ -20,6 +20,7 @@ COPY main.go main.go
 COPY api/ api/
 COPY cmd/ cmd/
 COPY controllers/ controllers/
+COPY internal/ internal/
 COPY pkg/ pkg/
 COPY charts/ charts/
 COPY config/ config/
