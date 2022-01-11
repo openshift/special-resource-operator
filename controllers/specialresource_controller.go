@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-logr/logr"
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
+	"github.com/openshift-psap/special-resource-operator/internal/controllers/finalizers"
 	"github.com/openshift-psap/special-resource-operator/pkg/assets"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
@@ -68,6 +69,7 @@ type SpecialResourceReconciler struct {
 	ClusterInfo upgrade.ClusterInfo
 	Creator     resource.Creator
 	Filter      filter.Filter
+	Finalizer   finalizers.SpecialResourceFinalizer
 	Helmer      helmer.Helmer
 	Assets      assets.Assets
 	PollActions poll.PollActions
