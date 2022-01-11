@@ -55,6 +55,8 @@ endif
 SHELL             = /usr/bin/env bash -o pipefail
 .SHELLFLAGS       = -ec
 
+unexport GOFLAGS
+
 # GENERATED all: manager
 all: $(SPECIALRESOURCE)
 
@@ -70,16 +72,16 @@ fmt: ## Run go fmt against code.
 	go fmt ./...
 
 vet: ## Run go vet against code.
-	go vet --mod=vendor ./...
+	go vet -mod=readonly ./...
 
 unit-test:
 	# Use `go run github.com/onsi/ginkgo/v2/ginkgo` as only the ginkgo binary supports --skip-package
-	go run github.com/onsi/ginkgo/v2/ginkgo --skip-package ./test/e2e -coverprofile cover.out ./...
+	go run -mod=readonly github.com/onsi/ginkgo/v2/ginkgo --skip-package ./test/e2e -coverprofile cover.out ./...
 
 ##@ Build
 
 helm-plugins/cm-getter/cm-getter: $(shell find cmd/helm-cm-getter -type f -name '*.go')
-	go build -o $@ ./cmd/helm-cm-getter
+	go build -mod=readonly -o $@ ./cmd/helm-cm-getter
 
 .PHONY: helm-plugins/cm-getter
 helm-plugins/cm-getter: helm-plugins/cm-getter/cm-getter
@@ -88,10 +90,10 @@ helm-plugins/cm-getter: helm-plugins/cm-getter/cm-getter
 helm-plugins: helm-plugins/cm-getter
 
 manager: generate ## Build manager binary.
-	go build -o manager main.go
+	go build -mod=readonly -o manager main.go
 
 run: manifests generate ## Run against the configured Kubernetes cluster in ~/.kube/config
-	go run -mod=vendor ./main.go
+	go run -mod=readonly ./main.go
 
 local-image-build: ## Build container image with the manager.
 	$(CONTAINER_COMMAND) build -t $(IMG) .
@@ -100,8 +102,8 @@ local-image-push: ## Push docker image with the manager.
 	$(CONTAINER_COMMAND) push $(IMG)
 
 generate-mocks:
-	$(shell find . -name "mock_*.go" | grep -v vendor | xargs rm -f)
-	go generate $(shell go list ./... | grep -v 'vendor\|charts')
+	$(shell find . -name "mock_*.go" | xargs rm -f)
+	go generate $(shell go list ./... | grep -v charts)
 
 ##@ Deployment
 

@@ -16,7 +16,6 @@ COPY Makefile Makefile
 COPY scripts/ scripts/
 
 # Copy the go source
-COPY vendor/ vendor/
 COPY main.go main.go
 COPY api/ api/
 COPY cmd/ cmd/

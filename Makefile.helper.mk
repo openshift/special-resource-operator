@@ -19,20 +19,20 @@ kube-lint: kube-linter
 	$(KUBELINTER) lint $(YAMLFILES)
 
 lint: golangci-lint
-	$(GOLANGCILINT) run -v --timeout 5m0s
+	$(GOLANGCILINT) run --modules-download-mode readonly -v --timeout 5m0s
 	shellcheck helm-plugins/file-getter/cat-wrapper
 
 verify: vet
-	if [ `gofmt -l . | grep -v vendor | wc -l` -ne 0 ]; then \
+	if [ `gofmt -l . | wc -l` -ne 0 ]; then \
 		echo There are some malformated files, please make sure to run \'make fmt\'; \
 		exit 1; \
 	fi
 
 go-deploy-manifests: manifests-gen
-	go run test/deploy/deploy.go -path ./manifests$(SUFFIX)
+	go run -mod=readonly test/deploy/deploy.go -path ./manifests$(SUFFIX)
 
 go-undeploy-manifests:
-	go run test/undeploy/undeploy.go -path ./manifests$(SUFFIX)
+	go run -mod=readonly test/undeploy/undeploy.go -path ./manifests$(SUFFIX)
 
 e2e-test-upgrade: go-deploy-manifests
 
