@@ -173,6 +173,21 @@ func (mr *MockClientsInterfaceMockRecorder) GetNamespace(ctx, name, opts interfa
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNamespace", reflect.TypeOf((*MockClientsInterface)(nil).GetNamespace), ctx, name, opts)
 }
 
+// GetNodesByLabels mocks base method.
+func (m *MockClientsInterface) GetNodesByLabels(ctx context.Context, matchingLabels map[string]string) (*v10.NodeList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetNodesByLabels", ctx, matchingLabels)
+	ret0, _ := ret[0].(*v10.NodeList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetNodesByLabels indicates an expected call of GetNodesByLabels.
+func (mr *MockClientsInterfaceMockRecorder) GetNodesByLabels(ctx, matchingLabels interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNodesByLabels", reflect.TypeOf((*MockClientsInterface)(nil).GetNodesByLabels), ctx, matchingLabels)
+}
+
 // GetPlatform mocks base method.
 func (m *MockClientsInterface) GetPlatform() (string, error) {
 	m.ctrl.T.Helper()

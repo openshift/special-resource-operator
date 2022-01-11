@@ -7,13 +7,12 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
-	//"github.com/openshift-psap/special-resource-operator/pkg/osversion"
 	configv1 "github.com/openshift/api/config/v1"
 	machinev1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,7 +26,7 @@ type Cluster interface {
 	Version(context.Context) (string, string, error)
 	VersionHistory(context.Context) ([]string, error)
 	OSImageURL(context.Context) (string, error)
-	OperatingSystem() (string, string, string, error)
+	OperatingSystem(*corev1.NodeList) (string, string, string, error)
 }
 
 func NewCluster(clients clients.ClientsInterface) Cluster {
@@ -140,7 +139,7 @@ func (c *cluster) OSImageURL(ctx context.Context) (string, error) {
 // Assumes all nodes have the same OS.
 // Returns the os in the following forms:
 // rhelx.y, rhelx, x.y
-func (c *cluster) OperatingSystem() (string, string, string, error) {
+func (c *cluster) OperatingSystem(nodeList *corev1.NodeList) (string, string, string, error) {
 
 	var nodeOSrel string
 	var nodeOSmaj string
@@ -150,7 +149,7 @@ func (c *cluster) OperatingSystem() (string, string, string, error) {
 	// Assuming all nodes are running the same os
 	os := "feature.node.kubernetes.io/system-os_release"
 
-	for _, node := range cache.Node.List.Items {
+	for _, node := range nodeList.Items {
 		labels = node.GetLabels()
 		nodeOSrel = labels[os+".ID"]
 		nodeOSmaj = labels[os+".VERSION_ID.major"]

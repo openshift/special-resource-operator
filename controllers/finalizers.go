@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,7 +34,11 @@ func reconcileFinalizers(ctx context.Context, r *SpecialResourceReconciler) erro
 }
 
 func finalizeNodes(ctx context.Context, r *SpecialResourceReconciler, remove string) error {
-	for _, node := range cache.Node.List.Items {
+	nodeList, err := r.KubeClient.GetNodesByLabels(ctx, r.specialresource.Spec.NodeSelector)
+	if err != nil {
+		return fmt.Errorf("Failed to get node list based on NodeSelector labels during finalization: %v", err)
+	}
+	for _, node := range nodeList.Items {
 		labels := node.GetLabels()
 		update := make(map[string]string)
 		// Remove all specialresource labels
@@ -52,9 +55,6 @@ func finalizeNodes(ctx context.Context, r *SpecialResourceReconciler, remove str
 			return errors.Wrap(err, "forbidden check Role, ClusterRole and Bindings for operator %s")
 		}
 		if apierrors.IsConflict(err) {
-			if cacheErr := r.NodesCacher.Nodes(ctx, r.specialresource.Spec.NodeSelector, true); cacheErr != nil {
-				return errors.Wrap(cacheErr, "Could not cache nodes for api conflict")
-			}
 			return fmt.Errorf("node Conflict Label %s err %s", state.CurrentName, err)
 		}
 

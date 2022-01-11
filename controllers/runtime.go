@@ -84,16 +84,17 @@ func logRuntimeInformation() {
 func getRuntimeInformation(ctx context.Context, r *SpecialResourceReconciler) error {
 	var err error
 
-	if err = r.NodesCacher.Nodes(ctx, r.specialresource.Spec.NodeSelector, false); err != nil {
-		return fmt.Errorf("failed to cache nodes: %w", err)
+	nodeList, err := r.KubeClient.GetNodesByLabels(ctx, r.specialresource.Spec.NodeSelector)
+	if err != nil {
+		return fmt.Errorf("failed to get nodes list during getRuntimeInformation: %w", err)
 	}
 
-	RunInfo.OperatingSystemMajor, RunInfo.OperatingSystemMajorMinor, RunInfo.OperatingSystemDecimal, err = r.Cluster.OperatingSystem()
+	RunInfo.OperatingSystemMajor, RunInfo.OperatingSystemMajorMinor, RunInfo.OperatingSystemDecimal, err = r.Cluster.OperatingSystem(nodeList)
 	if err != nil {
 		return fmt.Errorf("failed to get operating system: %w", err)
 	}
 
-	RunInfo.KernelFullVersion, err = r.KernelData.FullVersion()
+	RunInfo.KernelFullVersion, err = r.KernelData.FullVersion(nodeList)
 	if err != nil {
 		return fmt.Errorf("failed to get kernel version: %w", err)
 	}
@@ -116,7 +117,7 @@ func getRuntimeInformation(ctx context.Context, r *SpecialResourceReconciler) er
 		return fmt.Errorf("failed to get cluster version: %w", err)
 	}
 
-	RunInfo.ClusterUpgradeInfo, err = r.ClusterInfo.GetClusterInfo(ctx)
+	RunInfo.ClusterUpgradeInfo, err = r.ClusterInfo.GetClusterInfo(ctx, nodeList)
 	if err != nil {
 		return fmt.Errorf("failed to get upgrade info: %w", err)
 	}

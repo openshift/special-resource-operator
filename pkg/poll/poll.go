@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
@@ -327,13 +326,11 @@ func (p *pollActions) forJob(ctx context.Context, obj *unstructured.Unstructured
 func (p *pollActions) forDaemonSetCallback(ctx context.Context, obj *unstructured.Unstructured) (bool, error) {
 
 	// The total number of nodes that should be running the daemon pod
-	var err error
-	var found bool
 	var callback statusCallback
 
 	callback = func(_ context.Context, _ *unstructured.Unstructured) (bool, error) { return false, nil }
 
-	cache.Node.Count, found, err = unstructured.NestedInt64(obj.Object, "status", "desiredNumberScheduled")
+	desiredNumberScheduled, found, err := unstructured.NestedInt64(obj.Object, "status", "desiredNumberScheduled")
 	if err != nil || !found {
 		return found, err
 	}
@@ -345,7 +342,7 @@ func (p *pollActions) forDaemonSetCallback(ctx context.Context, obj *unstructure
 
 	_, found, _ = unstructured.NestedInt64(obj.Object, "status", "numberAvailable")
 	if found {
-		callback = makeStatusCallback(cache.Node.Count, "status", "numberAvailable")
+		callback = makeStatusCallback(desiredNumberScheduled, "status", "numberAvailable")
 	}
 
 	return callback(ctx, obj)
