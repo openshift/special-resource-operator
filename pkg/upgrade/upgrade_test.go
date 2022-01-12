@@ -220,6 +220,81 @@ var _ = Describe("ClusterInfo", func() {
 		)
 	})
 
+	Context("lacks some required data/is mismatched", func() {
+		badSystemMinor := "0"
+		badKernel := ""
+		badNodeOSLabelsWithRTKernel := map[string]string{
+			labelKernelVersionFull:    kernelRT,
+			labelOSReleaseVersionID:   clusterVersion,
+			labelOSReleaseRHELVersion: fmt.Sprintf("%s.%s", systemMajor, badSystemMinor),
+		}
+		badNodeOSLabelsWithRegularKernel := map[string]string{
+			labelKernelVersionFull:    kernel,
+			labelOSReleaseVersionID:   clusterVersion,
+			labelOSReleaseRHELVersion: fmt.Sprintf("%s.%s", systemMajor, badSystemMinor),
+		}
+		badNodeLabelsNoKernelMatch := map[string]string{
+			labelKernelVersionFull:    badKernel,
+			labelOSReleaseVersionID:   clusterVersion,
+			labelOSReleaseRHELVersion: fmt.Sprintf("%s.%s", systemMajor, systemMinor),
+		}
+
+		DescribeTable("returns information for", func(input testInput, testExpects error) {
+			for _, labels := range input.nodesLabels {
+				node := corev1.Node{}
+				node.SetLabels(labels)
+				nodesList.Items = append(nodesList.Items, node)
+			}
+
+			ctx := context.TODO()
+
+			mockCluster.EXPECT().VersionHistory(ctx).Return(input.clusterReleaseImages, nil)
+			mockRegistry.EXPECT().LastLayer(ctx, input.clusterReleaseImages[0]).Return(&fakeLayer{}, nil)
+			mockRegistry.EXPECT().ReleaseManifests(gomock.Any()).Return(input.clusterVersion, input.dtkImage, nil)
+			mockRegistry.EXPECT().LastLayer(ctx, input.dtkImage).Return(&fakeLayer{}, nil)
+			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(input.dtk, nil)
+
+			m, err := clusterInfo.GetClusterInfo(ctx, &nodesList)
+			Expect(m).To(BeNil())
+
+			Expect(err).Should(MatchError(testExpects))
+		},
+			Entry(
+				"Mismatched OS with regular kernel",
+				testInput{
+					nodesLabels:          []map[string]string{badNodeOSLabelsWithRegularKernel},
+					clusterVersion:       clusterVersion,
+					clusterReleaseImages: clusterReleaseImages,
+					dtkImage:             dtkImageURL,
+					dtk:                  clusterDTK,
+				},
+				fmt.Errorf("OSVersion mismatch NFD: %s.%s vs. DTK: %s.%s", systemMajor, badSystemMinor, systemMajor, systemMinor),
+			),
+			Entry(
+				"Mismatched OS with RT kernel",
+				testInput{
+					nodesLabels:          []map[string]string{badNodeOSLabelsWithRTKernel},
+					clusterVersion:       clusterVersion,
+					clusterReleaseImages: clusterReleaseImages,
+					dtkImage:             dtkImageURL,
+					dtk:                  clusterDTK,
+				},
+				fmt.Errorf("OSVersion mismatch NFD: %s.%s vs. DTK: %s.%s", systemMajor, badSystemMinor, systemMajor, systemMinor),
+			),
+			Entry(
+				"Mismatched kernel between nodes and DTK",
+				testInput{
+					nodesLabels:          []map[string]string{badNodeLabelsNoKernelMatch},
+					clusterVersion:       clusterVersion,
+					clusterReleaseImages: clusterReleaseImages,
+					dtkImage:             dtkImageURL,
+					dtk:                  clusterDTK,
+				},
+				fmt.Errorf("DTK kernel not found running in the cluster. kernelFullVersion: %s. rtKernelFullVersion: %s", kernel, kernelRT),
+			),
+		)
+	})
+
 	It("will hint that with an error message when NFD is not installed", func() {
 		nodesList.Items = append(nodesList.Items, corev1.Node{})
 		ctx := context.TODO()
