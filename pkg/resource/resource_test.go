@@ -1,7 +1,8 @@
-package resource_test
+package resource
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -10,21 +11,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	buildv1 "github.com/openshift/api/build/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	kubetypes "k8s.io/apimachinery/pkg/types"
+
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
-	"github.com/openshift-psap/special-resource-operator/pkg/resource"
-	buildv1 "github.com/openshift/api/build/v1"
-	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	kubetypes "k8s.io/apimachinery/pkg/types"
 )
 
 var (
@@ -41,12 +42,12 @@ func TestResource(t *testing.T) {
 }
 
 var _ = Describe("IsNamespaced", func() {
-	Expect(resource.IsNamespaced("Pod")).To(BeTrue())
+	Expect(IsNamespaced("Pod")).To(BeTrue())
 
 	DescribeTable(
 		"cluster-scoped types should not be namespaced",
 		func(typeName string) {
-			Expect(resource.IsNamespaced(typeName)).To(BeFalse())
+			Expect(IsNamespaced(typeName)).To(BeFalse())
 		},
 		Entry(nil, "Namespace"),
 		Entry(nil, "ClusterRole"),
@@ -60,7 +61,7 @@ var _ = Describe("IsNotUpdateable", func() {
 	DescribeTable(
 		"should not be updateable",
 		func(typeName string, m types.GomegaMatcher) {
-			Expect(resource.IsNotUpdateable(typeName)).To(m)
+			Expect(IsNotUpdateable(typeName)).To(m)
 		},
 		EntryDescription("%s"),
 		Entry(nil, "Deployment", BeFalse()),
@@ -71,13 +72,13 @@ var _ = Describe("IsNotUpdateable", func() {
 
 var _ = Describe("NeedsResourceVersionUpdate", func() {
 	It("Pod should not requires a ResourceVersion", func() {
-		Expect(resource.NeedsResourceVersionUpdate("Pod")).To(BeFalse())
+		Expect(NeedsResourceVersionUpdate("Pod")).To(BeFalse())
 	})
 
 	DescribeTable(
 		"requires a resource version update",
 		func(rt string) {
-			Expect(resource.NeedsResourceVersionUpdate(rt)).To(BeTrue())
+			Expect(NeedsResourceVersionUpdate(rt)).To(BeTrue())
 		},
 		Entry(nil, "SecurityContextConstraints"),
 		Entry(nil, "Service"),
@@ -111,7 +112,7 @@ var _ = Describe("UpdateResourceVersion", func() {
 		foundMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&foundPod)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = resource.UpdateResourceVersion(&unstructured.Unstructured{}, &unstructured.Unstructured{Object: foundMap})
+		err = UpdateResourceVersion(&unstructured.Unstructured{}, &unstructured.Unstructured{Object: foundMap})
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -123,7 +124,7 @@ var _ = Describe("UpdateResourceVersion", func() {
 		foundMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&foundSvc)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = resource.UpdateResourceVersion(&unstructured.Unstructured{}, &unstructured.Unstructured{Object: foundMap})
+		err = UpdateResourceVersion(&unstructured.Unstructured{}, &unstructured.Unstructured{Object: foundMap})
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -140,7 +141,7 @@ var _ = Describe("UpdateResourceVersion", func() {
 			Object: make(map[string]interface{}),
 		}
 
-		err = resource.UpdateResourceVersion(&reqUnstructured, &unstructured.Unstructured{Object: foundMap})
+		err = UpdateResourceVersion(&reqUnstructured, &unstructured.Unstructured{Object: foundMap})
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -163,7 +164,7 @@ var _ = Describe("UpdateResourceVersion", func() {
 			Object: make(map[string]interface{}),
 		}
 
-		err = resource.UpdateResourceVersion(&reqUnstructured, &unstructured.Unstructured{Object: foundMap})
+		err = UpdateResourceVersion(&reqUnstructured, &unstructured.Unstructured{Object: foundMap})
 		Expect(err).NotTo(HaveOccurred())
 
 		reqSvc := v1.Service{}
@@ -191,7 +192,7 @@ var _ = Describe("SetNodeSelectorTerms", func() {
 		terms := map[string]string{"key": "value"}
 		uo := unstructured.Unstructured{Object: m}
 
-		err = resource.SetNodeSelectorTerms(&uo, terms)
+		err = SetNodeSelectorTerms(&uo, terms)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &d)
@@ -214,7 +215,7 @@ var _ = Describe("SetNodeSelectorTerms", func() {
 		terms := map[string]string{"key": "value"}
 		uo := unstructured.Unstructured{Object: m}
 
-		err = resource.SetNodeSelectorTerms(&uo, terms)
+		err = SetNodeSelectorTerms(&uo, terms)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &d)
@@ -235,7 +236,7 @@ var _ = Describe("SetNodeSelectorTerms", func() {
 		terms := map[string]string{"key": "value"}
 		uo := unstructured.Unstructured{Object: m}
 
-		err = resource.SetNodeSelectorTerms(&uo, terms)
+		err = SetNodeSelectorTerms(&uo, terms)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &statefulSet)
@@ -258,7 +259,7 @@ var _ = Describe("SetNodeSelectorTerms", func() {
 		terms := map[string]string{"key": "value"}
 		uo := unstructured.Unstructured{Object: m}
 
-		err = resource.SetNodeSelectorTerms(&uo, terms)
+		err = SetNodeSelectorTerms(&uo, terms)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &p)
@@ -281,7 +282,7 @@ var _ = Describe("SetNodeSelectorTerms", func() {
 		terms := map[string]string{"key": "value"}
 		uo := unstructured.Unstructured{Object: m}
 
-		err = resource.SetNodeSelectorTerms(&uo, terms)
+		err = SetNodeSelectorTerms(&uo, terms)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &d)
@@ -363,19 +364,19 @@ spec:
 		err := v1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = resource.
+		err =
 			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI).
-			CreateFromYAML(
-				context.TODO(),
-				yamlSpec,
-				false,
-				&owner,
-				specialResourceName,
-				namespace,
-				nodeSelector,
-				kernelFullVersion,
-				operatingSystemMajorMinor,
-			)
+				CreateFromYAML(
+					context.TODO(),
+					yamlSpec,
+					false,
+					&owner,
+					specialResourceName,
+					namespace,
+					nodeSelector,
+					kernelFullVersion,
+					operatingSystemMajorMinor,
+				)
 
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -455,7 +456,7 @@ spec:
 			kubeClient.
 				EXPECT().
 				Get(context.TODO(), nsn, unstructuredMatcher).
-				Return(errors.NewNotFound(v1.Resource("pod"), name)),
+				Return(k8serrors.NewNotFound(v1.Resource("pod"), name)),
 			kubeClient.
 				EXPECT().
 				Create(context.TODO(), &newPod),
@@ -469,21 +470,201 @@ spec:
 		err = v1.AddToScheme(scheme)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = resource.
+		err =
 			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI).
-			CreateFromYAML(
-				context.TODO(),
-				yamlSpec,
-				false,
-				&owner,
-				specialResourceName,
-				namespace,
-				nodeSelector,
-				kernelFullVersion,
-				operatingSystemMajorMinor,
-			)
+				CreateFromYAML(
+					context.TODO(),
+					yamlSpec,
+					false,
+					&owner,
+					specialResourceName,
+					namespace,
+					nodeSelector,
+					kernelFullVersion,
+					operatingSystemMajorMinor,
+				)
 
 		Expect(err).NotTo(HaveOccurred())
+	})
+})
+
+var _ = Describe("creator_CheckForImagePullBackOff", func() {
+	var (
+		ctrl        *gomock.Controller
+		kubeClient  *clients.MockClientsInterface
+		pollActions *poll.MockPollActions
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		kubeClient = clients.NewMockClientsInterface(ctrl)
+		pollActions = poll.NewMockPollActions(ctrl)
+	})
+
+	AfterEach(func() {
+		UpdateVendor = ""
+	})
+
+	const (
+		app       = "test"
+		namespace = "ns"
+	)
+
+	opts := []interface{}{
+		client.InNamespace(namespace),
+		client.MatchingLabels(map[string]string{"app": app}),
+	}
+
+	It("should return no error if polling returned nil", func() {
+		ds := &unstructured.Unstructured{}
+
+		pollActions.EXPECT().ForDaemonSet(context.TODO(), ds)
+
+		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil).(*creator).
+			checkForImagePullBackOff(context.TODO(), ds, namespace)
+
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	getDaemonSet := func() *unstructured.Unstructured {
+		ds := &unstructured.Unstructured{}
+		ds.SetAPIVersion("v1")
+		ds.SetKind("DaemonSet")
+		ds.SetLabels(map[string]string{"app": app})
+
+		return ds
+	}
+
+	It("should return an error if we cannot get the pod list", func() {
+		randomError := errors.New("random error")
+		ds := getDaemonSet()
+
+		gomock.InOrder(
+			pollActions.EXPECT().ForDaemonSet(context.TODO(), ds).Return(errors.New("some error")),
+			kubeClient.EXPECT().List(context.TODO(), &v1.PodList{}, opts...).Return(randomError),
+		)
+
+		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil).(*creator).
+			checkForImagePullBackOff(context.TODO(), ds, namespace)
+
+		Expect(err).To(Equal(randomError))
+	})
+
+	It("should return an error if no pods were found", func() {
+		ds := getDaemonSet()
+
+		gomock.InOrder(
+			pollActions.EXPECT().ForDaemonSet(context.TODO(), ds).Return(errors.New("some error")),
+			kubeClient.EXPECT().List(context.TODO(), &v1.PodList{}, opts...),
+		)
+
+		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil).(*creator).
+			checkForImagePullBackOff(context.TODO(), ds, namespace)
+
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should return an error if one of the pods is Waiting because ImagePullBackOff", func() {
+		const vendor = "test-vendor"
+
+		ds := getDaemonSet()
+		ds.SetAnnotations(map[string]string{"specialresource.openshift.io/driver-container-vendor": vendor})
+
+		gomock.InOrder(
+			pollActions.EXPECT().ForDaemonSet(context.TODO(), ds).Return(errors.New("some error")),
+			kubeClient.
+				EXPECT().
+				List(context.TODO(), &v1.PodList{}, opts...).
+				Do(func(_ context.Context, pl *v1.PodList, _ client.InNamespace, _ client.MatchingLabels) {
+					pl.Items = []v1.Pod{
+						{
+							Status: v1.PodStatus{Phase: "test"},
+						},
+						{
+							Status: v1.PodStatus{
+								ContainerStatuses: []v1.ContainerStatus{
+									{
+										State: v1.ContainerState{
+											Waiting: &v1.ContainerStateWaiting{
+												Reason: "ImagePullBackOff",
+											},
+										},
+									},
+								},
+							},
+						},
+					}
+				}),
+		)
+
+		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil).(*creator).
+			checkForImagePullBackOff(context.TODO(), ds, namespace)
+
+		Expect(err).To(MatchError("ImagePullBackOff need to rebuild " + vendor + " driver-container"))
+		Expect(UpdateVendor).To(Equal(vendor))
+	})
+
+	It("should return an error if one of the pods is Waiting for a random reason", func() {
+		ds := getDaemonSet()
+
+		gomock.InOrder(
+			pollActions.EXPECT().ForDaemonSet(context.TODO(), ds).Return(errors.New("some error")),
+			kubeClient.
+				EXPECT().
+				List(context.TODO(), &v1.PodList{}, opts...).
+				Do(func(_ context.Context, pl *v1.PodList, _ client.InNamespace, _ client.MatchingLabels) {
+					pl.Items = []v1.Pod{
+						{
+							Status: v1.PodStatus{Phase: "test"},
+						},
+						{
+							Status: v1.PodStatus{
+								ContainerStatuses: []v1.ContainerStatus{
+									{
+										State: v1.ContainerState{
+											Waiting: &v1.ContainerStateWaiting{
+												Reason: "Random",
+											},
+										},
+									},
+								},
+							},
+						},
+					}
+				}),
+		)
+
+		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil).(*creator).
+			checkForImagePullBackOff(context.TODO(), ds, namespace)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(UpdateVendor).To(BeEmpty())
+	})
+
+	It("should not panic if a container is not waiting", func() {
+		ds := getDaemonSet()
+
+		gomock.InOrder(
+			pollActions.EXPECT().ForDaemonSet(context.TODO(), ds).Return(errors.New("some error")),
+			kubeClient.
+				EXPECT().
+				List(context.TODO(), &v1.PodList{}, opts...).
+				Do(func(_ context.Context, pl *v1.PodList, _ client.InNamespace, _ client.MatchingLabels) {
+					pl.Items = []v1.Pod{
+						{
+							Status: v1.PodStatus{
+								ContainerStatuses: make([]v1.ContainerStatus, 1),
+							},
+						},
+					}
+				}),
+		)
+
+		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil).(*creator).
+			checkForImagePullBackOff(context.TODO(), ds, namespace)
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(UpdateVendor).To(BeEmpty())
 	})
 })
 
@@ -496,7 +677,7 @@ var _ = Describe("TestIsOneTimer", func() {
 		m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&svc)
 		Expect(err).NotTo(HaveOccurred())
 
-		ret, err := resource.IsOneTimer(&unstructured.Unstructured{Object: m})
+		ret, err := IsOneTimer(&unstructured.Unstructured{Object: m})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ret).To(BeFalse())
 	})
@@ -510,7 +691,7 @@ var _ = Describe("TestIsOneTimer", func() {
 			m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&pod)
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = resource.IsOneTimer(&unstructured.Unstructured{Object: m})
+			_, err = IsOneTimer(&unstructured.Unstructured{Object: m})
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -523,7 +704,7 @@ var _ = Describe("TestIsOneTimer", func() {
 			m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&pod)
 			Expect(err).NotTo(HaveOccurred())
 
-			ret, err := resource.IsOneTimer(&unstructured.Unstructured{Object: m})
+			ret, err := IsOneTimer(&unstructured.Unstructured{Object: m})
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(ret).To(BeTrue())
@@ -543,7 +724,7 @@ var _ = Describe("SetMetaData", func() {
 			namespace = "test-namespace"
 		)
 
-		resource.SetMetaData(&uo, name, namespace)
+		SetMetaData(&uo, name, namespace)
 
 		Expect(uo.GetAnnotations()).To(HaveKeyWithValue("meta.helm.sh/release-name", name))
 		Expect(uo.GetAnnotations()).To(HaveKeyWithValue("meta.helm.sh/release-namespace", namespace))
@@ -568,7 +749,7 @@ var _ = Describe("SetLabel", func() {
 		err = unstructured.SetNestedStringMap(uo.Object, map[string]string{}, "spec", "template", "metadata", "labels")
 		Expect(err).NotTo(HaveOccurred())
 
-		err = resource.SetLabel(&uo)
+		err = SetLabel(&uo)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(uo.GetLabels()).To(HaveKeyWithValue(ownedLabel, "true"))
@@ -620,7 +801,7 @@ var _ = Describe("SetLabel", func() {
 
 		uo := unstructured.Unstructured{Object: mo}
 
-		err = resource.SetLabel(&uo)
+		err = SetLabel(&uo)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(uo.GetLabels()).To(HaveKeyWithValue(ownedLabel, "true"))
 	})
