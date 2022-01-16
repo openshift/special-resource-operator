@@ -28,14 +28,6 @@ verify: vet
 		exit 1; \
 	fi
 
-go-deploy-manifests: manifests-gen
-	go run -mod=readonly test/deploy/deploy.go -path ./manifests$(SUFFIX)
-
-go-undeploy-manifests:
-	go run -mod=readonly test/undeploy/undeploy.go -path ./manifests$(SUFFIX)
-
-e2e-test-upgrade: go-deploy-manifests
-
 e2e-test:
 	for d in basic; do \
           KUBERNETES_CONFIG="$(KUBECONFIG)" NAMESPACE=$(NAMESPACE) go test -v -timeout 40m ./test/e2e/$$d -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit; \

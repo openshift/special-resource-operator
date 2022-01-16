@@ -1,6 +1,0 @@
-apiVersion: v1
-data: null
-kind: ConfigMap
-metadata:
-  name: special-resource-lifecycle
-  namespace: openshift-special-resource-operator

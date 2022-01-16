@@ -131,27 +131,6 @@ undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.
 	$(KUSTOMIZE) build config/default$(SUFFIX) | $(CLUSTER_CLIENT) delete --ignore-not-found -f -
 
 
-##@ custom targets
-
-MANIFEST_DIR = manifests$(SUFFIX)
-MANIFEST_BUNDLE := $(shell mktemp)
-
-# Populate manifests dir, and SRO specific customizations
-manifests-gen: manifests kustomize configure
-	mkdir -p $(MANIFEST_DIR)
-	rm -f $(MANIFEST_DIR)/*.yaml
-
-	$(KUSTOMIZE) build config/namespace > $(MANIFEST_BUNDLE)
-	echo '---' >> $(MANIFEST_BUNDLE)
-	$(KUSTOMIZE) build config/default$(SUFFIX) >> $(MANIFEST_BUNDLE)
-	echo '---' >> $(MANIFEST_BUNDLE)
-	$(KUSTOMIZE) build config/cr >> $(MANIFEST_BUNDLE)
-
-	cd $(MANIFEST_DIR); $(CSPLIT) < $(MANIFEST_BUNDLE)
-	cd $(MANIFEST_DIR); bash ../scripts/rename.sh
-
-	rm $(MANIFEST_BUNDLE)
-
 # SRO specific configuration to set namespace of all manifests
 configure:
 	# TODO kustomize cannot set name of namespace according to settings, hack TODO

@@ -1,6 +1,0 @@
-apiVersion: v1
-data: null
-kind: ConfigMap
-metadata:
-  name: special-resource-dependencies
-  namespace: openshift-special-resource-operator
