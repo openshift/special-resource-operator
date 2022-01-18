@@ -19,7 +19,7 @@ spec:
   - name: v1beta1
     schema:
       openAPIV3Schema:
-        description: SpecialResource is the Schema for the specialresources API
+        description: SpecialResource describes a software stack for hardware accelerators on an existing Kubernetes cluster.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -30,40 +30,53 @@ spec:
           metadata:
             type: object
           spec:
-            description: SpecialResourceSpec defines the desired state of SpecialResource
+            description: 'SpecialResourceSpec describes the desired state of the resource, such as the chart to be used and a selector on which nodes it should be installed. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
             properties:
               chart:
+                description: Chart describes the Helm chart that needs to be installed.
                 properties:
                   name:
+                    description: Name is the chart's name.
                     type: string
                   repository:
+                    description: Repository is the chart's repository information.
                     properties:
                       caFile:
+                        description: CertFile is the path to the CA certificate file that was used to sign the Helm repository's certificate.
                         type: string
                       certFile:
+                        description: CertFile is the path to the client certificate file to be used to authenticate against the Helm repository, if required.
                         type: string
                       insecure_skip_tls_verify:
                         default: false
+                        description: If InsecureSkipTLSverify is true, the server's certificate will not be verified against the local CA certificates.
                         type: boolean
                       keyFile:
+                        description: KeyFile is the path to the private key file to be used to authenticate against the Helm repository, if required.
                         type: string
                       name:
+                        description: Name is the name of the Helm repository.
                         type: string
                       password:
+                        description: Password is used to log in against the Helm repository, if required.
                         type: string
                       url:
+                        description: URL is the canonical URL of the Helm repository.
                         type: string
                       username:
+                        description: Username is used to log in against the Helm repository, if required.
                         type: string
                     required:
                     - name
                     - url
                     type: object
                   tags:
+                    description: Tags is a list of tags for this chart.
                     items:
                       type: string
                     type: array
                   version:
+                    description: Version is the chart's version.
                     type: string
                 required:
                 - name
@@ -71,43 +84,58 @@ spec:
                 - version
                 type: object
               debug:
+                description: Debug enables additional logging.
                 type: boolean
               dependencies:
+                description: Dependencies is a list of dependencies required by this SpecialReosurce.
                 items:
-                  description: SpecialResourceDependency a dependent helm chart
+                  description: SpecialResourceDependency is a Helm chart the SpecialResource depends on.
                   properties:
                     chart:
+                      description: HelmChart describes a Helm Chart.
                       properties:
                         name:
+                          description: Name is the chart's name.
                           type: string
                         repository:
+                          description: Repository is the chart's repository information.
                           properties:
                             caFile:
+                              description: CertFile is the path to the CA certificate file that was used to sign the Helm repository's certificate.
                               type: string
                             certFile:
+                              description: CertFile is the path to the client certificate file to be used to authenticate against the Helm repository, if required.
                               type: string
                             insecure_skip_tls_verify:
                               default: false
+                              description: If InsecureSkipTLSverify is true, the server's certificate will not be verified against the local CA certificates.
                               type: boolean
                             keyFile:
+                              description: KeyFile is the path to the private key file to be used to authenticate against the Helm repository, if required.
                               type: string
                             name:
+                              description: Name is the name of the Helm repository.
                               type: string
                             password:
+                              description: Password is used to log in against the Helm repository, if required.
                               type: string
                             url:
+                              description: URL is the canonical URL of the Helm repository.
                               type: string
                             username:
+                              description: Username is used to log in against the Helm repository, if required.
                               type: string
                           required:
                           - name
                           - url
                           type: object
                         tags:
+                          description: Tags is a list of tags for this chart.
                           items:
                             type: string
                           type: array
                         version:
+                          description: Version is the chart's version.
                           type: string
                       required:
                       - name
@@ -115,20 +143,21 @@ spec:
                       - version
                       type: object
                     set:
+                      description: Set are Helm hierarchical values for this chart installation.
                       type: object
                       x-kubernetes-embedded-resource: true
                       x-kubernetes-preserve-unknown-fields: true
                   type: object
                 type: array
               driverContainer:
-                description: SpecialResourceDriverContainer defines the desired state of SpecialResource
+                description: DriverContainer is not used.
                 properties:
                   artifacts:
-                    description: SpecialResourceArtifacts defines the observed state of SpecialResource
+                    description: SpecialResourceArtifacts is not used.
                     properties:
                       claims:
                         items:
-                          description: SpecialResourceClaims defines the observed state of SpecialResource
+                          description: SpecialResourceClaims is not used.
                           properties:
                             mountPath:
                               type: string
@@ -141,7 +170,7 @@ spec:
                         type: array
                       hostPaths:
                         items:
-                          description: SpecialResourcePaths defines the observed state of SpecialResource
+                          description: SpecialResourcePaths is not used.
                           properties:
                             destinationDir:
                               type: string
@@ -154,7 +183,7 @@ spec:
                         type: array
                       images:
                         items:
-                          description: SpecialResourceImages defines the observed state of SpecialResource
+                          description: SpecialResourceImages is not used.
                           properties:
                             kind:
                               type: string
@@ -164,7 +193,7 @@ spec:
                               type: string
                             path:
                               items:
-                                description: SpecialResourcePaths defines the observed state of SpecialResource
+                                description: SpecialResourcePaths is not used.
                                 properties:
                                   destinationDir:
                                     type: string
@@ -186,10 +215,10 @@ spec:
                         type: array
                     type: object
                   source:
-                    description: SpecialResourceSource defines the observed state of SpecialResource
+                    description: SpecialResourceSource is not used.
                     properties:
                       git:
-                        description: SpecialResourceGit defines the observed state of SpecialResource
+                        description: SpecialResourceGit is not used.
                         properties:
                           ref:
                             type: string
@@ -202,14 +231,18 @@ spec:
                     type: object
                 type: object
               forceUpgrade:
+                description: ForceUpgrade is not used.
                 type: boolean
               namespace:
+                description: Namespace describes in which namespace the chart will be installed.
                 type: string
               nodeSelector:
                 additionalProperties:
                   type: string
+                description: NodeSelector is used to determine on which nodes the software stack should be installed.
                 type: object
               set:
+                description: Set is a user-defined hierarchical value tree from where the chart takes its parameters.
                 type: object
                 x-kubernetes-embedded-resource: true
                 x-kubernetes-preserve-unknown-fields: true
@@ -218,9 +251,10 @@ spec:
             - namespace
             type: object
           status:
-            description: SpecialResourceStatus defines the observed state of SpecialResource
+            description: 'SpecialResourceStatus is the most recently observed status of the SpecialResource. It is populated by the system and is read-only. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
             properties:
               state:
+                description: State describes at which step the chart installation is.
                 type: string
             required:
             - state
