@@ -278,16 +278,10 @@ func (h *helmer) Run(
 		if err != nil {
 			return err
 		}
-
-		fmt.Printf("--------------------------------------------------------------------------------\n")
-		fmt.Printf("\"%s\"\n", json)
-		fmt.Printf("--------------------------------------------------------------------------------\n")
-		fmt.Printf("\"%s\"\n", rel.Manifest)
-		fmt.Printf("--------------------------------------------------------------------------------\n")
+		h.log.Info("Debug active. Showing manifests", "json", json, "manifest", rel.Manifest)
 		for _, hook := range rel.Hooks {
-			fmt.Printf("%s\n", hook.Manifest)
+			h.log.Info("Debug active. Showing hooks", "name", hook.Name, "manifest", hook.Manifest)
 		}
-		fmt.Printf("--------------------------------------------------------------------------------\n")
 	}
 
 	// Store the release in history before continuing (new in Helm 3). We always know
