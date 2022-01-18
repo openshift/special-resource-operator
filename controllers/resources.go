@@ -149,7 +149,7 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		log.Info("Executing", "State", stateYAML.Name)
 
 		if r.specialresource.Spec.Debug {
-			fmt.Printf("STATE YAML --------------------------------------------------\n%s\n\n", stateYAML.Data)
+			log.Info("Debug active. Showing YAML contents", "name", stateYAML.Name, "data", stateYAML.Data)
 		}
 
 		// Every YAML is one state, we generate the name of the
@@ -212,7 +212,7 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 
 			if r.specialresource.Spec.Debug {
 				d, _ := yaml.Marshal(step.Values)
-				fmt.Printf("STEP VALUES --------------------------------------------------\n%s\n\n", d)
+				log.Info("Debug active. Showing YAML values", "values", d)
 			}
 
 			err = r.Helmer.Run(
