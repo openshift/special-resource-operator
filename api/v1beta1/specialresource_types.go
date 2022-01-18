@@ -23,7 +23,7 @@ import (
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 )
 
-// SpecialResourceImages defines the observed state of SpecialResource
+// SpecialResourceImages is not used.
 type SpecialResourceImages struct {
 	Name       string                 `json:"name"`
 	Kind       string                 `json:"kind"`
@@ -32,19 +32,19 @@ type SpecialResourceImages struct {
 	Paths      []SpecialResourcePaths `json:"path"`
 }
 
-// SpecialResourceClaims defines the observed state of SpecialResource
+// SpecialResourceClaims is not used.
 type SpecialResourceClaims struct {
 	Name      string `json:"name"`
 	MountPath string `json:"mountPath"`
 }
 
-// SpecialResourcePaths defines the observed state of SpecialResource
+// SpecialResourcePaths is not used.
 type SpecialResourcePaths struct {
 	SourcePath     string `json:"sourcePath"`
 	DestinationDir string `json:"destinationDir"`
 }
 
-// SpecialResourceArtifacts defines the observed state of SpecialResource
+// SpecialResourceArtifacts is not used.
 type SpecialResourceArtifacts struct {
 	// +kubebuilder:validation:Optional
 	HostPaths []SpecialResourcePaths `json:"hostPaths,omitempty"`
@@ -54,94 +54,122 @@ type SpecialResourceArtifacts struct {
 	Claims []SpecialResourceClaims `json:"claims,omitempty"`
 }
 
-// SpecialResourceBuildArgs defines the observed state of SpecialResource
+// SpecialResourceBuildArgs is not used.
 type SpecialResourceBuildArgs struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
 }
 
-// SpecialResourceConfiguration defines the observed state of SpecialResource
+// SpecialResourceConfiguration is not used.
 type SpecialResourceConfiguration struct {
 	Name  string   `json:"name"`
 	Value []string `json:"value"`
 }
 
-// SpecialResourceGit defines the observed state of SpecialResource
+// SpecialResourceGit is not used.
 type SpecialResourceGit struct {
 	Ref string `json:"ref"`
 	Uri string `json:"uri"`
 }
 
-// SpecialResourceSource defines the observed state of SpecialResource
+// SpecialResourceSource is not used.
 type SpecialResourceSource struct {
 	Git SpecialResourceGit `json:"git,omitempty"`
 }
 
-// SpecialResourceDriverContainer defines the desired state of SpecialResource
+// SpecialResourceDriverContainer is not used.
 type SpecialResourceDriverContainer struct {
 	// +kubebuilder:validation:Optional
 	Source SpecialResourceSource `json:"source,omitempty"`
+
 	// +kubebuilder:validation:Optional
 	Artifacts SpecialResourceArtifacts `json:"artifacts,omitempty"`
 }
 
-// SpecialResourceSpec defines the desired state of SpecialResource
+// SpecialResourceSpec describes the desired state of the resource, such as the chart to be used and a selector
+// on which nodes it should be installed.
+// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+// +kubebuilder:validation:Required
 type SpecialResourceSpec struct {
+	// Chart describes the Helm chart that needs to be installed.
 	// +kubebuilder:validation:Required
 	Chart helmerv1beta1.HelmChart `json:"chart"`
+
+	// Namespace describes in which namespace the chart will be installed.
 	// +kubebuilder:validation:Required
 	Namespace string `json:"namespace"`
+
+	// ForceUpgrade is not used.
 	// +kubebuilder:validation:Optional
 	ForceUpgrade bool `json:"forceUpgrade"`
+
+	// Debug enables additional logging.
 	// +kubebuilder:validation:Optional
 	Debug bool `json:"debug"`
+
+	// Set is a user-defined hierarchical value tree from where the chart takes its parameters.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:EmbeddedResource
 	Set unstructured.Unstructured `json:"set,omitempty"`
+
+	// DriverContainer is not used.
 	// +kubebuilder:validation:Optional
 	DriverContainer SpecialResourceDriverContainer `json:"driverContainer,omitempty"`
+
+	// NodeSelector is used to determine on which nodes the software stack should be installed.
 	// +kubebuilder:validation:Optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// Dependencies is a list of dependencies required by this SpecialReosurce.
 	// +kubebuilder:validation:Optional
 	Dependencies []SpecialResourceDependency `json:"dependencies,omitempty"`
 }
 
-// SpecialResourceDependency a dependent helm chart
+// SpecialResourceDependency is a Helm chart the SpecialResource depends on.
 type SpecialResourceDependency struct {
 	helmerv1beta1.HelmChart `json:"chart,omitempty"`
+
+	// Set are Helm hierarchical values for this chart installation.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +kubebuilder:validation:EmbeddedResource
 	Set unstructured.Unstructured `json:"set,omitempty"`
 }
 
-// SpecialResourceStatus defines the observed state of SpecialResource
+// SpecialResourceStatus is the most recently observed status of the SpecialResource.
+// It is populated by the system and is read-only.
+// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
 type SpecialResourceStatus struct {
+	// State describes at which step the chart installation is.
 	State string `json:"state"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// SpecialResource is the Schema for the specialresources API
+// SpecialResource describes a software stack for hardware accelerators on an existing Kubernetes cluster.
 // +kubebuilder:resource:path=specialresources,scope=Cluster
 // +kubebuilder:resource:path=specialresources,scope=Cluster,shortName=sr
 type SpecialResource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// +kubebuilder:validation:Required
+
 	Spec   SpecialResourceSpec   `json:"spec,omitempty"`
 	Status SpecialResourceStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// SpecialResourceList contains a list of SpecialResource
+// SpecialResourceList is a list of SpecialResource objects.
 type SpecialResourceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []SpecialResource `json:"items"`
+
+	// List of SpecialResources. More info:
+	// https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md
+	Items []SpecialResource `json:"items"`
 }
 
 func init() {

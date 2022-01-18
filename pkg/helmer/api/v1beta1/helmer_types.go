@@ -16,31 +16,57 @@ limitations under the License.
 
 package v1beta1
 
+// HelmRepo describe a Helm repository.
 type HelmRepo struct {
+	// Name is the name of the Helm repository.
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
+
+	// URL is the canonical URL of the Helm repository.
 	// +kubebuilder:validation:Required
 	URL string `json:"url"`
+
+	// Username is used to log in against the Helm repository, if required.
 	// +kubebuilder:validation:Optional
 	Username string `json:"username"`
+
+	// Password is used to log in against the Helm repository, if required.
 	// +kubebuilder:validation:Optional
 	Password string `json:"password"`
+
+	// CertFile is the path to the client certificate file to be used to authenticate against the Helm repository,
+	// if required.
 	// +kubebuilder:validation:Optional
 	CertFile string `json:"certFile"`
+
+	// KeyFile is the path to the private key file to be used to authenticate against the Helm repository, if required.
 	// +kubebuilder:validation:Optional
 	KeyFile string `json:"keyFile"`
+
+	// CertFile is the path to the CA certificate file that was used to sign the Helm repository's certificate.
 	// +kubebuilder:validation:Optional
 	CAFile string `json:"caFile"`
+
+	// If InsecureSkipTLSverify is true, the server's certificate will not be verified against the local CA
+	// certificates.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:=false
 	InsecureSkipTLSverify bool `json:"insecure_skip_tls_verify"`
 }
 
+// HelmChart describes a Helm Chart.
 type HelmChart struct {
-	Name    string `json:"name"`
+	// Name is the chart's name.
+	Name string `json:"name"`
+
+	// Version is the chart's version.
 	Version string `json:"version"`
+
+	// Repository is the chart's repository information.
 	// +kubebuilder:validation:Required
 	Repository HelmRepo `json:"repository"`
+
+	// Tags is a list of tags for this chart.
 	// +kubebuilder:validation:Optional
 	Tags []string `json:"tags"`
 }
