@@ -20,8 +20,24 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	buildv1 "github.com/openshift/api/build/v1"
+	imagev1 "github.com/openshift/api/image/v1"
+	secv1 "github.com/openshift/api/security/v1"
+	"github.com/pkg/errors"
+	"helm.sh/helm/v3/pkg/chart"
+	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/internal/controllers/finalizers"
+	"github.com/openshift-psap/special-resource-operator/internal/controllers/state"
 	"github.com/openshift-psap/special-resource-operator/pkg/assets"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
@@ -35,24 +51,6 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
-	buildv1 "github.com/openshift/api/build/v1"
-	secv1 "github.com/openshift/api/security/v1"
-
-	imagev1 "github.com/openshift/api/image/v1"
-	"github.com/pkg/errors"
-
-	configv1 "github.com/openshift/api/config/v1"
-
-	"helm.sh/helm/v3/pkg/chart"
-	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	storagev1 "k8s.io/api/storage/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var (
@@ -64,26 +62,27 @@ type SpecialResourceReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 
-	Metrics     metrics.Metrics
-	Cluster     cluster.Cluster
-	ClusterInfo upgrade.ClusterInfo
-	Creator     resource.Creator
-	Filter      filter.Filter
-	Finalizer   finalizers.SpecialResourceFinalizer
-	Helmer      helmer.Helmer
-	Assets      assets.Assets
-	PollActions poll.PollActions
-	Storage     storage.Storage
-	KernelData  kernel.KernelData
-	ProxyAPI    proxy.ProxyAPI
-	KubeClient  clients.ClientsInterface
+	Metrics                metrics.Metrics
+	Cluster                cluster.Cluster
+	ClusterInfo            upgrade.ClusterInfo
+	ClusterOperatorManager state.ClusterOperatorManager
+	Creator                resource.Creator
+	Filter                 filter.Filter
+	Finalizer              finalizers.SpecialResourceFinalizer
+	Helmer                 helmer.Helmer
+	Assets                 assets.Assets
+	PollActions            poll.PollActions
+	StatusUpdater          state.StatusUpdater
+	Storage                storage.Storage
+	KernelData             kernel.KernelData
+	ProxyAPI               proxy.ProxyAPI
+	KubeClient             clients.ClientsInterface
 
 	specialresource srov1beta1.SpecialResource
 	parent          srov1beta1.SpecialResource
 	chart           chart.Chart
 	values          unstructured.Unstructured
 	dependency      srov1beta1.SpecialResourceDependency
-	clusterOperator configv1.ClusterOperator
 }
 
 // Reconcile Reconiliation entry point
@@ -107,7 +106,8 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 	// A resource is being reconciled set status to not available and only
 	// if the reconcilation succeeds we're updating the conditions
-	if res, err = SpecialResourcesStatus(ctx, r, conds); err != nil {
+	if err = r.ClusterOperatorManager.Refresh(ctx, conds); err != nil {
+		res.Requeue = true
 		return res, errors.Wrap(err, "RECONCILE ERROR: Cannot update special resource status")
 	}
 	// Reconcile all specialresources
@@ -119,7 +119,8 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// Only if we're successfull we're going to update the status to
 	// Available otherwise return the reconcile error
-	if res, err = SpecialResourcesStatus(ctx, r, conds); err != nil {
+	if err = r.ClusterOperatorManager.Refresh(ctx, conds); err != nil {
+		res.Requeue = true
 		log.Error(err, "RECONCILE ERROR: Cannot update special resource status")
 		return res, nil
 	}

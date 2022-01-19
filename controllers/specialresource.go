@@ -21,11 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// GetName of the special resource operator
-func (r *SpecialResourceReconciler) GetName() string {
-	return "special-resource-operator"
-}
-
 // SpecialResourcesReconcile Takes care of all specialresources in the cluster
 func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
 
@@ -61,7 +56,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		}
 		parent, err := r.Storage.CheckConfigMapEntry(ctx, req.Name, obj)
 		if err != nil {
-			r.operatorStatusUpdate(ctx, &r.parent, fmt.Sprintf("%v", err))
+			r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
 			return reconcile.Result{}, err
 		}
 		request, found = FindSR(specialresources.Items, parent, "Name")
@@ -92,7 +87,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 
 	pchart, err := r.Helmer.Load(r.parent.Spec.Chart)
 	if err != nil {
-		r.operatorStatusUpdate(ctx, &r.parent, fmt.Sprintf("%v", err))
+		r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
 		return reconcile.Result{}, err
 	}
 
@@ -115,7 +110,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 			Name:      "special-resource-dependencies",
 		}
 		if err = r.Storage.UpdateConfigMapEntry(ctx, r.dependency.Name, r.parent.Name, ins); err != nil {
-			r.operatorStatusUpdate(ctx, &r.parent, fmt.Sprintf("%v", err))
+			r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
 			return reconcile.Result{}, err
 		}
 
@@ -133,7 +128,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		if err := ReconcileSpecialResourceChart(ctx, r, child, cchart, r.dependency.Set); err != nil {
 			// We do not want a stacktrace here, errors.Wrap already created
 			// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
-			r.operatorStatusUpdate(ctx, &child, fmt.Sprintf("%v", err))
+			r.StatusUpdater.UpdateWithState(ctx, &child, fmt.Sprintf("%v", err))
 			log.Error(err, "RECONCILE REQUEUE: Could not reconcile chart")
 			//return reconcile.Result{}, errors.New("Reconciling failed")
 			return reconcile.Result{Requeue: true}, nil
@@ -145,7 +140,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 	if err := ReconcileSpecialResourceChart(ctx, r, r.parent, pchart, r.parent.Spec.Set); err != nil {
 		// We do not want a stacktrace here, errors.Wrap already created
 		// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
-		r.operatorStatusUpdate(ctx, &r.parent, fmt.Sprintf("%v", err))
+		r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
 		log.Error(err, "RECONCILE REQUEUE: Could not reconcile chart")
 		//return reconcile.Result{}, errors.New("Reconciling failed")
 		return reconcile.Result{Requeue: true}, nil
