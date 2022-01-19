@@ -182,7 +182,7 @@ func (p *pollActions) forPod(ctx context.Context, obj *unstructured.Unstructured
 	if err := p.forResourceAvailability(ctx, obj); err != nil {
 		return err
 	}
-	callback := makeStatusCallback(obj, "Succeeded", "status", "phase")
+	callback := makeStatusCallback("Succeeded", "status", "phase")
 	return p.forResourceFullAvailability(ctx, obj, callback)
 }
 
