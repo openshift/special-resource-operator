@@ -24,6 +24,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/cmd/leaderelection"
 	"github.com/openshift-psap/special-resource-operator/controllers"
 	"github.com/openshift-psap/special-resource-operator/internal/controllers/finalizers"
+	"github.com/openshift-psap/special-resource-operator/internal/controllers/state"
 	"github.com/openshift-psap/special-resource-operator/pkg/assets"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
@@ -112,20 +113,22 @@ func main() {
 		proxyAPI)
 
 	if err = (&controllers.SpecialResourceReconciler{Cluster: clusterCluster,
-		ClusterInfo: upgrade.NewClusterInfo(registry.NewRegistry(kubeClient), clusterCluster),
-		Creator:     creator,
-		PollActions: pollActions,
-		Filter:      filter.NewFilter(lc, st, kernelData),
-		Finalizer:   finalizers.NewSpecialResourceFinalizer(kubeClient, pollActions),
-		Storage:     st,
-		Helmer:      helmer.NewHelmer(creator, helmer.DefaultSettings(), kubeClient),
-		Assets:      assets.NewAssets(),
-		KernelData:  kernelData,
-		Log:         ctrl.Log,
-		Metrics:     metricsClient,
-		Scheme:      scheme,
-		ProxyAPI:    proxyAPI,
-		KubeClient:  kubeClient,
+		ClusterInfo:            upgrade.NewClusterInfo(registry.NewRegistry(kubeClient), clusterCluster),
+		ClusterOperatorManager: state.NewClusterOperatorManager(kubeClient, "special-resource-operator"),
+		Creator:                creator,
+		PollActions:            pollActions,
+		Filter:                 filter.NewFilter(lc, st, kernelData),
+		Finalizer:              finalizers.NewSpecialResourceFinalizer(kubeClient, pollActions),
+		StatusUpdater:          state.NewStatusUpdater(kubeClient),
+		Storage:                st,
+		Helmer:                 helmer.NewHelmer(creator, helmer.DefaultSettings(), kubeClient),
+		Assets:                 assets.NewAssets(),
+		KernelData:             kernelData,
+		Log:                    ctrl.Log,
+		Metrics:                metricsClient,
+		Scheme:                 scheme,
+		ProxyAPI:               proxyAPI,
+		KubeClient:             kubeClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
 		os.Exit(1)

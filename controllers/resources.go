@@ -249,7 +249,7 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		r.Metrics.SetCompletedState(r.specialresource.Name, stateYAML.Name, 1)
 		// If resource available, label the nodes according to the current state
 		// if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
-		r.operatorStatusUpdate(ctx, &r.specialresource, state.CurrentName)
+		r.StatusUpdater.UpdateWithState(ctx, &r.specialresource, state.CurrentName)
 
 		if err := r.labelNodesAccordingToState(ctx, r.specialresource.Spec.NodeSelector); err != nil {
 			return err
