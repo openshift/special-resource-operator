@@ -182,7 +182,7 @@ func (p *pollActions) forPod(ctx context.Context, obj *unstructured.Unstructured
 	if err := p.forResourceAvailability(ctx, obj); err != nil {
 		return err
 	}
-	callback := makeStatusCallback(obj, "Succeeded", "status", "phase")
+	callback := makeStatusCallback("Succeeded", "status", "phase")
 	return p.forResourceFullAvailability(ctx, obj, callback)
 }
 
@@ -428,7 +428,7 @@ func (p *pollActions) forBuild(ctx context.Context, obj *unstructured.Unstructur
 	}
 
 	for _, build := range builds.Items {
-		callback := makeStatusCallback(&build, "Complete", "status", "phase")
+		callback := makeStatusCallback("Complete", "status", "phase")
 		if err := p.forResourceFullAvailability(ctx, &build, callback); err != nil {
 			return err
 		}
