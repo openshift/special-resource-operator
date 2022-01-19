@@ -24,7 +24,6 @@ COPY controllers/ controllers/
 COPY internal/ internal/
 COPY pkg/ pkg/
 COPY charts/ charts/
-COPY config/ config/
 
 RUN ["make", "helm-repo-index", "manager", "helm-plugins/cm-getter/cm-getter"]
 
@@ -39,7 +38,6 @@ ENV HELM_PLUGINS /opt/helm-plugins
 COPY --from=builder /workspace/manager /manager
 COPY --from=builder /workspace/helm-plugins ${HELM_PLUGINS}
 COPY --from=builder /workspace/build/charts /charts
-COPY --from=builder /workspace/config /config
 
 RUN useradd  -r -u 499 nonroot
 RUN getent group nonroot || groupadd -o -g 499 nonroot
