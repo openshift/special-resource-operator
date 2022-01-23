@@ -42,7 +42,7 @@ type pollActions struct {
 	waitFor    map[string]func(context.Context, *unstructured.Unstructured) error
 }
 
-const (
+var (
 	retryInterval = time.Second * 5
 	timeout       = time.Second * 30
 )
@@ -233,11 +233,11 @@ func (p *pollActions) forDeployment(ctx context.Context, obj *unstructured.Unstr
 				return false, nil
 			}
 			repls := status["replicas"].(int64)
-			_, okAvailableReplicas := status["availableReplicas"]
 			if repls == 0 {
 				p.log.Info("ReplicaSet scheduled for termination", "name", rs.GetName())
 				continue
 			}
+			_, okAvailableReplicas := status["availableReplicas"]
 			if !okAvailableReplicas {
 				return false, nil
 			}
@@ -457,11 +457,12 @@ func (p *pollActions) forResourceFullAvailability(ctx context.Context, obj *unst
 	return wait.Poll(retryInterval, timeout, func() (bool, error) {
 		err := p.kubeClient.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
 		if err != nil {
-			p.log.Error(err, "")
+			p.log.Error(err, "failed to get an object", "name", obj.GetName(), "namespace", obj.GetNamespace())
 			return false, err
 		}
 		fnd, err := callback(ctx, found)
 		if err != nil {
+			p.log.Error(err, "callback failed", "name", obj.GetName(), "namespace", obj.GetNamespace())
 			return fnd, err
 		}
 
@@ -522,7 +523,7 @@ func (p *pollActions) ForDaemonSetLogs(ctx context.Context, obj *unstructured.Un
 
 		cutoff := 100
 		if buf.Len() <= 100 {
-			cutoff = 0
+			cutoff = buf.Len()
 		}
 
 		logs := buf.String()
