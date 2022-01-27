@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/yaml"
 
+	"github.com/openshift-psap/special-resource-operator/internal/resourcehelper"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
@@ -51,6 +52,7 @@ type creator struct {
 	kernelData    kernel.KernelData
 	proxyAPI      proxy.ProxyAPI
 	scheme        *runtime.Scheme
+	helper        resourcehelper.Helper
 }
 
 func NewCreator(
@@ -61,6 +63,7 @@ func NewCreator(
 	scheme *runtime.Scheme,
 	lc lifecycle.Lifecycle,
 	proxyAPI proxy.ProxyAPI,
+	resHelper resourcehelper.Helper,
 ) Creator {
 	return &creator{
 		kubeClient:    kubeClient,
@@ -71,6 +74,7 @@ func NewCreator(
 		kernelData:    kernelData,
 		scheme:        scheme,
 		proxyAPI:      proxyAPI,
+		helper:        resHelper,
 	}
 }
 
@@ -160,7 +164,7 @@ func (c *creator) CreateFromYAML(
 func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object, name string, namespace string) error {
 
 	var logg logr.Logger
-	if IsNamespaced(obj.GetKind()) {
+	if c.helper.IsNamespaced(obj.GetKind()) {
 		logg = c.log.WithValues("Kind", obj.GetKind()+": "+obj.GetNamespace()+"/"+obj.GetName())
 	} else {
 		logg = c.log.WithValues("Kind", obj.GetKind()+": "+obj.GetName())
@@ -173,7 +177,7 @@ func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, rele
 			return err
 		}
 
-		SetMetaData(obj, name, namespace)
+		c.helper.SetMetaData(obj, name, namespace)
 	}
 
 	found := obj.DeepCopy()
@@ -183,7 +187,7 @@ func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, rele
 	err := c.kubeClient.Get(ctx, key, found)
 
 	if apierrors.IsNotFound(err) {
-		oneTimer, err := IsOneTimer(obj)
+		oneTimer, err := c.helper.IsOneTimer(obj)
 		if err != nil {
 			return fmt.Errorf("could not determine if the object is a one-timer: %w", err)
 		}
@@ -208,7 +212,7 @@ func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, rele
 			return fmt.Errorf("could not set the owner reference: %w", err)
 		}
 
-		SetMetaData(obj, name, namespace)
+		c.helper.SetMetaData(obj, name, namespace)
 
 		if err = c.kubeClient.Create(ctx, obj); err != nil {
 			if apierrors.IsForbidden(err) {
@@ -231,7 +235,7 @@ func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, rele
 
 	// Not updating Pod because we can only update image and some other
 	// specific minor fields.
-	if IsNotUpdateable(obj.GetKind()) {
+	if c.helper.IsNotUpdateable(obj.GetKind()) {
 		logg.Info("Not Updateable", "Resource", obj.GetKind())
 		return nil
 	}
@@ -255,7 +259,7 @@ func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, rele
 	// required.ResourceVersion = found.ResourceVersion this is only needed
 	// before we update a resource, we do not care when creating, hence
 	// !leave this here!
-	if err = UpdateResourceVersion(required, found); err != nil {
+	if err = c.helper.UpdateResourceVersion(required, found); err != nil {
 		return fmt.Errorf("couldn't Update ResourceVersion: %w", err)
 	}
 
@@ -363,7 +367,7 @@ func (c *creator) createObjFromYAML(
 	}
 
 	//  Do not override the namespace if already set
-	if IsNamespaced(obj.GetKind()) && obj.GetNamespace() == "" {
+	if c.helper.IsNamespaced(obj.GetKind()) && obj.GetNamespace() == "" {
 		c.log.Info("Namespace empty settting", "namespace", namespace)
 		obj.SetNamespace(namespace)
 	}
@@ -379,7 +383,7 @@ func (c *creator) createObjFromYAML(
 	// We used this for predicate filtering, we're watching a lot of
 	// API Objects we want to ignore all objects that do not have this
 	// label.
-	if err = SetLabel(obj); err != nil {
+	if err = c.helper.SetLabel(obj, filter.OwnedLabel); err != nil {
 		return fmt.Errorf("could not set label: %w", err)
 	}
 	// kernel affinity related attributes only set if there is an
@@ -392,7 +396,7 @@ func (c *creator) createObjFromYAML(
 
 	// Add nodeSelector terms defined for the specialresource CR to the object
 	// we do not want to spread HW enablement stacks on all nodes
-	if err = SetNodeSelectorTerms(obj, nodeSelector); err != nil {
+	if err = c.helper.SetNodeSelectorTerms(obj, nodeSelector); err != nil {
 		return fmt.Errorf("setting NodeSelectorTerms failed: %w", err)
 	}
 
@@ -480,168 +484,6 @@ func (c *creator) sendNodesMetrics(ctx context.Context, obj *unstructured.Unstru
 	}
 }
 
-func IsNamespaced(kind string) bool {
-	if kind == "Namespace" ||
-		kind == "ClusterRole" ||
-		kind == "ClusterRoleBinding" ||
-		kind == "SecurityContextConstraint" ||
-		kind == "SpecialResource" {
-		return false
-	}
-	return true
-}
-
-func IsNotUpdateable(kind string) bool {
-	// ServiceAccounts cannot be updated, maybe delete and create?
-	if kind == "ServiceAccount" || kind == "Pod" {
-		return true
-	}
-	return false
-}
-
-// Some resources need an updated resourceversion, during updates
-func NeedsResourceVersionUpdate(kind string) bool {
-	if kind == "SecurityContextConstraints" ||
-		kind == "Service" ||
-		kind == "ServiceMonitor" ||
-		kind == "Route" ||
-		kind == "Build" ||
-		kind == "BuildRun" ||
-		kind == "BuildConfig" ||
-		kind == "ImageStream" ||
-		kind == "PrometheusRule" ||
-		kind == "CSIDriver" ||
-		kind == "Issuer" ||
-		kind == "CustomResourceDefinition" ||
-		kind == "Certificate" ||
-		kind == "SpecialResource" ||
-		kind == "OperatorGroup" ||
-		kind == "CertManager" ||
-		kind == "MutatingWebhookConfiguration" ||
-		kind == "ValidatingWebhookConfiguration" ||
-		kind == "Deployment" ||
-		kind == "ImagePolicy" {
-		return true
-	}
-	return false
-
-}
-
-func UpdateResourceVersion(req *unstructured.Unstructured, found *unstructured.Unstructured) error {
-
-	kind := found.GetKind()
-
-	if NeedsResourceVersionUpdate(kind) {
-		version, fnd, err := unstructured.NestedString(found.Object, "metadata", "resourceVersion")
-		if err != nil || !fnd {
-			return fmt.Errorf("error or resourceVersion not found: %w", err)
-		}
-
-		if err = unstructured.SetNestedField(req.Object, version, "metadata", "resourceVersion"); err != nil {
-			return fmt.Errorf("couldn't update ResourceVersion: %w", err)
-		}
-
-	}
-	if kind == "Service" {
-		clusterIP, fnd, err := unstructured.NestedString(found.Object, "spec", "clusterIP")
-		if err != nil || !fnd {
-			return fmt.Errorf("error or clusterIP not found: %w", err)
-		}
-
-		if err = unstructured.SetNestedField(req.Object, clusterIP, "spec", "clusterIP"); err != nil {
-			return fmt.Errorf("couldn't update clusterIP: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func SetNodeSelectorTerms(obj *unstructured.Unstructured, terms map[string]string) error {
-
-	if strings.Compare(obj.GetKind(), "DaemonSet") == 0 ||
-		strings.Compare(obj.GetKind(), "Deployment") == 0 ||
-		strings.Compare(obj.GetKind(), "Statefulset") == 0 { // TODO(qbarrand) should this be StatefulSet?
-		if err := nodeSelectorTerms(terms, obj, "spec", "template", "spec", "nodeSelector"); err != nil {
-			return fmt.Errorf("cannot setup %s nodeSelector: %w", obj.GetKind(), err)
-		}
-	}
-	if strings.Compare(obj.GetKind(), "Pod") == 0 {
-		if err := nodeSelectorTerms(terms, obj, "spec", "nodeSelector"); err != nil {
-			return fmt.Errorf("cannot setup Pod nodeSelector: %w", err)
-		}
-	}
-	if strings.Compare(obj.GetKind(), "BuildConfig") == 0 {
-		if err := nodeSelectorTerms(terms, obj, "spec", "nodeSelector"); err != nil {
-			return fmt.Errorf("cannot setup BuildConfig nodeSelector: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func nodeSelectorTerms(terms map[string]string, obj *unstructured.Unstructured, fields ...string) error {
-
-	nodeSelector, found, err := unstructured.NestedMap(obj.Object, fields...)
-	if err != nil {
-		return err
-	}
-
-	if !found {
-		nodeSelector = make(map[string]interface{})
-	}
-
-	for k, v := range terms {
-		nodeSelector[k] = v
-	}
-
-	if err = unstructured.SetNestedMap(obj.Object, nodeSelector, fields...); err != nil {
-		return fmt.Errorf("cannot update nodeSelector for %s : %w", obj.GetName(), err)
-	}
-
-	return nil
-}
-
-func IsOneTimer(obj *unstructured.Unstructured) (bool, error) {
-
-	// We are not recreating Pods that have restartPolicy: Never
-	if obj.GetKind() == "Pod" {
-		restartPolicy, found, err := unstructured.NestedString(obj.Object, "spec", "restartPolicy")
-		if err != nil || !found {
-			return false, fmt.Errorf("error or restartPolicy not found: %w", err)
-		}
-
-		if restartPolicy == "Never" {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-func SetMetaData(obj *unstructured.Unstructured, nm string, ns string) {
-
-	annotations := obj.GetAnnotations()
-
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-
-	annotations["meta.helm.sh/release-name"] = nm
-	annotations["meta.helm.sh/release-namespace"] = ns
-
-	obj.SetAnnotations(annotations)
-
-	labels := obj.GetLabels()
-
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-
-	labels["app.kubernetes.io/managed-by"] = "Helm"
-
-	obj.SetLabels(labels)
-}
-
 func (c *creator) BeforeCRUD(obj *unstructured.Unstructured, sr interface{}) error {
 
 	var found bool
@@ -663,65 +505,5 @@ func (c *creator) BeforeCRUD(obj *unstructured.Unstructured, sr interface{}) err
 			return fmt.Errorf("could not run prefix callback: %w", err)
 		}
 	}
-	return nil
-}
-
-func SetLabel(obj *unstructured.Unstructured) error {
-
-	var labels map[string]string
-
-	if labels = obj.GetLabels(); labels == nil {
-		labels = make(map[string]string)
-	}
-
-	labels[filter.OwnedLabel] = "true"
-	obj.SetLabels(labels)
-
-	return setSubResourceLabel(obj)
-}
-
-func setSubResourceLabel(obj *unstructured.Unstructured) error {
-
-	if obj.GetKind() == "DaemonSet" || obj.GetKind() == "Deployment" ||
-		obj.GetKind() == "StatefulSet" {
-
-		labels, found, err := unstructured.NestedMap(obj.Object, "spec", "template", "metadata", "labels")
-		if err != nil {
-			return err
-		}
-		if !found {
-			return errors.New("Labels not found")
-		}
-
-		labels[filter.OwnedLabel] = "true"
-		if err := unstructured.SetNestedMap(obj.Object, labels, "spec", "template", "metadata", "labels"); err != nil {
-			return err
-		}
-	}
-
-	// TODO: how to set label ownership for Builds and related Pods
-	/*
-		if obj.GetKind() == "BuildConfig" {
-			output, found, err := unstructured.NestedMap(obj.Object, "spec", "output")
-			if err != nil {
-				return err
-			}
-			if !found {
-				return errors.New("output not found")
-			}
-
-			label := make(map[string]interface{})
-			label["name"] = filter.OwnedLabel
-			label["value"] = "true"
-			imageLabels := append(make([]interface{}, 0), label)
-
-			if _, found := output["imageLabels"]; !found {
-				err := unstructured.SetNestedSlice(obj.Object, imageLabels, "spec", "output", "imageLabels")
-				if err != nil {
-					return err
-				}
-			}
-		}
-	*/
 	return nil
 }
