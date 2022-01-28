@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"os"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
@@ -40,6 +41,7 @@ import (
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -62,11 +64,12 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-func main() {
+// run is the main entrypoint of the application.
+// This needs to be separate from main because it uses defer, which is ignored by os.Exit.
+func run() (err error) {
 	cl, err := cli.ParseCommandLine(os.Args[0], os.Args[1:])
 	if err != nil {
-		setupLog.Error(err, "could not parse command-line arguments")
-		os.Exit(1)
+		return fmt.Errorf("could not parse command-line arguments: %v", err)
 	}
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
@@ -84,19 +87,16 @@ func main() {
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), *opts)
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
+		return fmt.Errorf("unable to create a new manager: %v", err)
 	}
 
 	kubeClient, err := clients.NewClients(mgr.GetClient(), mgr.GetConfig(), mgr.GetEventRecorderFor("specialresource"))
 	if err != nil {
-		setupLog.Error(err, "unable to create k8s clients")
-		os.Exit(1)
+		return fmt.Errorf("unable to create k8s clients: %v", err)
 	}
+
 	clusterCluster := cluster.NewCluster(kubeClient)
-
 	metricsClient := metrics.New()
-
 	st := storage.NewStorage(kubeClient)
 	lc := lifecycle.New(kubeClient, st)
 	pollActions := poll.New(kubeClient, lc, st)
@@ -112,9 +112,19 @@ func main() {
 		lc,
 		proxyAPI)
 
+	com := state.NewClusterOperatorManager(kubeClient, "openshift-special-resource-operator")
+
+	ctx := ctrl.SetupSignalHandler()
+
+	defer func() {
+		if comErr := com.Refresh(ctx, utils.EndConditions(err)); comErr != nil {
+			err = fmt.Errorf("could not set the final ClusterOperator status: %v, base error: %v", comErr, err)
+		}
+	}()
+
 	if err = (&controllers.SpecialResourceReconciler{Cluster: clusterCluster,
 		ClusterInfo:            upgrade.NewClusterInfo(registry.NewRegistry(kubeClient), clusterCluster),
-		ClusterOperatorManager: state.NewClusterOperatorManager(kubeClient, "special-resource-operator"),
+		ClusterOperatorManager: com,
 		Creator:                creator,
 		PollActions:            pollActions,
 		Filter:                 filter.NewFilter(lc, st, kernelData),
@@ -130,14 +140,26 @@ func main() {
 		ProxyAPI:               proxyAPI,
 		KubeClient:             kubeClient,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
-		os.Exit(1)
+		return fmt.Errorf("could not create the controller: %v", err)
 	}
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
+
+	if err = com.Refresh(ctx, utils.AvailableNotProgressingNotDegraded()); err != nil {
+		return fmt.Errorf("could not set the initial ClusterOperator status: %v", err)
+	}
+
+	if err = mgr.Start(ctx); err != nil {
+		return fmt.Errorf("problem running the manager: %v", err)
+	}
+
+	return nil
+}
+
+func main() {
+	if err := run(); err != nil {
+		setupLog.Error(err, "Error running the manager")
 		os.Exit(1)
 	}
 }

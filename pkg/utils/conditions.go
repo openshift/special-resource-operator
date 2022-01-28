@@ -35,6 +35,36 @@ func AvailableNotProgressingNotDegraded() []configv1.ClusterOperatorStatusCondit
 	}
 }
 
+func EndConditions(err error) []configv1.ClusterOperatorStatusCondition {
+	now := metav1.Now()
+
+	conds := []configv1.ClusterOperatorStatusCondition{
+		{
+			Type:               configv1.OperatorAvailable,
+			Status:             configv1.ConditionFalse,
+			LastTransitionTime: metav1.Now(),
+		},
+		{
+			Type:               configv1.OperatorProgressing,
+			Status:             configv1.ConditionFalse,
+			LastTransitionTime: metav1.Now(),
+		},
+	}
+
+	degraded := configv1.ClusterOperatorStatusCondition{
+		Type:               configv1.OperatorDegraded,
+		Status:             configv1.ConditionFalse,
+		LastTransitionTime: now,
+	}
+
+	if err != nil {
+		degraded.Status = configv1.ConditionTrue
+		degraded.Message = err.Error()
+	}
+
+	return append(conds, degraded)
+}
+
 // NotAvailableProgressingNotDegraded NotAvailableProgressingNotDegraded
 func NotAvailableProgressingNotDegraded(
 	msgAvailable string,
