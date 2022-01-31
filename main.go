@@ -21,7 +21,6 @@ import (
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/cmd/cli"
-	"github.com/openshift-psap/special-resource-operator/cmd/leaderelection"
 	"github.com/openshift-psap/special-resource-operator/controllers"
 	"github.com/openshift-psap/special-resource-operator/internal/controllers/finalizers"
 	"github.com/openshift-psap/special-resource-operator/internal/controllers/state"
@@ -72,14 +71,11 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
 	opts := &ctrl.Options{
+		LeaderElection:     cl.EnableLeaderElection,
+		LeaderElectionID:   "sro.sigs.k8s.io",
 		MetricsBindAddress: cl.MetricsAddr,
 		Port:               9443,
 		Scheme:             scheme,
-	}
-
-	if cl.EnableLeaderElection {
-		opts.LeaderElection = cl.EnableLeaderElection
-		opts = leaderelection.ApplyOpenShiftOptions(opts)
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), *opts)
