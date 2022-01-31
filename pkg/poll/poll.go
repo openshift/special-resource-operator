@@ -427,14 +427,27 @@ func (p *pollActions) forBuild(ctx context.Context, obj *unstructured.Unstructur
 		return errors.Wrap(err, "Could not get BuildList")
 	}
 
-	for _, build := range builds.Items {
-		callback := makeStatusCallback("Complete", "status", "phase")
-		if err := p.forResourceFullAvailability(ctx, &build, callback); err != nil {
+	var build *unstructured.Unstructured
+	for _, b := range builds.Items {
+		slice, _, err := unstructured.NestedSlice(b.Object, "metadata", "ownerReferences")
+		if err != nil {
 			return err
 		}
+		for _, element := range slice {
+			if name, ok := element.(map[string]interface{})["name"]; ok && name == obj.GetName() {
+				build = &b
+				break
+			}
+		}
+		if build != nil {
+			break
+		}
 	}
-
-	return nil
+	if build == nil {
+		return errors.New("Build object not yet available")
+	}
+	callback := makeStatusCallback("Complete", "status", "phase")
+	return p.forResourceFullAvailability(ctx, build, callback)
 }
 
 func (p *pollActions) forResourceFullAvailability(ctx context.Context, obj *unstructured.Unstructured, callback statusCallback) error {
