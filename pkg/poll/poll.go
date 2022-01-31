@@ -446,8 +446,9 @@ func (p *pollActions) forBuild(ctx context.Context, obj *unstructured.Unstructur
 	if build == nil {
 		return errors.New("Build object not yet available")
 	}
-	callback := makeStatusCallback(build, "Complete", "status", "phase")
-	return ForResourceFullAvailability(build, callback)
+
+	callback := makeStatusCallback("Complete", "status", "phase")
+	return p.forResourceFullAvailability(ctx, build, callback)
 }
 
 func (p *pollActions) forResourceFullAvailability(ctx context.Context, obj *unstructured.Unstructured, callback statusCallback) error {
