@@ -411,14 +411,27 @@ func ForBuild(obj *unstructured.Unstructured) error {
 		return errors.Wrap(err, "Could not get BuildList")
 	}
 
-	for _, build := range builds.Items {
-		callback := makeStatusCallback(&build, "Complete", "status", "phase")
-		if err := ForResourceFullAvailability(&build, callback); err != nil {
+	var build *unstructured.Unstructured
+	for _, b := range builds.Items {
+		slice, _, err := unstructured.NestedSlice(b.Object, "metadata", "ownerReferences")
+		if err != nil {
 			return err
 		}
+		for _, element := range slice {
+			if element.(map[string]interface{})["name"] == obj.GetName() {
+				build = &b
+				break
+			}
+		}
+		if build != nil {
+			break
+		}
 	}
-
-	return nil
+	if build == nil {
+		return errors.New("Build object not yet available")
+	}
+	callback := makeStatusCallback(build, "Complete", "status", "phase")
+	return ForResourceFullAvailability(build, callback)
 }
 
 func ForResourceFullAvailability(obj *unstructured.Unstructured, callback statusCallback) error {
