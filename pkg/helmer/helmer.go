@@ -6,19 +6,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
-	"github.com/openshift-psap/special-resource-operator/pkg/slice"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -29,82 +24,94 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 	helmtime "helm.sh/helm/v3/pkg/time"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-var (
-	log      logr.Logger
-	settings *cli.EnvSettings
-	// http, oci, and patched for file:////
-	getterProviders getter.Providers
-	repoFile        = repo.File{
-		APIVersion:   "",
-		Generated:    time.Time{},
-		Repositories: []*repo.Entry{},
-	}
+func DefaultSettings() *cli.EnvSettings {
+	s := cli.New()
 
-	ActionConfig *action.Configuration
-)
+	s.RepositoryConfig = "/cache/helm/repositories/config.yaml"
+	s.RepositoryCache = "/cache/helm/cache"
+	s.Debug = true
+	s.MaxHistory = 10
 
-func init() {
-	log = zap.New(zap.UseDevMode(true)).WithName(color.Print("helmer", color.Blue))
-
-	OpenShiftInstallOrder()
-
-	settings = cli.New()
-
-	// cli.EnvSettings{
-	//	KubeConfig:       "",
-	//	KubeContext:      "",
-	//	KubeToken:        "",
-	//	KubeAsUser:       "",
-	//	KubeAsGroups:     []string{},
-	//	KubeAPIServer:    "",
-	//	KubeCaFile:       "",
-	//	Debug:            false,
-	//	RegistryConfig:   "",
-	//	RepositoryConfig: "",
-	//	RepositoryCache:  "",
-	//	PluginsDirectory: "",
-	//	MaxHistory:       0,
-	// }
-
-	settings.RepositoryConfig = "/cache/helm/repositories/config.yaml"
-	settings.RepositoryCache = "/cache/helm/cache"
-	settings.Debug = true
-	settings.MaxHistory = 10
-
-	getterProviders = getter.All(settings)
-
+	return s
 }
 
-func AddorUpdateRepo(entry *repo.Entry) error {
+func OpenShiftInstallOrder() {
+	// Mutates helm package exported variables
+	idx := utils.StringSliceFind(releaseutil.InstallOrder, "Service")
+	releaseutil.InstallOrder = utils.StringSliceInsert(releaseutil.InstallOrder, idx, "BuildConfig")
+	releaseutil.InstallOrder = utils.StringSliceInsert(releaseutil.InstallOrder, idx, "ImageStream")
+	releaseutil.InstallOrder = utils.StringSliceInsert(releaseutil.InstallOrder, idx, "SecurityContextConstraints")
+	releaseutil.InstallOrder = utils.StringSliceInsert(releaseutil.InstallOrder, idx, "Issuer")
+	releaseutil.InstallOrder = utils.StringSliceInsert(releaseutil.InstallOrder, idx, "Certificates")
+}
 
-	chartRepo, err := repo.NewChartRepository(entry, getterProviders)
+type Helmer interface {
+	Load(helmerv1beta1.HelmChart) (*chart.Chart, error)
+	Run(context.Context, chart.Chart, map[string]interface{}, v1.Object, string, string, map[string]string, string, string, bool) error
+}
+
+type helmer struct {
+	actionConfig    *action.Configuration
+	creator         resource.Creator
+	getterProviders getter.Providers
+	log             logr.Logger
+	kubeClient      clients.ClientsInterface
+	repoFile        *repo.File
+	settings        *cli.EnvSettings
+}
+
+func NewHelmer(creator resource.Creator, settings *cli.EnvSettings, kubeClient clients.ClientsInterface) *helmer {
+	return &helmer{
+		creator:         creator,
+		getterProviders: getter.All(settings),
+		log:             zap.New(zap.UseDevMode(true)).WithName(utils.Print("helmer", utils.Blue)),
+		kubeClient:      kubeClient,
+		repoFile: &repo.File{
+			APIVersion:   "",
+			Generated:    time.Time{},
+			Repositories: []*repo.Entry{},
+		},
+		settings: settings,
+	}
+}
+
+func init() {
+	OpenShiftInstallOrder()
+}
+
+func (h *helmer) AddorUpdateRepo(entry *repo.Entry) error {
+
+	chartRepo, err := repo.NewChartRepository(entry, h.getterProviders)
 	if err != nil {
 		return fmt.Errorf("new chart repository failed: %w", err)
 
 	}
-	chartRepo.CachePath = settings.RepositoryCache
+	chartRepo.CachePath = h.settings.RepositoryCache
 
 	if _, err = chartRepo.DownloadIndexFile(); err != nil {
 		return fmt.Errorf("cannot find index.yaml for %s: %w", entry.URL, err)
 	}
 
-	if repoFile.Has(entry.Name) {
+	if h.repoFile.Has(entry.Name) {
 		return nil
 	}
 
-	repoFile.Update(entry)
+	h.repoFile.Update(entry)
 
-	if err = repoFile.WriteFile(settings.RepositoryConfig, 0644); err != nil {
-		return fmt.Errorf("could not wirte repository config %s: %w", settings.RepositoryConfig, err)
+	if err = h.repoFile.WriteFile(h.settings.RepositoryConfig, 0644); err != nil {
+		return fmt.Errorf("could not write repository config %s: %w", h.settings.RepositoryConfig, err)
 	}
 
 	return nil
 }
 
-func Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
+func (h *helmer) Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 
 	entry := &repo.Entry{
 		Name:                  spec.Repository.Name,
@@ -117,8 +124,8 @@ func Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 		InsecureSkipTLSverify: spec.Repository.InsecureSkipTLSverify,
 	}
 
-	if err := AddorUpdateRepo(entry); err != nil {
-		warn.OnError(err)
+	if err := h.AddorUpdateRepo(entry); err != nil {
+		utils.WarnOnError(err)
 		return nil, err
 	}
 
@@ -137,12 +144,12 @@ func Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 	act.Verify = false
 
 	repoChartName := entry.Name + "/" + spec.Name
-	log.Info("Locating", "chart", repoChartName)
+	h.log.Info("Locating", "chart", repoChartName)
 
 	var err error
 	var path string
 
-	if path, err = act.LocateChart(repoChartName, settings); err != nil {
+	if path, err = act.LocateChart(repoChartName, h.settings); err != nil {
 		return nil, fmt.Errorf("Could not locate chart %s: %w", repoChartName, err)
 	}
 
@@ -152,29 +159,56 @@ func Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 
 }
 
-func OpenShiftInstallOrder() {
-	// Mutates helm package exported variables
-	idx := slice.Find(releaseutil.InstallOrder, "Service")
-	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "BuildConfig")
-	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "ImageStream")
-	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "SecurityContextConstraints")
-	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "Issuer")
-	releaseutil.InstallOrder = slice.Insert(releaseutil.InstallOrder, idx, "Certificates")
-}
-
-func LogWrap(format string, v ...interface{}) {
+func (h *helmer) logWrap(format string, v ...interface{}) {
 	msg := fmt.Sprintf(format, v...)
-	log.Info("Helm", "internal", msg)
+	h.log.Info("Helm", "internal", msg)
 }
 
-func InstallCRDs(crds []chart.CRD, owner v1.Object, name string, namespace string) error {
+func (h *helmer) failRelease(rel *release.Release, err error) error {
+	rel.SetStatus(release.StatusFailed, fmt.Sprintf("Release %q failed: %s", rel.Name, err.Error()))
+	if e := h.actionConfig.Releases.Update(rel); e != nil {
+		return fmt.Errorf("unable to update release status: %w", e)
+	}
+	return err
+}
+
+func (h *helmer) deleteHookByPolicy(hook *release.Hook, policy release.HookDeletePolicy) error {
+	if hook.Kind == "CustomResourceDefinition" {
+		return nil
+	}
+	found := false
+	for _, v := range hook.DeletePolicies {
+		if policy == v {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil
+	}
+	resources, err := h.actionConfig.KubeClient.Build(bytes.NewBufferString(hook.Manifest), false)
+	if err != nil {
+		return fmt.Errorf("unable to build kubernetes object for deleting hook %s: %w", hook.Path, err)
+	}
+	_, errs := h.actionConfig.KubeClient.Delete(resources)
+	if len(errs) > 0 {
+		es := make([]string, 0, len(errs))
+		for _, e := range errs {
+			es = append(es, e.Error())
+		}
+		return fmt.Errorf("unable to delete hook resource %s: %s", hook.Path, strings.Join(es, "; "))
+	}
+	return nil
+}
+
+func (h *helmer) InstallCRDs(ctx context.Context, crds []chart.CRD, owner v1.Object, name string, namespace string) error {
 
 	var manifests bytes.Buffer
 
 	for _, crd := range crds {
 		fmt.Fprintf(&manifests, "---\n# Source: %s\n%s\n", crd.Filename, crd.File.Data)
 	}
-	if err := resource.CreateFromYAML([]byte(manifests.Bytes()),
+	if err := h.creator.CreateFromYAML(ctx, manifests.Bytes(),
 		false, owner, name, namespace, nil, "", ""); err != nil {
 		return err
 	}
@@ -182,7 +216,10 @@ func InstallCRDs(crds []chart.CRD, owner v1.Object, name string, namespace strin
 	return nil
 }
 
-func Run(ch chart.Chart, vals map[string]interface{},
+func (h *helmer) Run(
+	ctx context.Context,
+	ch chart.Chart,
+	vals map[string]interface{},
 	owner v1.Object,
 	name string,
 	namespace string,
@@ -191,16 +228,14 @@ func Run(ch chart.Chart, vals map[string]interface{},
 	operatingSystemMajorMinor string,
 	debug bool) error {
 
-	ActionConfig = new(action.Configuration)
+	h.actionConfig = new(action.Configuration)
 
-	err := ActionConfig.Init(settings.RESTClientGetter(), namespace, "configmaps", LogWrap)
+	err := h.actionConfig.Init(h.settings.RESTClientGetter(), namespace, "configmaps", h.logWrap)
 	if err != nil {
 		return fmt.Errorf("Cannot initialize helm action config: %w", err)
 	}
 
-	resource.HelmClient = ActionConfig.KubeClient
-
-	install := action.NewInstall(ActionConfig)
+	install := action.NewInstall(h.actionConfig)
 
 	install.DryRun = true
 	install.ReleaseName = ch.Metadata.Name
@@ -225,8 +260,8 @@ func Run(ch chart.Chart, vals map[string]interface{},
 	// contacts the upstream server and builds the capabilities object.
 	if crds := ch.CRDObjects(); !install.ClientOnly && !install.SkipCRDs && len(crds) > 0 {
 
-		log.Info("Release CRDs")
-		err := InstallCRDs(crds, owner, install.ReleaseName, install.Namespace)
+		h.log.Info("Release CRDs")
+		err := h.InstallCRDs(ctx, crds, owner, install.ReleaseName, install.Namespace)
 		if err != nil {
 			return fmt.Errorf("Cannot install CRDs: %w", err)
 		}
@@ -234,7 +269,7 @@ func Run(ch chart.Chart, vals map[string]interface{},
 
 	rel, err := install.Run(&ch, vals)
 	if err != nil {
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		return err
 	}
 
@@ -243,47 +278,36 @@ func Run(ch chart.Chart, vals map[string]interface{},
 		if err != nil {
 			return err
 		}
-
-		fmt.Printf("--------------------------------------------------------------------------------\n")
-		fmt.Printf("\"%s\"\n", json)
-		fmt.Printf("--------------------------------------------------------------------------------\n")
-		fmt.Printf("\"%s\"\n", rel.Manifest)
-		fmt.Printf("--------------------------------------------------------------------------------\n")
+		h.log.Info("Debug active. Showing manifests", "json", json, "manifest", rel.Manifest)
 		for _, hook := range rel.Hooks {
-			fmt.Printf("%s\n", hook.Manifest)
-		}
-		fmt.Printf("--------------------------------------------------------------------------------\n")
-	}
-	// If Replace is true, we need to supercede the last release.
-	if install.Replace {
-		if err := install.ReplaceRelease(rel); err != nil {
-			return err
+			h.log.Info("Debug active. Showing hooks", "name", hook.Name, "manifest", hook.Manifest)
 		}
 	}
 
 	// Store the release in history before continuing (new in Helm 3). We always know
 	// that this is a create operation.
-	if err := ActionConfig.Releases.Create(rel); err != nil {
+	if err = h.actionConfig.Releases.Create(rel); err != nil {
 		// We could try to recover gracefully here, but since nothing has been installed
 		// yet, this is probably safer than trying to continue when we know storage is
 		// not working.
-		warn.OnError(err)
+		utils.WarnOnError(err)
 		//return err
 	}
 
-	log.Info("Release pre-install hooks")
+	h.log.Info("Release pre-install hooks")
 	// pre-install hooks
 	if !install.DisableHooks {
-		if err := ExecHook(rel, release.HookPreInstall, install.Timeout, owner, name, namespace); err != nil {
-			_, err := install.FailRelease(rel, fmt.Errorf("failed pre-install: %s", err))
-			return err
+		if err := h.ExecHook(ctx, rel, release.HookPreInstall, owner, name, namespace); err != nil {
+			return h.failRelease(rel, fmt.Errorf("failed pre-install: %s", err))
 		}
 
 	}
 
-	log.Info("Release manifests")
-	err = resource.CreateFromYAML([]byte(rel.Manifest),
-		ReleaseInstalled(name),
+	h.log.Info("Release manifests")
+	err = h.creator.CreateFromYAML(
+		ctx,
+		[]byte(rel.Manifest),
+		h.ReleaseInstalled(name),
 		owner,
 		name,
 		namespace,
@@ -292,16 +316,13 @@ func Run(ch chart.Chart, vals map[string]interface{},
 		operatingSystemMajorMinor)
 
 	if err != nil {
-		_, err := install.FailRelease(rel, err)
-		warn.OnError(err)
-		return err
+		return h.failRelease(rel, err)
 	}
 
-	log.Info("Release post-install hooks")
+	h.log.Info("Release post-install hooks")
 	if !install.DisableHooks {
-		if err := ExecHook(rel, release.HookPostInstall, install.Timeout, owner, name, namespace); err != nil {
-			_, err := install.FailRelease(rel, fmt.Errorf("failed post-install: %s", err))
-			return err
+		if err := h.ExecHook(ctx, rel, release.HookPostInstall, owner, name, namespace); err != nil {
+			return h.failRelease(rel, fmt.Errorf("failed post-install: %s", err))
 		}
 	}
 
@@ -311,8 +332,8 @@ func Run(ch chart.Chart, vals map[string]interface{},
 		rel.SetStatus(release.StatusDeployed, "Install complete")
 	}
 
-	if err := install.RecordRelease(rel); err != nil {
-		warn.OnError(fmt.Errorf("failed to record the release: %w", err))
+	if err := h.actionConfig.Releases.Update(rel); err != nil {
+		return err
 	}
 
 	return nil
@@ -330,7 +351,7 @@ func (x hookByWeight) Less(i, j int) bool {
 	return x[i].Weight < x[j].Weight
 }
 
-func ExecHook(rl *release.Release, hook release.HookEvent, timeout time.Duration, owner v1.Object, name string, namespace string) error {
+func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release.HookEvent, owner v1.Object, name string, namespace string) error {
 
 	obj := unstructured.Unstructured{}
 	obj.SetKind("ConfigMap")
@@ -342,15 +363,15 @@ func ExecHook(rl *release.Release, hook release.HookEvent, timeout time.Duration
 
 	key := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
 
-	if err := clients.Interface.Get(context.TODO(), key, found); err != nil {
+	if err := h.kubeClient.Get(ctx, key, found); err != nil {
 
 		if apierrors.IsNotFound(err) {
-			log.Info("Hooks", string(hook), "NotReady (IsNotFound)")
+			h.log.Info("Hooks", string(hook), "NotReady (IsNotFound)")
 		} else {
 			return fmt.Errorf("Unexpected error getting hook cm %s: %w", hook, err)
 		}
 	} else {
-		log.Info("Hooks", string(hook), "Ready (Get)")
+		h.log.Info("Hooks", string(hook), "Ready (Get)")
 		return nil
 	}
 
@@ -367,56 +388,58 @@ func ExecHook(rl *release.Release, hook release.HookEvent, timeout time.Duration
 	// hooke are pre-ordered by kind, so keep order stable
 	sort.Stable(hookByWeight(hooks))
 
-	for _, h := range hooks {
+	for _, hk := range hooks {
 
-		if h.DeletePolicies == nil || len(h.DeletePolicies) == 0 {
-			h.DeletePolicies = []release.HookDeletePolicy{release.HookBeforeHookCreation}
+		if hk.DeletePolicies == nil || len(hk.DeletePolicies) == 0 {
+			hk.DeletePolicies = []release.HookDeletePolicy{release.HookBeforeHookCreation}
 		}
 
-		if err := ActionConfig.DeleteHookByPolicy(h, release.HookBeforeHookCreation); err != nil {
+		if err := h.deleteHookByPolicy(hk, release.HookBeforeHookCreation); err != nil {
 			return err
 		}
 
-		h.LastRun = release.HookExecution{
+		hk.LastRun = release.HookExecution{
 			StartedAt: helmtime.Now(),
 			Phase:     release.HookPhaseRunning,
 		}
-		ActionConfig.RecordRelease(rl)
+		if err := h.actionConfig.Releases.Update(rl); err != nil {
+			return fmt.Errorf("unable to update release status: %w", err)
+		}
 
 		// As long as the implementation of WatchUntilReady does not panic, HookPhaseFailed or HookPhaseSucceeded
 		// should always be set by this function. If we fail to do that for any reason, then HookPhaseUnknown is
 		// the most appropriate value to surface.
-		h.LastRun.Phase = release.HookPhaseUnknown
+		hk.LastRun.Phase = release.HookPhaseUnknown
 
-		if err := resource.CreateFromYAML([]byte(h.Manifest), false, owner, name, namespace, nil, "", ""); err != nil {
+		if err := h.creator.CreateFromYAML(ctx, []byte(hk.Manifest), false, owner, name, namespace, nil, "", ""); err != nil {
 
-			h.LastRun.CompletedAt = helmtime.Now()
-			h.LastRun.Phase = release.HookPhaseFailed
-			if err := ActionConfig.DeleteHookByPolicy(h, release.HookFailed); err != nil {
-				return fmt.Errorf("failed to delete hook by policy %s %s: %w", h.Name, h.Path, err)
+			hk.LastRun.CompletedAt = helmtime.Now()
+			hk.LastRun.Phase = release.HookPhaseFailed
+			if err := h.deleteHookByPolicy(hk, release.HookFailed); err != nil {
+				return fmt.Errorf("failed to delete hook by policy %s %s: %w", hk.Name, hk.Path, err)
 			}
-			return fmt.Errorf("hook execution failed %s %s: %w", h.Name, h.Path, err)
+			return fmt.Errorf("hook execution failed %s %s: %w", hk.Name, hk.Path, err)
 		}
 
 		// Watch hook resources until they have completed
 		//err = ActionConfig.KubeClient.WatchUntilReady(resources, timeout)
 		// Note the time of success/failure
-		h.LastRun.CompletedAt = helmtime.Now()
-		h.LastRun.Phase = release.HookPhaseSucceeded
+		hk.LastRun.CompletedAt = helmtime.Now()
+		hk.LastRun.Phase = release.HookPhaseSucceeded
 	}
 	// If all hooks are successful, check the annotation of each hook to determine whether the hook should be deleted
 	// under succeeded condition. If so, then clear the corresponding resource object in each hook
-	for _, h := range hooks {
-		if err := ActionConfig.DeleteHookByPolicy(h, release.HookSucceeded); err != nil {
+	for _, hk := range hooks {
+		if err := h.deleteHookByPolicy(hk, release.HookSucceeded); err != nil {
 			return err
 		}
 	}
 
-	if err := clients.Interface.Create(context.TODO(), &obj); err != nil {
-		log.Info(err.Error())
+	if err := h.kubeClient.Create(ctx, &obj); err != nil {
+		h.log.Error(err, "Could not create the ConfigMap")
 
 		if apierrors.IsAlreadyExists(err) {
-			log.Info("Hooks", string(hook), "Ready (IsAlreadyExists)")
+			h.log.Info("Hooks", string(hook), "Ready (IsAlreadyExists)")
 			return nil
 		}
 
@@ -425,18 +448,18 @@ func ExecHook(rl *release.Release, hook release.HookEvent, timeout time.Duration
 		}
 		return fmt.Errorf("Unexpected error creating hook cm %s: %w", hook, err)
 	}
-	log.Info("Hooks", string(hook), "Ready (Created)")
+	h.log.Info("Hooks", string(hook), "Ready (Created)")
 	return nil
 }
 
-func ReleaseInstalled(releaseName string) bool {
+func (h *helmer) ReleaseInstalled(releaseName string) bool {
 
-	h, err := ActionConfig.Releases.History(releaseName)
-	if err != nil || len(h) < 1 {
+	hist, err := h.actionConfig.Releases.History(releaseName)
+	if err != nil || len(hist) < 1 {
 		return false
 	}
-	releaseutil.Reverse(h, releaseutil.SortByRevision)
-	rel := h[0]
+	releaseutil.Reverse(hist, releaseutil.SortByRevision)
+	rel := hist[0]
 
 	if st := rel.Info.Status; st == release.StatusUninstalled || st == release.StatusFailed {
 		return false

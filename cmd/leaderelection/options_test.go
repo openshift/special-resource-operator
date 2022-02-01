@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/openshift-psap/special-resource-operator/cmd/leaderelection"
 	ctrl "sigs.k8s.io/controller-runtime"

@@ -23,9 +23,23 @@ import (
 	"github.com/openshift-psap/special-resource-operator/cmd/cli"
 	"github.com/openshift-psap/special-resource-operator/cmd/leaderelection"
 	"github.com/openshift-psap/special-resource-operator/controllers"
+	"github.com/openshift-psap/special-resource-operator/internal/controllers/finalizers"
+	"github.com/openshift-psap/special-resource-operator/internal/controllers/state"
+	"github.com/openshift-psap/special-resource-operator/pkg/assets"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
+	"github.com/openshift-psap/special-resource-operator/pkg/filter"
+	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
+	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
+	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
+	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
+	"github.com/openshift-psap/special-resource-operator/pkg/poll"
+	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
+	"github.com/openshift-psap/special-resource-operator/pkg/registry"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
+	"github.com/openshift-psap/special-resource-operator/pkg/storage"
+	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -74,37 +88,47 @@ func main() {
 		os.Exit(1)
 	}
 
-	clients.RestConfig = mgr.GetConfig()
-
-	kubeClientSet, err := clients.GetKubeClientSet()
+	kubeClient, err := clients.NewClients(mgr.GetClient(), mgr.GetConfig(), mgr.GetEventRecorderFor("specialresource"))
 	if err != nil {
-		setupLog.Error(err, "unable to create client set")
+		setupLog.Error(err, "unable to create k8s clients")
 		os.Exit(1)
 	}
-	configClient, err := clients.GetConfigClient()
-	if err != nil {
-		setupLog.Error(err, "unable to create config client")
-		os.Exit(1)
-	}
-	cachedDiscoveryClient, err := clients.GetCachedDiscoveryClient()
-	if err != nil {
-		setupLog.Error(err, "unable to create cached discovery client")
-		os.Exit(1)
-	}
+	clusterCluster := cluster.NewCluster(kubeClient)
 
-	clients.Interface = &clients.ClientsInterface{
-		Client:                   mgr.GetClient(),
-		Clientset:                *kubeClientSet,
-		ConfigV1Client:           *configClient,
-		CachedDiscoveryInterface: cachedDiscoveryClient,
-		EventRecorder:            mgr.GetEventRecorderFor("specialresource"),
-	}
+	metricsClient := metrics.New()
 
-	resource.RuntimeScheme = mgr.GetScheme()
+	st := storage.NewStorage(kubeClient)
+	lc := lifecycle.New(kubeClient, st)
+	pollActions := poll.New(kubeClient, lc, st)
+	kernelData := kernel.NewKernelData()
+	proxyAPI := proxy.NewProxyAPI(kubeClient)
 
-	if err = (&controllers.SpecialResourceReconciler{
-		Log:    ctrl.Log,
-		Scheme: mgr.GetScheme(),
+	creator := resource.NewCreator(
+		kubeClient,
+		metricsClient,
+		pollActions,
+		kernelData,
+		scheme,
+		lc,
+		proxyAPI)
+
+	if err = (&controllers.SpecialResourceReconciler{Cluster: clusterCluster,
+		ClusterInfo:            upgrade.NewClusterInfo(registry.NewRegistry(kubeClient), clusterCluster),
+		ClusterOperatorManager: state.NewClusterOperatorManager(kubeClient, "special-resource-operator"),
+		Creator:                creator,
+		PollActions:            pollActions,
+		Filter:                 filter.NewFilter(lc, st, kernelData),
+		Finalizer:              finalizers.NewSpecialResourceFinalizer(kubeClient, pollActions),
+		StatusUpdater:          state.NewStatusUpdater(kubeClient),
+		Storage:                st,
+		Helmer:                 helmer.NewHelmer(creator, helmer.DefaultSettings(), kubeClient),
+		Assets:                 assets.NewAssets(),
+		KernelData:             kernelData,
+		Log:                    ctrl.Log,
+		Metrics:                metricsClient,
+		Scheme:                 scheme,
+		ProxyAPI:               proxyAPI,
+		KubeClient:             kubeClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
 		os.Exit(1)

@@ -18,22 +18,12 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
-	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/conditions"
-	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	buildv1 "github.com/openshift/api/build/v1"
-	secv1 "github.com/openshift/api/security/v1"
-
 	imagev1 "github.com/openshift/api/image/v1"
+	secv1 "github.com/openshift/api/security/v1"
 	"github.com/pkg/errors"
-
-	configv1 "github.com/openshift/api/config/v1"
-
 	"helm.sh/helm/v3/pkg/chart"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -44,6 +34,23 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
+	"github.com/openshift-psap/special-resource-operator/internal/controllers/finalizers"
+	"github.com/openshift-psap/special-resource-operator/internal/controllers/state"
+	"github.com/openshift-psap/special-resource-operator/pkg/assets"
+	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
+	"github.com/openshift-psap/special-resource-operator/pkg/filter"
+	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
+	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
+	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
+	"github.com/openshift-psap/special-resource-operator/pkg/poll"
+	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
+	"github.com/openshift-psap/special-resource-operator/pkg/resource"
+	"github.com/openshift-psap/special-resource-operator/pkg/storage"
+	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 )
 
 var (
@@ -55,12 +62,27 @@ type SpecialResourceReconciler struct {
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 
+	Metrics                metrics.Metrics
+	Cluster                cluster.Cluster
+	ClusterInfo            upgrade.ClusterInfo
+	ClusterOperatorManager state.ClusterOperatorManager
+	Creator                resource.Creator
+	Filter                 filter.Filter
+	Finalizer              finalizers.SpecialResourceFinalizer
+	Helmer                 helmer.Helmer
+	Assets                 assets.Assets
+	PollActions            poll.PollActions
+	StatusUpdater          state.StatusUpdater
+	Storage                storage.Storage
+	KernelData             kernel.KernelData
+	ProxyAPI               proxy.ProxyAPI
+	KubeClient             clients.ClientsInterface
+
 	specialresource srov1beta1.SpecialResource
 	parent          srov1beta1.SpecialResource
 	chart           chart.Chart
 	values          unstructured.Unstructured
 	dependency      srov1beta1.SpecialResourceDependency
-	clusterOperator configv1.ClusterOperator
 }
 
 // Reconcile Reconiliation entry point
@@ -69,35 +91,37 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	var err error
 	var res reconcile.Result
 
-	log = r.Log.WithName(color.Print("preamble", color.Brown))
+	log = r.Log.WithName(utils.Print("preamble", utils.Brown))
 	log.Info("Controller Request", "Name", req.Name, "Namespace", req.Namespace)
 
-	conds := conditions.NotAvailableProgressingNotDegraded(
+	conds := utils.NotAvailableProgressingNotDegraded(
 		"Reconciling "+req.Name,
 		"Reconciling "+req.Name,
-		conditions.DegradedDefaultMsg,
+		utils.DegradedDefaultMsg,
 	)
 
 	// Do some preflight checks and get the cluster upgrade info
-	if res, err = SpecialResourceUpgrade(r, req); err != nil {
+	if res, err = SpecialResourceUpgrade(ctx, r); err != nil {
 		return res, errors.Wrap(err, "RECONCILE ERROR: Cannot upgrade special resource")
 	}
 	// A resource is being reconciled set status to not available and only
 	// if the reconcilation succeeds we're updating the conditions
-	if res, err = SpecialResourcesStatus(r, req, conds); err != nil {
+	if err = r.ClusterOperatorManager.Refresh(ctx, conds); err != nil {
+		res.Requeue = true
 		return res, errors.Wrap(err, "RECONCILE ERROR: Cannot update special resource status")
 	}
 	// Reconcile all specialresources
-	if res, err = SpecialResourcesReconcile(r, req); err == nil && !res.Requeue {
-		conds = conditions.AvailableNotProgressingNotDegraded()
+	if res, err = SpecialResourcesReconcile(ctx, r, req); err == nil && !res.Requeue {
+		conds = utils.AvailableNotProgressingNotDegraded()
 	} else {
 		return res, errors.Wrap(err, "RECONCILE ERROR: Cannot reconcile special resource")
 	}
 
 	// Only if we're successfull we're going to update the status to
 	// Available otherwise return the reconcile error
-	if res, err = SpecialResourcesStatus(r, req, conds); err != nil {
-		log.Info("RECONCILE ERROR: Cannot update special resource status", "error", fmt.Sprintf("%v", err))
+	if err = r.ClusterOperatorManager.Refresh(ctx, conds); err != nil {
+		res.Requeue = true
+		log.Error(err, "RECONCILE ERROR: Cannot update special resource status")
 		return res, nil
 	}
 	log.Info("RECONCILE SUCCESS: Reconcile")
@@ -106,9 +130,9 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 // SetupWithManager main initalization for manager
 func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	log = r.Log.WithName(color.Print("setup", color.Brown))
+	log = r.Log.WithName(utils.Print("setup", utils.Brown))
 
-	platform, err := clients.GetPlatform()
+	platform, err := r.KubeClient.GetPlatform()
 	if err != nil {
 		return err
 	}
@@ -133,7 +157,7 @@ func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			WithOptions(controller.Options{
 				MaxConcurrentReconciles: 1,
 			}).
-			WithEventFilter(filter.Predicate()).
+			WithEventFilter(r.Filter.GetPredicates()).
 			Complete(r)
 	} else {
 		log.Info("Warning: assuming vanilla K8s. Manager will own a limited set of resources.")
@@ -153,7 +177,7 @@ func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			WithOptions(controller.Options{
 				MaxConcurrentReconciles: 1,
 			}).
-			WithEventFilter(filter.Predicate()).
+			WithEventFilter(r.Filter.GetPredicates()).
 			Complete(r)
 	}
 }

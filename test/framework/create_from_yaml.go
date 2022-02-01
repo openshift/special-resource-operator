@@ -6,9 +6,8 @@ import (
 	"strings"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -23,7 +22,7 @@ import (
 
 var (
 	scheme = runtime.NewScheme()
-	log    = ctrl.Log.WithName(color.Print("deploy", color.Blue))
+	log    = ctrl.Log.WithName(utils.Print("deploy", utils.Blue))
 )
 
 func init() {
@@ -47,7 +46,7 @@ func NewControllerRuntimeClient() (client.Client, error) {
 	return client.New(mgr.GetConfig(), client.Options{Scheme: scheme})
 }
 
-func CreateFromYAML(yamlFile []byte, cl client.Client) error {
+func CreateFromYAML(ctx context.Context, yamlFile []byte, cl client.Client) error {
 
 	scanner := yamlutil.NewYAMLScanner(yamlFile)
 
@@ -61,7 +60,7 @@ func CreateFromYAML(yamlFile []byte, cl client.Client) error {
 
 		message := "Resource created"
 
-		if err = cl.Create(context.TODO(), obj); err != nil {
+		if err = cl.Create(ctx, obj); err != nil {
 			if apierrors.IsAlreadyExists(err) {
 				message = "Resource already exists"
 			} else {
@@ -71,11 +70,12 @@ func CreateFromYAML(yamlFile []byte, cl client.Client) error {
 
 		log.Info(message, "Kind", obj.GetKind(), "Name", obj.GetName())
 	}
+
 	return nil
 }
 
 // Don't use this to delete the CRD or undeploy the operator -- CR deletion will fail
-func DeleteFromYAMLWithCR(yamlFile []byte, cl client.Client) error {
+func DeleteFromYAMLWithCR(ctx context.Context, yamlFile []byte, cl client.Client) error {
 
 	scanner := yamlutil.NewYAMLScanner(yamlFile)
 
@@ -87,8 +87,7 @@ func DeleteFromYAMLWithCR(yamlFile []byte, cl client.Client) error {
 			return err
 		}
 
-		err = cl.Delete(context.TODO(), obj)
-		if err != nil {
+		if err = cl.Delete(ctx, obj); err != nil {
 			return err
 		}
 		log.Info("Deleted", "Kind", obj.GetKind(), "Name", obj.GetName())
@@ -97,7 +96,7 @@ func DeleteFromYAMLWithCR(yamlFile []byte, cl client.Client) error {
 	return nil
 }
 
-func DeleteFromYAML(yamlFile []byte, cl client.Client) error {
+func DeleteFromYAML(ctx context.Context, yamlFile []byte, cl client.Client) error {
 
 	scanner := yamlutil.NewYAMLScanner(yamlFile)
 
@@ -116,7 +115,7 @@ func DeleteFromYAML(yamlFile []byte, cl client.Client) error {
 
 		message := "Deleted resource"
 
-		if err = cl.Delete(context.TODO(), obj); err != nil {
+		if err = cl.Delete(ctx, obj); err != nil {
 			if apierrors.IsNotFound(err) {
 				message = "Resource didnt exist"
 			} else {
@@ -130,15 +129,15 @@ func DeleteFromYAML(yamlFile []byte, cl client.Client) error {
 	return nil
 }
 
-func DeleteAllSpecialResources(cl client.Client) error {
+func DeleteAllSpecialResources(ctx context.Context, cl client.Client) error {
 
 	specialresources := &srov1beta1.SpecialResourceList{}
 
 	opts := []client.ListOption{}
-	err := cl.List(context.TODO(), specialresources, opts...)
+	err := cl.List(ctx, specialresources, opts...)
 	if err != nil {
 		if strings.Contains(err.Error(), "no matches for kind \"SpecialResource\" in version ") {
-			warn.OnError(err)
+			utils.WarnOnError(err)
 			return nil
 		}
 		// This should never happen
@@ -148,7 +147,7 @@ func DeleteAllSpecialResources(cl client.Client) error {
 	delOpts := []client.DeleteOption{}
 	for _, sr := range specialresources.Items {
 		log.Info("Deleting", "SR", sr.GetName())
-		if err = cl.Delete(context.TODO(), &sr, delOpts...); err != nil {
+		if err = cl.Delete(ctx, &sr, delOpts...); err != nil {
 			return err
 		}
 	}

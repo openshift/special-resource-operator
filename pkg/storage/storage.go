@@ -2,122 +2,96 @@ package storage
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func GetConfigMap(namespace string, name string) (*unstructured.Unstructured, error) {
+//go:generate mockgen -source=storage.go -package=storage -destination=mock_storage_api.go
 
-	cm := &unstructured.Unstructured{}
-	cm.SetAPIVersion("v1")
-	cm.SetKind("ConfigMap")
+type Storage interface {
+	CheckConfigMapEntry(context.Context, string, types.NamespacedName) (string, error)
+	UpdateConfigMapEntry(context.Context, string, string, types.NamespacedName) error
+	DeleteConfigMapEntry(context.Context, string, types.NamespacedName) error
+}
 
+type storage struct {
+	kubeClient clients.ClientsInterface
+}
+
+func NewStorage(kubeClient clients.ClientsInterface) Storage {
+	return &storage{kubeClient: kubeClient}
+}
+
+func (s *storage) CheckConfigMapEntry(ctx context.Context, key string, ins types.NamespacedName) (string, error) {
+	cm, err := s.getConfigMap(ctx, ins.Namespace, ins.Name)
+	if err != nil {
+		return "", err
+	}
+
+	return cm.Data[key], nil
+}
+
+func (s *storage) UpdateConfigMapEntry(ctx context.Context, key string, value string, ins types.NamespacedName) error {
+	cm, err := s.getConfigMap(ctx, ins.Namespace, ins.Name)
+	if err != nil {
+		utils.WarnOnError(err)
+		return err
+	}
+
+	if cm.Data == nil {
+		cm.Data = make(map[string]string)
+	}
+
+	if cm.Data[key] != value {
+		cm.Data[key] = value
+
+		if err = s.updateObject(ctx, cm); err != nil {
+			utils.WarnOnError(err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *storage) DeleteConfigMapEntry(ctx context.Context, key string, ins types.NamespacedName) error {
+	cm, err := s.getConfigMap(ctx, ins.Namespace, ins.Name)
+	if err != nil {
+		utils.WarnOnError(err)
+		return err
+	}
+
+	if _, ok := cm.Data[key]; ok {
+		delete(cm.Data, key)
+
+		if err = s.updateObject(ctx, cm); err != nil {
+			utils.WarnOnError(err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *storage) getConfigMap(ctx context.Context, namespace string, name string) (*v1.ConfigMap, error) {
+	cm := &v1.ConfigMap{}
 	dep := types.NamespacedName{Namespace: namespace, Name: name}
 
-	err := clients.Interface.Get(context.TODO(), dep, cm)
+	err := s.kubeClient.Get(ctx, dep, cm)
 
 	if apierrors.IsNotFound(err) {
-		warn.OnError(err)
-		return cm, err
+		utils.WarnOnError(err)
+		return nil, err
 	}
 
 	return cm, err
 }
 
-func CheckConfigMapEntry(key string, ins types.NamespacedName) (string, error) {
-
-	cm, err := GetConfigMap(ins.Namespace, ins.Name)
-	if err != nil {
-		return "", err
-	}
-
-	data, found, err := unstructured.NestedMap(cm.Object, "data")
-	if err != nil {
-		return "", fmt.Errorf("error getting the Data field: %v", err)
-	}
-
-	if !found {
-		return "", nil
-	}
-
-	if value, found := data[key]; found {
-		return value.(string), nil
-	}
-
-	return "", nil
-}
-
-func UpdateConfigMapEntry(key string, value string, ins types.NamespacedName) error {
-
-	cm, err := GetConfigMap(ins.Namespace, ins.Name)
-	if err != nil {
-		warn.OnError(err)
-		return err
-	}
-
-	// Just looking if exists so we can create or update
-	entries, found, err := unstructured.NestedMap(cm.Object, "data")
-	if err != nil {
-		return err
-	}
-
-	if !found {
-		entries = make(map[string]interface{})
-	}
-
-	entries[key] = value
-
-	if err = unstructured.SetNestedMap(cm.Object, entries, "data"); err != nil {
-		return err
-	}
-
-	err = clients.Interface.Update(context.TODO(), cm)
-	if err != nil {
-		warn.OnError(err)
-		return err
-	}
-	return nil
-}
-
-func DeleteConfigMapEntry(delete string, ins types.NamespacedName) error {
-
-	cm, err := GetConfigMap(ins.Namespace, ins.Name)
-	if err != nil {
-		warn.OnError(err)
-		return err
-	}
-
-	// Just looking if exists so we can create or update
-	old, found, err := unstructured.NestedMap(cm.Object, "data")
-	if err != nil {
-		return err
-	}
-
-	if !found {
-		return nil
-	}
-
-	newMap := make(map[string]interface{})
-
-	for k, v := range old {
-		if delete != k {
-			newMap[k] = v
-		}
-	}
-
-	if err = unstructured.SetNestedMap(cm.Object, newMap, "data"); err != nil {
-		return err
-	}
-
-	err = clients.Interface.Update(context.TODO(), cm)
-	if err != nil {
-		warn.OnError(err)
-		return err
-	}
-	return nil
+func (s *storage) updateObject(ctx context.Context, cm client.Object) error {
+	return s.kubeClient.Update(ctx, cm)
 }

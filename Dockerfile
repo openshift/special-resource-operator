@@ -17,14 +17,15 @@ COPY scripts/ scripts/
 
 # Copy the go source
 COPY vendor/ vendor/
-COPY .patches/ .patches/
 COPY main.go main.go
 COPY api/ api/
 COPY cmd/ cmd/
 COPY controllers/ controllers/
+COPY internal/ internal/
 COPY pkg/ pkg/
+COPY charts/ charts/
 
-RUN ["make", "manager", "helm-plugins/cm-getter/cm-getter"]
+RUN ["make", "helm-repo-index", "manager", "helm-plugins/cm-getter/cm-getter"]
 
 FROM registry.ci.openshift.org/ocp/4.10:base
 
@@ -34,10 +35,9 @@ WORKDIR /
 
 ENV HELM_PLUGINS /opt/helm-plugins
 
-COPY --from=builder /workspace/manager .
+COPY --from=builder /workspace/manager /manager
 COPY --from=builder /workspace/helm-plugins ${HELM_PLUGINS}
-
-COPY charts/ /charts/
+COPY --from=builder /workspace/build/charts /charts
 
 RUN useradd  -r -u 499 nonroot
 RUN getent group nonroot || groupadd -o -g 499 nonroot

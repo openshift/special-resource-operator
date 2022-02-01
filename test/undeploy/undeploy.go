@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
@@ -41,16 +42,19 @@ func main() {
 		log.Fatalf("Error getting a controller client: %v", err)
 	}
 
-	if err = framework.DeleteAllSpecialResources(cl); err != nil {
+	ctx := context.TODO()
+
+	if err = framework.DeleteAllSpecialResources(ctx, cl); err != nil {
 		log.Fatalf("Error deleting all special resources: %v", err)
 	}
 	// sleep 10 for finalizers to kick in
 	time.Sleep(10 * time.Second)
 
-	manifests := assets.GetFrom(*path)
+	assetsInterface := assets.NewAssets()
+	manifests := assetsInterface.GetFrom(*path)
 
 	for _, manifest := range manifests {
-		if err = framework.DeleteFromYAML(manifest.Content, cl); err != nil {
+		if err = framework.DeleteFromYAML(ctx, manifest.Content, cl); err != nil {
 			log.Fatalf("Error deleting from YAML: %v", err)
 		}
 	}

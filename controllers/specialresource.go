@@ -9,41 +9,29 @@ import (
 	"text/template"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/filter"
-	"github.com/openshift-psap/special-resource-operator/pkg/helmer"
+	"github.com/openshift-psap/special-resource-operator/internal/controllers/finalizers"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
-	"github.com/openshift-psap/special-resource-operator/pkg/resource"
-	"github.com/openshift-psap/special-resource-operator/pkg/slice"
-	"github.com/openshift-psap/special-resource-operator/pkg/storage"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/chart"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	controllerruntime "sigs.k8s.io/controller-runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// GetName of the special resource operator
-func (r *SpecialResourceReconciler) GetName() string {
-	return "special-resource-operator"
-}
-
 // SpecialResourcesReconcile Takes care of all specialresources in the cluster
-func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
+func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
 
-	log = r.Log.WithName(color.Print("reconcile: "+filter.Mode, color.Purple))
+	log = r.Log.WithName(utils.Print("reconcile: "+r.Filter.GetMode(), utils.Purple))
 
 	log.Info("Reconciling SpecialResource(s) in all Namespaces")
 
 	specialresources := &srov1beta1.SpecialResourceList{}
 
 	opts := []client.ListOption{}
-	err := clients.Interface.List(context.TODO(), specialresources, opts...)
+	err := r.KubeClient.List(ctx, specialresources, opts...)
 	if err != nil {
 		// Error reading the object - requeue the request.
 		// This should never happen
@@ -51,7 +39,7 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 	}
 
 	// Set specialResourcesCreated metric to the number of specialresources
-	metrics.SetSpecialResourcesCreated(len(specialresources.Items))
+	r.Metrics.SetSpecialResourcesCreated(len(specialresources.Items))
 
 	// Do not reconcile all SRs everytime, get the one were the request
 	// came from, use the List for metrics and dashboard, we also need the
@@ -66,9 +54,9 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 			Namespace: os.Getenv("OPERATOR_NAMESPACE"),
 			Name:      "special-resource-dependencies",
 		}
-		parent, err := storage.CheckConfigMapEntry(req.Name, obj)
+		parent, err := r.Storage.CheckConfigMapEntry(ctx, req.Name, obj)
 		if err != nil {
-			operatorStatusUpdate(&r.parent, fmt.Sprintf("%v", err))
+			r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
 			return reconcile.Result{}, err
 		}
 		request, found = FindSR(specialresources.Items, parent, "Name")
@@ -84,11 +72,11 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 	if isMarkedToBeDeleted {
 		r.specialresource = r.parent
 		log.Info("Marked to be deleted, reconciling finalizer")
-		err = reconcileFinalizers(r)
+		err = r.Finalizer.Finalize(ctx, &r.specialresource)
 		return reconcile.Result{}, err
 	}
 
-	log = r.Log.WithName(color.Print(r.parent.Name, color.Green))
+	log = r.Log.WithName(utils.Print(r.parent.Name, utils.Green))
 
 	if r.parent.Name == "special-resource-preamble" {
 		log.Info("Preamble done, waiting for specialresource requests")
@@ -97,19 +85,19 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 
 	log.Info("Resolving Dependencies")
 
-	pchart, err := helmer.Load(r.parent.Spec.Chart)
+	pchart, err := r.Helmer.Load(r.parent.Spec.Chart)
 	if err != nil {
-		operatorStatusUpdate(&r.parent, fmt.Sprintf("%v", err))
+		r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
 		return reconcile.Result{}, err
 	}
 
 	// Only one level dependency support for now
 	for _, r.dependency = range r.parent.Spec.Dependencies {
 
-		log = r.Log.WithName(color.Print(r.dependency.Name, color.Purple))
+		log = r.Log.WithName(utils.Print(r.dependency.Name, utils.Purple))
 		log.Info("Getting Dependency")
 
-		cchart, err := helmer.Load(r.dependency.HelmChart)
+		cchart, err := r.Helmer.Load(r.dependency.HelmChart)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -121,27 +109,27 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 			Namespace: os.Getenv("OPERATOR_NAMESPACE"),
 			Name:      "special-resource-dependencies",
 		}
-		if err = storage.UpdateConfigMapEntry(r.dependency.Name, r.parent.Name, ins); err != nil {
-			operatorStatusUpdate(&r.parent, fmt.Sprintf("%v", err))
+		if err = r.Storage.UpdateConfigMapEntry(ctx, r.dependency.Name, r.parent.Name, ins); err != nil {
+			r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
 			return reconcile.Result{}, err
 		}
 
 		var child srov1beta1.SpecialResource
 		// Assign the specialresource to the reconciler object
 		if child, err = getDependencyFrom(specialresources, r.dependency.Name); err != nil {
-			log.Info("Could not get SpecialResource dependency", "error", fmt.Sprintf("%v", err))
-			if err = createSpecialResourceFrom(r, cchart, r.dependency.HelmChart); err != nil {
-				log.Info("RECONCILE REQUEUE: Dependency creation failed ", "error", fmt.Sprintf("%v", err))
+			log.Error(err, "Could not get SpecialResource dependency")
+			if err = createSpecialResourceFrom(ctx, r, cchart, r.dependency.HelmChart); err != nil {
+				log.Error(err, "RECONCILE REQUEUE: Dependency creation failed ")
 				return reconcile.Result{Requeue: true}, nil
 			}
 			// We need to fetch the newly created SpecialResources, reconciling
 			return reconcile.Result{}, nil
 		}
-		if err := ReconcileSpecialResourceChart(r, child, cchart, r.dependency.Set); err != nil {
+		if err := ReconcileSpecialResourceChart(ctx, r, child, cchart, r.dependency.Set); err != nil {
 			// We do not want a stacktrace here, errors.Wrap already created
 			// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
-			operatorStatusUpdate(&child, fmt.Sprintf("%v", err))
-			log.Info("RECONCILE REQUEUE: Could not reconcile chart", "error", fmt.Sprintf("%v", err))
+			r.StatusUpdater.UpdateWithState(ctx, &child, fmt.Sprintf("%v", err))
+			log.Error(err, "RECONCILE REQUEUE: Could not reconcile chart")
 			//return reconcile.Result{}, errors.New("Reconciling failed")
 			return reconcile.Result{Requeue: true}, nil
 		}
@@ -149,11 +137,11 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 	}
 
 	log.Info("Reconciling Parent")
-	if err := ReconcileSpecialResourceChart(r, r.parent, pchart, r.parent.Spec.Set); err != nil {
+	if err := ReconcileSpecialResourceChart(ctx, r, r.parent, pchart, r.parent.Spec.Set); err != nil {
 		// We do not want a stacktrace here, errors.Wrap already created
 		// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
-		operatorStatusUpdate(&r.parent, fmt.Sprintf("%v", err))
-		log.Info("RECONCILE REQUEUE: Could not reconcile chart", "error", fmt.Sprintf("%v", err))
+		r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
+		log.Error(err, "RECONCILE REQUEUE: Could not reconcile chart")
 		//return reconcile.Result{}, errors.New("Reconciling failed")
 		return reconcile.Result{Requeue: true}, nil
 	}
@@ -199,16 +187,16 @@ func TemplateFragment(sr interface{}) error {
 	return json.Unmarshal(buff.Bytes(), sr)
 }
 
-func ReconcileSpecialResourceChart(r *SpecialResourceReconciler, sr srov1beta1.SpecialResource, chart *chart.Chart, values unstructured.Unstructured) error {
+func ReconcileSpecialResourceChart(ctx context.Context, r *SpecialResourceReconciler, sr srov1beta1.SpecialResource, chart *chart.Chart, values unstructured.Unstructured) error {
 
 	r.specialresource = sr
 	r.chart = *chart
 	r.values = values
 
-	log = r.Log.WithName(color.Print(r.specialresource.Name, color.Green))
+	log = r.Log.WithName(utils.Print(r.specialresource.Name, utils.Green))
 	log.Info("Reconciling Chart")
 
-	if err := getRuntimeInformation(r); err != nil {
+	if err := getRuntimeInformation(ctx, r); err != nil {
 		return err
 	}
 
@@ -264,15 +252,15 @@ func ReconcileSpecialResourceChart(r *SpecialResourceReconciler, sr srov1beta1.S
 	}
 
 	// Add a finalizer to CR if it does not already have one
-	if !contains(r.specialresource.GetFinalizers(), specialresourceFinalizer) {
-		if err := addFinalizer(r); err != nil {
-			log.Info("Failed to add finalizer", "error", fmt.Sprintf("%v", err))
+	if !utils.StringSliceContains(r.specialresource.GetFinalizers(), finalizers.FinalizerString) {
+		if err := r.Finalizer.AddToSpecialResource(ctx, &r.specialresource); err != nil {
+			log.Error(err, "Failed to add finalizer")
 			return err
 		}
 	}
 
 	// Reconcile the special resource chart
-	return ReconcileChart(r)
+	return ReconcileChart(ctx, r)
 }
 
 func FindSR(a []srov1beta1.SpecialResource, x string, by string) (int, bool) {
@@ -300,7 +288,7 @@ func noop() error {
 	return nil
 }
 
-func createSpecialResourceFrom(r *SpecialResourceReconciler, ch *chart.Chart, dp helmerv1beta1.HelmChart) error {
+func createSpecialResourceFrom(ctx context.Context, r *SpecialResourceReconciler, ch *chart.Chart, dp helmerv1beta1.HelmChart) error {
 
 	vals := unstructured.Unstructured{}
 	vals.SetKind("Values")
@@ -318,18 +306,22 @@ func createSpecialResourceFrom(r *SpecialResourceReconciler, ch *chart.Chart, dp
 	sr.Spec.Dependencies = make([]srov1beta1.SpecialResourceDependency, 0)
 
 	var idx int
-	if idx = slice.FindCRFile(ch.Files, r.dependency.Name); idx == -1 {
+	if idx = utils.FindCRFile(ch.Files, r.dependency.Name); idx == -1 {
 		log.Info("Creating SpecialResource from template, cannot find it in charts directory")
-		res, err := controllerruntime.CreateOrUpdate(context.TODO(), clients.Interface, &sr, noop)
+
+		res, err := r.KubeClient.CreateOrUpdate(ctx, &sr, noop)
 		if err != nil {
 			return fmt.Errorf("%s: %w", res, err)
 		}
+
 		return errors.New("Created new SpecialResource we need to Reconcile")
 	}
 
 	log.Info("Creating SpecialResource: " + ch.Files[idx].Name)
 
-	if err := resource.CreateFromYAML(ch.Files[idx].Data,
+	if err := r.Creator.CreateFromYAML(
+		ctx,
+		ch.Files[idx].Data,
 		false,
 		&r.specialresource,
 		r.specialresource.Name,

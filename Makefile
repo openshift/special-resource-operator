@@ -58,9 +58,6 @@ SHELL             = /usr/bin/env bash -o pipefail
 # GENERATED all: manager
 all: $(SPECIALRESOURCE)
 
-namespace: patch manifests kustomize
-	$(KUSTOMIZE) build config/namespace | kubectl apply -f -
-
 ##@ Development
 
 manifests: ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
@@ -75,9 +72,9 @@ fmt: ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet --mod=vendor ./...
 
-unit-test: patch ## Run unit-tests.
-	# Use `go run github.com/onsi/ginkgo/ginkgo` as only the ginkgo binary supports -skipPackage
-	go run github.com/onsi/ginkgo/ginkgo -skipPackage ./test/e2e -coverprofile cover.out ./...
+unit-test:
+	# Use `go run github.com/onsi/ginkgo/v2/ginkgo` as only the ginkgo binary supports --skip-package
+	go run github.com/onsi/ginkgo/v2/ginkgo --skip-package ./test/e2e -coverprofile cover.out ./...
 
 ##@ Build
 
@@ -90,42 +87,46 @@ helm-plugins/cm-getter: helm-plugins/cm-getter/cm-getter
 .PHONY: helm-plugins
 helm-plugins: helm-plugins/cm-getter
 
-manager: patch generate ## Build manager binary.
+manager: generate ## Build manager binary.
 	go build -o manager main.go
 
-run: manifests generate fmt vet ## Run against the configured Kubernetes cluster in ~/.kube/config
+run: manifests generate ## Run against the configured Kubernetes cluster in ~/.kube/config
 	go run -mod=vendor ./main.go
 
-local-image-build: patch helm-lint helm-repo-index generate manifests-gen ## Build container image with the manager.
-	podman build -t $(IMG) --no-cache .
+local-image-build: ## Build container image with the manager.
+	$(CONTAINER_COMMAND) build -t $(IMG) .
 
 local-image-push: ## Push docker image with the manager.
 	podman push $(IMG)
 
+generate-mocks:
+	$(shell find . -name "mock_*.go" | grep -v vendor | xargs rm -f)
+	go generate $(shell go list ./... | grep -v 'vendor\|charts')
 
 ##@ Deployment
 
 install: manifests kustomize  ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) apply -f -
 
 uninstall: manifests kustomize  ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | kubectl delete -f -
+	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete -f -
 
-deploy: namespace ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-	$(KUSTOMIZE) build config/default$(SUFFIX) | kubectl apply -f -
+deploy: manifests kustomize configure ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+	$(KUSTOMIZE) build config/namespace | $(CLUSTER_CLIENT) apply -f -
+	$(KUSTOMIZE) build config/default$(SUFFIX) | $(CLUSTER_CLIENT) apply -f -
 	$(shell sleep 5)
-	$(KUSTOMIZE) build config/cr | kubectl apply -f -
+	$(KUSTOMIZE) build config/cr | $(CLUSTER_CLIENT) apply -f -
 
 # If the CRD is deleted before the CRs the CRD finalizer will hang forever
 # The specialresource finalizer will not execute either
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
-	if [ ! -z "$$(kubectl get crd | grep specialresource)" ]; then         \
-		kubectl delete --ignore-not-found sr --all;                    \
+	if [ ! -z "$$($(CLUSTER_CLIENT) get crd | grep specialresource)" ]; then         \
+		$(CLUSTER_CLIENT) delete --ignore-not-found sr --all;                    \
 	fi;
 	# Give SRO time to reconcile
 	sleep 10
-	$(KUSTOMIZE) build config/namespace | kubectl delete --ignore-not-found -f -
-	$(KUSTOMIZE) build config/default$(SUFFIX) | kubectl delete --ignore-not-found -f -
+	$(KUSTOMIZE) build config/namespace | $(CLUSTER_CLIENT) delete --ignore-not-found -f -
+	$(KUSTOMIZE) build config/default$(SUFFIX) | $(CLUSTER_CLIENT) delete --ignore-not-found -f -
 
 
 ##@ custom targets

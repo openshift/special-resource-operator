@@ -1,25 +1,25 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/cache"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // SpecialResourceUpgrade upgrade special resources
-func SpecialResourceUpgrade(r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
-	log = r.Log.WithName(color.Print("upgrade", color.Blue))
+func SpecialResourceUpgrade(ctx context.Context, r *SpecialResourceReconciler) (ctrl.Result, error) {
+	log = r.Log.WithName(utils.Print("upgrade", utils.Blue))
 
 	var err error
 
-	if err = cache.Nodes(r.specialresource.Spec.NodeSelector, false); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to cache nodes: %w", err)
+	nodeList, err := r.KubeClient.GetNodesByLabels(ctx, r.specialresource.Spec.NodeSelector)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to get nodes: %w", err)
 	}
 
-	RunInfo.ClusterUpgradeInfo, err = upgrade.ClusterInfo()
+	RunInfo.ClusterUpgradeInfo, err = r.ClusterInfo.GetClusterInfo(ctx, nodeList)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
