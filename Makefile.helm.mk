@@ -34,7 +34,8 @@ ifeq (, $(shell which helm))
 	set -e ;\
 	HELM_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$HELM_GEN_TMP_DIR ;\
-	curl https://get.helm.sh/helm-v3.6.0-linux-amd64.tar.gz -o helm.tar.gz ;\
+	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH); \
+	curl https://get.helm.sh/helm-v3.6.0-$$OS-$$ARCH.tar.gz -o helm.tar.gz ;\
 	tar xvfpz helm.tar.gz ;\
 	mv linux-amd64/helm /usr/local/bin ;\
 	chmod +x /usr/local/bin/helm ;\
