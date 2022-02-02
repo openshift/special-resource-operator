@@ -7,9 +7,6 @@ PULLPOLICY       ?= IfNotPresent
 TAG              ?= $(shell git branch --show-current)
 CSPLIT           ?= csplit - --prefix="" --suppress-matched --suffix-format="%04d.yaml"  /---/ '{*}' --silent
 YAMLFILES        ?= $(shell  find manifests charts -name "*.yaml")
-PLATFORM         ?= ""
-SUFFIX           ?= $(shell if [ ${PLATFORM} == "k8s" ]; then echo "-${PLATFORM}"; fi)
-CONTAINER_COMMAND := $(or ${CONTAINER_COMMAND},podman)
 BUNDLE_CONTAINER_COMMAND := $(or ${BUNDLE_CONTAINER_COMMAND},docker)
 CLUSTER_CLIENT := $(or ${CLUSTER_CLIENT},oc)
 KUBECONFIG       ?= ${HOME}/.kube/config
@@ -29,10 +26,10 @@ verify: vet
 	fi
 
 go-deploy-manifests: manifests-gen
-	go run test/deploy/deploy.go -path ./manifests$(SUFFIX)
+	go run test/deploy/deploy.go -path ./manifests
 
 go-undeploy-manifests:
-	go run test/undeploy/undeploy.go -path ./manifests$(SUFFIX)
+	go run test/undeploy/undeploy.go -path ./manifests
 
 e2e-test-upgrade: go-deploy-manifests
 
