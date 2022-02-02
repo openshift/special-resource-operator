@@ -15,7 +15,6 @@ metadata:
   annotations:
     specialresource.openshift.io/wait: "true"
     specialresource.openshift.io/driver-container-vendor: simple-kmod
-    specialresource.openshift.io/kernel-affine: "true"
 spec:
   nodeSelector:
     node-role.kubernetes.io/worker: ""
@@ -31,10 +30,6 @@ spec:
   strategy:
     dockerStrategy:
       dockerfilePath: Dockerfile.SRO
-#      from:
-#        kind: "ImageStreamTag"
-#        name: "driver-container-base:v{{.Values.kernelFullVersion}}"
-#        namespace: "driver-container-base"
       buildArgs:
         - name: "IMAGE"
           value: {{ .Values.driverToolkitImage  }}
