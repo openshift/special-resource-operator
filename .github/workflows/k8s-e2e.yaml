@@ -76,9 +76,8 @@ jobs:
     - run: make deploy
       env:
         TAG: pr-${{ steps.short-sha.outputs.sha }}
-        PLATFORM: k8s
-    - run: kubectl rollout status deployment -n openshift-special-resource-operator special-resource-controller-manager --timeout=300s
+    - run: kubectl rollout status deployment -n special-resource-operator special-resource-controller-manager --timeout=300s
 
     - run: kubectl apply -f  charts/example/centos-simple-kmod-0.0.1/centos-simple-kmod.yaml
     - run: sleep 360
-    - run: kubectl logs `kubectl get pod -n openshift-special-resource-operator | grep special | awk '{ print $1 }'` -n openshift-special-resource-operator
+    - run: kubectl logs `kubectl get pod -n special-resource-operator | grep special | awk '{ print $1 }'` -n special-resource-operator

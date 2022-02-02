@@ -20,7 +20,7 @@ Deploy to vanilla k8s:
 ```
 $ git clone https://github.com/openshift-psap/special-resource-operator
 $ cd special-resource-operator
-$ make deploy TAG=master PLATFORM=k8s
+$ make deploy TAG=master
 ```
 
 Deploy to OCP:
@@ -34,7 +34,7 @@ To build and deploy using a custom operator image:
 ```
 $ make local-image-build
 $ make local-image-push
-$ make deploy [PLATFORM=k8s]
+$ make deploy
 ```
 Note: The image TAG will default to the name of the current git branch, but can be overriden by setting the TAG variable. See the `Makefile` for more details.
 

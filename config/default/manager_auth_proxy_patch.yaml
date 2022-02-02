@@ -21,7 +21,6 @@ spec:
             - "--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256"
           ports:
             - containerPort: 8443
-              protocol: TCP
               name: https
           volumeMounts:
             - name: special-resource-operator-tls
@@ -39,7 +38,3 @@ spec:
           args:
             - "--metrics-addr=127.0.0.1:8080"
             - "--enable-leader-election"
-      volumes:
-        - name: special-resource-operator-tls
-          secret:
-            secretName: special-resource-operator-tls

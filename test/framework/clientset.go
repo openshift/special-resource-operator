@@ -16,7 +16,7 @@ import (
 )
 
 type Config struct {
-	Namespace string `envconfig:"NAMESPACE" default:"openshift-special-resource-operator"`
+	Namespace string `envconfig:"NAMESPACE" default:"special-resource-operator"`
 }
 
 type ClientSet struct {

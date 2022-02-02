@@ -20,7 +20,7 @@ const (
 	state      = "templates/0000-buildconfig.yaml"
 	kind       = "BuildConfig"
 	name       = "simple-kmod-driver-build"
-	namespace  = "openshift-special-resource-operator"
+	namespace  = "special-resource-operator"
 	nodes_list = "node1,node2,node3"
 )
 
