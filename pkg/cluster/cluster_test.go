@@ -11,11 +11,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	configv1 "github.com/openshift/api/config/v1"
 	imagev1 "github.com/openshift/api/image/v1"
 	machinev1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	v1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -219,48 +219,49 @@ var _ = Describe("cluster_OSImageURL", func() {
 })
 
 var _ = Describe("cluster_OperatingSystem", func() {
+	It("should work when nodeInfo includes correct OSImage", func() {
+		nodesList := corev1.NodeList{
+			Items: []corev1.Node{
+				{
+					Status: corev1.NodeStatus{
+						NodeInfo: corev1.NodeSystemInfo{
+							OSImage: "Red Hat Enterprise Linux CoreOS 49.84.202201102104-0 (Ootpa)",
+						},
+					},
+				},
+			},
+		}
+		osVersionMajor, osVersion, osVersionMajorMinor, err := cluster.NewCluster(nil).OperatingSystem(&nodesList)
+		Expect(osVersionMajor).To(Equal("rhel8"))
+		Expect(osVersion).To(Equal("rhel8.4"))
+		Expect(osVersionMajorMinor).To(Equal("8.4"))
+		Expect(err).NotTo(HaveOccurred())
+	})
 
-	It("should return an error when feature.node.kubernetes.io/system-os_release.ID is empty", func() {
-		nodesList := utils.CreateNodesList(1, nil)
-		_, _, _, err := cluster.NewCluster(nil).OperatingSystem(nodesList)
+	It("should fail when node has invalid OSImage", func() {
+		nodesList := corev1.NodeList{
+			Items: []corev1.Node{
+				{
+					Status: corev1.NodeStatus{
+						NodeInfo: corev1.NodeSystemInfo{
+							OSImage: "Some OS with bad format",
+						},
+					},
+				},
+			},
+		}
+		_, _, _, err := cluster.NewCluster(nil).OperatingSystem(&nodesList)
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("should return an error when feature.node.kubernetes.io/system-os_release.VERSION_ID.major is empty", func() {
-		labels := map[string]string{"feature.node.kubernetes.io/system-os_release.ID": "abcd"}
-		nodesList := utils.CreateNodesList(1, labels)
-		_, _, _, err := cluster.NewCluster(nil).OperatingSystem(nodesList)
+	It("should fail when node has no OSImage", func() {
+		nodesList := corev1.NodeList{
+			Items: make([]corev1.Node, 1),
+		}
+		_, _, _, err := cluster.NewCluster(nil).OperatingSystem(&nodesList)
 		Expect(err).To(HaveOccurred())
 	})
 
-	It("should use RHEL version when it has 3 digits", func() {
-		labels := map[string]string{
-			"feature.node.kubernetes.io/system-os_release.ID":               "abc",
-			"feature.node.kubernetes.io/system-os_release.VERSION_ID.major": "def",
-			"feature.node.kubernetes.io/system-os_release.RHEL_VERSION":     "123",
-		}
-		nodesList := utils.CreateNodesList(1, labels)
-
-		o0, o1, o2, err := cluster.NewCluster(nil).OperatingSystem(nodesList)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(o0).To(Equal("rhel1"))
-		Expect(o1).To(Equal("rhel123"))
-		Expect(o2).To(Equal("1.3"))
-	})
-
-	It("should call osversion.RenderOperatingSystem when all labels are present", func() {
-		labels := map[string]string{
-			"feature.node.kubernetes.io/system-os_release.ID":               "123",
-			"feature.node.kubernetes.io/system-os_release.VERSION_ID.major": "456",
-			"feature.node.kubernetes.io/system-os_release.VERSION_ID.minor": "789",
-		}
-		nodesList := utils.CreateNodesList(1, labels)
-		o0, o1, o2, err := cluster.NewCluster(nil).OperatingSystem(nodesList)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(o0).To(Equal("123456"))
-		Expect(o1).To(Equal("123456.789"))
-		Expect(o2).To(Equal("456.789"))
-	})
 })
 
 var _ = Describe("cluster_GetDTKImages", func() {

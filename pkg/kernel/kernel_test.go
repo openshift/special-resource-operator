@@ -6,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -189,4 +190,31 @@ var _ = Describe("PatchVersion", func() {
 		Entry(nil, "4.18.0", "4.18.0"),
 		Entry(nil, "4.18.0-305", "4.18.0-305"),
 	)
+})
+
+var _ = Describe("FullVersion", func() {
+	It("should return the version from the node", func() {
+		const kernelVersion = "4.18.0-305.30.1.el8_4.x86_64"
+		nodeList := corev1.NodeList{
+			Items: []corev1.Node{
+				{
+					Status: corev1.NodeStatus{
+						NodeInfo: corev1.NodeSystemInfo{
+							KernelVersion: kernelVersion,
+						},
+					},
+				},
+			},
+		}
+		k, err := kernel.FullVersion(&nodeList)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(k).To(Equal(kernelVersion))
+	})
+	It("should trigger an error if kernel not present", func() {
+		nodeList := corev1.NodeList{
+			Items: make([]corev1.Node, 1),
+		}
+		_, err := kernel.FullVersion(&nodeList)
+		Expect(err).To(HaveOccurred())
+	})
 })

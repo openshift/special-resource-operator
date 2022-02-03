@@ -5,10 +5,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("RenderOperatingSystem", func() {
+var _ = Describe("ParseOSInfo", func() {
 	DescribeTable("test cases",
-		func(rel, maj, min, expOut0, expOut1, expOut2 string, expErr bool) {
-			out0, out1, out2, err := RenderOperatingSystem(rel, maj, min)
+		func(osImage, expOut0, expOut1, expOut2 string, expErr bool) {
+			out0, out1, out2, err := ParseOSInfo(osImage)
 
 			if expErr {
 				Expect(err).To(HaveOccurred())
@@ -19,16 +19,12 @@ var _ = Describe("RenderOperatingSystem", func() {
 				Expect(out2).To(Equal(expOut2))
 			}
 		},
-		EntryDescription("rel=%q, maj=%q, min=%q => (%q, %q, %q) err=%t"),
-		Entry(nil, "rhcos", "3", "0", "rhcos3", "rhcos3.0", "3.0", false),
-		Entry(nil, "rhcos", "4", "2", "rhel8", "rhel8.0", "8.0", false),
-		Entry(nil, "rhcos", "4", "4", "rhel8", "rhel8.1", "8.1", false),
-		Entry(nil, "rhcos", "4", "5", "rhel8", "rhel8.2", "8.2", false),
-		Entry(nil, "rhcos", "4", "6", "rhel8", "rhel8.2", "8.2", false),
-		Entry(nil, "rhcos", "4", "7", "rhel8", "rhel8.4", "8.4", false),
-		Entry(nil, "rhcos", "4", "8", "rhel8", "rhel8.4", "8.4", false),
-		Entry(nil, "rhcos", "4", "8", "rhel8", "rhel8.4", "8.4", false),
-		Entry(nil, "rhcos", "5", "", "rhcos5", "rhcos5", "5", false),
-		Entry(nil, "rhcos", "5", "1", "rhcos5", "rhcos5.1", "5.1", false),
+		EntryDescription("OS=%q, => (%q, %q, %q) err=%t"),
+		Entry(nil, "Red Hat Enterprise Linux CoreOS 410.810.202201102104-0 (Ootpa)", "4.10", "8.10", "8", false),
+		Entry(nil, "Red Hat Enterprise Linux CoreOS 49.84.202201102104-0 (Ootpa)", "4.9", "8.4", "8", false),
+		Entry(nil, "Red Hat Enterprise Linux CoreOS 48.83.202201102104-0 (Ootpa)", "4.8", "8.3", "8", false),
+		Entry(nil, "Red Hat Enterprise Linux CoreOS 4.84.202201102104-0 (Ootpa)", "", "", "", true),
+		Entry(nil, "Red Hat Enterprise Linux CoreOS 49.4.202201102104-0 (Ootpa)", "", "", "", true),
+		Entry(nil, "Red Hat Enterprise Linux CoreOS 49.4 (Ootpa)", "", "", "", true),
 	)
 })
