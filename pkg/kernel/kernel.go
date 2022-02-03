@@ -1,6 +1,7 @@
 package kernel
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -129,22 +130,15 @@ func (k *kernelData) IsObjectAffine(obj client.Object) bool {
 }
 
 func (k *kernelData) FullVersion(nodeList *corev1.NodeList) (string, error) {
-
-	var found bool
 	var kernelFullVersion string
 	// Assuming all nodes are running the same kernel version,
 	// one could easily add driver-kernel-versions for each node.
 	for _, node := range nodeList.Items {
-		labels := node.GetLabels()
-
-		// We only need to check for the key, the value
-		// is available if the key is there
-		short := "feature.node.kubernetes.io/kernel-version.full"
-		if kernelFullVersion, found = labels[short]; !found {
-			return "", errors.New("Label " + short + " not found is NFD running? Check node labels")
+		kernelFullVersion = node.Status.NodeInfo.KernelVersion
+		if len(kernelFullVersion) == 0 {
+			return "", fmt.Errorf("kernel not found for node %s", node.Name)
 		}
 	}
-
 	return kernelFullVersion, nil
 }
 

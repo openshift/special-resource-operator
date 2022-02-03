@@ -60,7 +60,7 @@ func (ci *clusterInfo) GetClusterInfo(ctx context.Context, nodeList *corev1.Node
 
 	info, err := ci.nodeVersionInfo(nodeList)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get upgrade info: %w", err)
+		return nil, err
 	}
 
 	dtkImages, err := ci.cluster.GetDTKImages(ctx)
@@ -77,37 +77,24 @@ func (ci *clusterInfo) GetClusterInfo(ctx context.Context, nodeList *corev1.Node
 }
 
 func (ci *clusterInfo) nodeVersionInfo(nodeList *corev1.NodeList) (map[string]NodeVersion, error) {
-
-	var found bool
-	var info = make(map[string]NodeVersion)
-
+	info := make(map[string]NodeVersion)
 	// Assuming all nodes are running the same kernel version,
 	// one could easily add driver-kernel-versions for each node.
 	for _, node := range nodeList.Items {
-
-		var rhelVersion string
-		var kernelFullVersion string
-		var clusterVersion string
-
-		labels := node.GetLabels()
-		// We only need to check for the key, the value
-		// is available if the key is there
-		if kernelFullVersion, found = labels[labelKernelVersionFull]; !found {
-			return nil, fmt.Errorf("label %s not found is NFD running? Check node labels", labelKernelVersionFull)
+		kernelFullVersion := node.Status.NodeInfo.KernelVersion
+		if len(kernelFullVersion) == 0 {
+			return nil, fmt.Errorf("kernel version not found in node %s", node.Name)
 		}
 
-		if clusterVersion, found = labels[labelOSReleaseVersionID]; !found {
-			return nil, fmt.Errorf("label %s not found is NFD running? Check node labels", labelOSReleaseVersionID)
+		clusterVersion, osVersion, osMajor, err := utils.ParseOSInfo(node.Status.NodeInfo.OSImage)
+		if err != nil {
+			return nil, err
 		}
-
-		if rhelVersion, found = labels[labelOSReleaseRHELVersion]; !found {
-			nodeOSrel := labels[labelOSReleaseID]
-			nodeOSmaj := labels[labelOSReleaseVersionIDMajor]
-			nodeOSmin := labels[labelOSReleaseVersionIDMinor]
-			info[kernelFullVersion] = NodeVersion{OSVersion: nodeOSmaj + "." + nodeOSmin, OSMajor: nodeOSrel + nodeOSmaj, OSMajorMinor: nodeOSrel + nodeOSmaj + "." + nodeOSmin, ClusterVersion: clusterVersion}
-		} else {
-			rhelMaj := rhelVersion[0:1]
-			info[kernelFullVersion] = NodeVersion{OSVersion: rhelVersion, OSMajor: "rhel" + rhelMaj, OSMajorMinor: "rhel" + rhelVersion, ClusterVersion: clusterVersion}
+		info[kernelFullVersion] = NodeVersion{
+			OSVersion:      osVersion,
+			ClusterVersion: clusterVersion,
+			OSMajor:        "rhel" + osMajor,
+			OSMajorMinor:   "rhel" + osVersion,
 		}
 	}
 
@@ -135,32 +122,22 @@ func (ci *clusterInfo) updateInfo(info map[string]NodeVersion, dtk registry.Driv
 
 	match := false
 
-	if _, ok := info[dtk.KernelFullVersion]; ok {
-		osNFD := info[dtk.KernelFullVersion].OSVersion
-
-		if osNFD != osDTK {
-			return nil, fmt.Errorf("OSVersion mismatch NFD: %s vs. DTK: %s", osNFD, osDTK)
+	if nodeVersion, ok := info[dtk.KernelFullVersion]; ok {
+		osNode := nodeVersion.OSVersion
+		if osNode != osDTK {
+			return nil, fmt.Errorf("OSVersion mismatch Node: %s vs. DTK: %s", osNode, osDTK)
 		}
-
-		nodeVersion := info[dtk.KernelFullVersion]
-		nodeVersion.OSVersion = dtk.OSVersion
 		nodeVersion.DriverToolkit = dtk
-
 		info[dtk.KernelFullVersion] = nodeVersion
 		match = true
 	}
 
-	if _, ok := info[dtk.RTKernelFullVersion]; ok {
-		osNFD := info[dtk.RTKernelFullVersion].OSVersion
-
-		if osNFD != osDTK {
-			return nil, fmt.Errorf("OSVersion mismatch NFD: %s vs. DTK: %s", osNFD, osDTK)
+	if nodeVersion, ok := info[dtk.RTKernelFullVersion]; ok {
+		osNode := nodeVersion.OSVersion
+		if osNode != osDTK {
+			return nil, fmt.Errorf("OSVersion mismatch Node: %s vs. DTK: %s", osNode, osDTK)
 		}
-
-		nodeVersion := info[dtk.RTKernelFullVersion]
-		nodeVersion.OSVersion = dtk.OSVersion
 		nodeVersion.DriverToolkit = dtk
-
 		info[dtk.RTKernelFullVersion] = nodeVersion
 		match = true
 	}
