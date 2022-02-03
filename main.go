@@ -24,6 +24,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/controllers"
 	"github.com/openshift-psap/special-resource-operator/internal/controllers/finalizers"
 	"github.com/openshift-psap/special-resource-operator/internal/controllers/state"
+	"github.com/openshift-psap/special-resource-operator/internal/resourcehelper"
 	"github.com/openshift-psap/special-resource-operator/pkg/assets"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
@@ -106,7 +107,8 @@ func main() {
 		kernelData,
 		scheme,
 		lc,
-		proxyAPI)
+		proxyAPI,
+		resourcehelper.New())
 
 	if err = (&controllers.SpecialResourceReconciler{Cluster: clusterCluster,
 		ClusterInfo:            upgrade.NewClusterInfo(registry.NewRegistry(kubeClient), clusterCluster),
