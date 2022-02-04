@@ -15,16 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-const (
-	labelKernelVersionFull    = "feature.node.kubernetes.io/kernel-version.full"
-	labelOSReleaseVersionID   = "feature.node.kubernetes.io/system-os_release.VERSION_ID"
-	labelOSReleaseRHELVersion = "feature.node.kubernetes.io/system-os_release.RHEL_VERSION"
-
-	labelOSReleaseID             = "feature.node.kubernetes.io/system-os_release.ID"
-	labelOSReleaseVersionIDMajor = "feature.node.kubernetes.io/system-os_release.VERSION_ID.major"
-	labelOSReleaseVersionIDMinor = "feature.node.kubernetes.io/system-os_release.VERSION_ID.minor"
-)
-
 type NodeVersion struct {
 	OSVersion      string                      `json:"OSVersion"`
 	OSMajor        string                      `json:"OSMajor"`
