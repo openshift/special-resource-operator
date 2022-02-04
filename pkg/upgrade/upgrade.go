@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/pkg/errors"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
@@ -26,6 +25,8 @@ const (
 	labelOSReleaseVersionIDMinor = "feature.node.kubernetes.io/system-os_release.VERSION_ID.minor"
 )
 
+type dtkImageURL = string
+
 type NodeVersion struct {
 	OSVersion      string                      `json:"OSVersion"`
 	OSMajor        string                      `json:"OSMajor"`
@@ -40,25 +41,20 @@ type ClusterInfo interface {
 	GetClusterInfo(context.Context, *corev1.NodeList) (map[string]NodeVersion, error)
 }
 
-func NewClusterInfo(registry registry.Registry, cluster cluster.Cluster) ClusterInfo {
+func NewClusterInfo(reg registry.Registry, cluster cluster.Cluster) ClusterInfo {
 	return &clusterInfo{
 		log:      zap.New(zap.UseDevMode(true)).WithName(utils.Print("upgrade", utils.Blue)),
-		registry: registry,
+		registry: reg,
 		cluster:  cluster,
-		cache:    make(map[string]*cacheEntry),
+		cache:    make(map[dtkImageURL]*registry.DriverToolkitEntry),
 	}
-}
-
-type cacheEntry struct {
-	ImageURL string
-	DTK      registry.DriverToolkitEntry
 }
 
 type clusterInfo struct {
 	log      logr.Logger
 	registry registry.Registry
 	cluster  cluster.Cluster
-	cache    map[string]*cacheEntry
+	cache    map[dtkImageURL]*registry.DriverToolkitEntry
 }
 
 // GetClusterInfo returns a map[full kernel version]NodeVersion
@@ -69,18 +65,17 @@ func (ci *clusterInfo) GetClusterInfo(ctx context.Context, nodeList *corev1.Node
 		return nil, fmt.Errorf("failed to get upgrade info: %w", err)
 	}
 
-	history, err := ci.cluster.VersionHistory(ctx)
+	dtkImages, err := ci.cluster.GetDTKImages(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("could not get version history: %w", err)
 	}
 
-	versions, err := ci.driverToolkitVersion(ctx, history, info)
+	versions, err := ci.driverToolkitVersion(ctx, dtkImages, info)
 	if err != nil {
 		return nil, err
 	}
 
 	return versions, nil
-
 }
 
 func (ci *clusterInfo) nodeVersionInfo(nodeList *corev1.NodeList) (map[string]NodeVersion, error) {
@@ -179,35 +174,20 @@ func (ci *clusterInfo) updateInfo(info map[string]NodeVersion, dtk registry.Driv
 	return info, nil
 }
 
-func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, entries []string, info map[string]NodeVersion) (map[string]NodeVersion, error) {
-	if len(entries) == 0 {
+func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, dtkImages []string, info map[string]NodeVersion) (map[string]NodeVersion, error) {
+	if len(dtkImages) == 0 {
 		return info, nil
 	}
 
 	var dtk registry.DriverToolkitEntry
-	var imageURL string
+	imageURL := dtkImages[0]
 
-	entry := entries[0]
-
-	if cached := ci.cache[entry]; cached != nil {
-		dtk = cached.DTK
-		imageURL = cached.ImageURL
-		ci.log.Info("History from cache", "entry", entry, "dtk", dtk, "imageURL", imageURL)
+	if cached := ci.cache[imageURL]; cached != nil {
+		dtk = *cached
+		ci.log.Info("History from cache", "imageURL", imageURL, "dtk", dtk)
 	} else {
-		var err error
-		layer, err := ci.registry.LastLayer(ctx, entry)
-		if err != nil {
-			return nil, err
-		}
-		_, imageURL, err = ci.registry.ReleaseManifests(layer)
-		if err != nil {
-			return nil, fmt.Errorf("could not extract version from payload: %w", err)
-		}
-		if imageURL == "" {
-			utils.WarnOnError(errors.New("No DTK image found, DTK cannot be used in a Build"))
-			return info, nil
-		}
-		if layer, err = ci.registry.LastLayer(ctx, imageURL); layer == nil {
+		layer, err := ci.registry.LastLayer(ctx, imageURL)
+		if layer == nil {
 			return nil, fmt.Errorf("cannot extract last layer for DTK from %s: %w", imageURL, err)
 		}
 
@@ -215,11 +195,9 @@ func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, entries []strin
 		if err != nil {
 			return nil, err
 		}
-		ci.cache[entry] = &cacheEntry{
-			ImageURL: imageURL,
-			DTK:      dtk,
-		}
-		ci.log.Info("History added to cache", "entry", entry, "dtk", dtk, "imageURL", imageURL)
+
+		ci.cache[imageURL] = &dtk
+		ci.log.Info("History added to cache", "imageURL", imageURL, "dtk", dtk)
 	}
 	// info has the kernels that are currently "running" on the cluster
 	// we're going only to update the struct with DTK information on

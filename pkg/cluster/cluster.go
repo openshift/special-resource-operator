@@ -10,6 +10,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	configv1 "github.com/openshift/api/config/v1"
+	imagev1 "github.com/openshift/api/image/v1"
 	machinev1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 
 	corev1 "k8s.io/api/core/v1"
@@ -24,9 +25,9 @@ import (
 
 type Cluster interface {
 	Version(context.Context) (string, string, error)
-	VersionHistory(context.Context) ([]string, error)
 	OSImageURL(context.Context) (string, error)
 	OperatingSystem(*corev1.NodeList) (string, string, string, error)
+	GetDTKImages(context.Context) ([]string, error)
 }
 
 func NewCluster(clients clients.ClientsInterface) Cluster {
@@ -39,6 +40,27 @@ func NewCluster(clients clients.ClientsInterface) Cluster {
 type cluster struct {
 	log     logr.Logger
 	clients clients.ClientsInterface
+}
+
+func (c *cluster) GetDTKImages(ctx context.Context) ([]string, error) {
+	is := imagev1.ImageStream{}
+
+	err := c.clients.Get(ctx,
+		types.NamespacedName{Namespace: "openshift", Name: "driver-toolkit"},
+		&is)
+	if err != nil {
+		return []string{}, fmt.Errorf("could not obtain openshift/driver-toolkit ImageStream: %w", err)
+	}
+
+	imgs := []string{}
+	for _, tag := range is.Status.Tags {
+		if tag.Tag != "latest" {
+			// DockerImageReference points directly to quay.io
+			imgs = append(imgs, tag.Items[0].DockerImageReference)
+		}
+	}
+
+	return imgs, nil
 }
 
 func (c *cluster) Version(ctx context.Context) (string, string, error) {
@@ -74,34 +96,6 @@ func (c *cluster) Version(ctx context.Context) (string, string, error) {
 	}
 
 	return "", "", errors.New("Undefined Cluster Version")
-}
-
-func (c *cluster) VersionHistory(ctx context.Context) ([]string, error) {
-
-	stat := []string{}
-
-	available, err := c.clusterVersionAvailable()
-	if err != nil {
-		return nil, err
-	}
-	if !available {
-		return stat, nil
-	}
-
-	version, err := c.clients.ClusterVersionGet(ctx, metav1.GetOptions{})
-	if err != nil {
-		return stat, fmt.Errorf("ConfigClient unable to get ClusterVersions: %w", err)
-	}
-
-	stat = append(stat, version.Status.Desired.Image)
-
-	for _, condition := range version.Status.History {
-		if condition.State == "Completed" {
-			stat = append(stat, condition.Image)
-		}
-	}
-
-	return stat, nil
 }
 
 func (c *cluster) OSImageURL(ctx context.Context) (string, error) {
