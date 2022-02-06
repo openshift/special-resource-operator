@@ -116,8 +116,6 @@ uninstall: manifests kustomize  ## Uninstall CRDs from the K8s cluster specified
 deploy: manifests kustomize configure ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 	$(CLUSTER_CLIENT) apply -k config/namespace
 	$(CLUSTER_CLIENT) apply -k config/default
-	$(shell sleep 5)
-	$(CLUSTER_CLIENT) apply -k config/cr
 
 # If the CRD is deleted before the CRs the CRD finalizer will hang forever
 # The specialresource finalizer will not execute either

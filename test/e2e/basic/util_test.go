@@ -4,26 +4,20 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/openshift-psap/special-resource-operator/test/framework"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/test/framework"
-	configv1 "github.com/openshift/api/config/v1"
-	ocv1 "github.com/openshift/api/config/v1"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // GetNodesByRole returns a list of nodes that match a given role.
@@ -124,123 +118,6 @@ func WaitSRORunning(clientSet *kubernetes.Clientset, namespace string) error {
 	}()
 	wg.Wait()
 	return nil
-}
-
-// WaitClusterOperatorConditions blocks until the SRO ClusterOperator status
-// conditions available and degraded are set to true and false, respectively.
-func WaitClusterOperatorConditions(clientSet *framework.ClientSet) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	watch, err := clientSet.ClusterOperators().Watch(ctx, metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		expectedConditions := []struct {
-			Type   configv1.ClusterStatusConditionType
-			Status configv1.ConditionStatus
-		}{
-			{
-				Type:   configv1.OperatorAvailable,
-				Status: configv1.ConditionTrue,
-			},
-			{
-				Type:   configv1.OperatorDegraded,
-				Status: configv1.ConditionFalse,
-			},
-		}
-		for {
-			select {
-			case event, ok := <-watch.ResultChan():
-				if !ok {
-					return
-				}
-				co, ok := event.Object.(*ocv1.ClusterOperator)
-				if !ok {
-					continue
-				}
-				if co.Name == "special-resource-operator" {
-					fulfilledConditions := 0
-					for _, check := range expectedConditions {
-						for _, cond := range co.Status.Conditions {
-							if cond.Type == check.Type && cond.Status == check.Status {
-								fulfilledConditions++
-							}
-						}
-					}
-					if fulfilledConditions == len(expectedConditions) {
-						wg.Done()
-					}
-				}
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-	wg.Wait()
-	return nil
-}
-
-// WaitClusterOperatorNamespace blocks until ClusterOperator shows related objects to be in the
-// SRO namespace.
-func WaitClusterOperatorNamespace(clientSet *framework.ClientSet) error {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	watch, err := clientSet.ClusterOperators().Watch(ctx, metav1.ListOptions{})
-	if err != nil {
-		return err
-	}
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		for {
-			select {
-			case event, ok := <-watch.ResultChan():
-				if !ok {
-					return
-				}
-				co, ok := event.Object.(*ocv1.ClusterOperator)
-				if !ok {
-					continue
-				}
-				if co.Name == "special-resource-operator" {
-					for _, relatedObject := range co.Status.RelatedObjects {
-						if relatedObject.Resource == "namespaces" &&
-							relatedObject.Name == clientSet.Config.Namespace {
-							wg.Done()
-						}
-					}
-				}
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-	wg.Wait()
-	return nil
-}
-
-// CreatePreamble applies the preamble special resource to kickstart SRO reconcile process
-// if it was deployed from OLM. If not, this operation is idempotent.
-func CreatePreamble(ctx context.Context, cl client.Client) error {
-	specialresources := &srov1beta1.SpecialResourceList{}
-	err := cl.List(context.TODO(), specialresources, []client.ListOption{}...)
-	if err != nil {
-		return fmt.Errorf("couldn't get SpecialResourceList: %v", err)
-	}
-	for _, element := range specialresources.Items {
-		if element.Name == "special-resource-preamble" {
-			return nil
-		}
-	}
-
-	preambleYAML, err := ioutil.ReadFile("../../../manifests/0016_specialresource_special-resource-preamble.yaml")
-	if err != nil {
-		return err
-	}
-	return framework.CreateFromYAML(ctx, preambleYAML, cl)
 }
 
 // IsNodeReady helps determine if a given node is ready or not.

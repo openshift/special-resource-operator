@@ -78,11 +78,6 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 
 	log = r.Log.WithName(utils.Print(r.parent.Name, utils.Green))
 
-	if r.parent.Name == "special-resource-preamble" {
-		log.Info("Preamble done, waiting for specialresource requests")
-		return reconcile.Result{}, nil
-	}
-
 	log.Info("Resolving Dependencies")
 
 	pchart, err := r.Helmer.Load(r.parent.Spec.Chart)

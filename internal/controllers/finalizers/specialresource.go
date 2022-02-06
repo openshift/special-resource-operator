@@ -110,51 +110,39 @@ func (srf *specialResourceFinalizer) finalizeSpecialResource(ctx context.Context
 	// of finalizers include performing backups and deleting
 	// resources that are not owned by this CR, like a PVC.
 
-	// If this special resources is deleted we're going to remove all
-	// specialresource labels from the nodes.
-	if sr.Name == "special-resource-preamble" {
-		err := srf.finalizeNodes(ctx, sr, "specialresource.openshift.io")
-		if err != nil {
-			srf.log.Error(err, "finalizeSpecialResource special-resource-preamble failed")
-			return err
-		}
-	}
-
 	if err := srf.finalizeNodes(ctx, sr, "specialresource.openshift.io/state-"+sr.Name); err != nil {
 		return err
 	}
 
-	if sr.Name != "special-resource-preamble" {
-		ns := unstructured.Unstructured{}
+	ns := unstructured.Unstructured{}
 
-		ns.SetKind("Namespace")
-		ns.SetAPIVersion("v1")
-		ns.SetName(sr.Spec.Namespace)
-		key := client.ObjectKeyFromObject(&ns)
+	ns.SetKind("Namespace")
+	ns.SetAPIVersion("v1")
+	ns.SetName(sr.Spec.Namespace)
+	key := client.ObjectKeyFromObject(&ns)
 
-		if err := srf.kubeClient.Get(ctx, key, &ns); err != nil {
-			if apierrors.IsNotFound(err) {
-				srf.log.Info("Successfully finalized (Namespace IsNotFound)", "SpecialResource:", sr.Name)
-				return nil
-			} else {
-				srf.log.Error(err, "Failed to get namespace", "namespace", sr.Spec.Namespace, "SpecialResource", sr.Name)
+	if err := srf.kubeClient.Get(ctx, key, &ns); err != nil {
+		if apierrors.IsNotFound(err) {
+			srf.log.Info("Successfully finalized (Namespace IsNotFound)", "SpecialResource:", sr.Name)
+			return nil
+		} else {
+			srf.log.Error(err, "Failed to get namespace", "namespace", sr.Spec.Namespace, "SpecialResource", sr.Name)
+			return err
+		}
+	}
+
+	for _, owner := range ns.GetOwnerReferences() {
+		if owner.Kind == "SpecialResource" {
+			srf.log.Info("Namespaces is owned by SpecialResource deleting")
+
+			if err := srf.kubeClient.Delete(ctx, &ns); err != nil {
+				srf.log.Error(err, "Failed to delete namespace", "namespace", sr.Spec.Namespace)
 				return err
 			}
-		}
 
-		for _, owner := range ns.GetOwnerReferences() {
-			if owner.Kind == "SpecialResource" {
-				srf.log.Info("Namespaces is owned by SpecialResource deleting")
-
-				if err := srf.kubeClient.Delete(ctx, &ns); err != nil {
-					srf.log.Error(err, "Failed to delete namespace", "namespace", sr.Spec.Namespace)
-					return err
-				}
-
-				if err := srf.pollActions.ForResourceUnavailability(ctx, &ns); err != nil {
-					srf.log.Error(err, "Failed to delete namespace", "namespace", sr.Spec.Namespace)
-					return err
-				}
+			if err := srf.pollActions.ForResourceUnavailability(ctx, &ns); err != nil {
+				srf.log.Error(err, "Failed to delete namespace", "namespace", sr.Spec.Namespace)
+				return err
 			}
 		}
 	}

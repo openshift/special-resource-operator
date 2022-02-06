@@ -40,6 +40,5 @@ resources:
 - ../rbac
 - ../manager
 #- ../prometheus
-#- ../clusteroperator
 
 namespace: special-resource-operator
