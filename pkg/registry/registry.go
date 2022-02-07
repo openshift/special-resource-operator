@@ -7,10 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
+	"net/url"
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
@@ -23,10 +24,9 @@ import (
 )
 
 const (
-	pullSecretNamespace  = "openshift-config"
-	pullSecretName       = "pull-secret"
-	pullSecretFileName   = ".dockerconfigjson"
-	dockerConfigFilePath = "/home/nonroot/.docker/config.json"
+	pullSecretNamespace = "openshift-config"
+	pullSecretName      = "pull-secret"
+	pullSecretFileName  = ".dockerconfigjson"
 )
 
 var (
@@ -60,32 +60,67 @@ type registry struct {
 	log        logr.Logger
 }
 
-func (r *registry) writeImageRegistryCredentials(ctx context.Context) error {
+type dockerAuth struct {
+	Auth  string
+	Email string
+}
+
+func (r *registry) registryFromImageURL(image string) (string, error) {
+	u, err := url.Parse(image)
+	if err != nil || u.Host == "" {
+		// "reg.io/org/repo:tag" are invalid from URL scheme POV
+		// prepending double slash in case of error or empty Host and trying to parse again
+		u, err = url.Parse("//" + image)
+	}
+
+	if err != nil || u.Host == "" {
+		return "", errors.New("Failed to parse image url: " + image)
+	}
+
+	return u.Host, nil
+}
+
+func (r *registry) getImageRegistryCredentials(ctx context.Context, registry string) (dockerAuth, error) {
 	_, err := r.kubeClient.GetNamespace(ctx, pullSecretNamespace, metav1.GetOptions{})
 	if err != nil {
 		r.log.Info("Can not find namespace for pull secrets, assuming vanilla k8s")
-		return nil
+		return dockerAuth{}, nil
 	}
 
 	s, err := r.kubeClient.GetSecret(ctx, pullSecretNamespace, pullSecretName, metav1.GetOptions{})
 	if err != nil {
-		return errors.Wrap(err, "Can not retrieve pull secrets")
+		return dockerAuth{}, errors.Wrap(err, "Can not retrieve pull secrets")
 	}
 
 	pullSecretData, ok := s.Data[pullSecretFileName]
 	if !ok {
-		return errors.New("Can not find data content in the secret")
+		return dockerAuth{}, errors.New("Can not find data content in the secret")
 	}
 
-	err = os.WriteFile(dockerConfigFilePath, pullSecretData, 0644)
+	auths := struct {
+		Auths map[string]dockerAuth
+	}{}
+
+	err = json.Unmarshal(pullSecretData, &auths)
 	if err != nil {
-		return errors.Wrap(err, "Can not write pull secret file")
+		return dockerAuth{}, errors.New("Failed to unmarshal auths")
 	}
-	return nil
+
+	if auth, ok := auths.Auths[registry]; !ok {
+		return dockerAuth{}, errors.New("Cluster PullSecret does not contain auth for the registry " + registry)
+	} else {
+		return auth, nil
+	}
 }
 
 func (r *registry) LastLayer(ctx context.Context, entry string) (v1.Layer, error) {
-	if err := r.writeImageRegistryCredentials(ctx); err != nil {
+	registry, err := r.registryFromImageURL(entry)
+	if err != nil {
+		return nil, err
+	}
+
+	auth, err := r.getImageRegistryCredentials(ctx, registry)
+	if err != nil {
 		return nil, err
 	}
 
@@ -94,10 +129,16 @@ func (r *registry) LastLayer(ctx context.Context, entry string) (v1.Layer, error
 	if hash := strings.Split(entry, "@"); len(hash) > 1 {
 		repo = hash[0]
 	} else if tag := strings.Split(entry, ":"); len(tag) > 1 {
+
 		repo = tag[0]
 	}
 
-	manifest, err := crane.Manifest(entry)
+	var registryAuths []crane.Option
+	if auth.Email != "" && auth.Auth != "" {
+		registryAuths = append(registryAuths, crane.WithAuth(authn.FromConfig(authn.AuthConfig{Username: auth.Email, Auth: auth.Auth})))
+	}
+
+	manifest, err := crane.Manifest(entry, registryAuths...)
 	if err != nil {
 		utils.WarnOnError(fmt.Errorf("cannot extract manifest: %v", err))
 		return nil, nil
@@ -117,7 +158,7 @@ func (r *registry) LastLayer(ctx context.Context, entry string) (v1.Layer, error
 
 	digest := last.(map[string]interface{})["digest"].(string)
 
-	return crane.PullLayer(repo + "@" + digest)
+	return crane.PullLayer(repo+"@"+digest, registryAuths...)
 }
 
 func (r *registry) ExtractToolkitRelease(layer v1.Layer) (DriverToolkitEntry, error) {
