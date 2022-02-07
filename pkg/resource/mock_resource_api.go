@@ -10,7 +10,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // MockCreator is a mock of Creator interface.
@@ -34,20 +33,6 @@ func NewMockCreator(ctrl *gomock.Controller) *MockCreator {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCreator) EXPECT() *MockCreatorMockRecorder {
 	return m.recorder
-}
-
-// CheckForImagePullBackOff mocks base method.
-func (m *MockCreator) CheckForImagePullBackOff(arg0 context.Context, arg1 *unstructured.Unstructured, arg2 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckForImagePullBackOff", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// CheckForImagePullBackOff indicates an expected call of CheckForImagePullBackOff.
-func (mr *MockCreatorMockRecorder) CheckForImagePullBackOff(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckForImagePullBackOff", reflect.TypeOf((*MockCreator)(nil).CheckForImagePullBackOff), arg0, arg1, arg2)
 }
 
 // CreateFromYAML mocks base method.

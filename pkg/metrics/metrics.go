@@ -11,6 +11,7 @@ const (
 	completedStatesQuery         = "sro_states_completed_info"
 	completedKindQuery           = "sro_kind_completed_info"
 	usedNodesQuery               = "sro_used_nodes"
+	upgradeAlertQuery            = "sro_upgrade_alert"
 )
 
 var (
@@ -42,6 +43,14 @@ var (
 		},
 		[]string{"cr", "kind", "name", "namespace", "nodes"},
 	)
+
+	upgradeAlert = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: upgradeAlertQuery,
+			Help: "For a SRO CR, 1 if during upgrade there is a problem with CR, 0 otherwise",
+		},
+		[]string{"cr"},
+	)
 )
 
 func init() {
@@ -51,6 +60,7 @@ func init() {
 		createdSpecialResources,
 		completedKinds,
 		usedNodes,
+		upgradeAlert,
 	)
 }
 
@@ -62,6 +72,7 @@ type Metrics interface {
 	SetCompletedState(specialResource, state string, value int)
 	SetCompletedKind(specialResource, kind, name, namespace string, value int)
 	SetUsedNodes(crName, kind, name, namespace, nodes string)
+	SetUpgradeAlert(crName string, value int)
 }
 
 func New() Metrics {
@@ -84,4 +95,8 @@ func (m *metricsImpl) SetCompletedKind(specialResource, kind, name, namespace st
 
 func (m *metricsImpl) SetUsedNodes(crName, kind, name, namespace, nodes string) {
 	usedNodes.WithLabelValues(crName, kind, name, namespace, nodes).Set(float64(1))
+}
+
+func (m *metricsImpl) SetUpgradeAlert(crName string, value int) {
+	upgradeAlert.WithLabelValues(crName).Set(float64(value))
 }

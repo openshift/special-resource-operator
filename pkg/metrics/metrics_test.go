@@ -15,6 +15,7 @@ const (
 	completedStatesValue       = 2
 	completedKindValue         = 2
 	usedNodesValue             = 1
+	upgradeAlertValue          = 1
 
 	sr         = "simple-kmod"
 	state      = "templates/0000-buildconfig.yaml"
@@ -44,6 +45,7 @@ var _ = Describe("Metrics", func() {
 	m.SetCompletedState(sr, state, completedStatesValue)
 	m.SetCompletedKind(sr, kind, name, namespace, completedKindValue)
 	m.SetUsedNodes(sr, kind, name, namespace, nodes_list)
+	m.SetUpgradeAlert(sr, upgradeAlertValue)
 
 	It("correctly passes calls to the collectors", func() {
 		expected := []struct {
@@ -54,6 +56,7 @@ var _ = Describe("Metrics", func() {
 			{completedStatesQuery, completedStatesValue},
 			{completedKindQuery, completedKindValue},
 			{usedNodesQuery, usedNodesValue},
+			{upgradeAlertQuery, upgradeAlertValue},
 		}
 
 		data, err := metrics.Registry.Gather()
