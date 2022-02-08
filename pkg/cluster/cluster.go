@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
@@ -42,6 +44,7 @@ type cluster struct {
 	clients clients.ClientsInterface
 }
 
+// GetDTKImages returns URLs to DTK images obtained from cluster's DTK ImageStream
 func (c *cluster) GetDTKImages(ctx context.Context) ([]string, error) {
 	is := imagev1.ImageStream{}
 
@@ -52,15 +55,30 @@ func (c *cluster) GetDTKImages(ctx context.Context) ([]string, error) {
 		return []string{}, fmt.Errorf("could not obtain openshift/driver-toolkit ImageStream: %w", err)
 	}
 
-	imgs := []string{}
+	type tagRef struct {
+		ref     string
+		created time.Time
+	}
+
+	trs := []tagRef{}
 	for _, tag := range is.Status.Tags {
-		if tag.Tag != "latest" {
-			// DockerImageReference points directly to quay.io
-			imgs = append(imgs, tag.Items[0].DockerImageReference)
+		if tag.Tag == "latest" {
+			for _, t := range tag.Items {
+				trs = append(trs, tagRef{ref: t.DockerImageReference, created: t.Created.Time})
+			}
 		}
 	}
 
-	return imgs, nil
+	sort.Slice(trs, func(i, j int) bool {
+		return trs[i].created.After(trs[j].created)
+	})
+
+	refs := []string{}
+	for _, tr := range trs {
+		refs = append(refs, tr.ref)
+	}
+
+	return refs, nil
 }
 
 func (c *cluster) Version(ctx context.Context) (string, string, error) {

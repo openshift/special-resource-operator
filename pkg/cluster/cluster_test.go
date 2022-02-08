@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -263,7 +264,6 @@ var _ = Describe("cluster_OperatingSystem", func() {
 })
 
 var _ = Describe("cluster_GetDTKImages", func() {
-
 	It("should return an error in case of GET failure", func() {
 		mockKubeClients.EXPECT().
 			Get(gomock.Any(), types.NamespacedName{Namespace: "openshift", Name: "driver-toolkit"}, gomock.Any()).
@@ -274,37 +274,31 @@ var _ = Describe("cluster_GetDTKImages", func() {
 		Expect(urls).To(HaveLen(0))
 	})
 
-	It("should return a slice of origin registry URLs", func() {
+	It("should return sorted slice of URLs", func() {
 		remoteRegistryURL := "reg.io/release/repo"
-		clusterRegistry := "image-registry.openshift-image-registry.svc:5000/openshift/driver-toolkit"
-		clusterExposedRegistry := "default-route-openshift-image-registry.apps-crc.testing/openshift/driver-toolkit"
-		img1 := "sha256:1234567890"
-		tag1 := "49.84.000000000000-0"
-		img2 := "sha256:0987654321"
-		tag2 := "49.84.111111111111-0"
+		img1 := "sha256:1"
+		img2 := "sha256:2"
+		img3 := "sha256:3"
 
 		mockKubeClients.EXPECT().
 			Get(gomock.Any(), types.NamespacedName{Namespace: "openshift", Name: "driver-toolkit"}, gomock.Any()).
 			DoAndReturn(func(_ context.Context, _ types.NamespacedName, is *imagev1.ImageStream) error {
 				is.Status = imagev1.ImageStreamStatus{
-					DockerImageRepository:       clusterRegistry,
-					PublicDockerImageRepository: clusterExposedRegistry,
 					Tags: []imagev1.NamedTagEventList{
 						{
-							Tag: tag1,
+							Tag: "latest",
 							Items: []imagev1.TagEvent{
 								{
+									Created:              metav1.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
 									DockerImageReference: remoteRegistryURL + "@" + img1,
-									Image:                img1,
 								},
-							},
-						},
-						{
-							Tag: tag2,
-							Items: []imagev1.TagEvent{
 								{
+									Created:              metav1.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 									DockerImageReference: remoteRegistryURL + "@" + img2,
-									Image:                img2,
+								},
+								{
+									Created:              metav1.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
+									DockerImageReference: remoteRegistryURL + "@" + img3,
 								},
 							},
 						},
@@ -315,17 +309,11 @@ var _ = Describe("cluster_GetDTKImages", func() {
 
 		urls, err := cluster.NewCluster(mockKubeClients).GetDTKImages(context.TODO())
 		Expect(err).ToNot(HaveOccurred())
-		Expect(urls).To(ConsistOf([]string{
+		// Sorted using Created field: newer first
+		Expect(urls).To(Equal([]string{
+			remoteRegistryURL + "@" + img3,
 			remoteRegistryURL + "@" + img1,
 			remoteRegistryURL + "@" + img2,
-		}))
-		Expect(urls).ToNot(ConsistOf([]string{
-			clusterRegistry + ":" + tag1,
-			clusterRegistry + ":" + tag2,
-		}))
-		Expect(urls).ToNot(ConsistOf([]string{
-			clusterExposedRegistry + ":" + tag1,
-			clusterExposedRegistry + ":" + tag2,
 		}))
 	})
 })
