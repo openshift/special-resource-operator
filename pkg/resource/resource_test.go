@@ -10,22 +10,22 @@ import (
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
-	buildv1 "github.com/openshift/api/build/v1"
-	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
+	"github.com/openshift-psap/special-resource-operator/internal/resourcehelper"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 )
 
 var (
@@ -41,257 +41,6 @@ func TestResource(t *testing.T) {
 	RunSpecs(t, "Resource Suite")
 }
 
-var _ = Describe("IsNamespaced", func() {
-	Expect(IsNamespaced("Pod")).To(BeTrue())
-
-	DescribeTable(
-		"cluster-scoped types should not be namespaced",
-		func(typeName string) {
-			Expect(IsNamespaced(typeName)).To(BeFalse())
-		},
-		Entry(nil, "Namespace"),
-		Entry(nil, "ClusterRole"),
-		Entry(nil, "ClusterRoleBinding"),
-		Entry(nil, "SecurityContextConstraint"),
-		Entry(nil, "SpecialResource"),
-	)
-})
-
-var _ = Describe("IsNotUpdateable", func() {
-	DescribeTable(
-		"should not be updateable",
-		func(typeName string, m types.GomegaMatcher) {
-			Expect(IsNotUpdateable(typeName)).To(m)
-		},
-		EntryDescription("%s"),
-		Entry(nil, "Deployment", BeFalse()),
-		Entry(nil, "ServiceAccount", BeTrue()),
-		Entry(nil, "Pod", BeTrue()),
-	)
-})
-
-var _ = Describe("NeedsResourceVersionUpdate", func() {
-	It("Pod should not requires a ResourceVersion", func() {
-		Expect(NeedsResourceVersionUpdate("Pod")).To(BeFalse())
-	})
-
-	DescribeTable(
-		"requires a resource version update",
-		func(rt string) {
-			Expect(NeedsResourceVersionUpdate(rt)).To(BeTrue())
-		},
-		Entry(nil, "SecurityContextConstraints"),
-		Entry(nil, "Service"),
-		Entry(nil, "ServiceMonitor"),
-		Entry(nil, "Route"),
-		Entry(nil, "Build"),
-		Entry(nil, "BuildRun"),
-		Entry(nil, "BuildConfig"),
-		Entry(nil, "ImageStream"),
-		Entry(nil, "PrometheusRule"),
-		Entry(nil, "CSIDriver"),
-		Entry(nil, "Issuer"),
-		Entry(nil, "CustomResourceDefinition"),
-		Entry(nil, "Certificate"),
-		Entry(nil, "SpecialResource"),
-		Entry(nil, "OperatorGroup"),
-		Entry(nil, "CertManager"),
-		Entry(nil, "MutatingWebhookConfiguration"),
-		Entry(nil, "ValidatingWebhookConfiguration"),
-		Entry(nil, "Deployment"),
-		Entry(nil, "ImagePolicy"),
-	)
-})
-
-var _ = Describe("UpdateResourceVersion", func() {
-	It("should not return an error for Pod", func() {
-		foundPod := v1.Pod{
-			TypeMeta: metav1.TypeMeta{Kind: "Pod"},
-		}
-
-		foundMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&foundPod)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = UpdateResourceVersion(&unstructured.Unstructured{}, &unstructured.Unstructured{Object: foundMap})
-		Expect(err).NotTo(HaveOccurred())
-	})
-
-	It("should return an error for Service with no resourceVersion", func() {
-		foundSvc := v1.Service{
-			TypeMeta: metav1.TypeMeta{Kind: "Service"},
-		}
-
-		foundMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&foundSvc)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = UpdateResourceVersion(&unstructured.Unstructured{}, &unstructured.Unstructured{Object: foundMap})
-		Expect(err).To(HaveOccurred())
-	})
-
-	It("should return an error for Service with no clusterIP", func() {
-		foundSvc := v1.Service{
-			TypeMeta:   metav1.TypeMeta{Kind: "Service"},
-			ObjectMeta: metav1.ObjectMeta{ResourceVersion: "123"},
-		}
-
-		foundMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&foundSvc)
-		Expect(err).NotTo(HaveOccurred())
-
-		reqUnstructured := unstructured.Unstructured{
-			Object: make(map[string]interface{}),
-		}
-
-		err = UpdateResourceVersion(&reqUnstructured, &unstructured.Unstructured{Object: foundMap})
-		Expect(err).To(HaveOccurred())
-	})
-
-	It("should work as expected for Service with clusterIP", func() {
-		const (
-			clusterIP       = "1.2.3.4"
-			resourceVersion = "123"
-		)
-
-		foundSvc := v1.Service{
-			TypeMeta:   metav1.TypeMeta{Kind: "Service"},
-			ObjectMeta: metav1.ObjectMeta{ResourceVersion: resourceVersion},
-			Spec:       v1.ServiceSpec{ClusterIP: clusterIP},
-		}
-
-		foundMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&foundSvc)
-		Expect(err).NotTo(HaveOccurred())
-
-		reqUnstructured := unstructured.Unstructured{
-			Object: make(map[string]interface{}),
-		}
-
-		err = UpdateResourceVersion(&reqUnstructured, &unstructured.Unstructured{Object: foundMap})
-		Expect(err).NotTo(HaveOccurred())
-
-		reqSvc := v1.Service{}
-
-		err = runtime.DefaultUnstructuredConverter.FromUnstructured(reqUnstructured.Object, &reqSvc)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(reqSvc.GetResourceVersion()).To(Equal(resourceVersion))
-		Expect(reqSvc.Spec.ClusterIP).To(Equal(clusterIP))
-	})
-})
-
-var _ = Describe("SetNodeSelectorTerms", func() {
-	It("should work for a DaemonSet", func() {
-		d := appsv1.DaemonSet{
-			TypeMeta: metav1.TypeMeta{Kind: "DaemonSet"},
-		}
-
-		m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&d)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = unstructured.SetNestedStringMap(m, make(map[string]string), "spec", "template", "spec", "nodeSelector")
-		Expect(err).NotTo(HaveOccurred())
-
-		terms := map[string]string{"key": "value"}
-		uo := unstructured.Unstructured{Object: m}
-
-		err = SetNodeSelectorTerms(&uo, terms)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &d)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(d.Spec.Template.Spec.NodeSelector).To(Equal(terms))
-	})
-
-	It("should work for a Deployment", func() {
-		d := appsv1.Deployment{
-			TypeMeta: metav1.TypeMeta{Kind: "Deployment"},
-		}
-
-		m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&d)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = unstructured.SetNestedStringMap(m, make(map[string]string), "spec", "template", "spec", "nodeSelector")
-		Expect(err).NotTo(HaveOccurred())
-
-		terms := map[string]string{"key": "value"}
-		uo := unstructured.Unstructured{Object: m}
-
-		err = SetNodeSelectorTerms(&uo, terms)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &d)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(d.Spec.Template.Spec.NodeSelector).To(Equal(terms))
-	})
-
-	// TODO(qbarrand) this bugs because the code checks if the kind is Statefulset (no capital S)
-	PIt("should work for a StatefulSet", func() {
-		statefulSet := appsv1.StatefulSet{
-			TypeMeta: metav1.TypeMeta{Kind: "StatefulSet"},
-		}
-
-		m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&statefulSet)
-		Expect(err).NotTo(HaveOccurred())
-
-		terms := map[string]string{"key": "value"}
-		uo := unstructured.Unstructured{Object: m}
-
-		err = SetNodeSelectorTerms(&uo, terms)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &statefulSet)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(statefulSet.Spec.Template.Spec.NodeSelector).To(Equal(terms))
-	})
-
-	It("should work for a Pod", func() {
-		p := v1.Pod{
-			TypeMeta: metav1.TypeMeta{Kind: "Pod"},
-		}
-
-		m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&p)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = unstructured.SetNestedStringMap(m, make(map[string]string), "spec", "nodeSelector")
-		Expect(err).NotTo(HaveOccurred())
-
-		terms := map[string]string{"key": "value"}
-		uo := unstructured.Unstructured{Object: m}
-
-		err = SetNodeSelectorTerms(&uo, terms)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &p)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(p.Spec.NodeSelector).To(Equal(terms))
-	})
-
-	It("should work for a BuildConfig", func() {
-		d := buildv1.BuildConfig{
-			TypeMeta: metav1.TypeMeta{Kind: "BuildConfig"},
-		}
-
-		m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&d)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = unstructured.SetNestedStringMap(m, make(map[string]string), "spec", "nodeSelector")
-		Expect(err).NotTo(HaveOccurred())
-
-		terms := map[string]string{"key": "value"}
-		uo := unstructured.Unstructured{Object: m}
-
-		err = SetNodeSelectorTerms(&uo, terms)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &d)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(d.Spec.NodeSelector).To(Equal(buildv1.OptionalNodeSelector(terms)))
-	})
-})
-
 var _ = Describe("creator_CreateFromYAML", func() {
 	var (
 		ctrl          *gomock.Controller
@@ -301,6 +50,7 @@ var _ = Describe("creator_CreateFromYAML", func() {
 		pollActions   *poll.MockPollActions
 		kernelData    *kernel.MockKernelData
 		proxyAPI      *proxy.MockProxyAPI
+		helper        *resourcehelper.MockHelper
 	)
 
 	BeforeEach(func() {
@@ -311,6 +61,7 @@ var _ = Describe("creator_CreateFromYAML", func() {
 		pollActions = poll.NewMockPollActions(ctrl)
 		kernelData = kernel.NewMockKernelData(ctrl)
 		proxyAPI = proxy.NewMockProxyAPI(ctrl)
+		helper = resourcehelper.NewMockHelper(ctrl)
 	})
 
 	AfterEach(func() {
@@ -354,8 +105,23 @@ spec:
 		}
 
 		gomock.InOrder(
+			helper.EXPECT().IsNamespaced("Pod").Times(1).Return(true),
+			helper.EXPECT().SetLabel(gomock.Any(), ownedLabel).Times(1).
+				DoAndReturn(func(obj *unstructured.Unstructured, label string) error {
+					return resourcehelper.New().SetLabel(obj, label)
+				}),
 			kernelData.EXPECT().IsObjectAffine(gomock.Any()).Times(1).Return(false),
+			helper.EXPECT().SetNodeSelectorTerms(gomock.Any(), nodeSelector).Times(1).
+				DoAndReturn(func(obj *unstructured.Unstructured, terms map[string]string) error {
+					return resourcehelper.New().SetNodeSelectorTerms(obj, terms)
+				}),
+			helper.EXPECT().IsNamespaced("Pod").Times(1).Return(true),
+			helper.EXPECT().SetMetaData(gomock.Any(), specialResourceName, namespace).Times(1).
+				Do(func(obj *unstructured.Unstructured, nm string, ns string) {
+					resourcehelper.New().SetMetaData(obj, nm, ns)
+				}),
 			kubeClient.EXPECT().Get(context.TODO(), nsn, unstructuredMatcher).Times(1),
+			helper.EXPECT().IsNotUpdateable("Pod").Times(1).Return(true),
 			metricsClient.EXPECT().SetCompletedKind(specialResourceName, "Pod", "nginx", namespace, 1).Times(1),
 		)
 
@@ -365,7 +131,7 @@ spec:
 		Expect(err).NotTo(HaveOccurred())
 
 		err =
-			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI).
+			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI, helper).
 				CreateFromYAML(
 					context.TODO(),
 					yamlSpec,
@@ -452,11 +218,30 @@ spec:
 		}
 
 		gomock.InOrder(
+			helper.EXPECT().IsNamespaced("Pod").Times(1).Return(true),
+			helper.EXPECT().SetLabel(gomock.Any(), ownedLabel).Times(1).
+				DoAndReturn(func(obj *unstructured.Unstructured, label string) error {
+					return resourcehelper.New().SetLabel(obj, label)
+				}),
 			kernelData.EXPECT().IsObjectAffine(gomock.Any()).Times(1).Return(false),
+			helper.EXPECT().SetNodeSelectorTerms(gomock.Any(), nodeSelector).Times(1).
+				DoAndReturn(func(obj *unstructured.Unstructured, terms map[string]string) error {
+					return resourcehelper.New().SetNodeSelectorTerms(obj, terms)
+				}),
+			helper.EXPECT().IsNamespaced("Pod").Times(1).Return(true),
+			helper.EXPECT().SetMetaData(gomock.Any(), specialResourceName, namespace).Times(1).
+				Do(func(obj *unstructured.Unstructured, nm string, ns string) {
+					resourcehelper.New().SetMetaData(obj, nm, ns)
+				}),
 			kubeClient.
 				EXPECT().
 				Get(context.TODO(), nsn, unstructuredMatcher).
 				Return(k8serrors.NewNotFound(v1.Resource("pod"), name)),
+			helper.EXPECT().IsOneTimer(gomock.Any()).Times(1),
+			helper.EXPECT().SetMetaData(gomock.Any(), specialResourceName, namespace).Times(1).
+				Do(func(obj *unstructured.Unstructured, nm string, ns string) {
+					resourcehelper.New().SetMetaData(obj, nm, ns)
+				}),
 			kubeClient.
 				EXPECT().
 				Create(context.TODO(), &newPod),
@@ -471,7 +256,7 @@ spec:
 		Expect(err).NotTo(HaveOccurred())
 
 		err =
-			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI).
+			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI, helper).
 				CreateFromYAML(
 					context.TODO(),
 					yamlSpec,
@@ -520,7 +305,7 @@ var _ = Describe("creator_CheckForImagePullBackOff", func() {
 
 		pollActions.EXPECT().ForDaemonSet(context.TODO(), ds)
 
-		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil).(*creator).
+		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
 			checkForImagePullBackOff(context.TODO(), ds, namespace)
 
 		Expect(err).NotTo(HaveOccurred())
@@ -544,7 +329,7 @@ var _ = Describe("creator_CheckForImagePullBackOff", func() {
 			kubeClient.EXPECT().List(context.TODO(), &v1.PodList{}, opts...).Return(randomError),
 		)
 
-		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil).(*creator).
+		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
 			checkForImagePullBackOff(context.TODO(), ds, namespace)
 
 		Expect(err).To(Equal(randomError))
@@ -558,7 +343,7 @@ var _ = Describe("creator_CheckForImagePullBackOff", func() {
 			kubeClient.EXPECT().List(context.TODO(), &v1.PodList{}, opts...),
 		)
 
-		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil).(*creator).
+		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
 			checkForImagePullBackOff(context.TODO(), ds, namespace)
 
 		Expect(err).To(HaveOccurred())
@@ -597,7 +382,7 @@ var _ = Describe("creator_CheckForImagePullBackOff", func() {
 				}),
 		)
 
-		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil).(*creator).
+		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
 			checkForImagePullBackOff(context.TODO(), ds, namespace)
 
 		Expect(err).To(MatchError("ImagePullBackOff need to rebuild " + vendor + " driver-container"))
@@ -634,7 +419,7 @@ var _ = Describe("creator_CheckForImagePullBackOff", func() {
 				}),
 		)
 
-		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil).(*creator).
+		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
 			checkForImagePullBackOff(context.TODO(), ds, namespace)
 
 		Expect(err).NotTo(HaveOccurred())
@@ -660,7 +445,7 @@ var _ = Describe("creator_CheckForImagePullBackOff", func() {
 				}),
 		)
 
-		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil).(*creator).
+		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
 			checkForImagePullBackOff(context.TODO(), ds, namespace)
 
 		Expect(err).NotTo(HaveOccurred())
@@ -668,141 +453,289 @@ var _ = Describe("creator_CheckForImagePullBackOff", func() {
 	})
 })
 
-var _ = Describe("TestIsOneTimer", func() {
-	It("should return false for Service", func() {
-		svc := v1.Service{
-			TypeMeta: metav1.TypeMeta{Kind: "Service"},
+var _ = Describe("creator_BeforeCRUD", func() {
+	var (
+		ctrl     *gomock.Controller
+		proxyAPI *proxy.MockProxyAPI
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		proxyAPI = proxy.NewMockProxyAPI(ctrl)
+	})
+
+	It("should setup a proxy if an proxy annotation is present", func() {
+		obj := &unstructured.Unstructured{}
+		obj.SetAnnotations(map[string]string{
+			"specialresource.openshift.io/proxy": "true",
+		})
+
+		proxyAPI.EXPECT().Setup(obj).Return(nil).Times(1)
+
+		err := NewCreator(nil, nil, nil, nil, nil, nil, proxyAPI, nil).(*creator).
+			BeforeCRUD(obj, nil)
+
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should execute callback if a callback annotation is present", func() {
+		callbackName := "test_callback"
+		callbackCalled := false
+		customCallback[callbackName] = func(obj *unstructured.Unstructured, sr interface{}) error {
+			callbackCalled = true
+			return nil
 		}
 
-		m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&svc)
-		Expect(err).NotTo(HaveOccurred())
-
-		ret, err := IsOneTimer(&unstructured.Unstructured{Object: m})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(ret).To(BeFalse())
-	})
-
-	When("Pod", func() {
-		It("should return an error when restartPolicy undefined", func() {
-			pod := v1.Pod{
-				TypeMeta: metav1.TypeMeta{Kind: "Pod"},
-			}
-
-			m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&pod)
-			Expect(err).NotTo(HaveOccurred())
-
-			_, err = IsOneTimer(&unstructured.Unstructured{Object: m})
-			Expect(err).To(HaveOccurred())
+		obj := &unstructured.Unstructured{}
+		obj.SetAnnotations(map[string]string{
+			"specialresource.openshift.io/callback": callbackName,
 		})
 
-		It("should return true when restartPolicy=Never", func() {
-			pod := v1.Pod{
-				TypeMeta: metav1.TypeMeta{Kind: "Pod"},
-				Spec:     v1.PodSpec{RestartPolicy: "Never"},
-			}
+		err := NewCreator(nil, nil, nil, nil, nil, nil, proxyAPI, nil).(*creator).
+			BeforeCRUD(obj, nil)
 
-			m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&pod)
-			Expect(err).NotTo(HaveOccurred())
-
-			ret, err := IsOneTimer(&unstructured.Unstructured{Object: m})
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(ret).To(BeTrue())
-		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(callbackCalled).To(BeTrue())
 	})
 })
 
-// TODO(qbarrand)
-//var _ = Describe("CRUD", func() {})
+var _ = Describe("creator_AfterCRUD", func() {
+	var (
+		ctrl        *gomock.Controller
+		pollActions *poll.MockPollActions
+	)
 
-var _ = Describe("SetMetaData", func() {
-	It("should set labels and annotations accordingly", func() {
-		uo := unstructured.Unstructured{Object: make(map[string]interface{})}
-
-		const (
-			name      = "test-name"
-			namespace = "test-namespace"
-		)
-
-		SetMetaData(&uo, name, namespace)
-
-		Expect(uo.GetAnnotations()).To(HaveKeyWithValue("meta.helm.sh/release-name", name))
-		Expect(uo.GetAnnotations()).To(HaveKeyWithValue("meta.helm.sh/release-namespace", namespace))
-		Expect(uo.GetLabels()).To(HaveKeyWithValue("app.kubernetes.io/managed-by", "Helm"))
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		pollActions = poll.NewMockPollActions(ctrl)
 	})
-})
 
-// TODO(qbarrand)
-//var _ = Describe("BeforeCRUD", func() {})
+	DescribeTable("annotations trigger specific work",
+		func(annotation, value string, expectations func()) {
+			obj := &unstructured.Unstructured{}
+			obj.SetAnnotations(map[string]string{
+				annotation: value,
+			})
 
-// TODO(qbarrand)
-//var _ = Describe("AfterCRUD", func() {})
+			expectations()
 
-var _ = Describe("SetLabel", func() {
-	testFunc := func(o client.Object) {
-		mo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(o)
-		Expect(err).NotTo(HaveOccurred())
+			err := NewCreator(nil, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
+				AfterCRUD(context.Background(), obj, "ns")
 
-		uo := unstructured.Unstructured{Object: mo}
+			Expect(err).ToNot(HaveOccurred())
 
-		// Create the map manually, otherwise SetLabel returns an error
-		err = unstructured.SetNestedStringMap(uo.Object, map[string]string{}, "spec", "template", "metadata", "labels")
-		Expect(err).NotTo(HaveOccurred())
-
-		err = SetLabel(&uo)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(uo.GetLabels()).To(HaveKeyWithValue(ownedLabel, "true"))
-
-		v, found, err := unstructured.NestedString(
-			uo.Object,
-			"spec",
-			"template",
-			"metadata",
-			"labels",
-			ownedLabel)
-
-		Expect(err).NotTo(HaveOccurred())
-		Expect(found).To(BeTrue())
-		Expect(v).To(Equal("true"))
-	}
-
-	DescribeTable(
-		"should the label",
-		testFunc,
-		func(o client.Object) string { return o.GetObjectKind().GroupVersionKind().Kind },
-		Entry(
-			nil,
-			&appsv1.DaemonSet{
-				TypeMeta: metav1.TypeMeta{Kind: "DaemonSet"},
+		},
+		Entry("specialresource.openshift.io/state",
+			"specialresource.openshift.io/state", "driver-container",
+			func() {
+				pollActions.EXPECT().ForDaemonSet(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 		),
-		Entry(
-			nil,
-			&appsv1.Deployment{
-				TypeMeta: metav1.TypeMeta{Kind: "Deployment"},
+		Entry("specialresource.openshift.io/wait",
+			"specialresource.openshift.io/wait", "true",
+			func() {
+				pollActions.EXPECT().ForResource(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 		),
-		Entry(
-			nil,
-			&appsv1.StatefulSet{
-				TypeMeta: metav1.TypeMeta{Kind: "StatefulSet"},
+		Entry("specialresource.openshift.io/wait-for-logs",
+			"specialresource.openshift.io/wait-for-logs", "pattern",
+			func() {
+				pollActions.EXPECT().ForDaemonSetLogs(gomock.Any(), gomock.Any(), "pattern").Return(nil).Times(1)
+			},
+		),
+
+		Entry("helm.sh/hook",
+			"helm.sh/hook", "true",
+			func() {
+				pollActions.EXPECT().ForResource(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 			},
 		),
 	)
 
-	It("should the label for BuildConfig", func() {
-		bc := buildv1.BuildConfig{
-			TypeMeta: metav1.TypeMeta{Kind: "BuildConfig"},
-		}
+	It("will wait for a resource if the kind is CRD", func() {
+		obj := &unstructured.Unstructured{}
+		obj.SetKind("CustomResourceDefinition")
 
-		mo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&bc)
-		Expect(err).NotTo(HaveOccurred())
+		pollActions.EXPECT().ForResource(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 
-		uo := unstructured.Unstructured{Object: mo}
+		err := NewCreator(nil, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
+			AfterCRUD(context.Background(), obj, "ns")
 
-		err = SetLabel(&uo)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(uo.GetLabels()).To(HaveKeyWithValue(ownedLabel, "true"))
+		Expect(err).ToNot(HaveOccurred())
 	})
+})
+
+var _ = Describe("creator_CRUD", func() {
+	var (
+		ctrl       *gomock.Controller
+		kubeClient *clients.MockClientsInterface
+		helper     *resourcehelper.MockHelper
+
+		c *creator
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		kubeClient = clients.NewMockClientsInterface(ctrl)
+		helper = resourcehelper.NewMockHelper(ctrl)
+
+		scheme := runtime.NewScheme()
+		Expect(v1.AddToScheme(scheme)).To(Succeed())
+
+		c = NewCreator(kubeClient, nil, nil, nil, scheme, nil, nil, helper).(*creator)
+	})
+
+	specialResourceName := "special-resource"
+	namespace := "ns"
+	owner := v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "owner",
+			Namespace: namespace,
+		},
+	}
+
+	prepareUnstructured := func(kind, name, namespace string) *unstructured.Unstructured {
+		u := &unstructured.Unstructured{}
+		u.SetKind(kind)
+		u.SetName(name)
+		u.SetNamespace(namespace)
+		return u
+	}
+
+	DescribeTable("resource should have metadata (and owner) set up, depending on its type",
+		func(kind, name, namespace string, isNamespaced, shouldSetMetaData bool) {
+			u := prepareUnstructured(kind, name, namespace)
+
+			helper.EXPECT().IsNamespaced(u.GetKind()).Return(isNamespaced)
+			kubeClient.EXPECT().
+				Get(gomock.Any(), types.NamespacedName{Namespace: u.GetNamespace(), Name: u.GetName()}, gomock.Any()).
+				Return(nil)
+			helper.EXPECT().IsNotUpdateable(u.GetKind()).Return(true)
+
+			// assert
+			times := 0
+			if shouldSetMetaData {
+				times = 1
+			}
+			helper.EXPECT().SetMetaData(u, specialResourceName, namespace).Times(times)
+
+			Expect(c.CRUD(context.Background(), u, false, &owner, specialResourceName, namespace)).To(Succeed())
+		},
+		Entry("neither SpecialResource nor Namespace", "Pod", "name", namespace, true, true),
+		Entry("Namespace", "Namespace", namespace, "", false, false),
+		Entry("SpecialResource", "SpecialResource", "sr-name", "", false, false),
+	)
+
+	DescribeTable("when object does not exist",
+		func(isOneTimer, releaseInstalled bool) {
+			name := "nginx"
+			obj := prepareUnstructured("Pod", name, namespace)
+
+			helper.EXPECT().IsNamespaced(obj.GetKind()).Return(true)
+			helper.EXPECT().SetMetaData(obj, specialResourceName, namespace).AnyTimes()
+			kubeClient.EXPECT().
+				Get(gomock.Any(), types.NamespacedName{Namespace: namespace, Name: name}, gomock.Any()).
+				Return(&k8serrors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonNotFound}})
+			helper.EXPECT().IsOneTimer(obj).Return(isOneTimer, nil)
+
+			// assert
+			times := 1
+			if isOneTimer && releaseInstalled {
+				times = 0
+			}
+			kubeClient.EXPECT().Create(gomock.Any(), gomock.Any()).Times(times)
+
+			Expect(c.CRUD(context.Background(), obj, releaseInstalled, &owner, specialResourceName, namespace)).To(Succeed())
+		},
+		Entry("object is OneTimer & release is installed = no object recreation", true, true),
+		Entry("object is OneTimer & release is not installed = object recreation", true, false),
+		Entry("object is not OneTimer & release is installed = object recreation", false, true),
+		Entry("object is not OneTimer & release is not installed = object recreation", false, false))
+
+	DescribeTable("GET fails",
+		func(errReason metav1.StatusReason, expectedSubstring string) {
+			name := "nginx"
+			obj := prepareUnstructured("Pod", name, namespace)
+
+			helper.EXPECT().IsNamespaced(obj.GetKind()).Return(true)
+			helper.EXPECT().SetMetaData(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+			kubeClient.EXPECT().
+				Get(gomock.Any(), types.NamespacedName{Namespace: namespace, Name: name}, gomock.Any()).
+				Return(&k8serrors.StatusError{ErrStatus: metav1.Status{Reason: errReason}})
+
+			releaseInstalled := false
+			err := c.CRUD(context.Background(), obj, releaseInstalled, &owner, specialResourceName, namespace)
+			Expect(err.Error()).To(ContainSubstring(expectedSubstring))
+		},
+		Entry("forbidden error", metav1.StatusReasonForbidden, "forbidden"),
+		Entry("other errors", metav1.StatusReasonUnauthorized, "unexpected error"),
+	)
+
+	DescribeTable("updating the object",
+		func(mockSetups func(*unstructured.Unstructured), assert func()) {
+			name := "nginx"
+			obj := prepareUnstructured("Pod", name, namespace)
+
+			helper.EXPECT().IsNamespaced(obj.GetKind()).Return(true)
+			helper.EXPECT().SetMetaData(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+			mockSetups(obj)
+
+			assert()
+
+			releaseInstalled := false
+			Expect(c.CRUD(context.Background(), obj, releaseInstalled, &owner, specialResourceName, namespace)).To(Succeed())
+
+		},
+		Entry("won't happen if object is not updateable",
+			func(obj *unstructured.Unstructured) {
+				kubeClient.EXPECT().
+					Get(gomock.Any(), types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, gomock.Any()).
+					Return(nil)
+				helper.EXPECT().
+					IsNotUpdateable(obj.GetKind()).
+					Return(true)
+			},
+			func() {
+				kubeClient.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
+			},
+		),
+		Entry("won't happen if object's hash did not change",
+			func(obj *unstructured.Unstructured) {
+				kubeClient.EXPECT().
+					Get(gomock.Any(), types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, gomock.Any()).
+					DoAndReturn(func(_ context.Context, _ client.ObjectKey, o client.Object) error {
+						u := o.(*unstructured.Unstructured)
+						obj.DeepCopyInto(u)
+						Expect(utils.Annotate(u)).To(Succeed())
+						return nil
+					})
+
+				helper.EXPECT().IsNotUpdateable(obj.GetKind()).Return(false)
+			},
+			func() {
+				kubeClient.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
+			},
+		),
+		Entry("will happen otherwise",
+			func(obj *unstructured.Unstructured) {
+				kubeClient.EXPECT().
+					Get(gomock.Any(), types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, gomock.Any()).
+					DoAndReturn(func(_ context.Context, _ client.ObjectKey, o client.Object) error {
+						u := o.(*unstructured.Unstructured)
+						obj.DeepCopyInto(u)
+						return nil
+					})
+
+				helper.EXPECT().IsNotUpdateable(obj.GetKind()).Return(false)
+				helper.EXPECT().UpdateResourceVersion(gomock.Any(), gomock.Any()).Return(nil)
+			},
+			func() {
+				kubeClient.EXPECT().Update(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, o client.Object) error {
+					Expect(o.GetAnnotations()).To(HaveKey("specialresource.openshift.io/hash"))
+					return nil
+				}).Times(1)
+			},
+		),
+	)
 })
