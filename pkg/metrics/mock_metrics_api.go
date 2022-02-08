@@ -69,6 +69,18 @@ func (mr *MockMetricsMockRecorder) SetSpecialResourcesCreated(value interface{})
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSpecialResourcesCreated", reflect.TypeOf((*MockMetrics)(nil).SetSpecialResourcesCreated), value)
 }
 
+// SetUpgradeAlert mocks base method.
+func (m *MockMetrics) SetUpgradeAlert(crName string, value int) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetUpgradeAlert", crName, value)
+}
+
+// SetUpgradeAlert indicates an expected call of SetUpgradeAlert.
+func (mr *MockMetricsMockRecorder) SetUpgradeAlert(crName, value interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpgradeAlert", reflect.TypeOf((*MockMetrics)(nil).SetUpgradeAlert), crName, value)
+}
+
 // SetUsedNodes mocks base method.
 func (m *MockMetrics) SetUsedNodes(crName, kind, name, namespace, nodes string) {
 	m.ctrl.T.Helper()
