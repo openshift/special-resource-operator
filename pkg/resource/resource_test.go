@@ -478,25 +478,6 @@ var _ = Describe("creator_BeforeCRUD", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("should execute callback if a callback annotation is present", func() {
-		callbackName := "test_callback"
-		callbackCalled := false
-		customCallback[callbackName] = func(obj *unstructured.Unstructured, sr interface{}) error {
-			callbackCalled = true
-			return nil
-		}
-
-		obj := &unstructured.Unstructured{}
-		obj.SetAnnotations(map[string]string{
-			"specialresource.openshift.io/callback": callbackName,
-		})
-
-		err := NewCreator(nil, nil, nil, nil, nil, nil, proxyAPI, nil).(*creator).
-			BeforeCRUD(obj, nil)
-
-		Expect(err).ToNot(HaveOccurred())
-		Expect(callbackCalled).To(BeTrue())
-	})
 })
 
 var _ = Describe("creator_AfterCRUD", func() {

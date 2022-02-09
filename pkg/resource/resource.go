@@ -30,11 +30,8 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
 )
 
-type resourceCallbacks map[string]func(obj *unstructured.Unstructured, sr interface{}) error
-
 var (
-	customCallback = make(resourceCallbacks)
-	UpdateVendor   string
+	UpdateVendor string
 )
 
 //go:generate mockgen -source=resource.go -package=resource -destination=mock_resource_api.go
@@ -485,24 +482,10 @@ func (c *creator) sendNodesMetrics(ctx context.Context, obj *unstructured.Unstru
 }
 
 func (c *creator) BeforeCRUD(obj *unstructured.Unstructured, sr interface{}) error {
-
-	var found bool
-	todo := ""
 	annotations := obj.GetAnnotations()
-
 	if valid, found := annotations["specialresource.openshift.io/proxy"]; found && valid == "true" {
 		if err := c.proxyAPI.Setup(obj); err != nil {
 			return fmt.Errorf("could not setup Proxy: %w", err)
-		}
-	}
-
-	if todo, found = annotations["specialresource.openshift.io/callback"]; !found {
-		return nil
-	}
-
-	if prefix, ok := customCallback[todo]; ok {
-		if err := prefix(obj, sr); err != nil {
-			return fmt.Errorf("could not run prefix callback: %w", err)
 		}
 	}
 	return nil
