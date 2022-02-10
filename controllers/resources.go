@@ -125,21 +125,25 @@ func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconci
 // ReconcileChartStates Reconcile Hardware States
 func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) error {
 
-	nostate := r.chart
-	nostate.Templates = []*chart.File{}
-
+	basicChart := r.chart
+	basicChart.Templates = []*chart.File{}
 	stateYAMLS := []*chart.File{}
+	statelessYAMLS := []*chart.File{}
 
-	// First get all non-state related files from the templates
-	// and save the states in a temporary slice for single execution
+	// differentiate between stateful YAMLs,
+	// stateless YAMLS, and named templates, which should be run with both
 	for _, template := range r.chart.Templates {
-		if r.Assets.ValidStateName(template.Name) {
+		switch {
+		case r.Assets.ValidStateName(template.Name):
 			stateYAMLS = append(stateYAMLS, template)
-		} else {
-			nostate.Templates = append(nostate.Templates, template)
+		case r.Assets.NamedTemplate(template.Name):
+			basicChart.Templates = append(basicChart.Templates, template)
+		default:
+			statelessYAMLS = append(statelessYAMLS, template)
 		}
 	}
 
+	// sort statefull yaml by names
 	sort.Slice(stateYAMLS, func(i, j int) bool {
 		return stateYAMLS[i].Name < stateYAMLS[j].Name
 	})
@@ -158,8 +162,8 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		// affinity, anti-affinity
 		state.GenerateName(stateYAML, r.specialresource.Name)
 
-		step := nostate
-		step.Templates = append(nostate.Templates, stateYAML)
+		step := basicChart
+		step.Templates = append(step.Templates, stateYAML)
 
 		// We are kernel-affine if the yamlSpec uses {{.Values.kernelFullVersion}}
 		// then we need to replicate the object and set a name + os + kernel version
@@ -226,9 +230,6 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 				RunInfo.KernelFullVersion,
 				RunInfo.OperatingSystemDecimal,
 				r.specialresource.Spec.Debug)
-			//if err != nil {
-			//	return err
-			//}
 
 			replicas += 1
 
@@ -256,8 +257,10 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		}
 	}
 
-	// We're done with states now execute the part of the chart without
+	// We're done with states, now execute the part of the chart without
 	// states we need to reconcile the nostate Chart
+	nostate := basicChart
+	nostate.Templates = append(nostate.Templates, statelessYAMLS...)
 	var err error
 	nostate.Values, err = chartutil.CoalesceValues(&nostate, r.values.Object)
 	if err != nil {

@@ -47,6 +47,20 @@ func (mr *MockAssetsMockRecorder) GetFrom(assets interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFrom", reflect.TypeOf((*MockAssets)(nil).GetFrom), assets)
 }
 
+// NamedTemplate mocks base method.
+func (m *MockAssets) NamedTemplate(path string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NamedTemplate", path)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// NamedTemplate indicates an expected call of NamedTemplate.
+func (mr *MockAssetsMockRecorder) NamedTemplate(path interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NamedTemplate", reflect.TypeOf((*MockAssets)(nil).NamedTemplate), path)
+}
+
 // ValidStateName mocks base method.
 func (m *MockAssets) ValidStateName(path string) bool {
 	m.ctrl.T.Helper()
