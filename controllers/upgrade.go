@@ -14,7 +14,7 @@ func SpecialResourceUpgrade(ctx context.Context, r *SpecialResourceReconciler) (
 
 	var err error
 
-	nodeList, err := r.KubeClient.GetNodesByLabels(ctx, r.specialresource.Spec.NodeSelector)
+	nodeList, err := r.KubeClient.GetNodesByLabels(ctx, nil)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get nodes: %w", err)
 	}

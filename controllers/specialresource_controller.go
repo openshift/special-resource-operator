@@ -80,11 +80,11 @@ type SpecialResourceReconciler struct {
 	RuntimeAPI             runtime.RuntimeAPI
 	KubeClient             clients.ClientsInterface
 
-	specialresource srov1beta1.SpecialResource
-	parent          srov1beta1.SpecialResource
+	specialresource *srov1beta1.SpecialResource
+	parent          *srov1beta1.SpecialResource
+	dependency      srov1beta1.SpecialResourceDependency
 	chart           chart.Chart
 	values          unstructured.Unstructured
-	dependency      srov1beta1.SpecialResourceDependency
 	RunInfo         runtime.RuntimeInformation
 }
 
@@ -105,6 +105,7 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// Do some preflight checks and get the cluster upgrade info
 	if res, err = SpecialResourceUpgrade(ctx, r); err != nil {
+		// TODO: CR status update would be nice to have
 		return res, errors.Wrap(err, "RECONCILE ERROR: Cannot upgrade special resource")
 	}
 	// A resource is being reconciled set status to not available and only

@@ -140,12 +140,31 @@ type SpecialResourceDependency struct {
 	Set unstructured.Unstructured `json:"set,omitempty"`
 }
 
+// These are valid conditions of a SpecialResource.
+const (
+	// Ready means the SpecialResource is operational, ie. the recipe was reconciled.
+	SpecialResourceReady string = "Ready"
+
+	// Progressing means handling of the SpecialResource is in progress.
+	SpecialResourceProgressing string = "Progressing"
+
+	// Errored means SpecialResourceOperator detected an error that might be short-lived or unrecoverable without user's intervention.
+	SpecialResourceErrored string = "Errored"
+)
+
 // SpecialResourceStatus is the most recently observed status of the SpecialResource.
 // It is populated by the system and is read-only.
 // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
 type SpecialResourceStatus struct {
 	// State describes at which step the chart installation is.
+	// TODO: Remove on API version bump.
 	State string `json:"state"`
+
+	// Conditions contain observations about SpecialResource's current state
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 // +kubebuilder:object:root=true
@@ -154,6 +173,9 @@ type SpecialResourceStatus struct {
 // SpecialResource describes a software stack for hardware accelerators on an existing Kubernetes cluster.
 // +kubebuilder:resource:path=specialresources,scope=Cluster
 // +kubebuilder:resource:path=specialresources,scope=Cluster,shortName=sr
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Progressing",type=string,JSONPath=`.status.conditions[?(@.type=="Progressing")].status`
+// +kubebuilder:printcolumn:name="Errored",type=string,JSONPath=`.status.conditions[?(@.type=="Errored")].status`
 type SpecialResource struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

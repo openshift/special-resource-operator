@@ -2,72 +2,98 @@ package state_test
 
 import (
 	"context"
+	"strings"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"github.com/openshift/special-resource-operator/api/v1beta1"
 	"github.com/openshift/special-resource-operator/internal/controllers/state"
 	"github.com/openshift/special-resource-operator/pkg/clients"
-	v1 "k8s.io/api/apps/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("StatusUpdater", func() {
-	var mockKubeClient *clients.MockClientsInterface
+type legacyStatusMatcher struct {
+	expectedSubstring string
+}
+
+func (l legacyStatusMatcher) Matches(arg interface{}) bool {
+	sr := arg.(*v1beta1.SpecialResource)
+
+	return strings.Contains(sr.Status.State, l.expectedSubstring)
+}
+
+func (l legacyStatusMatcher) String() string {
+	return l.expectedSubstring
+}
+
+type conditionExclusivityMatcher struct {
+	onlyConditionToBeTrue string
+}
+
+func (c conditionExclusivityMatcher) Matches(arg interface{}) bool {
+	sr := arg.(*v1beta1.SpecialResource)
+
+	for _, cond := range sr.Status.Conditions {
+		if cond.Type == c.onlyConditionToBeTrue {
+			if cond.Status != metav1.ConditionTrue {
+				return false
+			}
+		} else {
+			if cond.Status == metav1.ConditionTrue {
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
+func (c conditionExclusivityMatcher) String() string {
+	return c.onlyConditionToBeTrue
+}
+
+var _ = Describe("SetAs{Ready,Progressing,Errored}", func() {
+	const (
+		name      = "sr-name"
+		namespace = "sr-namespace"
+	)
+
+	var (
+		kubeClient *clients.MockClientsInterface
+		sr         *v1beta1.SpecialResource
+	)
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
-		mockKubeClient = clients.NewMockClientsInterface(ctrl)
+		kubeClient = clients.NewMockClientsInterface(ctrl)
+		sr = &v1beta1.SpecialResource{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
 	})
 
-	Describe("UpdateWithState", func() {
-		const (
-			srName      = "sr-name"
-			srNamespace = "sr-namespace"
-		)
-
-		It("should do nothing if the SpecialResource could not be found", func() {
-			sr := &v1beta1.SpecialResource{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      srName,
-					Namespace: srNamespace,
-				},
-			}
-
-			mockKubeClient.
-				EXPECT().
-				Get(context.TODO(), types.NamespacedName{Name: srName, Namespace: srNamespace}, &v1beta1.SpecialResource{}).
-				Return(k8serrors.NewNotFound(v1.Resource("specialresources"), srName))
-
-			state.NewStatusUpdater(mockKubeClient).UpdateWithState(context.TODO(), sr, "test")
-		})
-
-		It("should update the SpecialResource in Kubernetes if it exists", func() {
-			const newState = "test"
-
-			sr := &v1beta1.SpecialResource{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      srName,
-					Namespace: srNamespace,
-				},
-			}
-
-			srWithState := sr.DeepCopy()
-			srWithState.Status.State = newState
-
+	DescribeTable("Setting one condition to true, should set others to false",
+		func(expectedType string, call func(state.StatusUpdater) error) {
 			gomock.InOrder(
-				mockKubeClient.
-					EXPECT().
-					Get(context.TODO(), types.NamespacedName{Name: srName, Namespace: srNamespace}, &v1beta1.SpecialResource{}).
-					Do(func(_ context.Context, _ types.NamespacedName, _ *v1beta1.SpecialResource) {
-						sr.Status.State = newState
-					}),
-				mockKubeClient.EXPECT().StatusUpdate(context.TODO(), sr),
+				kubeClient.EXPECT().
+					StatusUpdate(context.TODO(), gomock.All(conditionExclusivityMatcher{expectedType}, legacyStatusMatcher{expectedType})).
+					Return(nil),
 			)
 
-			state.NewStatusUpdater(mockKubeClient).UpdateWithState(context.TODO(), sr, newState)
-		})
-	})
+			Expect(call(state.NewStatusUpdater(kubeClient))).To(Succeed())
+
+			// Make sure Conditions are set for object that was passed in and visible outside
+			Expect(sr.Status.Conditions).To(HaveLen(3))
+		},
+		Entry("Ready",
+			v1beta1.SpecialResourceReady,
+			func(su state.StatusUpdater) error { return su.SetAsReady(context.Background(), sr, "x", "x") },
+		),
+		Entry("Errored",
+			v1beta1.SpecialResourceErrored,
+			func(su state.StatusUpdater) error { return su.SetAsErrored(context.Background(), sr, "x", "x") },
+		),
+		Entry("Progressing",
+			v1beta1.SpecialResourceProgressing,
+			func(su state.StatusUpdater) error { return su.SetAsProgressing(context.Background(), sr, "x", "x") },
+		),
+	)
 })
