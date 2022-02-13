@@ -7,11 +7,14 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
+
+const namedTemplatePrefix = "_"
 
 // Metadata manifests filename and content
 type Metadata struct {
@@ -24,6 +27,7 @@ type Metadata struct {
 type Assets interface {
 	GetFrom(assets string) []Metadata
 	ValidStateName(path string) bool
+	NamedTemplate(path string) bool
 }
 
 type assets struct {
@@ -110,4 +114,8 @@ func (a *assets) filePathPatternValid(path string) bool {
 
 func (a *assets) ValidStateName(path string) bool {
 	return a.reState.MatchString(filepath.Base(path))
+}
+
+func (a *assets) NamedTemplate(path string) bool {
+	return strings.HasPrefix(filepath.Base(path), namedTemplatePrefix)
 }

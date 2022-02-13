@@ -39,4 +39,19 @@ var _ = Describe("Assets", func() {
 			Entry(nil, "abcd_test.yaml", false),
 		)
 	})
+
+	Context("NamedTemplate", func() {
+		DescribeTable(
+			"all cases",
+			func(input string, valid bool) {
+				Expect(assetsInterface.NamedTemplate(input)).To(Equal(valid))
+			},
+			EntryDescription("%s: %t"),
+			Entry(nil, "_test.yaml", true),
+			Entry(nil, "/path/to/_test.yaml", true),
+			Entry(nil, "/_test.tpl", true),
+			Entry(nil, "./_test.tpl", true),
+			Entry(nil, "__test.tpl", true),
+		)
+	})
 })
