@@ -3,8 +3,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"sort"
-	"strings"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
@@ -17,6 +17,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+)
+
+var (
+	affineRegex = regexp.MustCompile(`\n\s+specialresource\.openshift\.io\/kernel\-affine`)
 )
 
 func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconciler) error {
@@ -161,9 +165,9 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		step := nostate
 		step.Templates = append(nostate.Templates, stateYAML)
 
-		// We are kernel-affine if the yamlSpec uses {{.Values.kernelFullVersion}}
+		// We are kernel-affine if the yamlSpec uses kernel-affine label.
 		// then we need to replicate the object and set a name + os + kernel version
-		kernelAffine := strings.Contains(string(stateYAML.Data), ".Values.kernelFullVersion")
+		kernelAffine := affineRegex.Match(stateYAML.Data)
 
 		var replicas int
 		var version upgrade.NodeVersion
@@ -176,7 +180,7 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		}
 
 		//var replicas is to keep track of the number of replicas
-		// and either to break or continue the for looop
+		// and either to break or continue the for loop
 		for RunInfo.KernelFullVersion, version = range RunInfo.ClusterUpgradeInfo {
 
 			RunInfo.ClusterVersionMajorMinor = version.ClusterVersion
