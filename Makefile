@@ -96,8 +96,8 @@ run: manifests generate ## Run against the configured Kubernetes cluster in ~/.k
 local-image-build: ## Build container image with the manager.
 	$(CONTAINER_COMMAND) build -t $(IMG) .
 
-local-image-push: ## Push docker image with the manager.
-	podman push $(IMG)
+local-image-push: ## Push container image with the manager.
+	$(CONTAINER_COMMAND) push $(IMG)
 
 generate-mocks:
 	$(shell find . -name "mock_*.go" | grep -v vendor | xargs rm -f)
@@ -192,11 +192,11 @@ bundle: manifests kustomize ## Generate bundle manifests and metadata, then vali
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+	$(BUNDLE_CONTAINER_COMMAND) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
-	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
+	$(BUNDLE_CONTAINER_COMMAND) push IMG=$(BUNDLE_IMG)
 
 .PHONY: opm
 OPM = ./bin/opm
