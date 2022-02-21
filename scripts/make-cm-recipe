@@ -1,0 +1,21 @@
+#!/bin/sh
+
+set -eux
+
+if [ $# -lt 1 ]; then
+    echo "Usage: ${0} PATH_TO_CHART <NAME> <NAMESPACE>"
+    exit 1
+fi
+
+readonly NAME="${2:-$(basename "$1")}"
+readonly NAMESPACE="${3:-$(kubectl config view --minify --output 'jsonpath={..namespace}')}"
+
+echo "Using namespace ${NAMESPACE}"
+echo "Using name ${NAME}"
+
+TMP="$(mktemp -d)"
+readonly TMP
+
+helm package "$1" -d "${TMP}"
+helm repo index "${TMP}"
+kubectl create cm "${NAME}" --from-file="${TMP}" -n "${NAMESPACE}"

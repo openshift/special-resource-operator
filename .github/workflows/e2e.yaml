@@ -1,0 +1,85 @@
+name: e2e
+
+on: [pull_request]
+
+jobs:
+  privilege-escalation:
+    name: Privilege escalation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install curl
+        run: |
+          sudo apt -y update
+          sudo apt -y install curl
+
+      - name: Download and install minikube
+        run: |
+          curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube_latest_amd64.deb
+          sudo dpkg -i ./minikube_latest_amd64.deb
+
+      - name: Start minikube and wait until minikube's CoreDNS is available
+        run: |
+          minikube start --driver=docker
+          kubectl wait --for=condition=available deployment coredns -n kube-system
+
+      - name: Build SRO
+        run: minikube image build -t sro:local .
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v2.0
+
+      - name: Install NFD
+        run: kubectl apply -k https://github.com/kubernetes-sigs/node-feature-discovery/deployment/overlays/default?ref=v0.10.1
+
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.17.6
+
+      - name: Deploy SRO
+        run: make deploy
+        env:
+          IMG: sro:local
+
+      - name: Set the SRO manager's pull policy to Never
+        run: kubectl patch deployments.apps -n special-resource-operator special-resource-controller-manager --patch-file ci/patch-sro-manager-pullpolicy.yml
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v1
+
+      - name: Create a ConfigMap containing the test chart
+        run: scripts/make-cm-recipe ci/priv-esc
+
+      - name: Create the SpecialResource
+        run: kubectl apply -f ci/sr-priv-esc.yml
+
+      - name: Wait for the RoleBinding to be created
+        run: |
+          until kubectl get rolebinding/priv-esc-rolebinding -n priv-esc; do
+            sleep 3
+          done
+        timeout-minutes: 1
+
+      - name: Wait for the ClusterRoleBinding to be created
+        run: |
+          until kubectl get clusterrolebinding/priv-esc-clusterrolebinding; do
+            sleep 3
+          done
+        timeout-minutes: 1
+
+      - name: Remove the SpecialResource
+        run: kubectl delete -f ci/sr-priv-esc.yml
+
+      - name: Check that the RoleBinding gets removed
+        run: kubectl wait --for=delete rolebinding/ci-priv-esc -n priv-esc
+        timeout-minutes: 1
+
+      - name: Check that the ClusterRoleBinding gets removed
+        run: kubectl wait --for=delete clusterrolebinding/ci-priv-esc
+        timeout-minutes: 1
+
+      - name: Get all operator logs
+        run: kubectl logs deployment.apps/special-resource-controller-manager -n special-resource-operator
+        if: ${{ always() }}

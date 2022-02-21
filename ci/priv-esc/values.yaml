@@ -1,0 +1,3 @@
+serviceAccount:
+  namespace: special-resource-operator
+  name: special-resource-controller-manager
