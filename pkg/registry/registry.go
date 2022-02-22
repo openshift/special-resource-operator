@@ -134,8 +134,7 @@ func (r *registry) LastLayer(ctx context.Context, entry string) (v1.Layer, error
 
 	manifest, err := crane.Manifest(entry, registryAuths...)
 	if err != nil {
-		utils.WarnOnError(fmt.Errorf("cannot extract manifest: %v", err))
-		return nil, nil
+		return nil, err
 	}
 
 	release := unstructured.Unstructured{}
