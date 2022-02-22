@@ -94,7 +94,7 @@ func (r *registry) getImageRegistryCredentials(ctx context.Context, registry str
 
 	pullSecretData, ok := s.Data[pullSecretFileName]
 	if !ok {
-		return dockerAuth{}, errors.New("Can not find data content in the secret")
+		return dockerAuth{}, errors.New("could not find data content in the secret")
 	}
 
 	auths := struct {
@@ -103,11 +103,11 @@ func (r *registry) getImageRegistryCredentials(ctx context.Context, registry str
 
 	err = json.Unmarshal(pullSecretData, &auths)
 	if err != nil {
-		return dockerAuth{}, errors.New("Failed to unmarshal auths")
+		return dockerAuth{}, errors.New("failed to unmarshal auths")
 	}
 
 	if auth, ok := auths.Auths[registry]; !ok {
-		return dockerAuth{}, errors.New("Cluster PullSecret does not contain auth for the registry " + registry)
+		return dockerAuth{}, fmt.Errorf("cluster PullSecret does not contain auth for registry %s", registry)
 	} else {
 		return auth, nil
 	}
