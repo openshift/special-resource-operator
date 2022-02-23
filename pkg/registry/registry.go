@@ -74,22 +74,16 @@ func (r *registry) registryFromImageURL(image string) (string, error) {
 	}
 
 	if err != nil || u.Host == "" {
-		return "", errors.New("Failed to parse image url: " + image)
+		return "", fmt.Errorf("failed to parse image url: %s", image)
 	}
 
 	return u.Host, nil
 }
 
 func (r *registry) getImageRegistryCredentials(ctx context.Context, registry string) (dockerAuth, error) {
-	_, err := r.kubeClient.GetNamespace(ctx, pullSecretNamespace, metav1.GetOptions{})
-	if err != nil {
-		r.log.Info("Can not find namespace for pull secrets, assuming vanilla k8s")
-		return dockerAuth{}, nil
-	}
-
 	s, err := r.kubeClient.GetSecret(ctx, pullSecretNamespace, pullSecretName, metav1.GetOptions{})
 	if err != nil {
-		return dockerAuth{}, errors.Wrap(err, "Can not retrieve pull secrets")
+		return dockerAuth{}, errors.Wrap(err, "could not retrieve pull secrets")
 	}
 
 	pullSecretData, ok := s.Data[pullSecretFileName]
