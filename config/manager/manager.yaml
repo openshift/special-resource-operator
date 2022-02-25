@@ -57,12 +57,8 @@ spec:
           volumeMounts:
           - name: cache-volume
             mountPath: /cache
-          - name: cred-volume
-            mountPath: /home/nonroot/.docker
       volumes:
         - name: cache-volume
-          emptyDir: {}
-        - name: cred-volume
           emptyDir: {}
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

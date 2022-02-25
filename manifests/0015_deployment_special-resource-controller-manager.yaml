@@ -72,8 +72,6 @@ spec:
         volumeMounts:
         - mountPath: /cache
           name: cache-volume
-        - mountPath: /home/nonroot/.docker
-          name: cred-volume
       securityContext:
         runAsGroup: 499
         runAsNonRoot: true
@@ -86,5 +84,3 @@ spec:
           secretName: special-resource-operator-tls
       - emptyDir: {}
         name: cache-volume
-      - emptyDir: {}
-        name: cred-volume
