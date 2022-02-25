@@ -47,6 +47,33 @@ See `charts/example` for some examples. In particular:
 * The simple-kmod example shows how to build and deploy two simple kernel modules in a driver container on OpenShift.
 * The centos-simple-kmod example uses the same kernel module as simple-kmod, but is written for running on a vanilla kubernetes cluster with CentOS worker nodes.
 
+## Creating ConfigMap with Helm Chart
+Convenience script can be used to create a ConfigMap containing Helm Chart:
+``` sh
+# following will create "simple-kmod-0.0.1" ConfigMap in "default" namespace
+$ ./scripts/make-cm-recipe ./charts/example/simple-kmod-0.0.1
+
+# name and namespace can be specified
+$ ./scripts/make-cm-recipe ./charts/example/simple-kmod-0.0.1 namespace configmap-name
+```
+
+To use ConfigMap in Special Resource recipe use following URI scheme: `cm://namespace/configmap-name`, for example:
+``` yaml
+apiVersion: sro.openshift.io/v1beta1
+kind: SpecialResource
+metadata:
+  name: simple-kmod
+spec:
+  chart:
+    (...)
+    repository:
+      name: example
+      url: cm://default/simple-kmod-0.0.1
+  set:
+    (...)
+```
+
+
 # Node Feature Discovery dependency
 
 There is a general problem when trying to configure a cluster with a special resource. One does not know which nodes have a special resource and which do not. To address this, SRO relies on the [NFD operator](https://github.com/openshift/cluster-nfd-operator). NFD will label the host with node specific attributes, like PCI cards, kernel or OS version and more. The .yaml template files in a special resource recipe can use these NFD labels in their nodeSelector fields to ensure that the software stack is run only on the nodes with the hardware feature. See [upstream NFD](https://github.com/kubernetes-sigs/node-feature-discovery) for more info. 
