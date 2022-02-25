@@ -11,6 +11,7 @@ import (
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/internal/controllers/finalizers"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
+	"github.com/openshift-psap/special-resource-operator/pkg/runtime"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/chart"
@@ -150,14 +151,14 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 	return reconcile.Result{}, nil
 }
 
-func TemplateFragment(sr interface{}) error {
+func TemplateFragment(sr interface{}, runInfo *runtime.RuntimeInformation) error {
 	spec, err := json.Marshal(sr)
 	if err != nil {
 		return err
 	}
 
 	// We want the json representation of the data no the golang one
-	info, err := json.MarshalIndent(RunInfo, "", "  ")
+	info, err := json.MarshalIndent(runInfo, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -196,11 +197,11 @@ func ReconcileSpecialResourceChart(ctx context.Context, r *SpecialResourceReconc
 	log = r.Log.WithName(utils.Print(r.specialresource.Name, utils.Green))
 	log.Info("Reconciling Chart")
 
-	if err := getRuntimeInformation(ctx, r); err != nil {
+	if err := r.RuntimeAPI.GetRuntimeInformation(ctx, &r.specialresource, &r.RunInfo); err != nil {
 		return err
 	}
 
-	logRuntimeInformation()
+	r.RuntimeAPI.LogRuntimeInformation(&r.RunInfo)
 
 	for idx, dep := range r.specialresource.Spec.Dependencies {
 		if dep.Set.Object == nil {
@@ -230,11 +231,11 @@ func ReconcileSpecialResourceChart(ctx context.Context, r *SpecialResourceReconc
 		return err
 	}
 
-	if err := TemplateFragment(&r.specialresource); err != nil {
+	if err := TemplateFragment(&r.specialresource, &r.RunInfo); err != nil {
 		return err
 	}
 
-	r.specialresource.DeepCopyInto(&RunInfo.SpecialResource)
+	r.specialresource.DeepCopyInto(&r.RunInfo.SpecialResource)
 
 	if r.values.Object == nil {
 		r.values.Object = make(map[string]interface{})
@@ -247,7 +248,7 @@ func ReconcileSpecialResourceChart(ctx context.Context, r *SpecialResourceReconc
 		return err
 	}
 
-	if err := TemplateFragment(&r.values); err != nil {
+	if err := TemplateFragment(&r.values, &r.RunInfo); err != nil {
 		return err
 	}
 

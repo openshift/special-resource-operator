@@ -19,7 +19,7 @@ func SpecialResourceUpgrade(ctx context.Context, r *SpecialResourceReconciler) (
 		return ctrl.Result{}, fmt.Errorf("failed to get nodes: %w", err)
 	}
 
-	RunInfo.ClusterUpgradeInfo, err = r.ClusterInfo.GetClusterInfo(ctx, nodeList)
+	r.RunInfo.ClusterUpgradeInfo, err = r.ClusterInfo.GetClusterInfo(ctx, nodeList)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

@@ -175,26 +175,26 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		// The cluster has more then one kernel version running
 		// we're replicating the driver-container DaemonSet to
 		// the number of kernel versions running in the cluster
-		if len(RunInfo.ClusterUpgradeInfo) == 0 {
+		if len(r.RunInfo.ClusterUpgradeInfo) == 0 {
 			return errors.New("no KernelVersion detected, something is wrong")
 		}
 
 		//var replicas is to keep track of the number of replicas
 		// and either to break or continue the for looop
-		for RunInfo.KernelFullVersion, version = range RunInfo.ClusterUpgradeInfo {
+		for r.RunInfo.KernelFullVersion, version = range r.RunInfo.ClusterUpgradeInfo {
 
-			RunInfo.ClusterVersionMajorMinor = version.ClusterVersion
-			RunInfo.OperatingSystemDecimal = version.OSVersion
-			RunInfo.OperatingSystemMajorMinor = version.OSMajorMinor
-			RunInfo.OperatingSystemMajor = version.OSMajor
-			RunInfo.DriverToolkitImage = version.DriverToolkit.ImageURL
+			r.RunInfo.ClusterVersionMajorMinor = version.ClusterVersion
+			r.RunInfo.OperatingSystemDecimal = version.OSVersion
+			r.RunInfo.OperatingSystemMajorMinor = version.OSMajorMinor
+			r.RunInfo.OperatingSystemMajor = version.OSMajor
+			r.RunInfo.DriverToolkitImage = version.DriverToolkit.ImageURL
 
 			if kernelAffine {
 				log.Info("KernelAffine: ClusterUpgradeInfo",
-					"kernel", RunInfo.KernelFullVersion,
-					"os", RunInfo.OperatingSystemDecimal,
-					"cluster", RunInfo.ClusterVersionMajorMinor,
-					"driverToolkitImage", RunInfo.DriverToolkitImage)
+					"kernel", r.RunInfo.KernelFullVersion,
+					"os", r.RunInfo.OperatingSystemDecimal,
+					"cluster", r.RunInfo.ClusterVersionMajorMinor,
+					"driverToolkitImage", r.RunInfo.DriverToolkitImage)
 			}
 
 			var err error
@@ -204,7 +204,7 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 				return err
 			}
 
-			rinfo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&RunInfo)
+			rinfo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&r.RunInfo)
 			if err != nil {
 				return err
 			}
@@ -227,8 +227,8 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 				r.specialresource.Name,
 				r.specialresource.Spec.Namespace,
 				r.specialresource.Spec.NodeSelector,
-				RunInfo.KernelFullVersion,
-				RunInfo.OperatingSystemDecimal,
+				r.RunInfo.KernelFullVersion,
+				r.RunInfo.OperatingSystemDecimal,
 				r.specialresource.Spec.Debug)
 
 			replicas += 1
@@ -236,7 +236,7 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 			// If the first replica fails we want to create all remaining
 			// ones for parallel startup, otherwise we would wait for the first
 			// then for the second etc.
-			if err != nil && replicas == len(RunInfo.ClusterUpgradeInfo) {
+			if err != nil && replicas == len(r.RunInfo.ClusterUpgradeInfo) {
 				r.Metrics.SetCompletedState(r.specialresource.Name, stateYAML.Name, 0)
 				return fmt.Errorf("failed to create state %s: %w ", stateYAML.Name, err)
 			}
@@ -267,7 +267,7 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		return err
 	}
 
-	rinfo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&RunInfo)
+	rinfo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&r.RunInfo)
 	if err != nil {
 		return err
 	}
@@ -285,8 +285,8 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		r.specialresource.Name,
 		r.specialresource.Spec.Namespace,
 		r.specialresource.Spec.NodeSelector,
-		RunInfo.KernelFullVersion,
-		RunInfo.OperatingSystemDecimal,
+		r.RunInfo.KernelFullVersion,
+		r.RunInfo.OperatingSystemDecimal,
 		false)
 }
 
