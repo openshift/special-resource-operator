@@ -8,10 +8,12 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -51,6 +53,14 @@ func (f *filter) GetMode() string {
 	return f.mode
 }
 
+func (f *filter) isSpecialResourceUnmanaged(obj client.Object) bool {
+	sr, ok := obj.(*v1beta1.SpecialResource)
+	if !ok {
+		return false
+	}
+	return sr.Spec.ManagementState == operatorv1.Unmanaged
+}
+
 func (f *filter) isSpecialResource(obj client.Object) bool {
 
 	kind := obj.GetObjectKind().GroupVersionKind().Kind
@@ -68,7 +78,7 @@ func (f *filter) isSpecialResource(obj client.Object) bool {
 
 	}
 
-	// If SRO owns the resource than it cannot be a SpecialResource
+	// If SRO owns the resource then it cannot be a SpecialResource
 	if f.owned(obj) {
 		return false
 	}
@@ -123,7 +133,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 			obj := e.Object
 
 			if f.isSpecialResource(obj) {
-				return true
+				return !f.isSpecialResourceUnmanaged(obj)
 			}
 
 			if f.owned(obj) {
@@ -162,6 +172,9 @@ func (f *filter) GetPredicates() predicate.Predicate {
 						err := f.lifecycle.UpdateDaemonSetPods(context.TODO(), obj)
 						utils.WarnOnError(err)
 					}
+					if f.isSpecialResource(obj) && f.isSpecialResourceUnmanaged(obj) {
+						return false
+					}
 					return true
 				}
 			}
@@ -181,6 +194,9 @@ func (f *filter) GetPredicates() predicate.Predicate {
 			// want to reconcile it, handle the update event
 
 			if f.isSpecialResource(obj) {
+				if f.isSpecialResourceUnmanaged(obj) {
+					return false
+				}
 				f.log.Info(f.mode+" IsSpecialResource GenerationChanged",
 					"Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
 				return true
@@ -239,7 +255,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 			// want to reconcile it, handle the update event
 			obj := e.Object
 			if f.isSpecialResource(obj) {
-				return true
+				return !f.isSpecialResourceUnmanaged(obj)
 			}
 			// If we do not own the object, do not care
 			if f.owned(obj) {
