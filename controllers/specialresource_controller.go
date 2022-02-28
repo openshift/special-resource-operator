@@ -30,7 +30,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -48,6 +48,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
+	"github.com/openshift-psap/special-resource-operator/pkg/runtime"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
@@ -60,7 +61,7 @@ var (
 // SpecialResourceReconciler reconciles a SpecialResource object
 type SpecialResourceReconciler struct {
 	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Scheme *k8sruntime.Scheme
 
 	Metrics                metrics.Metrics
 	Cluster                cluster.Cluster
@@ -76,6 +77,7 @@ type SpecialResourceReconciler struct {
 	Storage                storage.Storage
 	KernelData             kernel.KernelData
 	ProxyAPI               proxy.ProxyAPI
+	RuntimeAPI             runtime.RuntimeAPI
 	KubeClient             clients.ClientsInterface
 
 	specialresource srov1beta1.SpecialResource
@@ -83,6 +85,7 @@ type SpecialResourceReconciler struct {
 	chart           chart.Chart
 	values          unstructured.Unstructured
 	dependency      srov1beta1.SpecialResourceDependency
+	RunInfo         runtime.RuntimeInformation
 }
 
 // Reconcile Reconiliation entry point
