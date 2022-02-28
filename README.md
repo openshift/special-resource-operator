@@ -39,12 +39,16 @@ $ oc apply -f charts/example/simple-kmod-0.0.1/simple-kmod.yaml
 ```
 
 ## Running locally
+> NOTE: SRO depends on objects that are created using other deployment methods. It is recommended to first deploy SRO, scale it down and then run locally.
+
 Special Resource Operator can be run locally against a cluster using following command:
 ```sh
-$ make helm-plugins
-$ HELM_PLUGINS=$PWD/helm-plugins KUBECONFIG=$HOME/.kube/config OPERATOR_NAMESPACE=openshift-special-resource-operator go run .
+$ make deploy
+$ oc scale -n openshift-special-resource-operator deployment/special-resource-controller-manager --replicas=0
+$ make manager helm-plugins
+$ HELM_PLUGINS=$PWD/helm-plugins KUBECONFIG=$HOME/.kube/config OPERATOR_NAMESPACE=openshift-special-resource-operator ./manager
 ```
-Special Resource Operator uses `$XDG_CACHE_HOME/.cache/special-resource-operator` (or falls back to `$HOME/.cache/special-resource-operator`) as a working directory for Helm.
+SRO manages a subdirectory inside Go's [`os.UserCacheDir`](https://pkg.go.dev/os#UserCacheDir) for the Helm cache.
 
 # Creating a special resource recipe
 

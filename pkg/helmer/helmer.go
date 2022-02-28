@@ -32,13 +32,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-func DefaultSettings() *cli.EnvSettings {
+func DefaultSettings() (*cli.EnvSettings, error) {
 	s := cli.New()
 
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		// Expected path for SRO in container
-		cacheDir = "/root/nonroot/.cache"
+		return nil, errors.Wrap(err, "failed to obtain a cache directory")
 	}
 
 	s.RepositoryConfig = filepath.Join(cacheDir, "special-resource-operator/helm/repositories/config.yaml")
@@ -47,7 +46,7 @@ func DefaultSettings() *cli.EnvSettings {
 	s.Debug = true
 	s.MaxHistory = 10
 
-	return s
+	return s, nil
 }
 
 func OpenShiftInstallOrder() {
