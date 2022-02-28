@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -33,8 +35,15 @@ import (
 func DefaultSettings() *cli.EnvSettings {
 	s := cli.New()
 
-	s.RepositoryConfig = "/cache/helm/repositories/config.yaml"
-	s.RepositoryCache = "/cache/helm/cache"
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		// Expected path for SRO in container
+		cacheDir = "/root/nonroot/.cache"
+	}
+
+	s.RepositoryConfig = filepath.Join(cacheDir, "special-resource-operator/helm/repositories/config.yaml")
+	s.RepositoryCache = filepath.Join(cacheDir, "special-resource-operator/helm/cache")
+	s.RegistryConfig = filepath.Join(cacheDir, "special-resource-operator/helm/registry.json")
 	s.Debug = true
 	s.MaxHistory = 10
 
