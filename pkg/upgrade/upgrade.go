@@ -9,8 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
@@ -47,13 +45,20 @@ func NewClusterInfo(registry registry.Registry, cluster cluster.Cluster) Cluster
 		log:      zap.New(zap.UseDevMode(true)).WithName(utils.Print("upgrade", utils.Blue)),
 		registry: registry,
 		cluster:  cluster,
+		cache:    make(map[string]*cacheEntry),
 	}
+}
+
+type cacheEntry struct {
+	ImageURL string
+	DTK      registry.DriverToolkitEntry
 }
 
 type clusterInfo struct {
 	log      logr.Logger
 	registry registry.Registry
 	cluster  cluster.Cluster
+	cache    map[string]*cacheEntry
 }
 
 // GetClusterInfo returns a map[full kernel version]NodeVersion
@@ -175,53 +180,52 @@ func (ci *clusterInfo) updateInfo(info map[string]NodeVersion, dtk registry.Driv
 }
 
 func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, entries []string, info map[string]NodeVersion) (map[string]NodeVersion, error) {
+	if len(entries) == 0 {
+		return info, nil
+	}
 
-	for _, entry := range entries {
+	var dtk registry.DriverToolkitEntry
+	var imageURL string
 
-		ci.log.Info("History", "entry", entry)
+	entry := entries[0]
 
-		var (
-			err   error
-			layer v1.Layer
-		)
-
-		layer, err = ci.registry.LastLayer(ctx, entry)
+	if cached := ci.cache[entry]; cached != nil {
+		dtk = cached.DTK
+		imageURL = cached.ImageURL
+		ci.log.Info("History from cache", "entry", entry, "dtk", dtk, "imageURL", imageURL)
+	} else {
+		var err error
+		layer, err := ci.registry.LastLayer(ctx, entry)
 		if err != nil {
 			return nil, err
 		}
-
-		if layer == nil {
-			continue
-		}
-		// For each entry we're fetching the cluster version and dtk URL
-		_, imageURL, err := ci.registry.ReleaseManifests(layer)
+		_, imageURL, err = ci.registry.ReleaseManifests(layer)
 		if err != nil {
 			return nil, fmt.Errorf("could not extract version from payload: %w", err)
 		}
-
 		if imageURL == "" {
 			utils.WarnOnError(errors.New("No DTK image found, DTK cannot be used in a Build"))
 			return info, nil
 		}
-
 		if layer, err = ci.registry.LastLayer(ctx, imageURL); layer == nil {
 			return nil, fmt.Errorf("cannot extract last layer for DTK from %s: %w", imageURL, err)
 		}
 
-		dtk, err := ci.registry.ExtractToolkitRelease(layer)
+		dtk, err = ci.registry.ExtractToolkitRelease(layer)
 		if err != nil {
 			return nil, err
 		}
-
-		// info has the kernels that are currently "running" on the cluster
-		// we're going only to update the struct with DTK information on
-		// running kernels and not on all that are found.
-		// We could have many entries with DTKs that are from an old update
-		// The objects that are kernel affine should only be replicated
-		// for valid kernels.
-		return ci.updateInfo(info, dtk, imageURL)
-
+		ci.cache[entry] = &cacheEntry{
+			ImageURL: imageURL,
+			DTK:      dtk,
+		}
+		ci.log.Info("History added to cache", "entry", entry, "dtk", dtk, "imageURL", imageURL)
 	}
-
-	return info, nil
+	// info has the kernels that are currently "running" on the cluster
+	// we're going only to update the struct with DTK information on
+	// running kernels and not on all that are found.
+	// We could have many entries with DTKs that are from an old update
+	// The objects that are kernel affine should only be replicated
+	// for valid kernels.
+	return ci.updateInfo(info, dtk, imageURL)
 }
