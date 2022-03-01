@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"os"
+	"time"
 
 	"github.com/go-logr/logr"
 	buildv1 "github.com/openshift/api/build/v1"
@@ -31,6 +32,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -53,6 +55,11 @@ import (
 	"github.com/openshift/special-resource-operator/pkg/storage"
 	"github.com/openshift/special-resource-operator/pkg/upgrade"
 	"github.com/openshift/special-resource-operator/pkg/utils"
+)
+
+const (
+	minDelay = 100 * time.Millisecond
+	maxDelay = 3 * time.Second
 )
 
 // SpecialResourceReconciler reconciles a SpecialResource object
@@ -198,6 +205,7 @@ func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			Owns(&v1.Secret{}).
 			WithOptions(controller.Options{
 				MaxConcurrentReconciles: 1,
+				RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(minDelay, maxDelay),
 			}).
 			WithEventFilter(r.Filter.GetPredicates()).
 			Complete(r)
