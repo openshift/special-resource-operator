@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -14,6 +16,7 @@ import (
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
+	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -30,15 +33,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-func DefaultSettings() *cli.EnvSettings {
+func DefaultSettings() (*cli.EnvSettings, error) {
 	s := cli.New()
 
-	s.RepositoryConfig = "/cache/helm/repositories/config.yaml"
-	s.RepositoryCache = "/cache/helm/cache"
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to obtain a cache directory")
+	}
+
+	s.RepositoryConfig = filepath.Join(cacheDir, "special-resource-operator/helm/repositories/config.yaml")
+	s.RepositoryCache = filepath.Join(cacheDir, "special-resource-operator/helm/cache")
+	s.RegistryConfig = filepath.Join(cacheDir, "special-resource-operator/helm/registry.json")
 	s.Debug = true
 	s.MaxHistory = 10
 
-	return s
+	return s, nil
 }
 
 func OpenShiftInstallOrder() {

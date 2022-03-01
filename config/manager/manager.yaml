@@ -56,7 +56,7 @@ spec:
               memory: 500Mi
           volumeMounts:
           - name: cache-volume
-            mountPath: /cache
+            mountPath: /home/nonroot/.cache
       volumes:
         - name: cache-volume
           emptyDir: {}
