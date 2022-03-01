@@ -49,6 +49,11 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+# If CONTAINER_COMMAND wasn't specified, default to podman
+ifeq (,$(CONTAINER_COMMAND))
+CONTAINER_COMMAND=podman
+endif
+
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # This is a requirement for 'setup-envtest.sh' in the test target.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -97,10 +102,10 @@ run: manifests generate fmt vet ## Run against the configured Kubernetes cluster
 	go run -mod=vendor ./main.go
 
 local-image-build: patch helm-lint helm-repo-index generate manifests-gen ## Build container image with the manager.
-	podman build -t $(IMG) --no-cache .
+	$(CONTAINER_COMMAND) build -t $(IMG) --no-cache .
 
 local-image-push: ## Push docker image with the manager.
-	podman push $(IMG)
+	$(CONTAINER_COMMAND) push $(IMG)
 
 
 ##@ Deployment
@@ -191,11 +196,11 @@ bundle: manifests kustomize ## Generate bundle manifests and metadata, then vali
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+	$(CONTAINER_COMMAND) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
-	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
+	$(MAKE) local-image-push IMG=$(BUNDLE_IMG)
 
 .PHONY: opm
 OPM = ./bin/opm
@@ -227,7 +232,7 @@ endif
 # https://github.com/operator-framework/community-operators/blob/7f1438c/docs/packaging-operator.md#updating-your-existing-operator
 .PHONY: catalog-build
 catalog-build: opm ## Build a catalog image.
-	$(OPM) index add --container-tool podman --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
+	$(OPM) index add --container-tool $(CONTAINER_COMMAND) --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
 
 # Push the catalog image.
 .PHONY: catalog-push
