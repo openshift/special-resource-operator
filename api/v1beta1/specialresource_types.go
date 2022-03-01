@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
+	operatorv1 "github.com/openshift/api/operator/v1"
 )
 
 // SpecialResourceImages is not used.
@@ -124,6 +125,8 @@ type SpecialResourceSpec struct {
 	// Dependencies is a list of dependencies required by this SpecialReosurce.
 	// +kubebuilder:validation:Optional
 	Dependencies []SpecialResourceDependency `json:"dependencies,omitempty"`
+	// +kubebuilder:validation:Optional
+	ManagementState operatorv1.ManagementState `json:"managementState,omitempty"`
 }
 
 // SpecialResourceDependency is a Helm chart the SpecialResource depends on.
