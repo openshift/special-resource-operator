@@ -17,6 +17,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -167,6 +168,16 @@ var _ = Describe("Predicate", func() {
 			Entry(
 				"random pod",
 				&corev1.Pod{},
+				BeFalse(),
+			),
+			Entry(
+				"unmanaged special resource",
+				&v1beta1.SpecialResource{
+					TypeMeta: metav1.TypeMeta{Kind: Kind},
+					Spec: v1beta1.SpecialResourceSpec{
+						ManagementState: operatorv1.Unmanaged,
+					},
+				},
 				BeFalse(),
 			),
 		)
@@ -367,6 +378,34 @@ var _ = Describe("Predicate", func() {
 				},
 				BeTrue(),
 			),
+			Entry(
+				"Object is a SpecialResource with both Generation and ResourceVersion changed but unmanaged state",
+				func() {
+					mockKernel.EXPECT().IsObjectAffine(gomock.Any()).Return(false)
+				},
+				&v1beta1.SpecialResource{
+					ObjectMeta: metav1.ObjectMeta{
+						OwnerReferences: []metav1.OwnerReference{
+							{Kind: Kind},
+						},
+						Generation:      1,
+						ResourceVersion: "dummy1",
+					},
+				},
+				&v1beta1.SpecialResource{
+					ObjectMeta: metav1.ObjectMeta{
+						OwnerReferences: []metav1.OwnerReference{
+							{Kind: Kind},
+						},
+						Generation:      2,
+						ResourceVersion: "dummy2",
+					},
+					Spec: v1beta1.SpecialResourceSpec{
+						ManagementState: operatorv1.Unmanaged,
+					},
+				},
+				BeFalse(),
+			),
 		)
 	})
 
@@ -422,6 +461,16 @@ var _ = Describe("Predicate", func() {
 			Entry(
 				"random pod",
 				&corev1.Pod{},
+				BeFalse(),
+			),
+			Entry(
+				"unmanaged special resource",
+				&v1beta1.SpecialResource{
+					TypeMeta: metav1.TypeMeta{Kind: Kind},
+					Spec: v1beta1.SpecialResourceSpec{
+						ManagementState: operatorv1.Unmanaged,
+					},
+				},
 				BeFalse(),
 			),
 		)
