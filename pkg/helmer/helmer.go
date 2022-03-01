@@ -19,6 +19,7 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
+	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/release"
@@ -72,9 +73,24 @@ type helmer struct {
 	kubeClient      clients.ClientsInterface
 	repoFile        *repo.File
 	settings        *cli.EnvSettings
+	kubeVersion     chartutil.KubeVersion
+	apiVersions     chartutil.VersionSet
 }
 
-func NewHelmer(creator resource.Creator, settings *cli.EnvSettings, kubeClient clients.ClientsInterface) *helmer {
+func NewHelmer(creator resource.Creator, settings *cli.EnvSettings, kubeClient clients.ClientsInterface) (*helmer, error) {
+	dc, err := settings.RESTClientGetter().ToDiscoveryClient()
+	if err != nil {
+		return nil, fmt.Errorf("unable to get discovery client: %w", err)
+	}
+	dc.Invalidate()
+	kubeVersion, err := dc.ServerVersion()
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve server version: %w", err)
+	}
+	apiVersions, err := action.GetVersionSet(dc)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve API versions: %w", err)
+	}
 	return &helmer{
 		creator:         creator,
 		getterProviders: getter.All(settings),
@@ -86,7 +102,13 @@ func NewHelmer(creator resource.Creator, settings *cli.EnvSettings, kubeClient c
 			Repositories: []*repo.Entry{},
 		},
 		settings: settings,
-	}
+		kubeVersion: chartutil.KubeVersion{
+			Version: kubeVersion.GitVersion,
+			Major:   kubeVersion.Major,
+			Minor:   kubeVersion.Minor,
+		},
+		apiVersions: apiVersions,
+	}, nil
 }
 
 func init() {
@@ -247,8 +269,9 @@ func (h *helmer) Run(
 	install.DryRun = true
 	install.ReleaseName = ch.Metadata.Name
 	install.Replace = false
-	install.ClientOnly = false
-	install.APIVersions = []string{}
+	install.ClientOnly = true
+	install.KubeVersion = &h.kubeVersion
+	install.APIVersions = h.apiVersions
 	install.IncludeCRDs = false
 	install.Namespace = namespace
 	install.DisableHooks = false
@@ -261,16 +284,6 @@ func (h *helmer) Run(
 
 	if ch.Metadata.Type != "" && ch.Metadata.Type != "application" {
 		return fmt.Errorf("Chart has an unsupported type %s and can not be installed", ch.Metadata.Type)
-	}
-
-	// Pre-install anything in the crd/ directory. We do this before Helm
-	// contacts the upstream server and builds the capabilities object.
-	if crds := ch.CRDObjects(); !install.ClientOnly && !install.SkipCRDs && len(crds) > 0 {
-
-		err := h.InstallCRDs(ctx, crds, owner, install.ReleaseName, install.Namespace)
-		if err != nil {
-			return fmt.Errorf("Cannot install CRDs: %w", err)
-		}
 	}
 
 	rel, err := install.Run(&ch, vals)
@@ -298,6 +311,15 @@ func (h *helmer) Run(
 		// not working.
 		utils.WarnOnError(err)
 		//return err
+	}
+
+	// Pre-install anything in the crd/ directory.
+	if crds := ch.CRDObjects(); len(crds) > 0 {
+
+		err := h.InstallCRDs(ctx, crds, owner, install.ReleaseName, install.Namespace)
+		if err != nil {
+			return fmt.Errorf("cannot install CRDs: %w", err)
+		}
 	}
 
 	// pre-install hooks
