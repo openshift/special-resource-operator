@@ -312,4 +312,56 @@ var _ = Describe("ClusterInfo", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("is NFD running?"))
 	})
+
+	Context("uses cache", func() {
+		It("retrieving from cache after first seeing a new version", func() {
+			expects := map[string]NodeVersion{
+				kernel: {
+					OSVersion:      fmt.Sprintf("%s.%s", systemMajor, systemMinor),
+					OSMajor:        fmt.Sprintf("%s%s", system, systemMajor),
+					OSMajorMinor:   fmt.Sprintf("%s%s.%s", system, systemMajor, systemMinor),
+					ClusterVersion: clusterVersion,
+					DriverToolkit: registry.DriverToolkitEntry{
+						ImageURL:            dtkImageURL,
+						KernelFullVersion:   kernel,
+						RTKernelFullVersion: kernelRT,
+						OSVersion:           fmt.Sprintf("%s.%s", systemMajor, systemMinor),
+					},
+				},
+			}
+
+			for _, label := range []map[string]string{nodeLabelsWithRegularKernel} {
+				node := corev1.Node{}
+				node.SetLabels(label)
+				nodesList.Items = append(nodesList.Items, node)
+			}
+
+			ctx := context.TODO()
+
+			mockCluster.EXPECT().VersionHistory(ctx).Return(clusterReleaseImages, nil)
+			mockRegistry.EXPECT().LastLayer(ctx, clusterReleaseImages[0]).Return(&fakeLayer{}, nil)
+			mockRegistry.EXPECT().ReleaseManifests(gomock.Any()).Return(clusterVersion, dtkImageURL, nil)
+			mockRegistry.EXPECT().LastLayer(ctx, dtkImageURL).Return(&fakeLayer{}, nil)
+			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(clusterDTK, nil)
+
+			m, err := clusterInfo.GetClusterInfo(ctx, &nodesList)
+
+			Expect(err).ToNot(HaveOccurred())
+			for expectedKernel, expectedNodeVersion := range expects {
+				Expect(m).To(HaveKeyWithValue(expectedKernel, expectedNodeVersion))
+			}
+			// after first execution it is cached, therefore no more calls to mocks.
+			mockCluster.EXPECT().VersionHistory(ctx).Return(clusterReleaseImages, nil)
+			mockRegistry.EXPECT().LastLayer(ctx, clusterReleaseImages[0]).Times(0)
+			mockRegistry.EXPECT().ReleaseManifests(gomock.Any()).Times(0)
+			mockRegistry.EXPECT().LastLayer(ctx, dtkImageURL).Times(0)
+			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Times(0)
+
+			m, err = clusterInfo.GetClusterInfo(ctx, &nodesList)
+			Expect(err).ToNot(HaveOccurred())
+			for expectedKernel, expectedNodeVersion := range expects {
+				Expect(m).To(HaveKeyWithValue(expectedKernel, expectedNodeVersion))
+			}
+		})
+	})
 })
