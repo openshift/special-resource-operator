@@ -25,8 +25,6 @@ const (
 	labelOSReleaseVersionIDMinor = "feature.node.kubernetes.io/system-os_release.VERSION_ID.minor"
 )
 
-type dtkImageURL = string
-
 type NodeVersion struct {
 	OSVersion      string                      `json:"OSVersion"`
 	OSMajor        string                      `json:"OSMajor"`
@@ -46,7 +44,7 @@ func NewClusterInfo(reg registry.Registry, cluster cluster.Cluster) ClusterInfo 
 		log:      zap.New(zap.UseDevMode(true)).WithName(utils.Print("upgrade", utils.Blue)),
 		registry: reg,
 		cluster:  cluster,
-		cache:    make(map[dtkImageURL]*registry.DriverToolkitEntry),
+		cache:    make(map[string]*registry.DriverToolkitEntry),
 	}
 }
 
@@ -54,7 +52,7 @@ type clusterInfo struct {
 	log      logr.Logger
 	registry registry.Registry
 	cluster  cluster.Cluster
-	cache    map[dtkImageURL]*registry.DriverToolkitEntry
+	cache    map[string]*registry.DriverToolkitEntry
 }
 
 // GetClusterInfo returns a map[full kernel version]NodeVersion
@@ -179,14 +177,17 @@ func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, dtkImages []str
 		return info, nil
 	}
 
-	var dtk registry.DriverToolkitEntry
+	var dtk *registry.DriverToolkitEntry
 	imageURL := dtkImages[0]
 
 	if cached := ci.cache[imageURL]; cached != nil {
-		dtk = *cached
+		dtk = cached
 		ci.log.Info("History from cache", "imageURL", imageURL, "dtk", dtk)
 	} else {
 		layer, err := ci.registry.LastLayer(ctx, imageURL)
+		if err != nil {
+			return nil, err
+		}
 		if layer == nil {
 			return nil, fmt.Errorf("cannot extract last layer for DTK from %s: %w", imageURL, err)
 		}
@@ -196,7 +197,7 @@ func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, dtkImages []str
 			return nil, err
 		}
 
-		ci.cache[imageURL] = &dtk
+		ci.cache[imageURL] = dtk
 		ci.log.Info("History added to cache", "imageURL", imageURL, "dtk", dtk)
 	}
 	// info has the kernels that are currently "running" on the cluster
@@ -205,5 +206,5 @@ func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, dtkImages []str
 	// We could have many entries with DTKs that are from an old update
 	// The objects that are kernel affine should only be replicated
 	// for valid kernels.
-	return ci.updateInfo(info, dtk, imageURL)
+	return ci.updateInfo(info, *dtk, imageURL)
 }

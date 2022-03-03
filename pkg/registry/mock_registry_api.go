@@ -36,10 +36,10 @@ func (m *MockRegistry) EXPECT() *MockRegistryMockRecorder {
 }
 
 // ExtractToolkitRelease mocks base method.
-func (m *MockRegistry) ExtractToolkitRelease(arg0 v1.Layer) (DriverToolkitEntry, error) {
+func (m *MockRegistry) ExtractToolkitRelease(arg0 v1.Layer) (*DriverToolkitEntry, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExtractToolkitRelease", arg0)
-	ret0, _ := ret[0].(DriverToolkitEntry)
+	ret0, _ := ret[0].(*DriverToolkitEntry)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

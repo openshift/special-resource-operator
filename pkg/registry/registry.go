@@ -44,7 +44,7 @@ type DriverToolkitEntry struct {
 
 type Registry interface {
 	LastLayer(context.Context, string) (v1.Layer, error)
-	ExtractToolkitRelease(v1.Layer) (DriverToolkitEntry, error)
+	ExtractToolkitRelease(v1.Layer) (*DriverToolkitEntry, error)
 	ReleaseManifests(v1.Layer) (string, string, error)
 }
 
@@ -154,8 +154,8 @@ func (r *registry) LastLayer(ctx context.Context, entry string) (v1.Layer, error
 	return crane.PullLayer(repo+"@"+digest, registryAuths...)
 }
 
-func (r *registry) ExtractToolkitRelease(layer v1.Layer) (DriverToolkitEntry, error) {
-	var dtk DriverToolkitEntry
+func (r *registry) ExtractToolkitRelease(layer v1.Layer) (*DriverToolkitEntry, error) {
+	dtk := &DriverToolkitEntry{}
 
 	targz, err := layer.Compressed()
 	if err != nil {

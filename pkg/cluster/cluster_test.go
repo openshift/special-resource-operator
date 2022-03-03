@@ -269,9 +269,8 @@ var _ = Describe("cluster_GetDTKImages", func() {
 			Get(gomock.Any(), types.NamespacedName{Namespace: "openshift", Name: "driver-toolkit"}, gomock.Any()).
 			Return(randomError)
 
-		urls, err := cluster.NewCluster(mockKubeClients).GetDTKImages(context.TODO())
+		_, err := cluster.NewCluster(mockKubeClients).GetDTKImages(context.TODO())
 		Expect(err).To(HaveOccurred())
-		Expect(urls).To(HaveLen(0))
 	})
 
 	It("should return sorted slice of URLs", func() {
