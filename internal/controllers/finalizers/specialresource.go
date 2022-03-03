@@ -9,7 +9,6 @@ import (
 	"github.com/openshift/special-resource-operator/api/v1beta1"
 	"github.com/openshift/special-resource-operator/pkg/clients"
 	"github.com/openshift/special-resource-operator/pkg/poll"
-	"github.com/openshift/special-resource-operator/pkg/state"
 	"github.com/openshift/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -94,10 +93,10 @@ func (srf *specialResourceFinalizer) finalizeNodes(ctx context.Context, sr *v1be
 		node.SetLabels(update)
 		err := srf.kubeClient.Update(ctx, &node)
 		if apierrors.IsForbidden(err) {
-			return errors.Wrap(err, "forbidden check Role, ClusterRole and Bindings for operator %s")
+			return errors.Wrap(err, "forbidden check Role, ClusterRole and Bindings for operator")
 		}
 		if apierrors.IsConflict(err) {
-			return fmt.Errorf("node Conflict Label %s err %s", state.CurrentName, err)
+			return fmt.Errorf("conflict during label removal: %s", err)
 		}
 
 	}

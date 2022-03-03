@@ -3,11 +3,11 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"path"
 	"regexp"
 	"sort"
 
 	s "github.com/openshift/special-resource-operator/internal/controllers/state"
-	"github.com/openshift/special-resource-operator/pkg/state"
 	"github.com/openshift/special-resource-operator/pkg/upgrade"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
@@ -153,12 +153,6 @@ func (r *SpecialResourceReconciler) ReconcileChartStates(ctx context.Context, wi
 			wi.Log.Info("Debug active. Showing YAML contents", "name", stateYAML.Name, "data", stateYAML.Data)
 		}
 
-		// Every YAML is one state, we generate the name of the
-		// state special-resource + first 4 digits of the state
-		// e.g.: simple-kmod-0000 this can be used for scheduling or
-		// affinity, anti-affinity
-		state.GenerateName(stateYAML, wi.SpecialResource.Name)
-
 		step := basicChart
 		step.Templates = append(step.Templates, stateYAML)
 
@@ -237,9 +231,15 @@ func (r *SpecialResourceReconciler) ReconcileChartStates(ctx context.Context, wi
 		}
 
 		r.Metrics.SetCompletedState(wi.SpecialResource.Name, stateYAML.Name, 1)
+		// Every YAML is one state, we generate the name of the
+		// state special-resource + first 4 digits of the state
+		// e.g.: simple-kmod-0000 this can be used for scheduling or
+		// affinity, anti-affinity
+		stateName := "specialresource.openshift.io/state-" + wi.SpecialResource.Name + "-" + path.Base(stateYAML.Name)[:4]
+
 		// If resource available, label the nodes according to the current state
 		// if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
-		if err := r.labelNodesAccordingToState(ctx, wi.Log, wi.SpecialResource.Spec.NodeSelector); err != nil {
+		if err := r.labelNodesAccordingToState(ctx, wi.Log, wi.SpecialResource.Spec.NodeSelector, stateName); err != nil {
 			return err
 		}
 	}

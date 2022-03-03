@@ -5,13 +5,12 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/openshift/special-resource-operator/pkg/state"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // If resource available, label the nodes according to the current state
 // if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
-func (r *SpecialResourceReconciler) labelNodesAccordingToState(ctx context.Context, log logr.Logger, nodeSelector map[string]string) error {
+func (r *SpecialResourceReconciler) labelNodesAccordingToState(ctx context.Context, log logr.Logger, nodeSelector map[string]string, key string) error {
 
 	nodeList, err := r.KubeClient.GetNodesByLabels(ctx, nodeSelector)
 	if err != nil {
@@ -19,28 +18,20 @@ func (r *SpecialResourceReconciler) labelNodesAccordingToState(ctx context.Conte
 	}
 
 	for _, node := range nodeList.Items {
-		labels := node.GetLabels()
+		node.Labels[key] = "Ready"
 
-		// Label missing update the Node to advance to the next state
-		updated := node.DeepCopy()
-
-		labels[state.CurrentName] = "Ready"
-
-		updated.SetLabels(labels)
-
-		if err = r.KubeClient.Update(ctx, updated); err != nil {
+		if err = r.KubeClient.Update(ctx, &node); err != nil {
 			if apierrors.IsForbidden(err) {
 				return fmt.Errorf("forbidden - check Role, ClusterRole and Bindings: %w", err)
 			}
 
 			if apierrors.IsConflict(err) {
-				return fmt.Errorf("node Conflict Label %s err %s", state.CurrentName, err)
+				return fmt.Errorf("node Conflict Label %s err %s", key, err)
 			}
 
-			log.Error(err, "Node Update", "label", state.CurrentName)
+			log.Error(err, "Node Update", "label", key)
 			return fmt.Errorf("couldn't Update Node: %w", err)
 		}
-
 	}
 
 	return nil
