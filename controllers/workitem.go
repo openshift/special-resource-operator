@@ -6,7 +6,6 @@ import (
 	"github.com/openshift/special-resource-operator/pkg/runtime"
 	"github.com/openshift/special-resource-operator/pkg/utils"
 	"helm.sh/helm/v3/pkg/chart"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // WorkItem stores values required for current reconciliation
@@ -26,17 +25,13 @@ type WorkItem struct {
 
 	// RunInfo contains information about the cluster.
 	RunInfo *runtime.RuntimeInformation
-
-	// Values are used in templating the chart
-	Values unstructured.Unstructured
 }
 
-func (wi *WorkItem) CreateForChild(child *srov1beta1.SpecialResource, c *chart.Chart, v unstructured.Unstructured) *WorkItem {
+func (wi *WorkItem) CreateForChild(child *srov1beta1.SpecialResource, c *chart.Chart) *WorkItem {
 	return &WorkItem{
 		Log:             wi.Log.WithName(utils.Print(child.GetName(), utils.Purple)),
 		SpecialResource: child,
 		AllSRs:          wi.AllSRs,
 		Chart:           c,
-		Values:          v,
 	}
 }

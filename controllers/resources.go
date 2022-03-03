@@ -188,7 +188,7 @@ func (r *SpecialResourceReconciler) ReconcileChartStates(ctx context.Context, wi
 
 			var err error
 
-			step.Values, err = chartutil.CoalesceValues(&step, wi.Values.Object)
+			step.Values, err = chartutil.CoalesceValues(&step, wi.SpecialResource.Spec.Set.Object)
 			if err != nil {
 				return err
 			}
@@ -249,7 +249,7 @@ func (r *SpecialResourceReconciler) ReconcileChartStates(ctx context.Context, wi
 	nostate := basicChart
 	nostate.Templates = append(nostate.Templates, statelessYAMLS...)
 	var err error
-	nostate.Values, err = chartutil.CoalesceValues(&nostate, wi.Values.Object)
+	nostate.Values, err = chartutil.CoalesceValues(&nostate, wi.SpecialResource.Spec.Set.Object)
 	if err != nil {
 		return err
 	}

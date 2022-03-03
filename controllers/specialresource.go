@@ -150,7 +150,8 @@ func (r *SpecialResourceReconciler) SpecialResourcesReconcile(ctx context.Contex
 			return reconcile.Result{Requeue: true}, nil
 		}
 
-		childWorkItem := wi.CreateForChild(&child, cchart, dependency.Set)
+		child.Spec.Set = dependency.Set
+		childWorkItem := wi.CreateForChild(&child, cchart)
 		if err := r.ReconcileSpecialResourceChart(ctx, childWorkItem); err != nil {
 			if suErr := r.StatusUpdater.SetAsErrored(ctx, &child, state.FailedToDeployDependencyChart, fmt.Sprintf("Failed to deploy dependency: %v", err)); suErr != nil {
 				log.Error(suErr, "failed to update CR's status to Errored")
@@ -161,7 +162,6 @@ func (r *SpecialResourceReconciler) SpecialResourcesReconcile(ctx context.Contex
 
 	}
 
-	wi.Values = wi.SpecialResource.Spec.Set
 	log.Info("Done resolving dependencies - reconciling main SpecialResource")
 	if err := r.ReconcileSpecialResourceChart(ctx, wi); err != nil {
 		if suErr := r.StatusUpdater.SetAsErrored(ctx, wi.SpecialResource, state.FailedToDeployChart, fmt.Sprintf("Failed to deploy SpecialResource's chart: %v", err)); suErr != nil {
@@ -259,19 +259,19 @@ func (r *SpecialResourceReconciler) ReconcileSpecialResourceChart(ctx context.Co
 		return err
 	}
 
-	if wi.Values.Object == nil {
-		wi.Values.Object = make(map[string]interface{})
+	if wi.SpecialResource.Spec.Set.Object == nil {
+		wi.SpecialResource.Spec.Set.Object = make(map[string]interface{})
 	}
 
-	if err := unstructured.SetNestedField(wi.Values.Object, "Values", "kind"); err != nil {
+	if err := unstructured.SetNestedField(wi.SpecialResource.Spec.Set.Object, "Values", "kind"); err != nil {
 		return err
 	}
 
-	if err := unstructured.SetNestedField(wi.Values.Object, "sro.openshift.io/v1beta1", "apiVersion"); err != nil {
+	if err := unstructured.SetNestedField(wi.SpecialResource.Spec.Set.Object, "sro.openshift.io/v1beta1", "apiVersion"); err != nil {
 		return err
 	}
 
-	if err := TemplateFragment(&wi.Values, wi.RunInfo); err != nil {
+	if err := TemplateFragment(&wi.SpecialResource.Spec.Set, wi.RunInfo); err != nil {
 		return err
 	}
 
