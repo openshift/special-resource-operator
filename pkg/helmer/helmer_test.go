@@ -50,7 +50,9 @@ var _ = Describe("helmer_InstallCRDs", func() {
 			CreateFromYAML(context.TODO(), nil, false, owner, name, namespace, nil, "", "").
 			Return(randomError)
 
-		err := helmer.NewHelmer(mockCreator, cli.New(), mockKubeClient).InstallCRDs(context.TODO(), nil, owner, name, namespace)
+		h, err := helmer.NewHelmer(mockCreator, cli.New(), mockKubeClient)
+		Expect(err).NotTo(HaveOccurred())
+		err = h.InstallCRDs(context.TODO(), nil, owner, name, namespace)
 		Expect(err).To(Equal(randomError))
 	})
 
@@ -78,7 +80,9 @@ def
 			EXPECT().
 			CreateFromYAML(context.TODO(), manifests, false, owner, name, namespace, nil, "", "")
 
-		err := helmer.NewHelmer(mockCreator, cli.New(), mockKubeClient).InstallCRDs(context.TODO(), crds, owner, name, namespace)
+		h, err := helmer.NewHelmer(mockCreator, cli.New(), mockKubeClient)
+		Expect(err).NotTo(HaveOccurred())
+		err = h.InstallCRDs(context.TODO(), crds, owner, name, namespace)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
@@ -99,9 +103,9 @@ var _ = Describe("helmer_Run", func() {
 			},
 		}
 
-		err := helmer.
-			NewHelmer(mockCreator, cli.New(), mockKubeClient).
-			Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
+		h, err := helmer.NewHelmer(mockCreator, cli.New(), mockKubeClient)
+		Expect(err).NotTo(HaveOccurred())
+		err = h.Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -125,10 +129,9 @@ var _ = Describe("helmer_Run", func() {
 			EXPECT().
 			CreateFromYAML(context.TODO(), gomock.Any(), false, owner, name, namespace, nil, "", "").
 			Return(randomError)
-
-		err := helmer.
-			NewHelmer(mockCreator, cli.New(), mockKubeClient).
-			Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
+		h, err := helmer.NewHelmer(mockCreator, cli.New(), mockKubeClient)
+		Expect(err).NotTo(HaveOccurred())
+		err = h.Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
 		Expect(errors.Is(err, randomError)).To(BeTrue())
 	})
 })
