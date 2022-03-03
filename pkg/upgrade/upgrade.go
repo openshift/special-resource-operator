@@ -180,8 +180,7 @@ func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, dtkImages []str
 	var dtk *registry.DriverToolkitEntry
 	imageURL := dtkImages[0]
 
-	if cached := ci.cache[imageURL]; cached != nil {
-		dtk = cached
+	if dtk = ci.cache[imageURL]; dtk != nil {
 		ci.log.Info("History from cache", "imageURL", imageURL, "dtk", dtk)
 	} else {
 		layer, err := ci.registry.LastLayer(ctx, imageURL)
