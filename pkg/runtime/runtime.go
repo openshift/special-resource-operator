@@ -53,9 +53,8 @@ type RuntimeInformation struct {
 //go:generate mockgen -source=runtime.go -package=runtime -destination=mock_runtime_api.go
 
 type RuntimeAPI interface {
-	GetRuntimeInformation(ctx context.Context, sr *srov1beta1.SpecialResource, runInfo *RuntimeInformation) error
-	LogRuntimeInformation(runInfo *RuntimeInformation)
-	InitRunInfo() RuntimeInformation
+	GetRuntimeInformation(ctx context.Context, sr *srov1beta1.SpecialResource) (*RuntimeInformation, error)
+	LogRuntimeInformation(info *RuntimeInformation)
 }
 
 type runtime struct {
@@ -82,8 +81,26 @@ func NewRuntimeAPI(kubeClient clients.ClientsInterface,
 	}
 }
 
-func (rt *runtime) InitRunInfo() RuntimeInformation {
-	return RuntimeInformation{
+func (rt *runtime) LogRuntimeInformation(info *RuntimeInformation) {
+	rt.log.Info("Runtime Information",
+		"OperatingSystemMajor", info.OperatingSystemMajor,
+		"OperatingSystemMajorMinor", info.OperatingSystemMajorMinor,
+		"OperatingSystemDecimal", info.OperatingSystemDecimal,
+		"KernelFullVersion", info.KernelFullVersion,
+		"KernelPatchVersion", info.KernelPatchVersion,
+		"DriverToolkitImage", info.DriverToolkitImage,
+		"Platform", info.Platform,
+		"ClusterVersion", info.ClusterVersion,
+		"ClusterVersionMajorMinor", info.ClusterVersionMajorMinor,
+		"ClusterUpgradeInfo", info.ClusterUpgradeInfo,
+		"PushSecretName", info.PushSecretName,
+		"OSImageURL", info.OSImageURL,
+		"Proxy", info.Proxy)
+}
+
+func (rt *runtime) GetRuntimeInformation(ctx context.Context, sr *srov1beta1.SpecialResource) (*RuntimeInformation, error) {
+
+	info := &RuntimeInformation{
 		Kind:                      "Values",
 		OperatingSystemMajor:      "",
 		OperatingSystemMajorMinor: "",
@@ -99,82 +116,62 @@ func (rt *runtime) InitRunInfo() RuntimeInformation {
 		OSImageURL:                "",
 		Proxy:                     proxy.Configuration{},
 		GroupName:                 ResourceGroupName{DriverBuild: "driver-build", DriverContainer: "driver-container", RuntimeEnablement: "runtime-enablement", DevicePlugin: "device-plugin", DeviceMonitoring: "device-monitoring", DeviceDashboard: "device-dashboard", DeviceFeatureDiscovery: "device-feature-discovery", CSIDriver: "csi-driver"},
-		SpecialResource:           srov1beta1.SpecialResource{},
 	}
-}
 
-func (rt *runtime) LogRuntimeInformation(runInfo *RuntimeInformation) {
-	rt.log.Info("Runtime Information",
-		"OperatingSystemMajor", runInfo.OperatingSystemMajor,
-		"OperatingSystemMajorMinor", runInfo.OperatingSystemMajorMinor,
-		"OperatingSystemDecimal", runInfo.OperatingSystemDecimal,
-		"KernelFullVersion", runInfo.KernelFullVersion,
-		"KernelPatchVersion", runInfo.KernelPatchVersion,
-		"DriverToolkitImage", runInfo.DriverToolkitImage,
-		"Platform", runInfo.Platform,
-		"ClusterVersion", runInfo.ClusterVersion,
-		"ClusterVersionMajorMinor", runInfo.ClusterVersionMajorMinor,
-		"ClusterUpgradeInfo", runInfo.ClusterUpgradeInfo,
-		"PushSecretName", runInfo.PushSecretName,
-		"OSImageURL", runInfo.OSImageURL,
-		"Proxy", runInfo.Proxy)
-}
-
-func (rt *runtime) GetRuntimeInformation(ctx context.Context, sr *srov1beta1.SpecialResource, runInfo *RuntimeInformation) error {
 	nodeList, err := rt.kubeClient.GetNodesByLabels(ctx, sr.Spec.NodeSelector)
 	if err != nil {
-		return fmt.Errorf("failed to get nodes list during getRuntimeInformation: %w", err)
+		return nil, fmt.Errorf("failed to get nodes list during getRuntimeInformation: %w", err)
 	}
 
-	runInfo.OperatingSystemMajor, runInfo.OperatingSystemMajorMinor, runInfo.OperatingSystemDecimal, err = rt.clusterAPI.OperatingSystem(nodeList)
+	info.OperatingSystemMajor, info.OperatingSystemMajorMinor, info.OperatingSystemDecimal, err = rt.clusterAPI.OperatingSystem(nodeList)
 	if err != nil {
-		return fmt.Errorf("failed to get operating system: %w", err)
+		return nil, fmt.Errorf("failed to get operating system: %w", err)
 	}
 
-	runInfo.KernelFullVersion, err = rt.kernelAPI.FullVersion(nodeList)
+	info.KernelFullVersion, err = rt.kernelAPI.FullVersion(nodeList)
 	if err != nil {
-		return fmt.Errorf("failed to get kernel version: %w", err)
+		return nil, fmt.Errorf("failed to get kernel version: %w", err)
 	}
 
-	runInfo.KernelPatchVersion, err = rt.kernelAPI.PatchVersion(runInfo.KernelFullVersion)
+	info.KernelPatchVersion, err = rt.kernelAPI.PatchVersion(info.KernelFullVersion)
 	if err != nil {
-		return fmt.Errorf("failed to get kernel patch version: %w", err)
+		return nil, fmt.Errorf("failed to get kernel patch version: %w", err)
 	}
 
 	// Only want to initialize the platform once.
-	if runInfo.Platform == "" {
-		runInfo.Platform, err = rt.kubeClient.GetPlatform()
+	if info.Platform == "" {
+		info.Platform, err = rt.kubeClient.GetPlatform()
 		if err != nil {
-			return fmt.Errorf("failed to determine platform: %v", err)
+			return nil, fmt.Errorf("failed to determine platform: %v", err)
 		}
 	}
 
-	runInfo.ClusterVersion, runInfo.ClusterVersionMajorMinor, err = rt.clusterAPI.Version(ctx)
+	info.ClusterVersion, info.ClusterVersionMajorMinor, err = rt.clusterAPI.Version(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get cluster version: %w", err)
+		return nil, fmt.Errorf("failed to get cluster version: %w", err)
 	}
 
-	runInfo.ClusterUpgradeInfo, err = rt.clusterInfoAPI.GetClusterInfo(ctx, nodeList)
+	info.ClusterUpgradeInfo, err = rt.clusterInfoAPI.GetClusterInfo(ctx, nodeList)
 	if err != nil {
-		return fmt.Errorf("failed to get upgrade info: %w", err)
+		return nil, fmt.Errorf("failed to get upgrade info: %w", err)
 	}
 
-	runInfo.PushSecretName, err = rt.getPushSecretName(ctx, sr, runInfo.Platform)
+	info.PushSecretName, err = rt.getPushSecretName(ctx, sr, info.Platform)
 	utils.WarnOnError(err)
 
-	runInfo.OSImageURL, err = rt.clusterAPI.OSImageURL(ctx)
+	info.OSImageURL, err = rt.clusterAPI.OSImageURL(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get OSImageURL: %w", err)
+		return nil, fmt.Errorf("failed to get OSImageURL: %w", err)
 	}
 
-	runInfo.Proxy, err = rt.proxyAPI.ClusterConfiguration(ctx)
+	info.Proxy, err = rt.proxyAPI.ClusterConfiguration(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get Proxy Configuration: %w", err)
+		return nil, fmt.Errorf("failed to get Proxy Configuration: %w", err)
 	}
 
-	sr.DeepCopyInto(&runInfo.SpecialResource)
+	sr.DeepCopyInto(&info.SpecialResource)
 
-	return nil
+	return info, nil
 }
 
 func (rt *runtime) getPushSecretName(ctx context.Context, sr *srov1beta1.SpecialResource, platform string) (string, error) {

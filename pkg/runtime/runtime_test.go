@@ -122,7 +122,6 @@ var _ = Describe("GetRuntimeInformation", func() {
 	})
 
 	It("good flow", func() {
-		runInfo := RuntimeInformation{}
 		sr := &srov1beta1.SpecialResource{}
 		sr.Spec.Namespace = "my_namespace"
 		sr.Spec.NodeSelector = map[string]string{"key": "value"}
@@ -140,7 +139,7 @@ var _ = Describe("GetRuntimeInformation", func() {
 		platform := "platform"
 		clusterVersion := "clusterVersion"
 		clusterVersionMajorMinor := "clusterMajorMinor"
-		clusterUpgradeInfo := map[string]upgrade.NodeVersion{"key": upgrade.NodeVersion{}}
+		clusterUpgradeInfo := map[string]upgrade.NodeVersion{"key": {}}
 		osImageURL := "osImageURL"
 		proxyConfiguration := proxy.Configuration{}
 
@@ -162,7 +161,7 @@ var _ = Describe("GetRuntimeInformation", func() {
 		mockCluster.EXPECT().OSImageURL(gomock.Any()).Return(osImageURL, nil)
 		mockProxy.EXPECT().ClusterConfiguration(gomock.Any()).Return(proxyConfiguration, nil)
 
-		err := runtimeStruct.GetRuntimeInformation(context.TODO(), sr, &runInfo)
+		runInfo, err := runtimeStruct.GetRuntimeInformation(context.TODO(), sr)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(runInfo.OperatingSystemMajor).To(Equal(osMajor))
 		Expect(runInfo.OperatingSystemMajorMinor).To(Equal(osMajorMinor))

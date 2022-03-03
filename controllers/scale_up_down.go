@@ -4,15 +4,16 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	"github.com/openshift/special-resource-operator/pkg/state"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 // If resource available, label the nodes according to the current state
 // if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
-func (r *SpecialResourceReconciler) labelNodesAccordingToState(ctx context.Context, nodeSelector map[string]string) error {
+func (r *SpecialResourceReconciler) labelNodesAccordingToState(ctx context.Context, log logr.Logger, nodeSelector map[string]string) error {
 
-	nodeList, err := r.KubeClient.GetNodesByLabels(ctx, r.specialresource.Spec.NodeSelector)
+	nodeList, err := r.KubeClient.GetNodesByLabels(ctx, nodeSelector)
 	if err != nil {
 		return fmt.Errorf("failed to get nodes with labels in labelNodesAccordingToState: %w", err)
 	}

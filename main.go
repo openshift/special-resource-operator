@@ -133,7 +133,6 @@ func main() {
 
 	clusterInfoAPI := upgrade.NewClusterInfo(registry.NewRegistry(kubeClient), clusterAPI)
 	runtimeAPI := runtime.NewRuntimeAPI(kubeClient, clusterAPI, kernelAPI, clusterInfoAPI, proxyAPI)
-	runInfo := runtimeAPI.InitRunInfo()
 
 	if err = (&controllers.SpecialResourceReconciler{Cluster: clusterAPI,
 		ClusterInfo:            clusterInfoAPI,
@@ -153,7 +152,6 @@ func main() {
 		ProxyAPI:               proxyAPI,
 		RuntimeAPI:             runtimeAPI,
 		KubeClient:             kubeClient,
-		RunInfo:                runInfo,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
 		os.Exit(1)
