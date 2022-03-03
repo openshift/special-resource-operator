@@ -275,10 +275,12 @@ var _ = Describe("cluster_GetDTKImages", func() {
 	})
 
 	It("should return sorted slice of URLs", func() {
-		remoteRegistryURL := "reg.io/release/repo"
-		img1 := "sha256:1"
-		img2 := "sha256:2"
-		img3 := "sha256:3"
+		const (
+			remoteRegistryURL = "reg.io/release/repo"
+			img1              = "sha256:1"
+			img2              = "sha256:2"
+			img3              = "sha256:3"
+		)
 
 		mockKubeClients.EXPECT().
 			Get(gomock.Any(), types.NamespacedName{Namespace: "openshift", Name: "driver-toolkit"}, gomock.Any()).

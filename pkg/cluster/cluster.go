@@ -52,7 +52,7 @@ func (c *cluster) GetDTKImages(ctx context.Context) ([]string, error) {
 		types.NamespacedName{Namespace: "openshift", Name: "driver-toolkit"},
 		&is)
 	if err != nil {
-		return []string{}, fmt.Errorf("could not obtain openshift/driver-toolkit ImageStream: %w", err)
+		return nil, fmt.Errorf("could not obtain openshift/driver-toolkit ImageStream: %w", err)
 	}
 
 	type tagRef struct {
@@ -73,7 +73,7 @@ func (c *cluster) GetDTKImages(ctx context.Context) ([]string, error) {
 		return trs[i].created.After(trs[j].created)
 	})
 
-	refs := []string{}
+	refs := make([]string, 0, len(trs))
 	for _, tr := range trs {
 		refs = append(refs, tr.ref)
 	}

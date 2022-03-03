@@ -67,7 +67,7 @@ func (ci *clusterInfo) GetClusterInfo(ctx context.Context, nodeList *corev1.Node
 
 	dtkImages, err := ci.cluster.GetDTKImages(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("could not get version history: %w", err)
+		return nil, fmt.Errorf("could not get DTK images: %w", err)
 	}
 
 	versions, err := ci.driverToolkitVersion(ctx, dtkImages, info)
