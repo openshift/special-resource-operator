@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
@@ -70,31 +71,24 @@ var _ = Describe("ClusterInfo", func() {
 	})
 
 	type testInput struct {
-		nodesLabels    []map[string]string
+		nodeInfo       []corev1.NodeSystemInfo
 		clusterVersion string
 		dtkImages      []string
 		dtk            *registry.DriverToolkitEntry
 	}
 
-	kernel := "4.18.0-305.19.1.el8_4.x86_64"
-	kernelRT := "4.18.0-305.19.1.rt7.91.el8_4.x86_64"
-	system := "rhel"
-	systemMajor := "8"
-	systemMinor := "4"
-	clusterVersion := "4.9"
+	const (
+		kernel         = "4.18.0-305.19.1.el8_4.x86_64"
+		kernelRT       = "4.18.0-305.19.1.rt7.91.el8_4.x86_64"
+		system         = "rhel"
+		systemMajor    = "8"
+		systemMinor    = "4"
+		clusterVersion = "4.9"
+		// first two digits in the last section must match clusterVersion without dots.
+		osVersion = "Red Hat Enterprise Linux CoreOS 49.%s%s.202201102104-0 (Ootpa)"
+	)
 
 	dtkImages := []string{"quay.io/dtk-image/dtk@sha256:1234567890abcdef"}
-
-	nodeLabelsWithRTKernel := map[string]string{
-		labelKernelVersionFull:    kernelRT,
-		labelOSReleaseVersionID:   clusterVersion,
-		labelOSReleaseRHELVersion: fmt.Sprintf("%s.%s", systemMajor, systemMinor),
-	}
-	nodeLabelsWithRegularKernel := map[string]string{
-		labelKernelVersionFull:    kernel,
-		labelOSReleaseVersionID:   clusterVersion,
-		labelOSReleaseRHELVersion: fmt.Sprintf("%s.%s", systemMajor, systemMinor),
-	}
 	clusterDTK := &registry.DriverToolkitEntry{
 		ImageURL:            "",
 		KernelFullVersion:   kernel,
@@ -103,11 +97,26 @@ var _ = Describe("ClusterInfo", func() {
 	}
 
 	Context("has all required data (happy flow)", func() {
+
+		nodeInfoRTKernel := corev1.NodeSystemInfo{
+			KernelVersion: kernelRT,
+			OSImage:       fmt.Sprintf(osVersion, systemMajor, systemMinor),
+		}
+		nodeInfoRegularKernel := corev1.NodeSystemInfo{
+			KernelVersion: kernel,
+			OSImage:       fmt.Sprintf(osVersion, systemMajor, systemMinor),
+		}
+
 		DescribeTable("returns information for", func(input testInput, testExpects map[string]NodeVersion) {
-			for _, labels := range input.nodesLabels {
-				node := corev1.Node{}
-				node.SetLabels(labels)
-				nodesList.Items = append(nodesList.Items, node)
+			for i, nodeInfo := range input.nodeInfo {
+				nodesList.Items = append(nodesList.Items, corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: fmt.Sprintf("node-%d", i),
+					},
+					Status: corev1.NodeStatus{
+						NodeInfo: nodeInfo,
+					},
+				})
 			}
 
 			ctx := context.TODO()
@@ -127,7 +136,7 @@ var _ = Describe("ClusterInfo", func() {
 			Entry(
 				"1 node with RT kernel",
 				testInput{
-					nodesLabels:    []map[string]string{nodeLabelsWithRTKernel},
+					nodeInfo:       []corev1.NodeSystemInfo{nodeInfoRTKernel},
 					clusterVersion: clusterVersion,
 					dtkImages:      dtkImages,
 					dtk:            clusterDTK,
@@ -151,7 +160,7 @@ var _ = Describe("ClusterInfo", func() {
 			Entry(
 				"1 node with non-RT kernel",
 				testInput{
-					nodesLabels:    []map[string]string{nodeLabelsWithRegularKernel},
+					nodeInfo:       []corev1.NodeSystemInfo{nodeInfoRegularKernel},
 					clusterVersion: clusterVersion,
 					dtkImages:      dtkImages,
 					dtk:            clusterDTK,
@@ -175,10 +184,7 @@ var _ = Describe("ClusterInfo", func() {
 			Entry(
 				"2 nodes: 1st with RT, 2nd with non-RT kernel",
 				testInput{
-					nodesLabels: []map[string]string{
-						nodeLabelsWithRTKernel,
-						nodeLabelsWithRegularKernel,
-					},
+					nodeInfo:       []corev1.NodeSystemInfo{nodeInfoRTKernel, nodeInfoRegularKernel},
 					clusterVersion: clusterVersion,
 					dtkImages:      dtkImages,
 					dtk:            clusterDTK,
@@ -214,29 +220,33 @@ var _ = Describe("ClusterInfo", func() {
 	})
 
 	Context("lacks some required data/is mismatched", func() {
-		badSystemMinor := "0"
-		badKernel := ""
-		badNodeOSLabelsWithRTKernel := map[string]string{
-			labelKernelVersionFull:    kernelRT,
-			labelOSReleaseVersionID:   clusterVersion,
-			labelOSReleaseRHELVersion: fmt.Sprintf("%s.%s", systemMajor, badSystemMinor),
+		const (
+			badSystemMinor = "0"
+			badKernel      = "someotherkernel"
+		)
+		badNodeInfoRTKernel := corev1.NodeSystemInfo{
+			KernelVersion: kernelRT,
+			OSImage:       fmt.Sprintf(osVersion, systemMajor, badSystemMinor),
 		}
-		badNodeOSLabelsWithRegularKernel := map[string]string{
-			labelKernelVersionFull:    kernel,
-			labelOSReleaseVersionID:   clusterVersion,
-			labelOSReleaseRHELVersion: fmt.Sprintf("%s.%s", systemMajor, badSystemMinor),
+		badNodeInfoRegularKernel := corev1.NodeSystemInfo{
+			KernelVersion: kernel,
+			OSImage:       fmt.Sprintf(osVersion, systemMajor, badSystemMinor),
 		}
-		badNodeLabelsNoKernelMatch := map[string]string{
-			labelKernelVersionFull:    badKernel,
-			labelOSReleaseVersionID:   clusterVersion,
-			labelOSReleaseRHELVersion: fmt.Sprintf("%s.%s", systemMajor, systemMinor),
+		badNodeInfoNoKernelMatch := corev1.NodeSystemInfo{
+			KernelVersion: badKernel,
+			OSImage:       fmt.Sprintf(osVersion, systemMajor, systemMinor),
 		}
 
 		DescribeTable("returns information for", func(input testInput, testExpects error) {
-			for _, labels := range input.nodesLabels {
-				node := corev1.Node{}
-				node.SetLabels(labels)
-				nodesList.Items = append(nodesList.Items, node)
+			for i, nodeInfo := range input.nodeInfo {
+				nodesList.Items = append(nodesList.Items, corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: fmt.Sprintf("node-%d", i),
+					},
+					Status: corev1.NodeStatus{
+						NodeInfo: nodeInfo,
+					},
+				})
 			}
 
 			ctx := context.TODO()
@@ -253,27 +263,27 @@ var _ = Describe("ClusterInfo", func() {
 			Entry(
 				"Mismatched OS with regular kernel",
 				testInput{
-					nodesLabels:    []map[string]string{badNodeOSLabelsWithRegularKernel},
+					nodeInfo:       []corev1.NodeSystemInfo{badNodeInfoRegularKernel},
 					clusterVersion: clusterVersion,
 					dtkImages:      dtkImages,
 					dtk:            clusterDTK,
 				},
-				fmt.Errorf("OSVersion mismatch NFD: %s.%s vs. DTK: %s.%s", systemMajor, badSystemMinor, systemMajor, systemMinor),
+				fmt.Errorf("OSVersion mismatch Node: %s.%s vs. DTK: %s.%s", systemMajor, badSystemMinor, systemMajor, systemMinor),
 			),
 			Entry(
 				"Mismatched OS with RT kernel",
 				testInput{
-					nodesLabels:    []map[string]string{badNodeOSLabelsWithRTKernel},
+					nodeInfo:       []corev1.NodeSystemInfo{badNodeInfoRTKernel},
 					clusterVersion: clusterVersion,
 					dtkImages:      dtkImages,
 					dtk:            clusterDTK,
 				},
-				fmt.Errorf("OSVersion mismatch NFD: %s.%s vs. DTK: %s.%s", systemMajor, badSystemMinor, systemMajor, systemMinor),
+				fmt.Errorf("OSVersion mismatch Node: %s.%s vs. DTK: %s.%s", systemMajor, badSystemMinor, systemMajor, systemMinor),
 			),
 			Entry(
 				"Mismatched kernel between nodes and DTK",
 				testInput{
-					nodesLabels:    []map[string]string{badNodeLabelsNoKernelMatch},
+					nodeInfo:       []corev1.NodeSystemInfo{badNodeInfoNoKernelMatch},
 					clusterVersion: clusterVersion,
 					dtkImages:      dtkImages,
 					dtk:            clusterDTK,
@@ -283,26 +293,12 @@ var _ = Describe("ClusterInfo", func() {
 		)
 	})
 
-	It("will hint that with an error message when NFD is not installed", func() {
-		nodesList.Items = append(nodesList.Items, corev1.Node{})
-		ctx := context.TODO()
-
-		_, err := clusterInfo.GetClusterInfo(ctx, &nodesList)
-
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("is NFD running?"))
-
-		nodesList.Items[0].SetLabels(map[string]string{
-			labelKernelVersionFull: "fake",
-		})
-		_, err = clusterInfo.GetClusterInfo(ctx, &nodesList)
-
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("is NFD running?"))
-	})
-
 	Context("uses cache", func() {
 		It("retrieving from cache after first seeing a new version", func() {
+			nodeInfoRegularKernel := corev1.NodeSystemInfo{
+				KernelVersion: kernel,
+				OSImage:       fmt.Sprintf(osVersion, systemMajor, systemMinor),
+			}
 			expects := map[string]NodeVersion{
 				kernel: {
 					OSVersion:      fmt.Sprintf("%s.%s", systemMajor, systemMinor),
@@ -318,10 +314,15 @@ var _ = Describe("ClusterInfo", func() {
 				},
 			}
 
-			for _, label := range []map[string]string{nodeLabelsWithRegularKernel} {
-				node := corev1.Node{}
-				node.SetLabels(label)
-				nodesList.Items = append(nodesList.Items, node)
+			for i, nodeInfo := range []corev1.NodeSystemInfo{nodeInfoRegularKernel} {
+				nodesList.Items = append(nodesList.Items, corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: fmt.Sprintf("node-%d", i),
+					},
+					Status: corev1.NodeStatus{
+						NodeInfo: nodeInfo,
+					},
+				})
 			}
 
 			ctx := context.TODO()
