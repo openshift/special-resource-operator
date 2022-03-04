@@ -35,6 +35,21 @@ func (m *MockCluster) EXPECT() *MockClusterMockRecorder {
 	return m.recorder
 }
 
+// GetDTKImages mocks base method.
+func (m *MockCluster) GetDTKImages(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDTKImages", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDTKImages indicates an expected call of GetDTKImages.
+func (mr *MockClusterMockRecorder) GetDTKImages(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDTKImages", reflect.TypeOf((*MockCluster)(nil).GetDTKImages), arg0)
+}
+
 // OSImageURL mocks base method.
 func (m *MockCluster) OSImageURL(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
@@ -81,19 +96,4 @@ func (m *MockCluster) Version(arg0 context.Context) (string, string, error) {
 func (mr *MockClusterMockRecorder) Version(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockCluster)(nil).Version), arg0)
-}
-
-// VersionHistory mocks base method.
-func (m *MockCluster) VersionHistory(arg0 context.Context) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "VersionHistory", arg0)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// VersionHistory indicates an expected call of VersionHistory.
-func (mr *MockClusterMockRecorder) VersionHistory(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VersionHistory", reflect.TypeOf((*MockCluster)(nil).VersionHistory), arg0)
 }

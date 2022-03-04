@@ -70,11 +70,10 @@ var _ = Describe("ClusterInfo", func() {
 	})
 
 	type testInput struct {
-		nodesLabels          []map[string]string
-		clusterVersion       string
-		clusterReleaseImages []string
-		dtkImage             string
-		dtk                  registry.DriverToolkitEntry
+		nodesLabels    []map[string]string
+		clusterVersion string
+		dtkImages      []string
+		dtk            *registry.DriverToolkitEntry
 	}
 
 	kernel := "4.18.0-305.19.1.el8_4.x86_64"
@@ -84,8 +83,7 @@ var _ = Describe("ClusterInfo", func() {
 	systemMinor := "4"
 	clusterVersion := "4.9"
 
-	clusterReleaseImages := []string{"quay.io/release/release@sha256:1234567890abcdef"}
-	dtkImageURL := "quay.io/dtk-image/dtk@sha256:1234567890abcdef"
+	dtkImages := []string{"quay.io/dtk-image/dtk@sha256:1234567890abcdef"}
 
 	nodeLabelsWithRTKernel := map[string]string{
 		labelKernelVersionFull:    kernelRT,
@@ -97,7 +95,7 @@ var _ = Describe("ClusterInfo", func() {
 		labelOSReleaseVersionID:   clusterVersion,
 		labelOSReleaseRHELVersion: fmt.Sprintf("%s.%s", systemMajor, systemMinor),
 	}
-	clusterDTK := registry.DriverToolkitEntry{
+	clusterDTK := &registry.DriverToolkitEntry{
 		ImageURL:            "",
 		KernelFullVersion:   kernel,
 		RTKernelFullVersion: kernelRT,
@@ -114,10 +112,8 @@ var _ = Describe("ClusterInfo", func() {
 
 			ctx := context.TODO()
 
-			mockCluster.EXPECT().VersionHistory(ctx).Return(input.clusterReleaseImages, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, input.clusterReleaseImages[0]).Return(&fakeLayer{}, nil)
-			mockRegistry.EXPECT().ReleaseManifests(gomock.Any()).Return(input.clusterVersion, input.dtkImage, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, input.dtkImage).Return(&fakeLayer{}, nil)
+			mockCluster.EXPECT().GetDTKImages(ctx).Return(input.dtkImages, nil)
+			mockRegistry.EXPECT().LastLayer(ctx, input.dtkImages[0]).Return(&fakeLayer{}, nil)
 			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(input.dtk, nil)
 
 			m, err := clusterInfo.GetClusterInfo(ctx, &nodesList)
@@ -131,11 +127,10 @@ var _ = Describe("ClusterInfo", func() {
 			Entry(
 				"1 node with RT kernel",
 				testInput{
-					nodesLabels:          []map[string]string{nodeLabelsWithRTKernel},
-					clusterVersion:       clusterVersion,
-					clusterReleaseImages: clusterReleaseImages,
-					dtkImage:             dtkImageURL,
-					dtk:                  clusterDTK,
+					nodesLabels:    []map[string]string{nodeLabelsWithRTKernel},
+					clusterVersion: clusterVersion,
+					dtkImages:      dtkImages,
+					dtk:            clusterDTK,
 				},
 				map[string]NodeVersion{
 					kernelRT: {
@@ -144,7 +139,7 @@ var _ = Describe("ClusterInfo", func() {
 						OSMajorMinor:   fmt.Sprintf("%s%s.%s", system, systemMajor, systemMinor),
 						ClusterVersion: clusterVersion,
 						DriverToolkit: registry.DriverToolkitEntry{
-							ImageURL:            dtkImageURL,
+							ImageURL:            dtkImages[0],
 							KernelFullVersion:   kernel,
 							RTKernelFullVersion: kernelRT,
 							OSVersion:           fmt.Sprintf("%s.%s", systemMajor, systemMinor),
@@ -156,11 +151,10 @@ var _ = Describe("ClusterInfo", func() {
 			Entry(
 				"1 node with non-RT kernel",
 				testInput{
-					nodesLabels:          []map[string]string{nodeLabelsWithRegularKernel},
-					clusterVersion:       clusterVersion,
-					clusterReleaseImages: clusterReleaseImages,
-					dtkImage:             dtkImageURL,
-					dtk:                  clusterDTK,
+					nodesLabels:    []map[string]string{nodeLabelsWithRegularKernel},
+					clusterVersion: clusterVersion,
+					dtkImages:      dtkImages,
+					dtk:            clusterDTK,
 				},
 				map[string]NodeVersion{
 					kernel: {
@@ -169,7 +163,7 @@ var _ = Describe("ClusterInfo", func() {
 						OSMajorMinor:   fmt.Sprintf("%s%s.%s", system, systemMajor, systemMinor),
 						ClusterVersion: clusterVersion,
 						DriverToolkit: registry.DriverToolkitEntry{
-							ImageURL:            dtkImageURL,
+							ImageURL:            dtkImages[0],
 							KernelFullVersion:   kernel,
 							RTKernelFullVersion: kernelRT,
 							OSVersion:           fmt.Sprintf("%s.%s", systemMajor, systemMinor),
@@ -185,10 +179,9 @@ var _ = Describe("ClusterInfo", func() {
 						nodeLabelsWithRTKernel,
 						nodeLabelsWithRegularKernel,
 					},
-					clusterVersion:       clusterVersion,
-					clusterReleaseImages: clusterReleaseImages,
-					dtkImage:             dtkImageURL,
-					dtk:                  clusterDTK,
+					clusterVersion: clusterVersion,
+					dtkImages:      dtkImages,
+					dtk:            clusterDTK,
 				},
 				map[string]NodeVersion{
 					kernel: {
@@ -197,7 +190,7 @@ var _ = Describe("ClusterInfo", func() {
 						OSMajorMinor:   fmt.Sprintf("%s%s.%s", system, systemMajor, systemMinor),
 						ClusterVersion: clusterVersion,
 						DriverToolkit: registry.DriverToolkitEntry{
-							ImageURL:            dtkImageURL,
+							ImageURL:            dtkImages[0],
 							KernelFullVersion:   kernel,
 							RTKernelFullVersion: kernelRT,
 							OSVersion:           fmt.Sprintf("%s.%s", systemMajor, systemMinor),
@@ -209,7 +202,7 @@ var _ = Describe("ClusterInfo", func() {
 						OSMajorMinor:   fmt.Sprintf("%s%s.%s", system, systemMajor, systemMinor),
 						ClusterVersion: clusterVersion,
 						DriverToolkit: registry.DriverToolkitEntry{
-							ImageURL:            dtkImageURL,
+							ImageURL:            dtkImages[0],
 							KernelFullVersion:   kernel,
 							RTKernelFullVersion: kernelRT,
 							OSVersion:           fmt.Sprintf("%s.%s", systemMajor, systemMinor),
@@ -248,10 +241,8 @@ var _ = Describe("ClusterInfo", func() {
 
 			ctx := context.TODO()
 
-			mockCluster.EXPECT().VersionHistory(ctx).Return(input.clusterReleaseImages, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, input.clusterReleaseImages[0]).Return(&fakeLayer{}, nil)
-			mockRegistry.EXPECT().ReleaseManifests(gomock.Any()).Return(input.clusterVersion, input.dtkImage, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, input.dtkImage).Return(&fakeLayer{}, nil)
+			mockCluster.EXPECT().GetDTKImages(ctx).Return(input.dtkImages, nil)
+			mockRegistry.EXPECT().LastLayer(ctx, input.dtkImages[0]).Return(&fakeLayer{}, nil)
 			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(input.dtk, nil)
 
 			m, err := clusterInfo.GetClusterInfo(ctx, &nodesList)
@@ -262,33 +253,30 @@ var _ = Describe("ClusterInfo", func() {
 			Entry(
 				"Mismatched OS with regular kernel",
 				testInput{
-					nodesLabels:          []map[string]string{badNodeOSLabelsWithRegularKernel},
-					clusterVersion:       clusterVersion,
-					clusterReleaseImages: clusterReleaseImages,
-					dtkImage:             dtkImageURL,
-					dtk:                  clusterDTK,
+					nodesLabels:    []map[string]string{badNodeOSLabelsWithRegularKernel},
+					clusterVersion: clusterVersion,
+					dtkImages:      dtkImages,
+					dtk:            clusterDTK,
 				},
 				fmt.Errorf("OSVersion mismatch NFD: %s.%s vs. DTK: %s.%s", systemMajor, badSystemMinor, systemMajor, systemMinor),
 			),
 			Entry(
 				"Mismatched OS with RT kernel",
 				testInput{
-					nodesLabels:          []map[string]string{badNodeOSLabelsWithRTKernel},
-					clusterVersion:       clusterVersion,
-					clusterReleaseImages: clusterReleaseImages,
-					dtkImage:             dtkImageURL,
-					dtk:                  clusterDTK,
+					nodesLabels:    []map[string]string{badNodeOSLabelsWithRTKernel},
+					clusterVersion: clusterVersion,
+					dtkImages:      dtkImages,
+					dtk:            clusterDTK,
 				},
 				fmt.Errorf("OSVersion mismatch NFD: %s.%s vs. DTK: %s.%s", systemMajor, badSystemMinor, systemMajor, systemMinor),
 			),
 			Entry(
 				"Mismatched kernel between nodes and DTK",
 				testInput{
-					nodesLabels:          []map[string]string{badNodeLabelsNoKernelMatch},
-					clusterVersion:       clusterVersion,
-					clusterReleaseImages: clusterReleaseImages,
-					dtkImage:             dtkImageURL,
-					dtk:                  clusterDTK,
+					nodesLabels:    []map[string]string{badNodeLabelsNoKernelMatch},
+					clusterVersion: clusterVersion,
+					dtkImages:      dtkImages,
+					dtk:            clusterDTK,
 				},
 				fmt.Errorf("DTK kernel not found running in the cluster. kernelFullVersion: %s. rtKernelFullVersion: %s", kernel, kernelRT),
 			),
@@ -322,7 +310,7 @@ var _ = Describe("ClusterInfo", func() {
 					OSMajorMinor:   fmt.Sprintf("%s%s.%s", system, systemMajor, systemMinor),
 					ClusterVersion: clusterVersion,
 					DriverToolkit: registry.DriverToolkitEntry{
-						ImageURL:            dtkImageURL,
+						ImageURL:            dtkImages[0],
 						KernelFullVersion:   kernel,
 						RTKernelFullVersion: kernelRT,
 						OSVersion:           fmt.Sprintf("%s.%s", systemMajor, systemMinor),
@@ -338,10 +326,8 @@ var _ = Describe("ClusterInfo", func() {
 
 			ctx := context.TODO()
 
-			mockCluster.EXPECT().VersionHistory(ctx).Return(clusterReleaseImages, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, clusterReleaseImages[0]).Return(&fakeLayer{}, nil)
-			mockRegistry.EXPECT().ReleaseManifests(gomock.Any()).Return(clusterVersion, dtkImageURL, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, dtkImageURL).Return(&fakeLayer{}, nil)
+			mockCluster.EXPECT().GetDTKImages(ctx).Return(dtkImages, nil)
+			mockRegistry.EXPECT().LastLayer(ctx, dtkImages[0]).Return(&fakeLayer{}, nil)
 			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(clusterDTK, nil)
 
 			m, err := clusterInfo.GetClusterInfo(ctx, &nodesList)
@@ -351,10 +337,8 @@ var _ = Describe("ClusterInfo", func() {
 				Expect(m).To(HaveKeyWithValue(expectedKernel, expectedNodeVersion))
 			}
 			// after first execution it is cached, therefore no more calls to mocks.
-			mockCluster.EXPECT().VersionHistory(ctx).Return(clusterReleaseImages, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, clusterReleaseImages[0]).Times(0)
-			mockRegistry.EXPECT().ReleaseManifests(gomock.Any()).Times(0)
-			mockRegistry.EXPECT().LastLayer(ctx, dtkImageURL).Times(0)
+			mockCluster.EXPECT().GetDTKImages(ctx).Return(dtkImages, nil)
+			mockRegistry.EXPECT().LastLayer(ctx, dtkImages[0]).Times(0)
 			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Times(0)
 
 			m, err = clusterInfo.GetClusterInfo(ctx, &nodesList)

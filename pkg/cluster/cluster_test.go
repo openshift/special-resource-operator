@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -12,6 +13,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	configv1 "github.com/openshift/api/config/v1"
+	imagev1 "github.com/openshift/api/image/v1"
 	machinev1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	v1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -113,84 +115,6 @@ var _ = Describe("cluster_Version", func() {
 		Entry("version with a dot", "1.2", "1.2", "1.2"),
 		Entry("version with no dot", "1", "1", "1"),
 	)
-})
-
-var _ = Describe("cluster_VersionHistory", func() {
-	It("should return an error when the cluster cannot get a ClusterVersion", func() {
-		mockKubeClients.
-			EXPECT().
-			HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions")).
-			Return(true, randomError)
-
-		_, err := cluster.NewCluster(mockKubeClients).VersionHistory(context.TODO())
-		Expect(err).To(Equal(randomError))
-	})
-
-	It("should return an empty slice when the cluster has no ClusterVersion", func() {
-		mockKubeClients.
-			EXPECT().
-			HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions")).
-			Return(false, nil)
-
-		s, err := cluster.NewCluster(mockKubeClients).VersionHistory(context.TODO())
-		Expect(err).NotTo(HaveOccurred())
-		Expect(s).To(BeEmpty())
-	})
-
-	It("should return an error when ClusterVersionGet fails", func() {
-		gomock.InOrder(
-			mockKubeClients.
-				EXPECT().
-				HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions")).
-				Return(true, nil),
-			mockKubeClients.
-				EXPECT().
-				ClusterVersionGet(context.TODO(), metav1.GetOptions{}).
-				Return(nil, randomError),
-		)
-
-		_, err := cluster.NewCluster(mockKubeClients).VersionHistory(context.TODO())
-		Expect(errors.Is(err, randomError)).To(BeTrue())
-	})
-
-	It("should all images when we can get a ClusterVersion", func() {
-		cv := configv1.ClusterVersion{
-			Status: configv1.ClusterVersionStatus{
-				Desired: configv1.Release{
-					Image: "desired-image",
-				},
-				History: []configv1.UpdateHistory{
-					{
-						State: configv1.CompletedUpdate,
-						Image: "completed-0",
-					},
-					{
-						State: configv1.PartialUpdate,
-						Image: "partial-0",
-					},
-					{
-						State: configv1.CompletedUpdate,
-						Image: "completed-1",
-					},
-				},
-			},
-		}
-
-		gomock.InOrder(
-			mockKubeClients.
-				EXPECT().
-				HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions")).
-				Return(true, nil),
-			mockKubeClients.
-				EXPECT().
-				ClusterVersionGet(context.TODO(), metav1.GetOptions{}).
-				Return(&cv, nil),
-		)
-
-		s, err := cluster.NewCluster(mockKubeClients).VersionHistory(context.TODO())
-		Expect(err).NotTo(HaveOccurred())
-		Expect(s).To(Equal([]string{"desired-image", "completed-0", "completed-1"}))
-	})
 })
 
 var _ = Describe("cluster_OSImageURL", func() {
@@ -336,5 +260,61 @@ var _ = Describe("cluster_OperatingSystem", func() {
 		Expect(o0).To(Equal("123456"))
 		Expect(o1).To(Equal("123456.789"))
 		Expect(o2).To(Equal("456.789"))
+	})
+})
+
+var _ = Describe("cluster_GetDTKImages", func() {
+	It("should return an error in case of GET failure", func() {
+		mockKubeClients.EXPECT().
+			Get(gomock.Any(), types.NamespacedName{Namespace: "openshift", Name: "driver-toolkit"}, gomock.Any()).
+			Return(randomError)
+
+		_, err := cluster.NewCluster(mockKubeClients).GetDTKImages(context.TODO())
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should return sorted slice of URLs", func() {
+		const (
+			remoteRegistryURL = "reg.io/release/repo"
+			img1              = "sha256:1"
+			img2              = "sha256:2"
+			img3              = "sha256:3"
+		)
+
+		mockKubeClients.EXPECT().
+			Get(gomock.Any(), types.NamespacedName{Namespace: "openshift", Name: "driver-toolkit"}, gomock.Any()).
+			DoAndReturn(func(_ context.Context, _ types.NamespacedName, is *imagev1.ImageStream) error {
+				is.Status = imagev1.ImageStreamStatus{
+					Tags: []imagev1.NamedTagEventList{
+						{
+							Tag: "latest",
+							Items: []imagev1.TagEvent{
+								{
+									Created:              metav1.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
+									DockerImageReference: remoteRegistryURL + "@" + img1,
+								},
+								{
+									Created:              metav1.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+									DockerImageReference: remoteRegistryURL + "@" + img2,
+								},
+								{
+									Created:              metav1.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC),
+									DockerImageReference: remoteRegistryURL + "@" + img3,
+								},
+							},
+						},
+					},
+				}
+				return nil
+			})
+
+		urls, err := cluster.NewCluster(mockKubeClients).GetDTKImages(context.TODO())
+		Expect(err).ToNot(HaveOccurred())
+		// Sorted using Created field: newer first
+		Expect(urls).To(Equal([]string{
+			remoteRegistryURL + "@" + img3,
+			remoteRegistryURL + "@" + img1,
+			remoteRegistryURL + "@" + img2,
+		}))
 	})
 })
