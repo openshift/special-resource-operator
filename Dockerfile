@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.17-openshift-4.10 as builder
+FROM registry.ci.openshift.org/ocp/builder:rhel-8-golang-1.17-openshift-4.11 as builder
 
 WORKDIR /workspace
 
@@ -27,7 +27,7 @@ COPY charts/ charts/
 
 RUN ["make", "helm-repo-index", "manager", "helm-plugins/cm-getter/cm-getter"]
 
-FROM registry.ci.openshift.org/ocp/4.10:base
+FROM registry.ci.openshift.org/ocp/4.11:base
 
 COPY helm-plugins/ helm-plugins/
 
