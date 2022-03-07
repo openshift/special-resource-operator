@@ -21,42 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
-
-func (r *SpecialResourceReconciler) getSpecialResources(ctx context.Context, req ctrl.Request) (*srov1beta1.SpecialResource, *srov1beta1.SpecialResourceList, error) {
-	specialresources := &srov1beta1.SpecialResourceList{}
-
-	opts := []client.ListOption{}
-	err := r.KubeClient.List(ctx, specialresources, opts...)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var idx int
-	var found bool
-	if idx, found = FindSR(specialresources.Items, req.Name, "Name"); !found {
-		// If we do not find the specialresource it might be deleted,
-		// if it is a depdendency of another specialresource assign the
-		// parent specialresource for processing.
-		obj := types.NamespacedName{
-			Namespace: os.Getenv("OPERATOR_NAMESPACE"),
-			Name:      "special-resource-dependencies",
-		}
-		parent, err := r.Storage.CheckConfigMapEntry(ctx, req.Name, obj)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		idx, found = FindSR(specialresources.Items, parent, "Name")
-		if !found {
-			return nil, nil, nil
-		}
-	}
-
-	return &specialresources.Items[idx], specialresources, nil
-}
 
 // SpecialResourcesReconcile Takes care of all specialresources in the cluster
 func (r *SpecialResourceReconciler) SpecialResourcesReconcile(ctx context.Context, wi *WorkItem) (ctrl.Result, error) {

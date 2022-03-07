@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"os"
 
 	"github.com/go-logr/logr"
 	buildv1 "github.com/openshift/api/build/v1"
@@ -29,7 +30,9 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -132,6 +135,39 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	log.Info("Reconciliation successful")
 	return reconcile.Result{}, nil
+}
+
+func (r *SpecialResourceReconciler) getSpecialResources(ctx context.Context, req ctrl.Request) (*srov1beta1.SpecialResource, *srov1beta1.SpecialResourceList, error) {
+	specialresources := &srov1beta1.SpecialResourceList{}
+
+	opts := []client.ListOption{}
+	err := r.KubeClient.List(ctx, specialresources, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var idx int
+	var found bool
+	if idx, found = FindSR(specialresources.Items, req.Name, "Name"); !found {
+		// If we do not find the specialresource it might be deleted,
+		// if it is a depdendency of another specialresource assign the
+		// parent specialresource for processing.
+		obj := types.NamespacedName{
+			Namespace: os.Getenv("OPERATOR_NAMESPACE"),
+			Name:      "special-resource-dependencies",
+		}
+		parent, err := r.Storage.CheckConfigMapEntry(ctx, req.Name, obj)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		idx, found = FindSR(specialresources.Items, parent, "Name")
+		if !found {
+			return nil, nil, nil
+		}
+	}
+
+	return &specialresources.Items[idx], specialresources, nil
 }
 
 // SetupWithManager main initalization for manager
