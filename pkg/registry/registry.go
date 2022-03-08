@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -19,8 +18,6 @@ import (
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const (
@@ -51,13 +48,11 @@ type Registry interface {
 func NewRegistry(kubeClient clients.ClientsInterface) Registry {
 	return &registry{
 		kubeClient: kubeClient,
-		log:        zap.New(zap.UseDevMode(true)).WithName(utils.Print("registry", utils.Brown)),
 	}
 }
 
 type registry struct {
 	kubeClient clients.ClientsInterface
-	log        logr.Logger
 }
 
 type dockerAuth struct {
@@ -193,21 +188,18 @@ func (r *registry) ExtractToolkitRelease(layer v1.Layer) (*DriverToolkitEntry, e
 			if err != nil {
 				return dtk, err
 			}
-			r.log.Info("DTK", "kernel-version", entry)
 			dtk.KernelFullVersion = entry
 
 			entry, _, err = unstructured.NestedString(obj.Object, "RT_KERNEL_VERSION")
 			if err != nil {
 				return dtk, err
 			}
-			r.log.Info("DTK", "rt-kernel-version", entry)
 			dtk.RTKernelFullVersion = entry
 
 			entry, _, err = unstructured.NestedString(obj.Object, "RHEL_VERSION")
 			if err != nil {
 				return dtk, err
 			}
-			r.log.Info("DTK", "rhel-version", entry)
 			dtk.OSVersion = entry
 
 			return dtk, err
@@ -305,6 +297,5 @@ func (r *registry) ReleaseManifests(layer v1.Layer) (string, string, error) {
 func (r *registry) dclose(c io.Closer) {
 	if err := c.Close(); err != nil {
 		utils.WarnOnError(err)
-		//log.Error(err)
 	}
 }
