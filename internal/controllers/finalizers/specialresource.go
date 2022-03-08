@@ -134,7 +134,6 @@ func (srf *specialResourceFinalizer) finalizeSpecialResource(ctx context.Context
 
 		if err := srf.kubeClient.Get(ctx, key, &ns); err != nil {
 			if apierrors.IsNotFound(err) {
-				srf.log.Info("Successfully finalized (Namespace IsNotFound)", "SpecialResource:", sr.Name)
 				return nil
 			} else {
 				srf.log.Error(err, "Failed to get namespace", "namespace", sr.Spec.Namespace, "SpecialResource", sr.Name)
@@ -144,8 +143,6 @@ func (srf *specialResourceFinalizer) finalizeSpecialResource(ctx context.Context
 
 		for _, owner := range ns.GetOwnerReferences() {
 			if owner.Kind == "SpecialResource" {
-				srf.log.Info("Namespaces is owned by SpecialResource deleting")
-
 				if err := srf.kubeClient.Delete(ctx, &ns); err != nil {
 					srf.log.Error(err, "Failed to delete namespace", "namespace", sr.Spec.Namespace)
 					return err
@@ -158,7 +155,5 @@ func (srf *specialResourceFinalizer) finalizeSpecialResource(ctx context.Context
 			}
 		}
 	}
-
-	srf.log.Info("Successfully finalized", "SpecialResource:", sr.Name)
 	return nil
 }
