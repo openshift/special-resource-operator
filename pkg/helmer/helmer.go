@@ -144,7 +144,6 @@ func (h *helmer) Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 	act.Verify = false
 
 	repoChartName := entry.Name + "/" + spec.Name
-	h.log.Info("Locating", "chart", repoChartName)
 
 	var err error
 	var path string
@@ -260,7 +259,6 @@ func (h *helmer) Run(
 	// contacts the upstream server and builds the capabilities object.
 	if crds := ch.CRDObjects(); !install.ClientOnly && !install.SkipCRDs && len(crds) > 0 {
 
-		h.log.Info("Release CRDs")
 		err := h.InstallCRDs(ctx, crds, owner, install.ReleaseName, install.Namespace)
 		if err != nil {
 			return fmt.Errorf("Cannot install CRDs: %w", err)
@@ -294,7 +292,6 @@ func (h *helmer) Run(
 		//return err
 	}
 
-	h.log.Info("Release pre-install hooks")
 	// pre-install hooks
 	if !install.DisableHooks {
 		if err := h.ExecHook(ctx, rel, release.HookPreInstall, owner, name, namespace); err != nil {
@@ -303,7 +300,6 @@ func (h *helmer) Run(
 
 	}
 
-	h.log.Info("Release manifests")
 	err = h.creator.CreateFromYAML(
 		ctx,
 		[]byte(rel.Manifest),
@@ -319,7 +315,6 @@ func (h *helmer) Run(
 		return h.failRelease(rel, err)
 	}
 
-	h.log.Info("Release post-install hooks")
 	if !install.DisableHooks {
 		if err := h.ExecHook(ctx, rel, release.HookPostInstall, owner, name, namespace); err != nil {
 			return h.failRelease(rel, fmt.Errorf("failed post-install: %s", err))
@@ -366,12 +361,11 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 	if err := h.kubeClient.Get(ctx, key, found); err != nil {
 
 		if apierrors.IsNotFound(err) {
-			h.log.Info("Hooks", string(hook), "NotReady (IsNotFound)")
+			h.log.Info("Hook not found", "name", string(hook))
 		} else {
 			return fmt.Errorf("Unexpected error getting hook cm %s: %w", hook, err)
 		}
 	} else {
-		h.log.Info("Hooks", string(hook), "Ready (Get)")
 		return nil
 	}
 
@@ -436,19 +430,14 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 	}
 
 	if err := h.kubeClient.Create(ctx, &obj); err != nil {
-		h.log.Error(err, "Could not create the ConfigMap")
-
 		if apierrors.IsAlreadyExists(err) {
-			h.log.Info("Hooks", string(hook), "Ready (IsAlreadyExists)")
 			return nil
 		}
-
 		if apierrors.IsForbidden(err) {
-			return fmt.Errorf("API error is forbidden: %w", err)
+			return fmt.Errorf("unable to create configmap for hook %s. Forbidden: %w", hook, err)
 		}
 		return fmt.Errorf("Unexpected error creating hook cm %s: %w", hook, err)
 	}
-	h.log.Info("Hooks", string(hook), "Ready (Created)")
 	return nil
 }
 
