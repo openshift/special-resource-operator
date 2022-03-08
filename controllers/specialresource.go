@@ -28,8 +28,6 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 
 	log = r.Log.WithName(utils.Print("reconcile: "+r.Filter.GetMode(), utils.Purple))
 
-	log.Info("Reconciling SpecialResource(s) in all Namespaces")
-
 	specialresources := &srov1beta1.SpecialResourceList{}
 
 	opts := []client.ListOption{}
@@ -104,8 +102,6 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		return reconcile.Result{}, fmt.Errorf("ManagementState=%q; unhandled state", r.parent.Spec.ManagementState)
 	}
 
-	log.Info("Resolving Dependencies")
-
 	pchart, err := r.Helmer.Load(r.parent.Spec.Chart)
 	if err != nil {
 		r.StatusUpdater.UpdateWithState(ctx, &r.parent, fmt.Sprintf("%v", err))
@@ -116,7 +112,6 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 	for _, r.dependency = range r.parent.Spec.Dependencies {
 
 		log = r.Log.WithName(utils.Print(r.dependency.Name, utils.Purple))
-		log.Info("Getting Dependency")
 
 		cchart, err := r.Helmer.Load(r.dependency.HelmChart)
 		if err != nil {
@@ -157,7 +152,6 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 
 	}
 
-	log.Info("Reconciling Parent")
 	if err := ReconcileSpecialResourceChart(ctx, r, r.parent, pchart, r.parent.Spec.Set); err != nil {
 		// We do not want a stacktrace here, errors.Wrap already created
 		// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
@@ -167,7 +161,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	log.Info("RECONCILE SUCCESS: All resources done")
+	log.Info("RECONCILE SUCCESS")
 	return reconcile.Result{}, nil
 }
 
@@ -215,7 +209,7 @@ func ReconcileSpecialResourceChart(ctx context.Context, r *SpecialResourceReconc
 	r.values = values
 
 	log = r.Log.WithName(utils.Print(r.specialresource.Name, utils.Green))
-	log.Info("Reconciling Chart")
+	log.Info("Reconciling chart", "chart", r.chart.Name)
 
 	if err := r.RuntimeAPI.GetRuntimeInformation(ctx, &r.specialresource, &r.RunInfo); err != nil {
 		return err
@@ -296,12 +290,9 @@ func FindSR(a []srov1beta1.SpecialResource, x string, by string) (int, bool) {
 }
 
 func getDependencyFrom(specialresources *srov1beta1.SpecialResourceList, name string) (srov1beta1.SpecialResource, error) {
-
-	log.Info("Looking for SpecialResource in fetched List (all namespaces)")
 	if idx, found := FindSR(specialresources.Items, name, "Name"); found {
 		return specialresources.Items[idx], nil
 	}
-
 	return srov1beta1.SpecialResource{}, errors.New("Not found")
 }
 
@@ -338,7 +329,7 @@ func createSpecialResourceFrom(ctx context.Context, r *SpecialResourceReconciler
 		return errors.New("Created new SpecialResource we need to Reconcile")
 	}
 
-	log.Info("Creating SpecialResource: " + ch.Files[idx].Name)
+	log.Info("Creating SpecialResource", "name", ch.Files[idx].Name)
 
 	if err := r.Creator.CreateFromYAML(
 		ctx,
@@ -349,10 +340,8 @@ func createSpecialResourceFrom(ctx context.Context, r *SpecialResourceReconciler
 		r.specialresource.Namespace,
 		r.specialresource.Spec.NodeSelector,
 		"", ""); err != nil {
-		log.Info("Cannot create, something went horribly wrong")
 		return err
 	}
-
 	return errors.New("Created new SpecialResource we need to Reconcile")
 }
 

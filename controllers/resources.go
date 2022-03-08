@@ -8,7 +8,6 @@ import (
 
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	"helm.sh/helm/v3/pkg/chart"
@@ -20,12 +19,6 @@ import (
 )
 
 func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconciler) error {
-
-	if found := utils.StringSliceContains(r.dependency.Tags, "image-puller"); !found {
-		log.Info("dep", "ImagePuller", found)
-	}
-
-	log.Info("Looking for ImagePuller RoleBinding")
 	rb := &unstructured.Unstructured{}
 	rb.SetAPIVersion("rbac.authorization.k8s.io/v1")
 	rb.SetKind("RoleBinding")
@@ -33,7 +26,7 @@ func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconci
 	namespacedName := types.NamespacedName{Namespace: r.specialresource.Spec.Namespace, Name: "system:image-pullers"}
 	err := r.KubeClient.Get(ctx, namespacedName, rb)
 	if apierrors.IsNotFound(err) {
-		log.Info("Warning: RoleBinding system:image-pullers not found. Can be ignored on vanilla k8s or when namespace is being created.")
+		log.Error(err, "Warning: RoleBinding not found", "name", namespacedName)
 		return nil
 	} else if err != nil {
 		return errors.Wrap(err, "Error checking for image-pullers roleBinding")
@@ -47,7 +40,6 @@ func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconci
 	newSubject["namespace"] = r.parent.Spec.Namespace
 
 	if apierrors.IsNotFound(err) {
-
 		log.Info("ImagePuller RoleBinding not found, creating")
 		rb.SetName("system:image-puller")
 		rb.SetNamespace(r.specialresource.Spec.Namespace)
@@ -85,8 +77,6 @@ func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconci
 		return fmt.Errorf("unexpected error: %w", err)
 	}
 
-	log.Info("ImageReference RoleBinding found, updating")
-
 	oldSubjects, _, err := unstructured.NestedSlice(rb.Object, "subjects")
 	if err != nil {
 		return err
@@ -101,7 +91,6 @@ func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconci
 			}
 
 			if namespace == r.parent.Spec.Namespace {
-				log.Info("ImageReference ServiceAccount found, returning")
 				return nil
 			}
 		default:
@@ -149,7 +138,6 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 	})
 
 	for _, stateYAML := range stateYAMLS {
-
 		log.Info("Executing", "State", stateYAML.Name)
 
 		if r.specialresource.Spec.Debug {
@@ -188,14 +176,6 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 			r.RunInfo.OperatingSystemMajorMinor = version.OSMajorMinor
 			r.RunInfo.OperatingSystemMajor = version.OSMajor
 			r.RunInfo.DriverToolkitImage = version.DriverToolkit.ImageURL
-
-			if kernelAffine {
-				log.Info("KernelAffine: ClusterUpgradeInfo",
-					"kernel", r.RunInfo.KernelFullVersion,
-					"os", r.RunInfo.OperatingSystemDecimal,
-					"cluster", r.RunInfo.ClusterVersionMajorMinor,
-					"driverToolkitImage", r.RunInfo.DriverToolkitImage)
-			}
 
 			var err error
 
@@ -310,7 +290,6 @@ metadata:
 	}
 
 	if err := r.Creator.CreateFromYAML(ctx, ns, false, &r.specialresource, r.specialresource.Name, "", nil, "", ""); err != nil {
-		log.Info("Cannot reconcile specialresource namespace, something went horribly wrong")
 		return err
 	}
 
