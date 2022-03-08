@@ -75,6 +75,8 @@ spec:
 
 
 # Node Feature Discovery recipe dependency
-There is a general problem when trying to configure a cluster with a special resource. One does not know which nodes have a special resource and which do not. SRO is aware of the underlying OS and kernel versions only, which are enough to build (optionally) driver containers and schedule them based on kernel affinity. The schedule process takes place using labels in the nodes, therefore recipes typically need nodes these to be in place.
+One challenge when trying to configure a cluster with a special resource is to determine which nodes have a special resource and which do not.
+SRO is only aware of the underlying OS and kernel version, which are enough to build (optionally) driver containers and schedule them based on kernel affinity.
+The scheduling process takes place using labels in the nodes, therefore recipes typically need nodes these to be in place.
 
  To address this, recipes rely on the [NFD operator](https://github.com/openshift/cluster-nfd-operator). NFD will label the host with node specific attributes, like PCI cards, kernel or OS version and more. The .yaml template files in a special resource recipe can use these NFD labels in their nodeSelector fields to ensure that the software stack is run only on the nodes with the hardware feature. See [upstream NFD](https://github.com/kubernetes-sigs/node-feature-discovery) for more info.
