@@ -77,25 +77,27 @@ func NewCreator(
 
 func (c *creator) AfterCRUD(ctx context.Context, obj *unstructured.Unstructured, namespace string) error {
 
+	logger := c.log.WithValues("Kind", obj.GetObjectKind(), "namespace", obj.GetNamespace(), "name", obj.GetName())
+
 	annotations := obj.GetAnnotations()
 	clients.Namespace = namespace
 
 	if state, found := annotations["specialresource.openshift.io/state"]; found && state == "driver-container" {
-		c.log.Info("specialresource.openshift.io/state")
+		logger.Info("specialresource.openshift.io/state")
 		if err := c.checkForImagePullBackOff(ctx, obj, namespace); err != nil {
 			return fmt.Errorf("cannot check for ImagePullBackOff: %w", err)
 		}
 	}
 
 	if wait, found := annotations["specialresource.openshift.io/wait"]; found && wait == "true" {
-		c.log.Info("specialresource.openshift.io/wait")
+		logger.Info("specialresource.openshift.io/wait")
 		if err := c.pollActions.ForResource(ctx, obj); err != nil {
 			return fmt.Errorf("could not wait for resource: %w", err)
 		}
 	}
 
 	if pattern, found := annotations["specialresource.openshift.io/wait-for-logs"]; found && len(pattern) > 0 {
-		c.log.Info("specialresource.openshift.io/wait-for-logs")
+		logger.Info("specialresource.openshift.io/wait-for-logs")
 		if err := c.pollActions.ForDaemonSetLogs(ctx, obj, pattern); err != nil {
 			return fmt.Errorf("could not wait for DaemonSet logs: %w", err)
 		}
@@ -191,14 +193,10 @@ func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, rele
 
 		// We are not recreating all objects if a release is already installed
 		if releaseInstalled && oneTimer {
-			logg.Info("Skipping creation")
 			return nil
 		}
 
-		logg.Info("Not found, creating")
-
-		logg.Info("Release", "Installed", releaseInstalled)
-		logg.Info("Is", "OneTimer", oneTimer)
+		logg.Info("Creating resource", "releaseInstalled", releaseInstalled, "oneTimer", oneTimer)
 
 		if err = utils.Annotate(obj); err != nil {
 			return fmt.Errorf("can not annotate with hash: %w", err)
@@ -233,7 +231,6 @@ func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, rele
 	// Not updating Pod because we can only update image and some other
 	// specific minor fields.
 	if c.helper.IsNotUpdateable(obj.GetKind()) {
-		logg.Info("Not Updateable", "Resource", obj.GetKind())
 		return nil
 	}
 
@@ -242,11 +239,10 @@ func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, rele
 		return err
 	}
 	if equal {
-		logg.Info("Found, not updating, hash the same: " + found.GetKind() + "/" + found.GetName())
 		return nil
 	}
 
-	logg.Info("Found, updating")
+	logg.Info("Updating resource")
 	required := obj.DeepCopy()
 
 	if err = utils.Annotate(required); err != nil {
@@ -279,8 +275,6 @@ func (c *creator) checkForImagePullBackOff(ctx context.Context, obj *unstructure
 	// DaemonSet is not coming up, lets check if we have to rebuild
 	pods := &corev1.PodList{}
 
-	c.log.Info("checkForImagePullBackOff get PodList from: " + namespace)
-
 	opts := []client.ListOption{
 		client.InNamespace(namespace),
 		client.MatchingLabels(map[string]string{"app": value}),
@@ -299,18 +293,14 @@ func (c *creator) checkForImagePullBackOff(ctx context.Context, obj *unstructure
 	var reason string
 
 	for _, pod := range pods.Items {
-		c.log.Info("checkForImagePullBackOff", "PodName", pod.GetName())
 
 		containerStatuses := pod.Status.ContainerStatuses
 
 		if containerStatuses == nil {
 			phase := pod.Status.Phase
-
 			if phase == "" {
 				return errors.New("pod has an empty phase")
 			}
-
-			c.log.Info("Pod is in phase: " + string(phase))
 			continue
 		}
 
@@ -320,8 +310,6 @@ func (c *creator) checkForImagePullBackOff(ctx context.Context, obj *unstructure
 			if containerStatus.State.Waiting != nil {
 				reason = containerStatus.State.Waiting.Reason
 			}
-
-			c.log.Info("Reason", "reason", reason)
 		}
 
 		if reason == "ImagePullBackOff" || reason == "ErrImagePull" {
@@ -331,8 +319,6 @@ func (c *creator) checkForImagePullBackOff(ctx context.Context, obj *unstructure
 				return fmt.Errorf("ImagePullBackOff need to rebuild %s driver-container", UpdateVendor)
 			}
 		}
-
-		c.log.Info("Unsetting updateVendor, Pods not in ImagePullBackOff or ErrImagePull")
 		UpdateVendor = ""
 		return nil
 	}
@@ -365,7 +351,6 @@ func (c *creator) createObjFromYAML(
 
 	//  Do not override the namespace if already set
 	if c.helper.IsNamespaced(obj.GetKind()) && obj.GetNamespace() == "" {
-		c.log.Info("Namespace empty settting", "namespace", namespace)
 		obj.SetNamespace(namespace)
 	}
 
@@ -431,24 +416,17 @@ func (c *creator) createObjFromYAML(
 }
 
 func (c *creator) rebuildDriverContainer(obj *unstructured.Unstructured) error {
-
-	logger := c.log.WithValues("Kind", obj.GetKind(), "Namespace", obj.GetNamespace(), "Name", obj.GetName())
 	// BuildConfig are currently not triggered by an update need to delete first
 	if obj.GetKind() == "BuildConfig" {
 		annotations := obj.GetAnnotations()
 		if vendor, ok := annotations["specialresource.openshift.io/driver-container-vendor"]; ok {
-			logger.Info("driver-container-vendor", "vendor", vendor)
 			if vendor == UpdateVendor {
-				logger.Info("vendor == updateVendor", "vendor", vendor, "updateVendor", UpdateVendor)
 				return nil
 			}
-			logger.Info("vendor != updateVendor", "vendor", vendor, "updateVendor", UpdateVendor)
 			return errors.New("vendor != updateVendor")
 		}
-		logger.Info("No annotation driver-container-vendor found, not skipping")
 		return nil
 	}
-
 	return nil
 }
 
