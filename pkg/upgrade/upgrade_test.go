@@ -17,6 +17,8 @@ import (
 
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
+	"github.com/openshift-psap/special-resource-operator/pkg/utils"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestPkgUpgrade(t *testing.T) {
@@ -293,60 +295,85 @@ var _ = Describe("ClusterInfo", func() {
 		)
 	})
 
-	Context("uses cache", func() {
-		It("retrieving from cache after first seeing a new version", func() {
-			nodeInfoRegularKernel := corev1.NodeSystemInfo{
-				KernelVersion: kernel,
-				OSImage:       fmt.Sprintf(osVersion, systemMajor, systemMinor),
-			}
-			expects := map[string]NodeVersion{
-				kernel: {
-					OSVersion:      fmt.Sprintf("%s.%s", systemMajor, systemMinor),
-					OSMajor:        fmt.Sprintf("%s%s", system, systemMajor),
-					OSMajorMinor:   fmt.Sprintf("%s%s.%s", system, systemMajor, systemMinor),
-					ClusterVersion: clusterVersion,
-					DriverToolkit: registry.DriverToolkitEntry{
-						ImageURL:            dtkImages[0],
-						KernelFullVersion:   kernel,
-						RTKernelFullVersion: kernelRT,
-						OSVersion:           fmt.Sprintf("%s.%s", systemMajor, systemMinor),
-					},
-				},
-			}
+})
 
-			for i, nodeInfo := range []corev1.NodeSystemInfo{nodeInfoRegularKernel} {
-				nodesList.Items = append(nodesList.Items, corev1.Node{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: fmt.Sprintf("node-%d", i),
-					},
-					Status: corev1.NodeStatus{
-						NodeInfo: nodeInfo,
-					},
-				})
-			}
+var _ = Describe("GetDTKData", func() {
+	var (
+		mockCtrl     *gomock.Controller
+		mockRegistry *registry.MockRegistry
+		mockCluster  *cluster.MockCluster
+		ci           clusterInfo
+		nodesList    corev1.NodeList
+	)
 
-			ctx := context.TODO()
-
-			mockCluster.EXPECT().GetDTKImages(ctx).Return(dtkImages, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, dtkImages[0]).Return(&fakeLayer{}, nil)
-			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(clusterDTK, nil)
-
-			m, err := clusterInfo.GetClusterInfo(ctx, &nodesList)
-
-			Expect(err).ToNot(HaveOccurred())
-			for expectedKernel, expectedNodeVersion := range expects {
-				Expect(m).To(HaveKeyWithValue(expectedKernel, expectedNodeVersion))
-			}
-			// after first execution it is cached, therefore no more calls to mocks.
-			mockCluster.EXPECT().GetDTKImages(ctx).Return(dtkImages, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, dtkImages[0]).Times(0)
-			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Times(0)
-
-			m, err = clusterInfo.GetClusterInfo(ctx, &nodesList)
-			Expect(err).ToNot(HaveOccurred())
-			for expectedKernel, expectedNodeVersion := range expects {
-				Expect(m).To(HaveKeyWithValue(expectedKernel, expectedNodeVersion))
-			}
-		})
+	BeforeEach(func() {
+		mockCtrl = gomock.NewController(GinkgoT())
+		mockRegistry = registry.NewMockRegistry(mockCtrl)
+		mockCluster = cluster.NewMockCluster(mockCtrl)
+		ci = clusterInfo{
+			log:      zap.New(zap.UseDevMode(true)).WithName(utils.Print("upgrade", utils.Blue)),
+			registry: mockRegistry,
+			cluster:  mockCluster,
+			cache:    make(map[string]*registry.DriverToolkitEntry),
+		}
+		nodesList = corev1.NodeList{}
+		nodesList.Items = []corev1.Node{}
 	})
+
+	AfterEach(func() {
+		mockCtrl.Finish()
+	})
+
+	It("dtk not present in cache", func() {
+		dtk1 := registry.DriverToolkitEntry{
+			ImageURL:            "imageURL1",
+			KernelFullVersion:   "kernelFull1",
+			RTKernelFullVersion: "kernelRT1",
+			OSVersion:           "osVersion1",
+		}
+		dtk2 := registry.DriverToolkitEntry{
+			ImageURL:            "imageURL2",
+			KernelFullVersion:   "kernelFull2",
+			RTKernelFullVersion: "kernelRT2",
+			OSVersion:           "osVersion2",
+		}
+		ci.cache["imageURL1"] = &dtk1
+		mockRegistry.EXPECT().LastLayer(gomock.Any(), "imageURL2").Return(&fakeLayer{}, nil)
+		mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(&dtk2, nil)
+
+		resDTK, err := ci.GetDTKData(context.TODO(), "imageURL2")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resDTK).To(Equal(&dtk2))
+	})
+
+	It("dtk present in cache", func() {
+		dtk1 := registry.DriverToolkitEntry{
+			ImageURL:            "imageURL1",
+			KernelFullVersion:   "kernelFull1",
+			RTKernelFullVersion: "kernelRT1",
+			OSVersion:           "osVersion1",
+		}
+		ci.cache["imageURL1"] = &dtk1
+		mockRegistry.EXPECT().LastLayer(gomock.Any(), gomock.Any()).Return(&fakeLayer{}, nil).Times(0)
+		mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(&dtk1, nil).Times(0)
+
+		resDTK, err := ci.GetDTKData(context.TODO(), "imageURL1")
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resDTK).To(Equal(&dtk1))
+	})
+
+	It("errors scenario", func() {
+		mockRegistry.EXPECT().LastLayer(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("some error"))
+		mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(nil, nil).Times(0)
+		resDTK, err := ci.GetDTKData(context.TODO(), "imageURL")
+		Expect(err).To(HaveOccurred())
+		Expect(resDTK).To(BeNil())
+
+		mockRegistry.EXPECT().LastLayer(gomock.Any(), gomock.Any()).Return(nil, nil)
+		mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(nil, nil).Times(0)
+		resDTK, err = ci.GetDTKData(context.TODO(), "imageURL")
+		Expect(err).To(HaveOccurred())
+		Expect(resDTK).To(BeNil())
+	})
+
 })
