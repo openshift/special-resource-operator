@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	crane "github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 )
 
@@ -48,6 +49,38 @@ func (m *MockRegistry) ExtractToolkitRelease(arg0 v1.Layer) (*DriverToolkitEntry
 func (mr *MockRegistryMockRecorder) ExtractToolkitRelease(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtractToolkitRelease", reflect.TypeOf((*MockRegistry)(nil).ExtractToolkitRelease), arg0)
+}
+
+// GetLayerByDigest mocks base method.
+func (m *MockRegistry) GetLayerByDigest(arg0, arg1 string, arg2 []crane.Option) (v1.Layer, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLayerByDigest", arg0, arg1, arg2)
+	ret0, _ := ret[0].(v1.Layer)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLayerByDigest indicates an expected call of GetLayerByDigest.
+func (mr *MockRegistryMockRecorder) GetLayerByDigest(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLayerByDigest", reflect.TypeOf((*MockRegistry)(nil).GetLayerByDigest), arg0, arg1, arg2)
+}
+
+// GetLayersDigests mocks base method.
+func (m *MockRegistry) GetLayersDigests(arg0 context.Context, arg1 string) (string, []string, []crane.Option, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLayersDigests", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].([]string)
+	ret2, _ := ret[2].([]crane.Option)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// GetLayersDigests indicates an expected call of GetLayersDigests.
+func (mr *MockRegistryMockRecorder) GetLayersDigests(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLayersDigests", reflect.TypeOf((*MockRegistry)(nil).GetLayersDigests), arg0, arg1)
 }
 
 // LastLayer mocks base method.

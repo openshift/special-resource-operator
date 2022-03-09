@@ -46,6 +46,8 @@ type Registry interface {
 	LastLayer(context.Context, string) (v1.Layer, error)
 	ExtractToolkitRelease(v1.Layer) (*DriverToolkitEntry, error)
 	ReleaseManifests(v1.Layer) (string, string, error)
+	GetLayersDigests(context.Context, string) (string, []string, []crane.Option, error)
+	GetLayerByDigest(string, string, []crane.Option) (v1.Layer, error)
 }
 
 func NewRegistry(kubeClient clients.ClientsInterface) Registry {
@@ -108,50 +110,11 @@ func (r *registry) getImageRegistryCredentials(ctx context.Context, registry str
 }
 
 func (r *registry) LastLayer(ctx context.Context, entry string) (v1.Layer, error) {
-	registry, err := r.registryFromImageURL(entry)
+	repo, digests, registryAuths, err := r.GetLayersDigests(ctx, entry)
 	if err != nil {
 		return nil, err
 	}
-
-	auth, err := r.getImageRegistryCredentials(ctx, registry)
-	if err != nil {
-		return nil, err
-	}
-
-	var repo string
-
-	if hash := strings.Split(entry, "@"); len(hash) > 1 {
-		repo = hash[0]
-	} else if tag := strings.Split(entry, ":"); len(tag) > 1 {
-
-		repo = tag[0]
-	}
-
-	var registryAuths []crane.Option
-	if auth.Auth != "" {
-		registryAuths = append(registryAuths, crane.WithAuth(authn.FromConfig(authn.AuthConfig{Username: auth.Email, Auth: auth.Auth})))
-	}
-
-	manifest, err := crane.Manifest(entry, registryAuths...)
-	if err != nil {
-		return nil, err
-	}
-
-	release := unstructured.Unstructured{}
-	if err = json.Unmarshal(manifest, &release.Object); err != nil {
-		return nil, err
-	}
-
-	layers, _, err := unstructured.NestedSlice(release.Object, "layers")
-	if err != nil {
-		return nil, err
-	}
-
-	last := layers[len(layers)-1]
-
-	digest := last.(map[string]interface{})["digest"].(string)
-
-	return crane.PullLayer(repo+"@"+digest, registryAuths...)
+	return crane.PullLayer(repo+"@"+digests[len(digests)-1], registryAuths...)
 }
 
 func (r *registry) ExtractToolkitRelease(layer v1.Layer) (*DriverToolkitEntry, error) {
@@ -300,6 +263,60 @@ func (r *registry) ReleaseManifests(layer v1.Layer) (string, string, error) {
 	}
 
 	return version, imageURL, nil
+}
+
+func (r *registry) GetLayersDigests(ctx context.Context, entry string) (string, []string, []crane.Option, error) {
+	registry, err := r.registryFromImageURL(entry)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	auth, err := r.getImageRegistryCredentials(ctx, registry)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	var repo string
+
+	if hash := strings.Split(entry, "@"); len(hash) > 1 {
+		repo = hash[0]
+	} else if tag := strings.Split(entry, ":"); len(tag) > 1 {
+		repo = tag[0]
+	}
+
+	if repo == "" {
+		return "", nil, nil, fmt.Errorf("image url %s is not valid, does not contain hash or tag", entry)
+	}
+
+	var registryAuths []crane.Option
+	if auth.Auth != "" {
+		registryAuths = append(registryAuths, crane.WithAuth(authn.FromConfig(authn.AuthConfig{Username: auth.Email, Auth: auth.Auth})))
+	}
+
+	manifest, err := crane.Manifest(entry, registryAuths...)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	release := unstructured.Unstructured{}
+	if err = json.Unmarshal(manifest, &release.Object); err != nil {
+		return "", nil, nil, err
+	}
+
+	layers, _, err := unstructured.NestedSlice(release.Object, "layers")
+	if err != nil {
+		return "", nil, nil, err
+	}
+	digests := make([]string, len(layers))
+	for i, layer := range layers {
+		digests[i] = layer.(map[string]interface{})["digest"].(string)
+	}
+
+	return repo, digests, registryAuths, nil
+}
+
+func (r *registry) GetLayerByDigest(repo string, digest string, auth []crane.Option) (v1.Layer, error) {
+	return crane.PullLayer(repo+"@"+digest, auth...)
 }
 
 func (r *registry) dclose(c io.Closer) {
