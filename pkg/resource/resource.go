@@ -14,6 +14,8 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
+	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
+        "github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -193,6 +195,9 @@ func CreateFromYAML(yamlFile []byte,
 			log.Info("Namespace empty settting", "namespace", namespace)
 			obj.SetNamespace(namespace)
 		}
+		yamlKind := obj.GetKind()
+		yamlName := obj.GetName()
+		yamlNamespace := obj.GetNamespace()
 
 		// We used this for predicate filtering, we're watching a lot of
 		// API Objects we want to ignore all objects that do not have this
@@ -203,6 +208,7 @@ func CreateFromYAML(yamlFile []byte,
 		// annotation specialresource.openshift.io/kernel-affine: true
 		if kernel.IsObjectAffine(obj) {
 			if err = kernel.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor); err != nil {
+				metrics.SetCompletedKind(name, yamlKind, yamlName, yamlNamespace, 0)
 				return fmt.Errorf("cannot set kernel affine attributes: %w", err)
 			}
 		}
@@ -210,6 +216,7 @@ func CreateFromYAML(yamlFile []byte,
 		// Add nodeSelector terms for the specialresource
 		// we do not want to spread HW enablement stacks on all nodes
 		if err = SetNodeSelectorTerms(obj, nodeSelector); err != nil {
+			metrics.SetCompletedKind(name, yamlKind, yamlName, yamlNamespace, 0)
 			return fmt.Errorf("setting NodeSelectorTerms failed: %w", err)
 		}
 
@@ -217,12 +224,14 @@ func CreateFromYAML(yamlFile []byte,
 		// We are asuming that vendors provide pre compiled DriverContainers
 		// If err == nil, build a new container, if err != nil skip it
 		if err = rebuildDriverContainer(obj); err != nil {
+			metrics.SetCompletedKind(name, yamlKind, yamlName, yamlNamespace, 0)
 			log.Info("Skipping building driver-container", "Name", obj.GetName())
 			return nil
 		}
 
 		// Callbacks before CRUD will update the manifests
 		if err = BeforeCRUD(obj, owner); err != nil {
+			metrics.SetCompletedKind(name, yamlKind, yamlName, yamlNamespace, 0)
 			return fmt.Errorf("before CRUD hooks failed: %w", err)
 		}
 		// Create Update Delete Patch resources
@@ -231,16 +240,21 @@ func CreateFromYAML(yamlFile []byte,
 		// sleep for 5 secs and requeue
 		if err != nil {
 			if strings.Contains(err.Error(), "failed calling webhook") {
+				metrics.SetCompletedKind(name, yamlKind, yamlName, yamlNamespace, 0)
 				return fmt.Errorf("webhook not ready, requeue: %w", err)
 			}
 
+			metrics.SetCompletedKind(name, yamlKind, yamlName, yamlNamespace, 0)
 			return fmt.Errorf("CRUD exited non-zero on Object: %+v: %w", obj, err)
 		}
 
 		// Callbacks after CRUD will wait for ressource and check status
 		if err = AfterCRUD(obj, namespace); err != nil {
+			metrics.SetCompletedKind(name, yamlKind, yamlName, yamlNamespace, 0)
 			return fmt.Errorf("after CRUD hooks failed: %w", err)
 		}
+		metrics.SetCompletedKind(name, yamlKind, yamlName, yamlNamespace, 1)
+		sendNodesMetrics(obj, name)
 
 	}
 
@@ -569,4 +583,33 @@ func checkForImagePullBackOff(obj *unstructured.Unstructured, namespace string) 
 	}
 
 	return fmt.Errorf("unexpected Phase of Pods in DameonSet: %s", obj.GetName())
+}
+
+func sendNodesMetrics(obj *unstructured.Unstructured, crName string) {
+        kind := obj.GetKind()
+        if kind != "DaemonSet" && kind != "Deployment" {
+                return
+        }
+
+        objKey := types.NamespacedName{
+                Namespace: obj.GetNamespace(),
+                Name:      obj.GetName(),
+        }
+        getPodsFunc := lifecycle.GetPodFromDaemonSet
+        if kind == "Deployment" {
+                getPodsFunc = lifecycle.GetPodFromDeployment
+        }
+
+        pl := getPodsFunc(objKey)
+        nodesNames := []string{}
+        for _, pod := range pl.Items {
+                nodesNames = append(nodesNames, pod.Spec.NodeName)
+        }
+
+        if len(nodesNames) != 0 {
+                nodesStr := strings.Join(nodesNames, ",")
+                metrics.SetUsedNodes(crName, obj.GetName(), obj.GetNamespace(), kind, nodesStr)
+        } else {
+                log.Info("No assigned nodes for found for UsedNodes metric", "kind", kind, "name", obj.GetName(), "crName", crName)
+        }
 }
