@@ -6,7 +6,7 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	"github.com/openshift-psap/special-resource-operator/test/framework"
+	"github.com/openshift/special-resource-operator/test/framework"
 
 	"github.com/kelseyhightower/envconfig"
 )

@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	registry "github.com/openshift-psap/special-resource-operator/pkg/registry"
+	registry "github.com/openshift/special-resource-operator/pkg/registry"
 	v1 "k8s.io/api/core/v1"
 )
 

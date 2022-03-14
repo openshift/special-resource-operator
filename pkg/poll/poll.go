@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
-	"github.com/openshift-psap/special-resource-operator/pkg/storage"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
+	"github.com/openshift/special-resource-operator/pkg/clients"
+	"github.com/openshift/special-resource-operator/pkg/lifecycle"
+	"github.com/openshift/special-resource-operator/pkg/storage"
+	"github.com/openshift/special-resource-operator/pkg/utils"
 
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"

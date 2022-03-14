@@ -6,8 +6,8 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/state"
-	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
+	"github.com/openshift/special-resource-operator/pkg/state"
+	"github.com/openshift/special-resource-operator/pkg/upgrade"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	"helm.sh/helm/v3/pkg/chart"

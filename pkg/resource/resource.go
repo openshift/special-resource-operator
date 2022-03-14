@@ -18,16 +18,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/yaml"
 
-	"github.com/openshift-psap/special-resource-operator/internal/resourcehelper"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/filter"
-	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
-	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
-	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
-	"github.com/openshift-psap/special-resource-operator/pkg/poll"
-	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
-	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
+	"github.com/openshift/special-resource-operator/internal/resourcehelper"
+	"github.com/openshift/special-resource-operator/pkg/clients"
+	"github.com/openshift/special-resource-operator/pkg/filter"
+	"github.com/openshift/special-resource-operator/pkg/kernel"
+	"github.com/openshift/special-resource-operator/pkg/lifecycle"
+	"github.com/openshift/special-resource-operator/pkg/metrics"
+	"github.com/openshift/special-resource-operator/pkg/poll"
+	"github.com/openshift/special-resource-operator/pkg/proxy"
+	"github.com/openshift/special-resource-operator/pkg/utils"
+	"github.com/openshift/special-resource-operator/pkg/yamlutil"
 )
 
 var (

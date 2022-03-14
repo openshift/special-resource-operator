@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-logr/logr"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
-	"github.com/openshift-psap/special-resource-operator/pkg/registry"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
+	"github.com/openshift/special-resource-operator/pkg/cluster"
+	"github.com/openshift/special-resource-operator/pkg/registry"
+	"github.com/openshift/special-resource-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )

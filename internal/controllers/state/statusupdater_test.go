@@ -5,9 +5,9 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/internal/controllers/state"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift/special-resource-operator/api/v1beta1"
+	"github.com/openshift/special-resource-operator/internal/controllers/state"
+	"github.com/openshift/special-resource-operator/pkg/clients"
 	v1 "k8s.io/api/apps/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

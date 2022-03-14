@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	v1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
+	v1beta1 "github.com/openshift/special-resource-operator/api/v1beta1"
 )
 
 // MockStatusUpdater is a mock of StatusUpdater interface.
