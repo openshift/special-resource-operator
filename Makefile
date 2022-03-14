@@ -196,7 +196,7 @@ bundle-build: ## Build the bundle image.
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
-	$(BUNDLE_CONTAINER_COMMAND) push IMG=$(BUNDLE_IMG)
+	$(BUNDLE_CONTAINER_COMMAND) push $(BUNDLE_IMG)
 
 .PHONY: opm
 OPM = ./bin/opm
