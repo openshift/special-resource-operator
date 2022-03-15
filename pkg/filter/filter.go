@@ -66,14 +66,12 @@ func (f *filter) isSpecialResource(obj client.Object) bool {
 	kind := obj.GetObjectKind().GroupVersionKind().Kind
 
 	if kind == Kind {
-		f.log.Info(f.mode+" IsSpecialResource (sroGVK)", "Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
 		return true
 	}
 
 	t := reflect.TypeOf(obj).String()
 
 	if strings.Contains(t, Kind) {
-		f.log.Info(f.mode+" IsSpecialResource (reflect)", "Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
 		return true
 
 	}
@@ -87,13 +85,11 @@ func (f *filter) isSpecialResource(obj client.Object) bool {
 	// have a GVK
 	selfLink := obj.GetSelfLink()
 	if strings.Contains(selfLink, "/apis/sro.openshift.io/v") {
-		f.log.Info(f.mode+" IsSpecialResource (selflink)", "Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
 		return true
 	}
 	if kind == "" {
 		objstr := fmt.Sprintf("%+v", obj)
 		if strings.Contains(objstr, "sro.openshift.io/v") {
-			f.log.Info(f.mode+" IsSpecialResource (contains)", "Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
 			return true
 		}
 	}
@@ -105,8 +101,6 @@ func (f *filter) owned(obj client.Object) bool {
 
 	for _, owner := range obj.GetOwnerReferences() {
 		if owner.Kind == Kind {
-			f.log.Info(f.mode+" Owned (sroGVK)", "Name", obj.GetName(),
-				"Type", reflect.TypeOf(obj).String())
 			return true
 		}
 	}
@@ -115,8 +109,6 @@ func (f *filter) owned(obj client.Object) bool {
 
 	if labels = obj.GetLabels(); labels != nil {
 		if _, found := labels[OwnedLabel]; found {
-			f.log.Info(f.mode+" Owned (label)", "Name", obj.GetName(),
-				"Type", reflect.TypeOf(obj).String())
 			return true
 		}
 	}
@@ -129,14 +121,19 @@ func (f *filter) GetPredicates() predicate.Predicate {
 
 			f.mode = "CREATE"
 			// If a specialresource dependency is deleted we
-			/* want to recreate it so handle the delete event */
+			// want to recreate it so handle the delete event
 			obj := e.Object
 
 			if f.isSpecialResource(obj) {
-				return !f.isSpecialResourceUnmanaged(obj)
+				if !f.isSpecialResourceUnmanaged(obj) {
+					f.log.Info("Creating managed special resource", "name", obj.GetName())
+					return true
+				}
+				return false
 			}
 
 			if f.owned(obj) {
+				f.log.Info("Creating owned object", "name", obj.GetName(), "namespace", obj.GetNamespace(), "kind", obj.GetObjectKind())
 				return true
 			}
 
@@ -166,8 +163,6 @@ func (f *filter) GetPredicates() predicate.Predicate {
 					e.ObjectOld.GetResourceVersion() == e.ObjectNew.GetResourceVersion() {
 					return false
 				} else {
-					f.log.Info(f.mode+" Owned Generation or resourceVersion Changed for kernel affine object",
-						"Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
 					if reflect.TypeOf(obj).String() == "*v1.DaemonSet" && e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
 						err := f.lifecycle.UpdateDaemonSetPods(context.TODO(), obj)
 						utils.WarnOnError(err)
@@ -175,6 +170,8 @@ func (f *filter) GetPredicates() predicate.Predicate {
 					if f.isSpecialResource(obj) && f.isSpecialResourceUnmanaged(obj) {
 						return false
 					}
+					f.log.Info("Updating owned object. generation or resourceVersion kernel affine changed",
+						"name", obj.GetName(), "namespace", obj.GetNamespace(), "kind", obj.GetObjectKind())
 					return true
 				}
 			}
@@ -197,22 +194,17 @@ func (f *filter) GetPredicates() predicate.Predicate {
 				if f.isSpecialResourceUnmanaged(obj) {
 					return false
 				}
-				f.log.Info(f.mode+" IsSpecialResource GenerationChanged",
-					"Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
+				f.log.Info("Updating special resource", "name", obj.GetName())
 				return true
 			}
 
 			// If we do not own the object, do not care
 			if f.owned(obj) {
-
-				f.log.Info(f.mode+" Owned GenerationChanged",
-					"Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
-
 				if reflect.TypeOf(obj).String() == "*v1.DaemonSet" {
 					err := f.lifecycle.UpdateDaemonSetPods(context.TODO(), obj)
 					utils.WarnOnError(err)
 				}
-
+				f.log.Info("Updating owned object", "name", obj.GetName(), "namespace", obj.GetNamespace(), "kind", obj.GetObjectKind())
 				return true
 			}
 
@@ -225,6 +217,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 			/* want to recreate it so handle the delete event */
 			obj := e.Object
 			if f.isSpecialResource(obj) {
+				f.log.Info("Deleting special resource", "name", obj.GetName())
 				return true
 			}
 
@@ -242,7 +235,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 				}
 				err = f.storage.DeleteConfigMapEntry(context.TODO(), key, ins)
 				utils.WarnOnError(err)
-
+				f.log.Info("Deleting owned object", "name", obj.GetName(), "namespace", obj.GetNamespace(), "kind", obj.GetObjectKind())
 				return true
 			}
 			return false
@@ -255,10 +248,15 @@ func (f *filter) GetPredicates() predicate.Predicate {
 			// want to reconcile it, handle the update event
 			obj := e.Object
 			if f.isSpecialResource(obj) {
-				return !f.isSpecialResourceUnmanaged(obj)
+				if !f.isSpecialResourceUnmanaged(obj) {
+					f.log.Info("Generic special resource", "name", obj.GetName())
+					return true
+				}
+				return false
 			}
 			// If we do not own the object, do not care
 			if f.owned(obj) {
+				f.log.Info("Generic owned resource", "name", obj.GetName(), "namespace", obj.GetNamespace(), "kind", obj.GetObjectKind())
 				return true
 			}
 			return false

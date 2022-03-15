@@ -40,8 +40,6 @@ func (r *SpecialResourceReconciler) labelNodesAccordingToState(ctx context.Conte
 			return fmt.Errorf("couldn't Update Node: %w", err)
 		}
 
-		log.Info("NODE", "Setting Label ", state.CurrentName, "on ", updated.GetName())
-
 	}
 
 	return nil

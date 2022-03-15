@@ -18,6 +18,7 @@ package main
 
 import (
 	"os"
+	goruntime "runtime"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/cmd/cli"
@@ -70,6 +71,15 @@ func main() {
 		setupLog.Error(err, "could not parse command-line arguments")
 		os.Exit(1)
 	}
+
+	setupLog.Info("Environment and flags",
+		"enable-leader-election", cl.EnableLeaderElection,
+		"metrics-addr", cl.MetricsAddr,
+		"OPERATOR_NAMESPACE", os.Getenv("OPERATOR_NAMESPACE"),
+		"RELEASE_VERSION", os.Getenv("RELEASE_VERSION"),
+		"GOARCH", goruntime.GOARCH,
+		"GOMAXPROCS", os.Getenv("GOMAXPROCS"),
+	)
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 

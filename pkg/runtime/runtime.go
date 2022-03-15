@@ -179,22 +179,15 @@ func (rt *runtime) GetRuntimeInformation(ctx context.Context, sr *srov1beta1.Spe
 
 func (rt *runtime) getPushSecretName(ctx context.Context, sr *srov1beta1.SpecialResource, platform string) (string, error) {
 	secrets := &corev1.SecretList{}
-
-	rt.log.Info("Getting SecretList in Namespace: " + sr.Spec.Namespace)
 	err := rt.kubeClient.List(ctx, secrets, client.InNamespace(sr.Spec.Namespace))
 	if err != nil {
-		return "", errors.Wrap(err, "Client cannot get SecretList")
+		return "", errors.Wrap(err, "cannot get SecretList")
 	}
-
-	rt.log.Info("Searching for builder-dockercfg Secret")
 	for _, secret := range secrets.Items {
 		secretName := secret.GetName()
-
 		if strings.Contains(secretName, "builder-dockercfg") {
-			rt.log.Info("Found", "Secret", secretName)
 			return secretName, nil
 		}
 	}
-
 	return "", errors.New("cannot find Secret builder-dockercfg")
 }

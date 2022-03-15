@@ -8,10 +8,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"github.com/go-logr/logr"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const namedTemplatePrefix = "_"
@@ -31,13 +27,11 @@ type Assets interface {
 }
 
 type assets struct {
-	log     logr.Logger
 	reState *regexp.Regexp
 }
 
 func NewAssets() Assets {
 	return &assets{
-		log:     zap.New(zap.UseDevMode(true)).WithName(utils.Print("manifests", utils.Brown)),
 		reState: regexp.MustCompile(`^[0-9]{4}[-_].*\.yaml$`),
 	}
 }
@@ -73,7 +67,6 @@ func (a *assets) filePathWalkDir(root string, ext string) ([]string, error) {
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 
 		if info.IsDir() {
-			a.log.Info("WalkDir", "path IsDir", path)
 			// Ignore root directory but skipdir any subdirectories
 			if path == root {
 				return nil
@@ -81,15 +74,12 @@ func (a *assets) filePathWalkDir(root string, ext string) ([]string, error) {
 			return filepath.SkipDir
 		}
 		if filepath.Ext(path) != ext {
-			a.log.Info("WalkDir", "path does not match *.yaml", path)
 			return nil
 		}
 
 		if valid := a.filePathPatternValid(path); !valid {
 			return nil
 		}
-
-		a.log.Info("WalkDir", "path valid", path)
 		files = append(files, path)
 		return nil
 	})

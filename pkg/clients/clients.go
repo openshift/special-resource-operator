@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	buildv1 "github.com/openshift/api/build/v1"
 	configv1 "github.com/openshift/api/config/v1"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -21,7 +20,6 @@ import (
 	controllerruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 //go:generate mockgen -source=clients.go -package=clients -destination=mock_clients_api.go
@@ -31,7 +29,6 @@ const (
 )
 
 var (
-	log = zap.New(zap.UseDevMode(true)).WithName(utils.Print("clients", utils.Brown))
 	// TODO need to remove this global variable
 	Namespace string
 )
@@ -160,7 +157,6 @@ func (k *k8sClients) HasResource(resource schema.GroupVersionResource) (bool, er
 		return false, fmt.Errorf("Cannot retrieve a DiscoveryClient: %w", err)
 	}
 	if dclient == nil {
-		log.Info("Warning: cannot retrieve DiscoveryClient. Assuming vanilla k8s")
 		return false, nil
 	}
 
@@ -170,18 +166,14 @@ func (k *k8sClients) HasResource(resource schema.GroupVersionResource) (bool, er
 		return false, nil
 	}
 	if err != nil {
-		log.Info("Error while querying ServerResources")
 		return false, fmt.Errorf("Cannot query ServerResources: %w", err)
 	} else {
 		for _, serverResource := range resources.APIResources {
 			if serverResource.Name == resource.Resource {
-				//Found it
 				return true, nil
 			}
 		}
 	}
-
-	log.Info("Could not find resource", "serverResource:", resource.Resource)
 	return false, nil
 }
 
