@@ -1,0 +1,13 @@
+---
+apiVersion: sro.openshift.io/v1beta1
+kind: SpecialResource
+metadata:
+  name: sro-ci
+spec:
+  namespace: sro-ci
+  chart:
+    name: sro-ci
+    version: 0.0.1
+    repository:
+      name: sro-ci
+      url: cm://default/sro-ci

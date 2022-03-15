@@ -10,14 +10,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Install curl
-        run: |
-          sudo apt -y update
-          sudo apt -y install curl
-
       - name: Download and install minikube
         run: |
-          curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube_latest_amd64.deb
+          wget https://storage.googleapis.com/minikube/releases/latest/minikube_latest_amd64.deb
           sudo dpkg -i ./minikube_latest_amd64.deb
 
       - name: Start minikube and wait until minikube's CoreDNS is available
@@ -27,9 +22,6 @@ jobs:
 
       - name: Build SRO
         run: minikube image build -t sro:local .
-
-      - name: Install kubectl
-        uses: azure/setup-kubectl@v2.0
 
       - name: Install NFD
         run: kubectl apply -k https://github.com/kubernetes-sigs/node-feature-discovery/deployment/overlays/default?ref=v0.10.1
@@ -79,6 +71,102 @@ jobs:
       - name: Check that the ClusterRoleBinding gets removed
         run: kubectl wait --for=delete clusterrolebinding/ci-priv-esc
         timeout-minutes: 1
+
+      - name: Get all operator logs
+        run: kubectl logs deployment.apps/special-resource-controller-manager -n special-resource-operator
+        if: ${{ always() }}
+
+  e2e:
+    name: Prebuilt kernel module
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Save the kernel version
+        run: echo "KERNEL_VERSION=$(uname -r)" >> $GITHUB_ENV
+
+      - name: Build the kernel module
+        run: make KERNEL_SRC_DIR="/usr/src/linux-headers-${KERNEL_VERSION}"
+        working-directory: ci/sro-kmod
+
+      - name: Download and install minikube
+        run: |
+          wget https://storage.googleapis.com/minikube/releases/latest/minikube_latest_amd64.deb
+          sudo dpkg -i ./minikube_latest_amd64.deb
+
+      - name: Start minikube and wait until CoreDNS is available
+        run: |
+          minikube start --driver=docker
+          kubectl wait --for=condition=available deployment coredns -n kube-system
+
+      - name: Build sro-kmod
+        run: minikube image build -t sro-kmod:local --build-opt build-arg=KERNEL_VERSION=${KERNEL_VERSION} ci/sro-kmod
+
+      - name: Build SRO
+        run: minikube image build -t sro:local .
+
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.17.6
+
+      - name: Install NFD
+        run: kubectl apply -k https://github.com/kubernetes-sigs/node-feature-discovery/deployment/overlays/default?ref=v0.10.1
+
+      - name: Deploy SRO
+        run: make deploy
+        env:
+          IMG: sro:local
+
+      - name: Set the SRO manager's pull policy to Never
+        run: kubectl patch deployments.apps -n special-resource-operator special-resource-controller-manager --patch-file ci/patch-sro-manager-pullpolicy.yml
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v1
+
+      - name: Create a ConfigMap containing the test chart
+        run: scripts/make-cm-recipe ci/chart-sro-ci sro-ci
+
+      - name: Check that the sro_ci module is not loaded on the node
+        run: |
+          if minikube ssh -- lsmod | grep sro_ci; then
+            echo "Unexpected lsmod output - the module should not be loaded"
+            exit 1
+          fi
+
+      - name: Create the SpecialResource
+        run: kubectl apply -f ci/sr-sro-ci.yml
+
+      - name: Check that the module gets loaded on the node
+        run: |
+          until minikube ssh -- lsmod | grep sro_ci; do
+            sleep 3
+          done
+        timeout-minutes: 1
+
+      - name: Remove the SpecialResource
+        run: kubectl delete -f ci/sr-sro-ci.yml
+
+      - name: Check that the module gets unloaded from the node
+        run: |
+          until ! minikube ssh -- lsmod | grep sro_ci; do
+            sleep 3
+          done
+        timeout-minutes: 1
+
+      - name: Describe the DaemonSet
+        run: kubectl describe daemonset -n sro-ci sro-ci-driver-container
+        continue-on-error: true # if the job succeeded, there might not be an sro-ci namespace anymore
+        if: ${{ always() }}
+
+      - name: Describe the Pod
+        run: kubectl describe pod -n sro-ci sro-ci-driver-container
+        continue-on-error: true # if the job succeeded, there might not be an sro-ci namespace anymore
+        if: ${{ always() }}
+
+      - name: Collect dmesg
+        run: sudo dmesg
+        if: ${{ always() }}
 
       - name: Get all operator logs
         run: kubectl logs deployment.apps/special-resource-controller-manager -n special-resource-operator
