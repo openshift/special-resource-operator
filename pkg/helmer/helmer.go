@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -30,15 +32,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-func DefaultSettings() *cli.EnvSettings {
+func DefaultSettings() (*cli.EnvSettings, error) {
 	s := cli.New()
 
-	s.RepositoryConfig = "/cache/helm/repositories/config.yaml"
-	s.RepositoryCache = "/cache/helm/cache"
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to obtain a cache directory: %w", err)
+	}
+
+	s.RepositoryConfig = filepath.Join(cacheDir, "special-resource-operator/helm/repositories/config.yaml")
+	s.RepositoryCache = filepath.Join(cacheDir, "special-resource-operator/helm/cache")
+	s.RegistryConfig = filepath.Join(cacheDir, "special-resource-operator/helm/registry.json")
 	s.Debug = true
 	s.MaxHistory = 10
 
-	return s
+	return s, nil
 }
 
 func OpenShiftInstallOrder() {

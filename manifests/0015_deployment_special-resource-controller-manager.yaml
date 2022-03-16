@@ -70,7 +70,7 @@ spec:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
         volumeMounts:
-        - mountPath: /cache
+        - mountPath: /home/nonroot/.cache
           name: cache-volume
       securityContext:
         runAsGroup: 499

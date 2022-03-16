@@ -81,6 +81,12 @@ func main() {
 		"GOMAXPROCS", os.Getenv("GOMAXPROCS"),
 	)
 
+	helmSettings, err := helmer.DefaultSettings()
+	if err != nil {
+		setupLog.Error(err, "failed to create Helm settings")
+		os.Exit(1)
+	}
+
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
 	opts := &ctrl.Options{
@@ -138,7 +144,7 @@ func main() {
 		Finalizer:              finalizers.NewSpecialResourceFinalizer(kubeClient, pollActions),
 		StatusUpdater:          state.NewStatusUpdater(kubeClient),
 		Storage:                st,
-		Helmer:                 helmer.NewHelmer(creator, helmer.DefaultSettings(), kubeClient),
+		Helmer:                 helmer.NewHelmer(creator, helmSettings, kubeClient),
 		Assets:                 assets.NewAssets(),
 		KernelData:             kernelAPI,
 		Log:                    ctrl.Log,
