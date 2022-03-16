@@ -16,6 +16,7 @@ import (
 	helmerv1beta1 "github.com/openshift/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift/special-resource-operator/pkg/resource"
 	"github.com/openshift/special-resource-operator/pkg/utils"
+	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
