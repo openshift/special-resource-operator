@@ -27,6 +27,7 @@ type NodeVersion struct {
 
 type ClusterInfo interface {
 	GetClusterInfo(context.Context, *corev1.NodeList) (map[string]NodeVersion, error)
+	GetDTKData(ctx context.Context, imageURL string) (*registry.DriverToolkitEntry, error)
 }
 
 func NewClusterInfo(reg registry.Registry, cluster cluster.Cluster) ClusterInfo {
@@ -143,8 +144,22 @@ func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, dtkImages []str
 
 	var dtk *registry.DriverToolkitEntry
 	imageURL := dtkImages[0]
+	dtk, err := ci.GetDTKData(ctx, imageURL)
+	if err != nil {
+		return nil, err
+	}
+	// info has the kernels that are currently "running" on the cluster
+	// we're going only to update the struct with DTK information on
+	// running kernels and not on all that are found.
+	// We could have many entries with DTKs that are from an old update
+	// The objects that are kernel affine should only be replicated
+	// for valid kernels.
+	return ci.updateInfo(info, *dtk, imageURL)
+}
 
-	if dtk = ci.cache[imageURL]; dtk != nil {
+func (ci *clusterInfo) GetDTKData(ctx context.Context, imageURL string) (*registry.DriverToolkitEntry, error) {
+	dtk := ci.cache[imageURL]
+	if dtk != nil {
 		ci.log.Info("History from cache", "imageURL", imageURL, "dtk", dtk)
 	} else {
 		layer, err := ci.registry.LastLayer(ctx, imageURL)
@@ -163,11 +178,5 @@ func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, dtkImages []str
 		ci.cache[imageURL] = dtk
 		ci.log.Info("History added to cache", "imageURL", imageURL, "dtk", dtk)
 	}
-	// info has the kernels that are currently "running" on the cluster
-	// we're going only to update the struct with DTK information on
-	// running kernels and not on all that are found.
-	// We could have many entries with DTKs that are from an old update
-	// The objects that are kernel affine should only be replicated
-	// for valid kernels.
-	return ci.updateInfo(info, *dtk, imageURL)
+	return dtk, nil
 }
