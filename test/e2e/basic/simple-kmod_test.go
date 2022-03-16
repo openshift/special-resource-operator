@@ -9,10 +9,10 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	"github.com/openshift-psap/special-resource-operator/test/framework"
+	"github.com/openshift/special-resource-operator/test/framework"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
+	srov1beta1 "github.com/openshift/special-resource-operator/api/v1beta1"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

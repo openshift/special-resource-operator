@@ -9,7 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
+	"github.com/openshift/special-resource-operator/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 

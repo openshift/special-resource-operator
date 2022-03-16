@@ -5,11 +5,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/openshift-psap/special-resource-operator/pkg/scheme"
 	buildV1 "github.com/openshift/api/build/v1"
 	imageV1 "github.com/openshift/api/image/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
+	"github.com/openshift/special-resource-operator/pkg/scheme"
 	monitoringV1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"

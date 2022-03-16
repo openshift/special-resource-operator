@@ -5,9 +5,9 @@ import (
 	"os"
 
 	"github.com/go-logr/logr"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/storage"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
+	"github.com/openshift/special-resource-operator/pkg/clients"
+	"github.com/openshift/special-resource-operator/pkg/storage"
+	"github.com/openshift/special-resource-operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

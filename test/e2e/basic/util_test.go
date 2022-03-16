@@ -18,10 +18,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"github.com/openshift-psap/special-resource-operator/test/framework"
 	configv1 "github.com/openshift/api/config/v1"
 	ocv1 "github.com/openshift/api/config/v1"
+	srov1beta1 "github.com/openshift/special-resource-operator/api/v1beta1"
+	"github.com/openshift/special-resource-operator/test/framework"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 )

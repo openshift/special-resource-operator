@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/state"
+	"github.com/openshift/special-resource-operator/pkg/state"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 

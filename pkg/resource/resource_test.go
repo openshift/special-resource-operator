@@ -18,14 +18,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
-	"github.com/openshift-psap/special-resource-operator/internal/resourcehelper"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
-	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
-	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
-	"github.com/openshift-psap/special-resource-operator/pkg/poll"
-	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
+	"github.com/openshift/special-resource-operator/internal/resourcehelper"
+	"github.com/openshift/special-resource-operator/pkg/clients"
+	"github.com/openshift/special-resource-operator/pkg/kernel"
+	"github.com/openshift/special-resource-operator/pkg/lifecycle"
+	"github.com/openshift/special-resource-operator/pkg/metrics"
+	"github.com/openshift/special-resource-operator/pkg/poll"
+	"github.com/openshift/special-resource-operator/pkg/proxy"
+	"github.com/openshift/special-resource-operator/pkg/utils"
 )
 
 var (

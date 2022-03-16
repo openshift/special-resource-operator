@@ -15,9 +15,9 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
-	"github.com/openshift-psap/special-resource-operator/pkg/registry"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
+	"github.com/openshift/special-resource-operator/pkg/cluster"
+	"github.com/openshift/special-resource-operator/pkg/registry"
+	"github.com/openshift/special-resource-operator/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 

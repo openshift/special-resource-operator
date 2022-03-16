@@ -12,7 +12,7 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift/special-resource-operator/pkg/clients"
 )
 
 func TestRegistry(t *testing.T) {

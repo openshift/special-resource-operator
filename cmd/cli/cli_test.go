@@ -5,7 +5,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/openshift-psap/special-resource-operator/cmd/cli"
+	"github.com/openshift/special-resource-operator/cmd/cli"
 )
 
 func TestCli(t *testing.T) {

@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	"helm.sh/helm/v3/pkg/chart"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/state"
+	"github.com/openshift/special-resource-operator/pkg/state"
 )
 
 func TestState(t *testing.T) {

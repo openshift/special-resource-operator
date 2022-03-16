@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	"github.com/openshift-psap/special-resource-operator/internal/resourcehelper"
+	"github.com/openshift/special-resource-operator/internal/resourcehelper"
 
 	buildv1 "github.com/openshift/api/build/v1"
 	appsv1 "k8s.io/api/apps/v1"

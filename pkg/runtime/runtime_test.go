@@ -10,14 +10,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
+	srov1beta1 "github.com/openshift/special-resource-operator/api/v1beta1"
 	v1 "k8s.io/api/core/v1"
 
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
-	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
-	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
-	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
+	"github.com/openshift/special-resource-operator/pkg/clients"
+	"github.com/openshift/special-resource-operator/pkg/cluster"
+	"github.com/openshift/special-resource-operator/pkg/kernel"
+	"github.com/openshift/special-resource-operator/pkg/proxy"
+	"github.com/openshift/special-resource-operator/pkg/upgrade"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )

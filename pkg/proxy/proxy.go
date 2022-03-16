@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/openshift-psap/special-resource-operator/pkg/clients"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	configv1 "github.com/openshift/api/config/v1"
+	"github.com/openshift/special-resource-operator/pkg/clients"
+	"github.com/openshift/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
