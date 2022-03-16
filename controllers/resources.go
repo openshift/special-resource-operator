@@ -297,7 +297,6 @@ metadata:
 	}
 
 	if err := r.Creator.CreateFromYAML(ctx, ns, false, r.specialresource, r.specialresource.Name, "", nil, "", ""); err != nil {
-		log.Info("Cannot reconcile specialresource namespace, something went horribly wrong")
 		return err
 	}
 

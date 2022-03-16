@@ -57,7 +57,7 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 		}
 		parent, err := r.Storage.CheckConfigMapEntry(ctx, req.Name, obj)
 		if err != nil {
-			log.Error(err, "")
+			log.Error(err, "failed to check configmap entry", "configmap", obj.String())
 			return reconcile.Result{}, err
 		}
 		request, found = FindSR(specialresources.Items, parent, "Name")
