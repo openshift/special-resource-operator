@@ -5,7 +5,7 @@ SPECIALRESOURCE  ?= driver-container-base
 NAMESPACE        ?= openshift-special-resource-operator
 PULLPOLICY       ?= IfNotPresent
 TAG              ?= $(shell git branch --show-current)
-CSPLIT           ?= csplit - --prefix="" --suppress-matched --suffix-format="%04d.yaml"  /---/ '{*}' --silent
+CSPLIT           ?= csplit - --prefix="" --suppress-matched --suffix-format="%04d.yaml"  /^---/ '{*}' --silent
 YAMLFILES        ?= $(shell  find manifests charts -name "*.yaml")
 CONTAINER_COMMAND := $(or ${CONTAINER_COMMAND},podman)
 BUNDLE_CONTAINER_COMMAND := $(or ${BUNDLE_CONTAINER_COMMAND},docker)
