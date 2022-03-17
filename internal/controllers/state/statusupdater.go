@@ -2,69 +2,79 @@ package state
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift/special-resource-operator/api/v1beta1"
 	"github.com/openshift/special-resource-operator/pkg/clients"
-	"github.com/openshift/special-resource-operator/pkg/utils"
-	"github.com/pkg/errors"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	Ready       = "SpecialResourceIsReady"
+	Progressing = "Progressing"
+	Errored     = "ErrorHasOccurred"
+
+	// Following strings are Reasons
+
+	Success                       = "Success"
+	HandlingState                 = "HandlingState"
+	MarkedForDeletion             = "MarkedForDeletion"
+	ChartFailure                  = "ChartFailure"
+	DependencyChartFailure        = "DependencyChartFailure"
+	FailedToStoreDependencyInfo   = "FailedToStoreDependencyInfo"
+	FailedToCreateDependencySR    = "FailedToCreateDependencySR"
+	FailedToDeployDependencyChart = "FailedToDeployDependencyChart"
+	FailedToDeployChart           = "FailedToDeployChart"
 )
 
 //go:generate mockgen -source=statusupdater.go -package=state -destination=mock_statusupdater_api.go
 
 type StatusUpdater interface {
-	UpdateWithState(context.Context, *v1beta1.SpecialResource, string)
+	SetAsReady(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error
+	SetAsProgressing(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error
+	SetAsErrored(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error
 }
 
 type statusUpdater struct {
 	kubeClient clients.ClientsInterface
-	log        logr.Logger
 }
 
 func NewStatusUpdater(kubeClient clients.ClientsInterface) StatusUpdater {
 	return &statusUpdater{
 		kubeClient: kubeClient,
-		log:        ctrl.Log.WithName(utils.Print("status-updater", utils.Blue)),
 	}
 }
 
-// UpdateWithState updates sr's Status.State property with state, and updates the object in Kubernetes.
-// TODO(qbarrand) make this function return an error
-func (su *statusUpdater) UpdateWithState(ctx context.Context, sr *v1beta1.SpecialResource, state string) {
+// SetAsProgressing changes SpecialResource's Progressing condition as true and changes Ready and Errored conditions to false, and updates the status in the API.
+func (su *statusUpdater) SetAsProgressing(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error {
+	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceProgressing, Status: metav1.ConditionTrue, Reason: reason, Message: message})
+	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceReady, Status: metav1.ConditionFalse, Reason: Progressing})
+	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceErrored, Status: metav1.ConditionFalse, Reason: Progressing})
 
-	update := v1beta1.SpecialResource{}
+	sr.Status.State = fmt.Sprintf("Progressing: %s", message)
 
-	// If we cannot find the SR than something bad is going on ..
-	objectKey := types.NamespacedName{Name: sr.GetName(), Namespace: sr.GetNamespace()}
-	err := su.kubeClient.Get(ctx, objectKey, &update)
-	if err != nil {
-		utils.WarnOnError(errors.Wrap(err, "Is SR being deleted? Cannot get current instance"))
-		return
-	}
+	return su.kubeClient.StatusUpdate(ctx, sr)
+}
 
-	update.Status.State = state
-	update.DeepCopyInto(sr)
+// SetAsReady changes SpecialResource's Ready condition as true and changes Progressing and Errored conditions to false, and updates the status in the API.
+func (su *statusUpdater) SetAsReady(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error {
+	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceReady, Status: metav1.ConditionTrue, Reason: reason, Message: message})
+	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceProgressing, Status: metav1.ConditionFalse, Reason: Ready})
+	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceErrored, Status: metav1.ConditionFalse, Reason: Ready})
 
-	err = su.kubeClient.StatusUpdate(ctx, sr)
-	if apierrors.IsConflict(err) {
-		objectKey := types.NamespacedName{Name: sr.Name, Namespace: ""}
-		err := su.kubeClient.Get(ctx, objectKey, sr)
-		if apierrors.IsNotFound(err) {
-			return
-		}
-		// Do not update the status if we're in the process of being deleted
-		isMarkedToBeDeleted := sr.GetDeletionTimestamp() != nil
-		if isMarkedToBeDeleted {
-			return
-		}
+	sr.Status.State = fmt.Sprintf("Ready: %s", message)
 
-	}
+	return su.kubeClient.StatusUpdate(ctx, sr)
+}
 
-	if err != nil {
-		su.log.Error(err, "Failed to update SpecialResource status")
-		return
-	}
+// SetAsErrored changes SpecialResource's Errored condition as true and changes Ready and Progressing conditions to false, and updates the status in the API.
+func (su *statusUpdater) SetAsErrored(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error {
+	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceErrored, Status: metav1.ConditionTrue, Reason: reason, Message: message})
+	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceReady, Status: metav1.ConditionFalse, Reason: Errored})
+	meta.SetStatusCondition(&sr.Status.Conditions, metav1.Condition{Type: v1beta1.SpecialResourceProgressing, Status: metav1.ConditionFalse, Reason: Errored})
+
+	sr.Status.State = fmt.Sprintf("Errored: %s", message)
+
+	return su.kubeClient.StatusUpdate(ctx, sr)
 }

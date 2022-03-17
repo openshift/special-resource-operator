@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"sort"
 
+	s "github.com/openshift/special-resource-operator/internal/controllers/state"
 	"github.com/openshift/special-resource-operator/pkg/state"
 	"github.com/openshift/special-resource-operator/pkg/upgrade"
 	"github.com/pkg/errors"
@@ -143,6 +144,10 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 
 	for _, stateYAML := range stateYAMLS {
 		log.Info("Executing", "State", stateYAML.Name)
+		if suErr := r.StatusUpdater.SetAsProgressing(ctx, r.specialresource, s.HandlingState, fmt.Sprintf("Working on: %s", stateYAML.Name)); suErr != nil {
+			log.Error(suErr, "failed to update CR's status to Progressing")
+			return suErr
+		}
 
 		if r.specialresource.Spec.Debug {
 			log.Info("Debug active. Showing YAML contents", "name", stateYAML.Name, "data", stateYAML.Data)
@@ -207,7 +212,7 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 				ctx,
 				step,
 				step.Values,
-				&r.specialresource,
+				r.specialresource,
 				r.specialresource.Name,
 				r.specialresource.Spec.Namespace,
 				r.specialresource.Spec.NodeSelector,
@@ -234,8 +239,6 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		r.Metrics.SetCompletedState(r.specialresource.Name, stateYAML.Name, 1)
 		// If resource available, label the nodes according to the current state
 		// if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
-		r.StatusUpdater.UpdateWithState(ctx, &r.specialresource, state.CurrentName)
-
 		if err := r.labelNodesAccordingToState(ctx, r.specialresource.Spec.NodeSelector); err != nil {
 			return err
 		}
@@ -265,7 +268,7 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		ctx,
 		nostate,
 		nostate.Values,
-		&r.specialresource,
+		r.specialresource,
 		r.specialresource.Name,
 		r.specialresource.Spec.Namespace,
 		r.specialresource.Spec.NodeSelector,
@@ -293,7 +296,7 @@ metadata:
 		ns = append(ns, add...)
 	}
 
-	if err := r.Creator.CreateFromYAML(ctx, ns, false, &r.specialresource, r.specialresource.Name, "", nil, "", ""); err != nil {
+	if err := r.Creator.CreateFromYAML(ctx, ns, false, r.specialresource, r.specialresource.Name, "", nil, "", ""); err != nil {
 		return err
 	}
 
