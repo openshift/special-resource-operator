@@ -9,7 +9,7 @@ Driver containers  extend the kernel stack beyond the out-of-box software and ha
 
 
 # Installation
-Note: The Special Resource operator has a [dependency](#Node-Feature-Discovery-dependency) on the Node Feature Discovery (NFD) operator. If deploying on OpenShift from OperatorHub, NFD will be installed automatically. If deploying from the CLI, first install NFD.
+Note: The Special Resource operator has a [dependency](#Node-Feature-Discovery-dependency) on the Node Feature Discovery (NFD) operator. If deploying on OpenShift from OperatorHub, NFD will be installed automatically. If deploying directly from Github (this repo), first install NFD.
 
 ## From OperatorHub
 The Special Resource Operator is available as a community operator on OperatorHub, and as an official Red Hat operator (tech-preview) starting in OpenShift 4.9.
