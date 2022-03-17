@@ -26,10 +26,6 @@ const (
 	pullSecretFileName  = ".dockerconfigjson"
 )
 
-var (
-	Interface Registry
-)
-
 type DriverToolkitEntry struct {
 	ImageURL            string `json:"imageURL"`
 	KernelFullVersion   string `json:"kernelFullVersion"`
