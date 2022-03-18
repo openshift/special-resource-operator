@@ -110,13 +110,13 @@ func (rh *resourceHelper) UpdateResourceVersion(req *unstructured.Unstructured, 
 
 func (rh *resourceHelper) SetNodeSelectorTerms(obj *unstructured.Unstructured, terms map[string]string) error {
 	switch obj.GetKind() {
-	case "DaemonSet", "Deployment", "Statefulset": // TODO(qbarrand) should this be StatefulSet?:
-		if err := rh.nodeSelectorTerms(terms, obj, "spec", "template", "spec", "nodeSelector"); err != nil {
+	case "DaemonSet", "Deployment", "StatefulSet":
+		if err := rh.nodeSelectorTerms(terms, obj, "spec", "template", "spec", "affinity", "nodeAffinity", "requiredDuringSchedulingIgnoredDuringExecution", "nodeSelectorTerms"); err != nil {
 			return fmt.Errorf("cannot setup %s nodeSelector: %w", obj.GetKind(), err)
 		}
 
-	case "Pod", "BuildConfig":
-		if err := rh.nodeSelectorTerms(terms, obj, "spec", "nodeSelector"); err != nil {
+	case "Pod":
+		if err := rh.nodeSelectorTerms(terms, obj, "spec", "affinity", "nodeAffinity", "requiredDuringSchedulingIgnoredDuringExecution", "nodeSelectorTerms"); err != nil {
 			return fmt.Errorf("cannot setup %s nodeSelector: %w", obj.GetKind(), err)
 		}
 	}
@@ -124,22 +124,87 @@ func (rh *resourceHelper) SetNodeSelectorTerms(obj *unstructured.Unstructured, t
 	return nil
 }
 
-func (rh *resourceHelper) nodeSelectorTerms(terms map[string]string, obj *unstructured.Unstructured, fields ...string) error {
-
-	nodeSelector, found, err := unstructured.NestedMap(obj.Object, fields...)
+func NodeAffinityNames(nodeNames []string, obj *unstructured.Unstructured, fields ...string) error {
+	if len(nodeNames) == 0 {
+		return nil
+	}
+	nodeSelectorTerms, found, err := unstructured.NestedSlice(obj.Object, fields...)
 	if err != nil {
 		return err
 	}
-
 	if !found {
-		nodeSelector = make(map[string]interface{})
+		nodeSelectorTerms = []interface{}{map[string]interface{}{}}
 	}
 
+	expression := make(map[string]interface{})
+	expression["key"] = "kubernetes.io/hostname"
+	expression["operator"] = "In"
+	valueList := make([]interface{}, len(nodeNames))
+	for i, name := range nodeNames {
+		valueList[i] = name
+	}
+	expression["values"] = valueList
+
+	for i := range nodeSelectorTerms {
+		match := nodeSelectorTerms[i].(map[string]interface{})
+		matchExpressions, found, err := unstructured.NestedSlice(match, "matchExpressions")
+		if err != nil {
+			return err
+		}
+		if !found {
+			matchExpressions = make([]interface{}, 0)
+		}
+		matchExpressions = append(matchExpressions, expression)
+		if err := unstructured.SetNestedSlice(match, matchExpressions, "matchExpressions"); err != nil {
+			return err
+		}
+	}
+
+	if err = unstructured.SetNestedSlice(obj.Object, nodeSelectorTerms, fields...); err != nil {
+		return fmt.Errorf("cannot update nodeSelector for %s : %w", obj.GetName(), err)
+	}
+
+	return nil
+}
+
+func (rh *resourceHelper) nodeSelectorTerms(terms map[string]string, obj *unstructured.Unstructured, fields ...string) error {
+	if len(terms) == 0 {
+		return nil
+	}
+
+	nodeSelectorTerms, found, err := unstructured.NestedSlice(obj.Object, fields...)
+	if err != nil {
+		return err
+	}
+	if !found {
+		nodeSelectorTerms = []interface{}{map[string]interface{}{}}
+	}
+
+	expressions := make([]interface{}, 0)
 	for k, v := range terms {
-		nodeSelector[k] = v
+		expression := make(map[string]interface{})
+		expression["key"] = k
+		expression["operator"] = "In"
+		expression["values"] = []interface{}{v}
+		expressions = append(expressions, expression)
 	}
 
-	if err = unstructured.SetNestedMap(obj.Object, nodeSelector, fields...); err != nil {
+	for i := range nodeSelectorTerms {
+		match := nodeSelectorTerms[i].(map[string]interface{})
+		matchExpressions, found, err := unstructured.NestedSlice(match, "matchExpressions")
+		if err != nil {
+			return err
+		}
+		if !found {
+			matchExpressions = make([]interface{}, 0)
+		}
+		matchExpressions = append(matchExpressions, expressions...)
+		if err := unstructured.SetNestedSlice(match, matchExpressions, "matchExpressions"); err != nil {
+			return err
+		}
+	}
+
+	if err = unstructured.SetNestedSlice(obj.Object, nodeSelectorTerms, fields...); err != nil {
 		return fmt.Errorf("cannot update nodeSelector for %s : %w", obj.GetName(), err)
 	}
 

@@ -21,6 +21,7 @@ type NodeVersion struct {
 	OSMajorMinor   string                      `json:"OSMajorMinor"`
 	ClusterVersion string                      `json:"clusterVersion"`
 	DriverToolkit  registry.DriverToolkitEntry `json:"driverToolkit"`
+	Names          []string                    `json:"name"`
 }
 
 //go:generate mockgen -source=upgrade.go -package=upgrade -destination=mock_upgrade_api.go
@@ -69,8 +70,6 @@ func (ci *clusterInfo) GetClusterInfo(ctx context.Context, nodeList *corev1.Node
 
 func (ci *clusterInfo) nodeVersionInfo(nodeList *corev1.NodeList) (map[string]NodeVersion, error) {
 	info := make(map[string]NodeVersion)
-	// Assuming all nodes are running the same kernel version,
-	// one could easily add driver-kernel-versions for each node.
 	for _, node := range nodeList.Items {
 		kernelFullVersion := node.Status.NodeInfo.KernelVersion
 		if len(kernelFullVersion) == 0 {
@@ -81,12 +80,19 @@ func (ci *clusterInfo) nodeVersionInfo(nodeList *corev1.NodeList) (map[string]No
 		if err != nil {
 			return nil, err
 		}
-		info[kernelFullVersion] = NodeVersion{
-			OSVersion:      osVersion,
-			ClusterVersion: clusterVersion,
-			OSMajor:        "rhel" + osMajor,
-			OSMajorMinor:   "rhel" + osVersion,
+		data, ok := info[kernelFullVersion]
+		if !ok {
+			data = NodeVersion{
+				OSVersion:      osVersion,
+				ClusterVersion: clusterVersion,
+				OSMajor:        "rhel" + osMajor,
+				OSMajorMinor:   "rhel" + osVersion,
+				Names:          []string{node.Name},
+			}
+		} else {
+			data.Names = append(data.Names, node.Name)
 		}
+		info[kernelFullVersion] = data
 	}
 
 	return info, nil

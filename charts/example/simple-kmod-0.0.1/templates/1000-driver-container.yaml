@@ -57,6 +57,14 @@ spec:
       labels:
         app: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: "node-role.kubernetes.io/worker"
+                operator: "In"
+                values: [""]
       serviceAccount: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}
       serviceAccountName: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}
       containers:
@@ -70,6 +78,3 @@ spec:
               command: ["/bin/sh", "-c", "systemctl stop kmods-via-containers@{{.Values.specialresource.metadata.name}}"]
         securityContext:
           privileged: true
-      nodeSelector:
-        node-role.kubernetes.io/worker: ""
-        feature.node.kubernetes.io/kernel-version.full: "{{.Values.KernelFullVersion}}"

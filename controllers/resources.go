@@ -212,6 +212,7 @@ func (r *SpecialResourceReconciler) ReconcileChartStates(ctx context.Context, wi
 				wi.SpecialResource.Spec.NodeSelector,
 				wi.RunInfo.KernelFullVersion,
 				wi.RunInfo.OperatingSystemDecimal,
+				version.Names,
 				wi.SpecialResource.Spec.Debug)
 
 			replicas += 1
@@ -274,6 +275,7 @@ func (r *SpecialResourceReconciler) ReconcileChartStates(ctx context.Context, wi
 		wi.SpecialResource.Spec.NodeSelector,
 		wi.RunInfo.KernelFullVersion,
 		wi.RunInfo.OperatingSystemDecimal,
+		nil,
 		false)
 }
 
@@ -296,7 +298,7 @@ metadata:
 		ns = append(ns, add...)
 	}
 
-	if err := r.ResourceAPI.CreateFromYAML(ctx, ns, false, wi.SpecialResource, wi.SpecialResource.Name, "", nil, "", ""); err != nil {
+	if err := r.ResourceAPI.CreateFromYAML(ctx, ns, false, wi.SpecialResource, wi.SpecialResource.Name, "", nil, "", "", nil); err != nil {
 		return err
 	}
 

@@ -44,11 +44,16 @@ var _ = Describe("AffineAttributes", func() {
 		objNewName                = objName + "-" + objNameHash
 		operatingSystemMajorMinor = "8.4"
 	)
+	nodeNames := []string{"node-1", "node-2"}
+	nodeNamesInterfaced := make([]interface{}, len(nodeNames))
+	for i, v := range nodeNames {
+		nodeNamesInterfaced[i] = v
+	}
 
 	It("should work for BuildRun", func() {
 		obj := newObj("BuildRun", objName)
 
-		err := kernel.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor)
+		err := kernel.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor, nil)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(obj.GetName()).To(Equal(objNewName))
@@ -59,20 +64,27 @@ var _ = Describe("AffineAttributes", func() {
 		func(kind string) {
 			obj := newObj(kind, objNewName)
 
-			err := kernel.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor)
+			err := kernel.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor, nodeNames)
 			Expect(err).NotTo(HaveOccurred())
 
-			expectedSelector := map[string]interface{}{
-				"feature.node.kubernetes.io/kernel-version.full": kernelFullVersion,
+			expectedSelector := []interface{}{
+				map[string]interface{}{
+					"matchExpressions": []interface{}{
+						map[string]interface{}{
+							"key":      "kubernetes.io/hostname",
+							"operator": "In",
+							"values":   nodeNamesInterfaced,
+						},
+					},
+				},
 			}
 
-			v, ok, err := unstructured.NestedMap(obj.Object, "spec", "nodeSelector")
+			v, ok, err := unstructured.NestedSlice(obj.Object, "spec", "affinity", "nodeAffinity", "requiredDuringSchedulingIgnoredDuringExecution", "nodeSelectorTerms")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ok).To(BeTrue())
 			Expect(v).To(Equal(expectedSelector))
 		},
 		Entry("Pod", "Pod"),
-		Entry("BuildConfig", "BuildConfig"),
 	)
 
 	DescribeTable(
@@ -80,7 +92,7 @@ var _ = Describe("AffineAttributes", func() {
 		func(kind string) {
 			obj := newObj(kind, objName)
 
-			err := kernel.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor)
+			err := kernel.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor, nodeNames)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj.GetLabels()).To(HaveKeyWithValue("app", objNewName))
 
@@ -94,19 +106,22 @@ var _ = Describe("AffineAttributes", func() {
 			Expect(ok).To(BeTrue())
 			Expect(v).To(Equal(objNewName))
 
-			// one if compares the kind to StatefulSet, the other one to StatefulSet (capital S)
-			if kind != "StatefulSet" {
-				expectedSelector := map[string]interface{}{
-					"feature.node.kubernetes.io/kernel-version.full": kernelFullVersion,
-				}
-
-				var m map[string]interface{}
-
-				m, ok, err = unstructured.NestedMap(obj.Object, "spec", "template", "spec", "nodeSelector")
-				Expect(err).NotTo(HaveOccurred())
-				Expect(ok).To(BeTrue())
-				Expect(m).To(Equal(expectedSelector))
+			expectedSelector := []interface{}{
+				map[string]interface{}{
+					"matchExpressions": []interface{}{
+						map[string]interface{}{
+							"key":      "kubernetes.io/hostname",
+							"operator": "In",
+							"values":   nodeNamesInterfaced,
+						},
+					},
+				},
 			}
+
+			m, ok, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "affinity", "nodeAffinity", "requiredDuringSchedulingIgnoredDuringExecution", "nodeSelectorTerms")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ok).To(BeTrue())
+			Expect(m).To(Equal(expectedSelector))
 		},
 		Entry(nil, "DaemonSet"),
 		Entry(nil, "Deployment"),
@@ -115,25 +130,37 @@ var _ = Describe("AffineAttributes", func() {
 })
 
 var _ = Describe("SetVersionNodeAffinity", func() {
+	nodeNames := []string{"node-1", "node-2"}
+	nodeNamesInterfaced := make([]interface{}, len(nodeNames))
+	for i, v := range nodeNames {
+		nodeNamesInterfaced[i] = v
+	}
 	DescribeTable(
 		"should work for some kinds",
 		func(kind string) {
 			obj := newObj(kind, "")
 
-			err := kernel.setVersionNodeAffinity(obj, kernelFullVersion)
+			err := kernel.setVersionNodeAffinity(obj, nodeNames)
 			Expect(err).NotTo(HaveOccurred())
 
-			expectedSelector := map[string]interface{}{
-				"feature.node.kubernetes.io/kernel-version.full": kernelFullVersion,
+			expectedSelector := []interface{}{
+				map[string]interface{}{
+					"matchExpressions": []interface{}{
+						map[string]interface{}{
+							"key":      "kubernetes.io/hostname",
+							"operator": "In",
+							"values":   nodeNamesInterfaced,
+						},
+					},
+				},
 			}
 
-			v, ok, err := unstructured.NestedMap(obj.Object, "spec", "nodeSelector")
+			v, ok, err := unstructured.NestedSlice(obj.Object, "spec", "affinity", "nodeAffinity", "requiredDuringSchedulingIgnoredDuringExecution", "nodeSelectorTerms")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ok).To(BeTrue())
 			Expect(v).To(Equal(expectedSelector))
 		},
 		Entry("Pod", "Pod"),
-		Entry("BuildConfig", "BuildConfig"),
 	)
 
 	DescribeTable(
@@ -141,22 +168,29 @@ var _ = Describe("SetVersionNodeAffinity", func() {
 		func(kind string) {
 			obj := newObj(kind, "")
 
-			err := kernel.setVersionNodeAffinity(obj, kernelFullVersion)
-
+			err := kernel.setVersionNodeAffinity(obj, nodeNames)
 			Expect(err).NotTo(HaveOccurred())
 
-			expectedSelector := map[string]interface{}{
-				"feature.node.kubernetes.io/kernel-version.full": kernelFullVersion,
+			expectedSelector := []interface{}{
+				map[string]interface{}{
+					"matchExpressions": []interface{}{
+						map[string]interface{}{
+							"key":      "kubernetes.io/hostname",
+							"operator": "In",
+							"values":   nodeNamesInterfaced,
+						},
+					},
+				},
 			}
 
-			m, ok, err := unstructured.NestedMap(obj.Object, "spec", "template", "spec", "nodeSelector")
+			m, ok, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "affinity", "nodeAffinity", "requiredDuringSchedulingIgnoredDuringExecution", "nodeSelectorTerms")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ok).To(BeTrue())
 			Expect(m).To(Equal(expectedSelector))
 		},
 		Entry("DaemonSet", "DaemonSet"),
 		Entry("Deployment", "Deployment"),
-		Entry("Statefulset", "Statefulset"),
+		Entry("Statefulset", "StatefulSet"),
 	)
 })
 

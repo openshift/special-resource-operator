@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/openshift/special-resource-operator/internal/resourcehelper"
 	"github.com/openshift/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -16,7 +17,7 @@ import (
 //go:generate mockgen -source=kernel.go -package=kernel -destination=mock_kernel_api.go
 
 type KernelData interface {
-	SetAffineAttributes(obj *unstructured.Unstructured, kernelFullVersion, operatingSystemMajorMinor string) error
+	SetAffineAttributes(obj *unstructured.Unstructured, kernelFullVersion, operatingSystemMajorMinor string, nodeNames []string) error
 	IsObjectAffine(obj client.Object) bool
 	FullVersion(*corev1.NodeList) (string, error)
 	PatchVersion(kernelFullVersion string) (string, error)
@@ -34,7 +35,8 @@ func NewKernelData() KernelData {
 
 func (k *kernelData) SetAffineAttributes(obj *unstructured.Unstructured,
 	kernelFullVersion string,
-	operatingSystemMajorMinor string) error {
+	operatingSystemMajorMinor string,
+	nodeNames []string) error {
 
 	kernelVersion := strings.ReplaceAll(kernelFullVersion, "_", "-")
 	hash64, err := utils.FNV64a(operatingSystemMajorMinor + "-" + kernelVersion)
@@ -68,50 +70,25 @@ func (k *kernelData) SetAffineAttributes(obj *unstructured.Unstructured,
 		}
 	}
 
-	if err := k.setVersionNodeAffinity(obj, kernelFullVersion); err != nil {
+	if err := k.setVersionNodeAffinity(obj, nodeNames); err != nil {
 		return errors.Wrap(err, "Cannot set kernel version node affinity for obj: "+obj.GetKind())
 	}
 	return nil
 }
 
-func (k *kernelData) setVersionNodeAffinity(obj *unstructured.Unstructured, kernelFullVersion string) error {
+func (k *kernelData) setVersionNodeAffinity(obj *unstructured.Unstructured, nodeNames []string) error {
 
 	if strings.Compare(obj.GetKind(), "DaemonSet") == 0 ||
 		strings.Compare(obj.GetKind(), "Deployment") == 0 ||
-		strings.Compare(obj.GetKind(), "Statefulset") == 0 {
-		if err := k.versionNodeAffinity(kernelFullVersion, obj, "spec", "template", "spec", "nodeSelector"); err != nil {
+		strings.Compare(obj.GetKind(), "StatefulSet") == 0 {
+		if err := resourcehelper.NodeAffinityNames(nodeNames, obj, "spec", "template", "spec", "affinity", "nodeAffinity", "requiredDuringSchedulingIgnoredDuringExecution", "nodeSelectorTerms"); err != nil {
 			return errors.Wrap(err, "Cannot setup DaemonSet kernel version affinity")
 		}
 	}
 	if strings.Compare(obj.GetKind(), "Pod") == 0 {
-		if err := k.versionNodeAffinity(kernelFullVersion, obj, "spec", "nodeSelector"); err != nil {
-			return errors.Wrap(err, "Cannot setup Pod kernel version affinity")
+		if err := resourcehelper.NodeAffinityNames(nodeNames, obj, "spec", "affinity", "nodeAffinity", "requiredDuringSchedulingIgnoredDuringExecution", "nodeSelectorTerms"); err != nil {
+			return errors.Wrap(err, "Cannot setup DaemonSet kernel version affinity")
 		}
-	}
-	if strings.Compare(obj.GetKind(), "BuildConfig") == 0 {
-		if err := k.versionNodeAffinity(kernelFullVersion, obj, "spec", "nodeSelector"); err != nil {
-			return errors.Wrap(err, "Cannot setup BuildConfig kernel version affinity")
-		}
-	}
-
-	return nil
-}
-
-func (k *kernelData) versionNodeAffinity(kernelFullVersion string, obj *unstructured.Unstructured, fields ...string) error {
-
-	nodeSelector, found, err := unstructured.NestedMap(obj.Object, fields...)
-	if err != nil {
-		return err
-	}
-
-	if !found {
-		nodeSelector = make(map[string]interface{})
-	}
-
-	nodeSelector["feature.node.kubernetes.io/kernel-version.full"] = kernelFullVersion
-
-	if err := unstructured.SetNestedMap(obj.Object, nodeSelector, fields...); err != nil {
-		return errors.Wrap(err, "Cannot update nodeSelector")
 	}
 
 	return nil

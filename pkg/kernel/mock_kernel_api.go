@@ -81,15 +81,15 @@ func (mr *MockKernelDataMockRecorder) PatchVersion(kernelFullVersion interface{}
 }
 
 // SetAffineAttributes mocks base method.
-func (m *MockKernelData) SetAffineAttributes(obj *unstructured.Unstructured, kernelFullVersion, operatingSystemMajorMinor string) error {
+func (m *MockKernelData) SetAffineAttributes(obj *unstructured.Unstructured, kernelFullVersion, operatingSystemMajorMinor string, nodeNames []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetAffineAttributes", obj, kernelFullVersion, operatingSystemMajorMinor)
+	ret := m.ctrl.Call(m, "SetAffineAttributes", obj, kernelFullVersion, operatingSystemMajorMinor, nodeNames)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetAffineAttributes indicates an expected call of SetAffineAttributes.
-func (mr *MockKernelDataMockRecorder) SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor interface{}) *gomock.Call {
+func (mr *MockKernelDataMockRecorder) SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor, nodeNames interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAffineAttributes", reflect.TypeOf((*MockKernelData)(nil).SetAffineAttributes), obj, kernelFullVersion, operatingSystemMajorMinor)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAffineAttributes", reflect.TypeOf((*MockKernelData)(nil).SetAffineAttributes), obj, kernelFullVersion, operatingSystemMajorMinor, nodeNames)
 }

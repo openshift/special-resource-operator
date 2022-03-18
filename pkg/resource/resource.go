@@ -37,7 +37,7 @@ var (
 //go:generate mockgen -source=resource.go -package=resource -destination=mock_resource_api.go
 
 type ResourceAPI interface {
-	CreateFromYAML(context.Context, []byte, bool, v1.Object, string, string, map[string]string, string, string) error
+	CreateFromYAML(context.Context, []byte, bool, v1.Object, string, string, map[string]string, string, string, []string) error
 	GetObjectsFromYAML([]byte) (*unstructured.UnstructuredList, error)
 }
 
@@ -130,7 +130,8 @@ func (r *resource) CreateFromYAML(
 	namespace string,
 	nodeSelector map[string]string,
 	kernelFullVersion string,
-	operatingSystemMajorMinor string) error {
+	operatingSystemMajorMinor string,
+	nodeNames []string) error {
 
 	scanner := yamlutil.NewYAMLScanner(yamlFile)
 
@@ -147,7 +148,8 @@ func (r *resource) CreateFromYAML(
 			namespace,
 			nodeSelector,
 			kernelFullVersion,
-			operatingSystemMajorMinor)
+			operatingSystemMajorMinor,
+			nodeNames)
 		if err != nil {
 			return err
 		}
@@ -360,7 +362,8 @@ func (r *resource) createObjFromYAML(
 	namespace string,
 	nodeSelector map[string]string,
 	kernelFullVersion string,
-	operatingSystemMajorMinor string) error {
+	operatingSystemMajorMinor string,
+	nodeNames []string) error {
 	obj := &unstructured.Unstructured{
 		Object: map[string]interface{}{},
 	}
@@ -396,7 +399,7 @@ func (r *resource) createObjFromYAML(
 	// kernel affinity related attributes only set if there is an
 	// annotation specialresource.openshift.io/kernel-affine: true
 	if r.kernelAPI.IsObjectAffine(obj) {
-		if err = r.kernelAPI.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor); err != nil {
+		if err = r.kernelAPI.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor, nodeNames); err != nil {
 			return fmt.Errorf("cannot set kernel affine attributes: %w", err)
 		}
 	}

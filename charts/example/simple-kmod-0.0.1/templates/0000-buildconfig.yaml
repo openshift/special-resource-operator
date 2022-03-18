@@ -15,7 +15,6 @@ metadata:
   annotations:
     specialresource.openshift.io/wait: "true"
     specialresource.openshift.io/driver-container-vendor: simple-kmod
-    specialresource.openshift.io/kernel-affine: "true"
 spec:
   nodeSelector:
     node-role.kubernetes.io/worker: ""

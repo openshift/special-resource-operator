@@ -189,6 +189,7 @@ func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if platform == "OCP" {
 		return ctrl.NewControllerManagedBy(mgr).
 			For(&srov1beta1.SpecialResource{}).
+			Owns(&v1.Node{}).
 			Owns(&v1.Pod{}).
 			Owns(&appsv1.DaemonSet{}).
 			Owns(&appsv1.Deployment{}).

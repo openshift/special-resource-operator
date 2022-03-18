@@ -115,6 +115,11 @@ func (f *filter) owned(obj client.Object) bool {
 	return false
 }
 
+func isNode(obj client.Object) bool {
+	kind := obj.GetObjectKind().GroupVersionKind().Kind
+	return kind == "Node"
+}
+
 func (f *filter) GetPredicates() predicate.Predicate {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
@@ -134,6 +139,11 @@ func (f *filter) GetPredicates() predicate.Predicate {
 
 			if f.owned(obj) {
 				f.log.Info("Creating owned object", "name", obj.GetName(), "namespace", obj.GetNamespace(), "kind", obj.GetObjectKind())
+				return true
+			}
+
+			if isNode(obj) {
+				f.log.Info("Creating node", "name", obj.GetName())
 				return true
 			}
 
@@ -208,6 +218,11 @@ func (f *filter) GetPredicates() predicate.Predicate {
 				return true
 			}
 
+			if isNode(obj) {
+				f.log.Info("Updating node", "name", obj.GetName())
+				return true
+			}
+
 			return false
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
@@ -238,6 +253,12 @@ func (f *filter) GetPredicates() predicate.Predicate {
 				f.log.Info("Deleting owned object", "name", obj.GetName(), "namespace", obj.GetNamespace(), "kind", obj.GetObjectKind())
 				return true
 			}
+
+			if isNode(obj) {
+				f.log.Info("Deleting node", "name", obj.GetName())
+				return true
+			}
+
 			return false
 		},
 		GenericFunc: func(e event.GenericEvent) bool {
@@ -257,6 +278,10 @@ func (f *filter) GetPredicates() predicate.Predicate {
 			// If we do not own the object, do not care
 			if f.owned(obj) {
 				f.log.Info("Generic owned resource", "name", obj.GetName(), "namespace", obj.GetNamespace(), "kind", obj.GetObjectKind())
+				return true
+			}
+			if isNode(obj) {
+				f.log.Info("Generic node", "name", obj.GetName())
 				return true
 			}
 			return false

@@ -179,9 +179,6 @@ var _ = Describe("SetNodeSelectorTerms", func() {
 		m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&d)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = unstructured.SetNestedStringMap(m, make(map[string]string), "spec", "template", "spec", "nodeSelector")
-		Expect(err).NotTo(HaveOccurred())
-
 		terms := map[string]string{"key": "value"}
 		uo := unstructured.Unstructured{Object: m}
 
@@ -191,7 +188,19 @@ var _ = Describe("SetNodeSelectorTerms", func() {
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &d)
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(d.Spec.Template.Spec.NodeSelector).To(Equal(terms))
+		expectedTerms := []v1.NodeSelectorTerm{
+			v1.NodeSelectorTerm{
+				MatchExpressions: []v1.NodeSelectorRequirement{
+					v1.NodeSelectorRequirement{
+						Key:      "key",
+						Operator: v1.NodeSelectorOpIn,
+						Values:   []string{"value"},
+					},
+				},
+			},
+		}
+
+		Expect(d.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(Equal(expectedTerms))
 	})
 
 	It("should work for a Deployment", func() {
@@ -202,9 +211,6 @@ var _ = Describe("SetNodeSelectorTerms", func() {
 		m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&d)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = unstructured.SetNestedStringMap(m, make(map[string]string), "spec", "template", "spec", "nodeSelector")
-		Expect(err).NotTo(HaveOccurred())
-
 		terms := map[string]string{"key": "value"}
 		uo := unstructured.Unstructured{Object: m}
 
@@ -214,11 +220,22 @@ var _ = Describe("SetNodeSelectorTerms", func() {
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &d)
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(d.Spec.Template.Spec.NodeSelector).To(Equal(terms))
+		expectedTerms := []v1.NodeSelectorTerm{
+			v1.NodeSelectorTerm{
+				MatchExpressions: []v1.NodeSelectorRequirement{
+					v1.NodeSelectorRequirement{
+						Key:      "key",
+						Operator: v1.NodeSelectorOpIn,
+						Values:   []string{"value"},
+					},
+				},
+			},
+		}
+
+		Expect(d.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(Equal(expectedTerms))
 	})
 
-	// TODO(qbarrand) this bugs because the code checks if the kind is Statefulset (no capital S)
-	PIt("should work for a StatefulSet", func() {
+	It("should work for a StatefulSet", func() {
 		statefulSet := appsv1.StatefulSet{
 			TypeMeta: metav1.TypeMeta{Kind: "StatefulSet"},
 		}
@@ -235,7 +252,19 @@ var _ = Describe("SetNodeSelectorTerms", func() {
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &statefulSet)
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(statefulSet.Spec.Template.Spec.NodeSelector).To(Equal(terms))
+		expectedTerms := []v1.NodeSelectorTerm{
+			v1.NodeSelectorTerm{
+				MatchExpressions: []v1.NodeSelectorRequirement{
+					v1.NodeSelectorRequirement{
+						Key:      "key",
+						Operator: v1.NodeSelectorOpIn,
+						Values:   []string{"value"},
+					},
+				},
+			},
+		}
+
+		Expect(statefulSet.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(Equal(expectedTerms))
 	})
 
 	It("should work for a Pod", func() {
@@ -244,9 +273,6 @@ var _ = Describe("SetNodeSelectorTerms", func() {
 		}
 
 		m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&p)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = unstructured.SetNestedStringMap(m, make(map[string]string), "spec", "nodeSelector")
 		Expect(err).NotTo(HaveOccurred())
 
 		terms := map[string]string{"key": "value"}
@@ -258,31 +284,21 @@ var _ = Describe("SetNodeSelectorTerms", func() {
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &p)
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(p.Spec.NodeSelector).To(Equal(terms))
-	})
-
-	It("should work for a BuildConfig", func() {
-		d := buildv1.BuildConfig{
-			TypeMeta: metav1.TypeMeta{Kind: "BuildConfig"},
+		expectedTerms := []v1.NodeSelectorTerm{
+			v1.NodeSelectorTerm{
+				MatchExpressions: []v1.NodeSelectorRequirement{
+					v1.NodeSelectorRequirement{
+						Key:      "key",
+						Operator: v1.NodeSelectorOpIn,
+						Values:   []string{"value"},
+					},
+				},
+			},
 		}
 
-		m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&d)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = unstructured.SetNestedStringMap(m, make(map[string]string), "spec", "nodeSelector")
-		Expect(err).NotTo(HaveOccurred())
-
-		terms := map[string]string{"key": "value"}
-		uo := unstructured.Unstructured{Object: m}
-
-		err = rh.SetNodeSelectorTerms(&uo, terms)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &d)
-		Expect(err).NotTo(HaveOccurred())
-
-		Expect(d.Spec.NodeSelector).To(Equal(buildv1.OptionalNodeSelector(terms)))
+		Expect(p.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(Equal(expectedTerms))
 	})
+
 })
 
 var _ = Describe("TestIsOneTimer", func() {

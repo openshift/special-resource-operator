@@ -183,7 +183,7 @@ func TemplateFragment(sr interface{}, runInfo *runtime.RuntimeInformation) error
 }
 
 func (r *SpecialResourceReconciler) ReconcileSpecialResourceChart(ctx context.Context, wi *WorkItem) error {
-	wi.Log.Info("Reconciling chart", "chart", wi.Chart.Name)
+	wi.Log.Info("Reconciling chart", "chart", wi.Chart.Name())
 
 	var err error
 	wi.RunInfo, err = r.RuntimeAPI.GetRuntimeInformation(ctx, wi.SpecialResource)
@@ -314,7 +314,7 @@ func (r *SpecialResourceReconciler) createSpecialResourceFrom(ctx context.Contex
 		sr.Name,
 		sr.Namespace,
 		sr.Spec.NodeSelector,
-		"", ""); err != nil {
+		"", "", nil); err != nil {
 		return err
 	}
 

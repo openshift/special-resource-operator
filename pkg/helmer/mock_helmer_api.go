@@ -68,15 +68,15 @@ func (mr *MockHelmerMockRecorder) Load(arg0 interface{}) *gomock.Call {
 }
 
 // Run mocks base method.
-func (m *MockHelmer) Run(arg0 context.Context, arg1 chart.Chart, arg2 map[string]interface{}, arg3 v1.Object, arg4, arg5 string, arg6 map[string]string, arg7, arg8 string, arg9 bool) error {
+func (m *MockHelmer) Run(arg0 context.Context, arg1 chart.Chart, arg2 map[string]interface{}, arg3 v1.Object, arg4, arg5 string, arg6 map[string]string, arg7, arg8 string, arg9 []string, arg10 bool) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Run", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
+	ret := m.ctrl.Call(m, "Run", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Run indicates an expected call of Run.
-func (mr *MockHelmerMockRecorder) Run(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 interface{}) *gomock.Call {
+func (mr *MockHelmerMockRecorder) Run(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockHelmer)(nil).Run), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockHelmer)(nil).Run), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
 }

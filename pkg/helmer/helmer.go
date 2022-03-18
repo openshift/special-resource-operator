@@ -65,7 +65,7 @@ func OpenShiftInstallOrder() {
 
 type Helmer interface {
 	Load(helmerv1beta1.HelmChart) (*chart.Chart, error)
-	Run(context.Context, chart.Chart, map[string]interface{}, v1.Object, string, string, map[string]string, string, string, bool) error
+	Run(context.Context, chart.Chart, map[string]interface{}, v1.Object, string, string, map[string]string, string, string, []string, bool) error
 	GetHelmOutput(context.Context, chart.Chart, map[string]interface{}, string) (string, error)
 }
 
@@ -258,7 +258,7 @@ func (h *helmer) InstallCRDs(ctx context.Context, crds []chart.CRD, owner v1.Obj
 		fmt.Fprintf(&manifests, "---\n# Source: %s\n%s\n", crd.Filename, crd.File.Data)
 	}
 	if err := h.resourceAPI.CreateFromYAML(ctx, manifests.Bytes(),
-		false, owner, name, namespace, nil, "", ""); err != nil {
+		false, owner, name, namespace, nil, "", "", nil); err != nil {
 		return err
 	}
 
@@ -324,6 +324,7 @@ func (h *helmer) Run(
 	nodeSelector map[string]string,
 	kernelFullVersion string,
 	operatingSystemMajorMinor string,
+	nodeNames []string,
 	debug bool) error {
 
 	rel, install, err := h.dryRunHelmChart(ctx, ch, vals, namespace)
@@ -378,7 +379,8 @@ func (h *helmer) Run(
 		namespace,
 		nodeSelector,
 		kernelFullVersion,
-		operatingSystemMajorMinor)
+		operatingSystemMajorMinor,
+		nodeNames)
 
 	if err != nil {
 		return h.failRelease(rel, err)
@@ -474,7 +476,7 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 		// the most appropriate value to surface.
 		hk.LastRun.Phase = release.HookPhaseUnknown
 
-		if err := h.resourceAPI.CreateFromYAML(ctx, []byte(hk.Manifest), false, owner, name, namespace, nil, "", ""); err != nil {
+		if err := h.resourceAPI.CreateFromYAML(ctx, []byte(hk.Manifest), false, owner, name, namespace, nil, "", "", nil); err != nil {
 
 			hk.LastRun.CompletedAt = helmtime.Now()
 			hk.LastRun.Phase = release.HookPhaseFailed

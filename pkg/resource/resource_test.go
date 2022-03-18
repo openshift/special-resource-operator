@@ -142,6 +142,7 @@ spec:
 					nodeSelector,
 					kernelFullVersion,
 					operatingSystemMajorMinor,
+					nil,
 				)
 
 		Expect(err).NotTo(HaveOccurred())
@@ -176,7 +177,7 @@ spec:
 		newPod.SetAnnotations(map[string]string{
 			"meta.helm.sh/release-name":         specialResourceName,
 			"meta.helm.sh/release-namespace":    namespace,
-			"specialresource.openshift.io/hash": "5473155173593167161",
+			"specialresource.openshift.io/hash": "7637786848538458599",
 		})
 		newPod.SetLabels(map[string]string{
 			"app.kubernetes.io/managed-by": "Helm",
@@ -206,7 +207,17 @@ spec:
 			"containers": []interface{}{container},
 		}
 
-		err := unstructured.SetNestedStringMap(newPod.Object, nodeSelector, "spec", "nodeSelector")
+		err := unstructured.SetNestedSlice(newPod.Object, []interface{}{
+			map[string]interface{}{
+				"matchExpressions": []interface{}{
+					map[string]interface{}{
+						"key":      "key",
+						"operator": "In",
+						"values":   []interface{}{"value"},
+					},
+				},
+			},
+		}, "spec", "affinity", "nodeAffinity", "requiredDuringSchedulingIgnoredDuringExecution", "nodeSelectorTerms")
 		Expect(err).NotTo(HaveOccurred())
 
 		err = unstructured.SetNestedField(newPod.Object, "Always", "spec", "restartPolicy")
@@ -267,6 +278,7 @@ spec:
 					nodeSelector,
 					kernelFullVersion,
 					operatingSystemMajorMinor,
+					nil,
 				)
 
 		Expect(err).NotTo(HaveOccurred())
