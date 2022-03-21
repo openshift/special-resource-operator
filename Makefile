@@ -1,5 +1,4 @@
 include Makefile.specialresource.mk
-include Makefile.helm.mk
 # For SRO specific options see:
 include Makefile.helper.mk
 
@@ -87,7 +86,7 @@ helm-plugins/cm-getter: helm-plugins/cm-getter/cm-getter
 .PHONY: helm-plugins
 helm-plugins: helm-plugins/cm-getter
 
-manager: generate ## Build manager binary.
+manager:
 	go build -o manager main.go
 
 run: manifests generate ## Run against the configured Kubernetes cluster in ~/.kube/config

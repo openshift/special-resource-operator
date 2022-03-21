@@ -10,7 +10,6 @@ COPY go.sum go.sum
 COPY hack/ hack/
 COPY helm-plugins/ helm-plugins/
 COPY Makefile.specialresource.mk Makefile.specialresource.mk
-COPY Makefile.helm.mk Makefile.helm.mk
 COPY Makefile.helper.mk Makefile.helper.mk
 COPY Makefile Makefile
 COPY scripts/ scripts/
@@ -23,9 +22,8 @@ COPY cmd/ cmd/
 COPY controllers/ controllers/
 COPY internal/ internal/
 COPY pkg/ pkg/
-COPY charts/ charts/
 
-RUN ["make", "helm-repo-index", "manager", "helm-plugins/cm-getter/cm-getter"]
+RUN ["make", "manager", "helm-plugins/cm-getter/cm-getter"]
 
 FROM registry.ci.openshift.org/ocp/4.11:base
 
@@ -37,7 +35,6 @@ ENV HELM_PLUGINS /opt/helm-plugins
 
 COPY --from=builder /workspace/manager /manager
 COPY --from=builder /workspace/helm-plugins ${HELM_PLUGINS}
-COPY --from=builder /workspace/build/charts /charts
 
 RUN useradd  -r -u 499 nonroot
 RUN getent group nonroot || groupadd -o -g 499 nonroot

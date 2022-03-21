@@ -15,7 +15,7 @@ metadata:
               "name": "simple-kmod",
               "repository": {
                 "name": "example",
-                "url": "file:///charts/example"
+                "url": "cm://namespace/configmap-name"
               },
               "version": "0.0.1"
             },
