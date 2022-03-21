@@ -136,7 +136,6 @@ var _ = Describe("GetRuntimeInformation", func() {
 		osDecimal := "osDecimal"
 		kernelFullVersion := "kernelFullVersion"
 		kernelPatchVersion := "kernelPatchVersion"
-		platform := "platform"
 		clusterVersion := "clusterVersion"
 		clusterVersionMajorMinor := "clusterMajorMinor"
 		clusterUpgradeInfo := map[string]upgrade.NodeVersion{"key": {}}
@@ -147,7 +146,6 @@ var _ = Describe("GetRuntimeInformation", func() {
 		mockCluster.EXPECT().OperatingSystem(&nodeList).Return(osMajor, osMajorMinor, osDecimal, nil)
 		mockKernel.EXPECT().FullVersion(&nodeList).Return(kernelFullVersion, nil)
 		mockKernel.EXPECT().PatchVersion(kernelFullVersion).Return(kernelPatchVersion, nil)
-		mockKubeClient.EXPECT().GetPlatform().Return(platform, nil)
 		mockCluster.EXPECT().Version(gomock.Any()).Return(clusterVersion, clusterVersionMajorMinor, nil)
 		mockClusterInfo.EXPECT().GetClusterInfo(gomock.Any(), &nodeList).Return(clusterUpgradeInfo, nil)
 		mockKubeClient.EXPECT().List(context.TODO(), secrets, optNs).
@@ -168,7 +166,7 @@ var _ = Describe("GetRuntimeInformation", func() {
 		Expect(runInfo.OperatingSystemDecimal).To(Equal(osDecimal))
 		Expect(runInfo.KernelFullVersion).To(Equal(kernelFullVersion))
 		Expect(runInfo.KernelPatchVersion).To(Equal(kernelPatchVersion))
-		Expect(runInfo.Platform).To(Equal(platform))
+		Expect(runInfo.Platform).To(Equal("OCP"))
 		Expect(runInfo.ClusterVersion).To(Equal(clusterVersion))
 		Expect(runInfo.ClusterVersionMajorMinor).To(Equal(clusterVersionMajorMinor))
 		Expect(runInfo.ClusterUpgradeInfo).To(Equal(clusterUpgradeInfo))

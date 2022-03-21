@@ -108,7 +108,7 @@ func (rt *runtime) GetRuntimeInformation(ctx context.Context, sr *srov1beta1.Spe
 		KernelFullVersion:         "",
 		KernelPatchVersion:        "",
 		DriverToolkitImage:        "",
-		Platform:                  "",
+		Platform:                  "OCP",
 		ClusterVersion:            "",
 		ClusterVersionMajorMinor:  "",
 		ClusterUpgradeInfo:        make(map[string]upgrade.NodeVersion),
@@ -136,14 +136,6 @@ func (rt *runtime) GetRuntimeInformation(ctx context.Context, sr *srov1beta1.Spe
 	info.KernelPatchVersion, err = rt.kernelAPI.PatchVersion(info.KernelFullVersion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kernel patch version: %w", err)
-	}
-
-	// Only want to initialize the platform once.
-	if info.Platform == "" {
-		info.Platform, err = rt.kubeClient.GetPlatform()
-		if err != nil {
-			return nil, fmt.Errorf("failed to determine platform: %v", err)
-		}
 	}
 
 	info.ClusterVersion, info.ClusterVersionMajorMinor, err = rt.clusterAPI.Version(ctx)
