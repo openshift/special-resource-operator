@@ -50,6 +50,36 @@ func (mr *MockClusterMockRecorder) GetDTKImages(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDTKImages", reflect.TypeOf((*MockCluster)(nil).GetDTKImages), arg0)
 }
 
+// IsClusterInUpgrade mocks base method.
+func (m *MockCluster) IsClusterInUpgrade(arg0 context.Context) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsClusterInUpgrade", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsClusterInUpgrade indicates an expected call of IsClusterInUpgrade.
+func (mr *MockClusterMockRecorder) IsClusterInUpgrade(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsClusterInUpgrade", reflect.TypeOf((*MockCluster)(nil).IsClusterInUpgrade), arg0)
+}
+
+// NextUpgradeVersion mocks base method.
+func (m *MockCluster) NextUpgradeVersion(arg0 context.Context) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NextUpgradeVersion", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NextUpgradeVersion indicates an expected call of NextUpgradeVersion.
+func (mr *MockClusterMockRecorder) NextUpgradeVersion(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NextUpgradeVersion", reflect.TypeOf((*MockCluster)(nil).NextUpgradeVersion), arg0)
+}
+
 // OSImageURL mocks base method.
 func (m *MockCluster) OSImageURL(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
