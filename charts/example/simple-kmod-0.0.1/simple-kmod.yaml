@@ -8,8 +8,8 @@ spec:
     name: simple-kmod
     version: 0.0.1
     repository:
-      name: example
-      url: file:///charts/example
+      name: simple-kmod
+      url: cm://simple-kmod/simple-kmod-chart
   set:
     kind: Values
     apiVersion: sro.openshift.io/v1beta1

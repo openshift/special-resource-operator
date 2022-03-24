@@ -3,8 +3,6 @@ package helmer_test
 import (
 	"context"
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -12,15 +10,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/openshift/special-resource-operator/pkg/clients"
 	"github.com/openshift/special-resource-operator/pkg/helmer"
-	helmerv1beta1 "github.com/openshift/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift/special-resource-operator/pkg/resource"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/cli"
-	"helm.sh/helm/v3/pkg/repo"
 	v1 "k8s.io/api/core/v1"
 )
-
-const pluginsDir = "../../helm-plugins"
 
 var (
 	ctrl           *gomock.Controller
@@ -39,115 +33,6 @@ func TestHelmer(t *testing.T) {
 
 	RunSpecs(t, "Helmer Suite")
 }
-
-var _ = Describe("helmer_AddorUpdateRepo", func() {
-	It("file:// provider", func() {
-		entry := repo.Entry{
-			Name: "test",
-			URL:  "file://testdata",
-		}
-
-		tempDir := GinkgoT().TempDir()
-
-		repoConfigFile := filepath.Join(tempDir, "config.yaml")
-
-		settings := cli.New()
-
-		settings.PluginsDirectory = pluginsDir
-		settings.RepositoryConfig = repoConfigFile
-		settings.RepositoryCache = filepath.Join(tempDir, "cache")
-
-		err := helmer.NewHelmer(mockCreator, settings, mockKubeClient).AddorUpdateRepo(&entry)
-		Expect(err).NotTo(HaveOccurred())
-
-		expectedContents := []byte(`apiVersion: ""
-generated: "0001-01-01T00:00:00Z"
-repositories:
-- caFile: ""
-  certFile: ""
-  insecure_skip_tls_verify: false
-  keyFile: ""
-  name: test
-  pass_credentials_all: false
-  password: ""
-  url: file://testdata
-  username: ""
-`)
-
-		contents, err := os.ReadFile(repoConfigFile)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(contents).To(Equal(expectedContents))
-	})
-})
-
-var _ = Describe("helmer_Load", func() {
-	Context("file:// provider", func() {
-		It("should return an error if the repository does not exist", func() {
-			spec := helmerv1beta1.HelmChart{
-				Repository: helmerv1beta1.HelmRepo{
-					Name: "test",
-					URL:  "file://invalid-path",
-				},
-			}
-
-			settings := cli.New()
-
-			settings.PluginsDirectory = pluginsDir
-
-			_, err := helmer.NewHelmer(mockCreator, settings, mockKubeClient).Load(spec)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("should return an error if the chart does not exist", func() {
-			spec := helmerv1beta1.HelmChart{
-				Name: "invalid-chart",
-				Repository: helmerv1beta1.HelmRepo{
-					Name: "test",
-					URL:  "file://testdata",
-				},
-			}
-
-			tempDir := GinkgoT().TempDir()
-
-			repoConfigFile := filepath.Join(tempDir, "config.yaml")
-
-			settings := cli.New()
-
-			settings.PluginsDirectory = pluginsDir
-			settings.RepositoryConfig = repoConfigFile
-			settings.RepositoryCache = filepath.Join(tempDir, "cache")
-
-			_, err := helmer.NewHelmer(mockCreator, settings, mockKubeClient).Load(spec)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("should return no error if the chart exists", func() {
-			spec := helmerv1beta1.HelmChart{
-				Name: "test-chart",
-				Repository: helmerv1beta1.HelmRepo{
-					Name: "test",
-					URL:  "file://testdata",
-				},
-			}
-
-			tempDir := GinkgoT().TempDir()
-
-			repoConfigFile := filepath.Join(tempDir, "config.yaml")
-
-			settings := cli.New()
-
-			settings.PluginsDirectory = pluginsDir
-			settings.RepositoryConfig = repoConfigFile
-			settings.RepositoryCache = filepath.Join(tempDir, "cache")
-
-			chart, err := helmer.NewHelmer(mockCreator, settings, mockKubeClient).Load(spec)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(chart.Name()).To(Equal("test-chart"))
-			Expect(chart.Metadata.Version).To(Equal("0.1.0"))
-		})
-	})
-})
 
 var _ = Describe("helmer_InstallCRDs", func() {
 	const (
