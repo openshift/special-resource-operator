@@ -3,6 +3,7 @@ package cluster_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	. "github.com/onsi/gomega"
 	configv1 "github.com/openshift/api/config/v1"
 	imagev1 "github.com/openshift/api/image/v1"
-	machinev1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
 	"github.com/openshift/special-resource-operator/pkg/clients"
 	"github.com/openshift/special-resource-operator/pkg/cluster"
 	v1 "k8s.io/api/apps/v1"
@@ -44,40 +44,15 @@ func TestCluster(t *testing.T) {
 }
 
 var _ = Describe("cluster_Version", func() {
-	It("should return an error when the cluster cannot get a ClusterVersion", func() {
-		mockKubeClients.
-			EXPECT().
-			HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions")).
-			Return(false, randomError)
 
+	It("should return an error when client fails to access cluster version", func() {
+		mockKubeClients.EXPECT().ClusterVersionGet(context.TODO(), metav1.GetOptions{}).Return(nil, fmt.Errorf("some error"))
 		_, _, err := cluster.NewCluster(mockKubeClients).Version(context.TODO())
-		Expect(err).To(Equal(randomError))
-	})
-
-	It("should return empty values when the cluster has no ClusterVersion", func() {
-		mockKubeClients.
-			EXPECT().
-			HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions")).
-			Return(false, nil)
-
-		cvv, v, err := cluster.NewCluster(mockKubeClients).Version(context.TODO())
-		Expect(err).NotTo(HaveOccurred())
-		Expect(cvv).To(BeEmpty())
-		Expect(v).To(BeEmpty())
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("should return an error when the ClusterVersion does not have the expected history", func() {
-		gomock.InOrder(
-			mockKubeClients.
-				EXPECT().
-				HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions")).
-				Return(true, nil),
-			mockKubeClients.
-				EXPECT().
-				ClusterVersionGet(context.TODO(), metav1.GetOptions{}).
-				Return(&configv1.ClusterVersion{}, nil),
-		)
-
+		mockKubeClients.EXPECT().ClusterVersionGet(context.TODO(), metav1.GetOptions{}).Return(&configv1.ClusterVersion{}, nil)
 		_, _, err := cluster.NewCluster(mockKubeClients).Version(context.TODO())
 		Expect(err).To(HaveOccurred())
 	})
@@ -96,16 +71,7 @@ var _ = Describe("cluster_Version", func() {
 				},
 			}
 
-			gomock.InOrder(
-				mockKubeClients.
-					EXPECT().
-					HasResource(configv1.SchemeGroupVersion.WithResource("clusterversions")).
-					Return(true, nil),
-				mockKubeClients.
-					EXPECT().
-					ClusterVersionGet(context.TODO(), metav1.GetOptions{}).
-					Return(cv, nil),
-			)
+			mockKubeClients.EXPECT().ClusterVersionGet(context.TODO(), metav1.GetOptions{}).Return(cv, nil)
 
 			cvv, v, err := cluster.NewCluster(mockKubeClients).Version(context.TODO())
 			Expect(err).NotTo(HaveOccurred())
@@ -125,27 +91,6 @@ var _ = Describe("cluster_OSImageURL", func() {
 		Name:      cmName,
 	}
 
-	It("should return an error when we cannot check if MachineConfig is available", func() {
-		mockKubeClients.
-			EXPECT().
-			HasResource(machinev1.SchemeGroupVersion.WithResource("machineconfigs")).
-			Return(true, randomError)
-
-		_, err := cluster.NewCluster(mockKubeClients).OSImageURL(context.TODO())
-		Expect(errors.Is(err, randomError)).To(BeTrue())
-	})
-
-	It("should return an empty string when MachineConfig is not available", func() {
-		mockKubeClients.
-			EXPECT().
-			HasResource(machinev1.SchemeGroupVersion.WithResource("machineconfigs")).
-			Return(false, nil)
-
-		s, err := cluster.NewCluster(mockKubeClients).OSImageURL(context.TODO())
-		Expect(err).NotTo(HaveOccurred())
-		Expect(s).To(BeEmpty())
-	})
-
 	It("should return an error if the machine-config-osimageurl ConfigMap cannot be found", func() {
 		cm := &unstructured.Unstructured{}
 		cm.SetAPIVersion("v1")
@@ -153,17 +98,7 @@ var _ = Describe("cluster_OSImageURL", func() {
 
 		errNotFound := k8serrors.NewNotFound(v1.Resource("configmaps"), cmName)
 
-		gomock.InOrder(
-			mockKubeClients.
-				EXPECT().
-				HasResource(machinev1.SchemeGroupVersion.WithResource("machineconfigs")).
-				Return(true, nil),
-			mockKubeClients.
-				EXPECT().
-				Get(context.TODO(), nsn, cm).
-				Return(errNotFound),
-		)
-
+		mockKubeClients.EXPECT().Get(context.TODO(), nsn, cm).Return(errNotFound)
 		_, err := cluster.NewCluster(mockKubeClients).OSImageURL(context.TODO())
 		Expect(errors.Is(err, errNotFound)).To(BeTrue())
 	})
@@ -173,19 +108,11 @@ var _ = Describe("cluster_OSImageURL", func() {
 		cm.SetAPIVersion("v1")
 		cm.SetKind("ConfigMap")
 
-		gomock.InOrder(
-			mockKubeClients.
-				EXPECT().
-				HasResource(machinev1.SchemeGroupVersion.WithResource("machineconfigs")).
-				Return(true, nil),
-			mockKubeClients.
-				EXPECT().
-				Get(context.TODO(), nsn, cm).
-				Do(func(_ context.Context, _ types.NamespacedName, cm *unstructured.Unstructured) {
-					err := unstructured.SetNestedStringMap(cm.Object, make(map[string]string), "data")
-					Expect(err).NotTo(HaveOccurred())
-				}),
-		)
+		mockKubeClients.EXPECT().Get(context.TODO(), nsn, cm).
+			Do(func(_ context.Context, _ types.NamespacedName, cm *unstructured.Unstructured) {
+				err := unstructured.SetNestedStringMap(cm.Object, make(map[string]string), "data")
+				Expect(err).NotTo(HaveOccurred())
+			})
 
 		_, err := cluster.NewCluster(mockKubeClients).OSImageURL(context.TODO())
 		Expect(err).To(HaveOccurred())
@@ -198,19 +125,11 @@ var _ = Describe("cluster_OSImageURL", func() {
 		cm.SetAPIVersion("v1")
 		cm.SetKind("ConfigMap")
 
-		gomock.InOrder(
-			mockKubeClients.
-				EXPECT().
-				HasResource(machinev1.SchemeGroupVersion.WithResource("machineconfigs")).
-				Return(true, nil),
-			mockKubeClients.
-				EXPECT().
-				Get(context.TODO(), nsn, cm).
-				Do(func(_ context.Context, _ types.NamespacedName, cm *unstructured.Unstructured) {
-					err := unstructured.SetNestedStringMap(cm.Object, map[string]string{"osImageURL": osImageURLValue}, "data")
-					Expect(err).NotTo(HaveOccurred())
-				}),
-		)
+		mockKubeClients.EXPECT().Get(context.TODO(), nsn, cm).
+			Do(func(_ context.Context, _ types.NamespacedName, cm *unstructured.Unstructured) {
+				err := unstructured.SetNestedStringMap(cm.Object, map[string]string{"osImageURL": osImageURLValue}, "data")
+				Expect(err).NotTo(HaveOccurred())
+			})
 
 		s, err := cluster.NewCluster(mockKubeClients).OSImageURL(context.TODO())
 		Expect(err).NotTo(HaveOccurred())
@@ -317,5 +236,102 @@ var _ = Describe("cluster_GetDTKImages", func() {
 			remoteRegistryURL + "@" + img1,
 			remoteRegistryURL + "@" + img2,
 		}))
+	})
+})
+
+var _ = Describe("cluster get next upgrade version", func() {
+	It("should return an error when client fails to access cluster version", func() {
+		mockKubeClients.EXPECT().ClusterVersionGet(context.TODO(), metav1.GetOptions{}).Return(nil, fmt.Errorf("some error"))
+		_, err := cluster.NewCluster(mockKubeClients).NextUpgradeVersion(context.TODO())
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should return an error when the ClusterVersion does not contain desired image", func() {
+		mockKubeClients.EXPECT().ClusterVersionGet(context.TODO(), metav1.GetOptions{}).Return(&configv1.ClusterVersion{}, nil)
+		_, err := cluster.NewCluster(mockKubeClients).NextUpgradeVersion(context.TODO())
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("should desired image", func() {
+		cv := &configv1.ClusterVersion{
+			Status: configv1.ClusterVersionStatus{
+				Desired: configv1.Release{
+					Image: "desiredImage",
+				},
+			},
+		}
+		mockKubeClients.EXPECT().ClusterVersionGet(context.TODO(), metav1.GetOptions{}).Return(cv, nil)
+		image, err := cluster.NewCluster(mockKubeClients).NextUpgradeVersion(context.TODO())
+		Expect(image).To(Equal("desiredImage"))
+		Expect(err).NotTo(HaveOccurred())
+	})
+})
+
+var _ = Describe("is cluster in upgrade", func() {
+	It("should return an error when client fails to access cluster version", func() {
+		mockKubeClients.EXPECT().ClusterVersionGet(context.TODO(), metav1.GetOptions{}).Return(nil, fmt.Errorf("some error"))
+		_, err := cluster.NewCluster(mockKubeClients).IsClusterInUpgrade(context.TODO())
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("no completed versions", func() {
+		mockKubeClients.EXPECT().ClusterVersionGet(context.TODO(), metav1.GetOptions{}).Return(&configv1.ClusterVersion{}, nil)
+		inUpdate, err := cluster.NewCluster(mockKubeClients).IsClusterInUpgrade(context.TODO())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(inUpdate).To(BeFalse())
+	})
+
+	It("desired image is equal to the latest completed", func() {
+		firstTime := metav1.Now()
+		secondTime := metav1.NewTime(firstTime.Time.Add(time.Minute * 120))
+		thirdTime := metav1.NewTime(firstTime.Time.Add(time.Minute * 20))
+		cv := &configv1.ClusterVersion{
+			Status: configv1.ClusterVersionStatus{
+				History: []configv1.UpdateHistory{
+					{
+						State:          "Completed",
+						Image:          "compImage1",
+						CompletionTime: &firstTime,
+					},
+					{
+						State:          "Completed",
+						Image:          "compImage2",
+						CompletionTime: &secondTime,
+					},
+					{
+						State:          "Completed",
+						Image:          "compImage3",
+						CompletionTime: &thirdTime,
+					},
+				},
+				Desired: configv1.Release{
+					Image: "compImage2",
+				},
+			},
+		}
+		mockKubeClients.EXPECT().ClusterVersionGet(context.TODO(), metav1.GetOptions{}).Return(cv, nil)
+		inUpdate, err := cluster.NewCluster(mockKubeClients).IsClusterInUpgrade(context.TODO())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(inUpdate).To(BeFalse())
+	})
+
+	It("desired image is not equal to the latest completed", func() {
+		cv := &configv1.ClusterVersion{
+			Status: configv1.ClusterVersionStatus{
+				History: []configv1.UpdateHistory{
+					{
+						State: "Completed",
+						Image: "completedImage",
+					},
+				},
+				Desired: configv1.Release{
+					Image: "desiredImage",
+				},
+			},
+		}
+		mockKubeClients.EXPECT().ClusterVersionGet(context.TODO(), metav1.GetOptions{}).Return(cv, nil)
+		inUpdate, err := cluster.NewCluster(mockKubeClients).IsClusterInUpgrade(context.TODO())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(inUpdate).To(BeTrue())
 	})
 })
