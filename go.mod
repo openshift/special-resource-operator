@@ -14,7 +14,6 @@ require (
 	github.com/openshift/api v0.0.0-20210924154557-a4f696157341
 	github.com/openshift/client-go v0.0.0-20210916133943-9acee1a0fb83
 	github.com/openshift/library-go v0.0.0-20211103140146-29c9bb8362e2
-	github.com/openshift/machine-config-operator v0.0.1-0.20210514234214-c415ce6aed25
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.42.1
 	github.com/prometheus/client_golang v1.11.0
@@ -60,6 +59,7 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
+	github.com/elazarl/goproxy v0.0.0-20190911111923-ecfe977594f1 // indirect
 	github.com/evanphx/json-patch v4.11.0+incompatible // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
 	github.com/fatih/color v1.12.0 // indirect

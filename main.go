@@ -82,7 +82,7 @@ func main() {
 		"GOMAXPROCS", os.Getenv("GOMAXPROCS"),
 	)
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	ctrl.SetLogger(zap.New())
 
 	opts := &ctrl.Options{
 		MetricsBindAddress: cl.MetricsAddr,
@@ -143,14 +143,13 @@ func main() {
 		ClusterOperatorManager: state.NewClusterOperatorManager(kubeClient, "special-resource-operator"),
 		ResourceAPI:            resourceAPI,
 		PollActions:            pollActions,
-		Filter:                 filter.NewFilter(controllers.SRgvk, controllers.SROwnedLabel, lc, st, kernelAPI),
+		Filter:                 filter.NewFilter(ctrl.Log, controllers.SRgvk, controllers.SROwnedLabel, lc, st, kernelAPI),
 		Finalizer:              finalizers.NewSpecialResourceFinalizer(kubeClient, pollActions),
 		StatusUpdater:          statusUpdater,
 		Storage:                st,
 		Helmer:                 helmerAPI,
 		Assets:                 assets.NewAssets(),
 		KernelData:             kernelAPI,
-		Log:                    ctrl.Log,
 		Metrics:                metricsAPI,
 		Scheme:                 scheme,
 		ProxyAPI:               proxyAPI,
@@ -163,10 +162,9 @@ func main() {
 
 	if err = (&controllers.SpecialResourceModuleReconciler{
 		ResourceAPI: resourceAPI,
-		Filter:      filter.NewFilter(controllers.SRMgvk, controllers.SRMOwnedLabel, lc, st, kernelAPI),
+		Filter:      filter.NewFilter(ctrl.Log, controllers.SRMgvk, controllers.SRMOwnedLabel, lc, st, kernelAPI),
 		Helmer:      helmerAPI,
 		Assets:      assets.NewAssets(),
-		Log:         ctrl.Log,
 		Metrics:     metricsAPI,
 		Scheme:      scheme,
 		KubeClient:  kubeClient,
@@ -177,7 +175,6 @@ func main() {
 	}
 
 	if err = (&controllers.PreflightValidationReconciler{
-		Log:           ctrl.Log,
 		ClusterAPI:    clusterAPI,
 		Helmer:        helmerAPI,
 		PreflightAPI:  preflightAPI,

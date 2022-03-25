@@ -33,12 +33,12 @@ var _ = Describe("ClusterOperatorManager", func() {
 		It("should return an error if Kubernetes returned one", func() {
 			mockKubeClient.
 				EXPECT().
-				ClusterOperatorGet(context.TODO(), operatorName, metav1.GetOptions{}).
+				ClusterOperatorGet(context.Background(), operatorName, metav1.GetOptions{}).
 				Return(nil, randomError)
 
 			com := state.NewClusterOperatorManager(mockKubeClient, operatorName)
 
-			err := com.GetOrCreate(context.TODO())
+			err := com.GetOrCreate(context.Background())
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -49,12 +49,12 @@ var _ = Describe("ClusterOperatorManager", func() {
 
 			mockKubeClient.
 				EXPECT().
-				ClusterOperatorGet(context.TODO(), operatorName, metav1.GetOptions{}).
+				ClusterOperatorGet(context.Background(), operatorName, metav1.GetOptions{}).
 				Return(co, nil)
 
 			com := state.NewClusterOperatorManager(mockKubeClient, operatorName)
 
-			err := com.GetOrCreate(context.TODO())
+			err := com.GetOrCreate(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -66,17 +66,17 @@ var _ = Describe("ClusterOperatorManager", func() {
 			gomock.InOrder(
 				mockKubeClient.
 					EXPECT().
-					ClusterOperatorGet(context.TODO(), operatorName, metav1.GetOptions{}).
+					ClusterOperatorGet(context.Background(), operatorName, metav1.GetOptions{}).
 					Return(nil, k8serrors.NewNotFound(configv1.Resource("clusteroperators"), operatorName)),
 				mockKubeClient.
 					EXPECT().
-					ClusterOperatorCreate(context.TODO(), &newCO, metav1.CreateOptions{}).
+					ClusterOperatorCreate(context.Background(), &newCO, metav1.CreateOptions{}).
 					Return(&newCO, nil),
 			)
 
 			com := state.NewClusterOperatorManager(mockKubeClient, operatorName)
 
-			err := com.GetOrCreate(context.TODO())
+			err := com.GetOrCreate(context.Background())
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
@@ -90,7 +90,7 @@ var _ = Describe("ClusterOperatorManager", func() {
 
 			com := state.NewClusterOperatorManager(mockKubeClient, "")
 
-			err := com.Refresh(context.TODO(), nil)
+			err := com.Refresh(context.Background(), nil)
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -102,7 +102,7 @@ var _ = Describe("ClusterOperatorManager", func() {
 
 			com := state.NewClusterOperatorManager(mockKubeClient, "")
 
-			err := com.Refresh(context.TODO(), nil)
+			err := com.Refresh(context.Background(), nil)
 			Expect(err).NotTo(HaveOccurred())
 
 		})
@@ -125,14 +125,14 @@ var _ = Describe("ClusterOperatorManager", func() {
 					Return(true, nil),
 				mockKubeClient.
 					EXPECT().
-					ClusterOperatorGet(context.TODO(), operatorName, metav1.GetOptions{}).
+					ClusterOperatorGet(context.Background(), operatorName, metav1.GetOptions{}).
 					Return(&co, nil),
-				mockKubeClient.EXPECT().List(context.TODO(), &srov1beta1.SpecialResourceList{}),
-				mockKubeClient.EXPECT().ClusterOperatorUpdateStatus(context.TODO(), &coWithRelatedObjects, metav1.UpdateOptions{}),
+				mockKubeClient.EXPECT().List(context.Background(), &srov1beta1.SpecialResourceList{}),
+				mockKubeClient.EXPECT().ClusterOperatorUpdateStatus(context.Background(), &coWithRelatedObjects, metav1.UpdateOptions{}),
 			)
 			com := state.NewClusterOperatorManager(mockKubeClient, operatorName)
 
-			err := com.Refresh(context.TODO(), nil)
+			err := com.Refresh(context.Background(), nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

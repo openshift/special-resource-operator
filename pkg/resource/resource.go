@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,9 +12,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/yaml"
 
 	"github.com/openshift/special-resource-operator/internal/resourcehelper"
@@ -43,7 +42,6 @@ type ResourceAPI interface {
 type resource struct {
 	kubeClient    clients.ClientsInterface
 	lc            lifecycle.Lifecycle
-	log           logr.Logger
 	metricsClient metrics.Metrics
 	pollActions   poll.PollActions
 	kernelAPI     kernel.KernelData
@@ -65,7 +63,6 @@ func NewResourceAPI(
 	return &resource{
 		kubeClient:    kubeClient,
 		lc:            lc,
-		log:           zap.New(zap.UseDevMode(true)).WithName(utils.Print("resource", utils.Blue)),
 		metricsClient: metricsClient,
 		pollActions:   pollActions,
 		kernelAPI:     kernelAPI,
@@ -77,33 +74,34 @@ func NewResourceAPI(
 
 func (r *resource) AfterCRUD(ctx context.Context, obj *unstructured.Unstructured, namespace string) error {
 
-	logger := r.log.WithValues("Kind", obj.GetObjectKind(), "namespace", obj.GetNamespace(), "name", obj.GetName())
+	logger := ctrl.LoggerFrom(ctx, "objKind", obj.GetObjectKind().GroupVersionKind().Kind, "objNamespace", obj.GetNamespace(), "objName", obj.GetName())
 
 	annotations := obj.GetAnnotations()
 	clients.Namespace = namespace
 
 	if state, found := annotations["specialresource.openshift.io/state"]; found && state == "driver-container" {
-		logger.Info("specialresource.openshift.io/state")
+		logger.Info("Handling annotation specialresource.openshift.io/state")
 		if err := r.checkForImagePullBackOff(ctx, obj, namespace); err != nil {
 			return fmt.Errorf("cannot check for ImagePullBackOff: %w", err)
 		}
 	}
 
 	if wait, found := annotations["specialresource.openshift.io/wait"]; found && wait == "true" {
-		logger.Info("specialresource.openshift.io/wait")
+		logger.Info("Handling annotation specialresource.openshift.io/wait")
 		if err := r.pollActions.ForResource(ctx, obj); err != nil {
 			return fmt.Errorf("could not wait for resource: %w", err)
 		}
 	}
 
 	if pattern, found := annotations["specialresource.openshift.io/wait-for-logs"]; found && len(pattern) > 0 {
-		logger.Info("specialresource.openshift.io/wait-for-logs")
+		logger.Info("Handling annotation specialresource.openshift.io/wait-for-logs")
 		if err := r.pollActions.ForDaemonSetLogs(ctx, obj, pattern); err != nil {
 			return fmt.Errorf("could not wait for DaemonSet logs: %w", err)
 		}
 	}
 
 	if _, found := annotations["helm.sh/hook"]; found {
+		logger.Info("Handling annotation helm.sh/hook")
 		// In the case of hooks we're always waiting for all ressources
 		if err := r.pollActions.ForResource(ctx, obj); err != nil {
 			return fmt.Errorf("could not wait for resource: %w", err)
@@ -187,12 +185,10 @@ func (r *resource) GetObjectsFromYAML(yamlFile []byte) (*unstructured.Unstructur
 
 // CRUD Create Update Delete Resource
 func (r *resource) CRUD(ctx context.Context, obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object, name string, namespace string) error {
+	log := ctrl.LoggerFrom(ctx, "objKind", obj.GetKind(), "objName", obj.GetName())
 
-	var logg logr.Logger
 	if r.helper.IsNamespaced(obj.GetKind()) {
-		logg = r.log.WithValues("Kind", obj.GetKind()+": "+obj.GetNamespace()+"/"+obj.GetName())
-	} else {
-		logg = r.log.WithValues("Kind", obj.GetKind()+": "+obj.GetName())
+		log = log.WithValues("namespace", obj.GetNamespace())
 	}
 
 	// SpecialResource is the parent, all other objects are childs and need a reference
@@ -222,7 +218,7 @@ func (r *resource) CRUD(ctx context.Context, obj *unstructured.Unstructured, rel
 			return nil
 		}
 
-		logg.Info("Creating resource", "releaseInstalled", releaseInstalled, "oneTimer", oneTimer)
+		log.Info("Creating resource", "releaseInstalled", releaseInstalled, "oneTimer", oneTimer)
 
 		if err = utils.Annotate(obj); err != nil {
 			return fmt.Errorf("can not annotate with hash: %w", err)
@@ -268,7 +264,7 @@ func (r *resource) CRUD(ctx context.Context, obj *unstructured.Unstructured, rel
 		return nil
 	}
 
-	logg.Info("Updating resource")
+	log.Info("Updating resource")
 	required := obj.DeepCopy()
 
 	if err = utils.Annotate(required); err != nil {
@@ -290,6 +286,7 @@ func (r *resource) CRUD(ctx context.Context, obj *unstructured.Unstructured, rel
 }
 
 func (r *resource) checkForImagePullBackOff(ctx context.Context, obj *unstructured.Unstructured, namespace string) error {
+	log := ctrl.LoggerFrom(ctx, "objKind", obj.GetKind(), "objName", obj.GetName())
 
 	if err := r.pollActions.ForDaemonSet(ctx, obj); err == nil {
 		return nil
@@ -308,7 +305,7 @@ func (r *resource) checkForImagePullBackOff(ctx context.Context, obj *unstructur
 
 	err := r.kubeClient.List(ctx, pods, opts...)
 	if err != nil {
-		r.log.Error(err, "Could not get PodList")
+		log.Error(err, "Could not get PodList")
 		return err
 	}
 
@@ -369,7 +366,7 @@ func (r *resource) createObjFromYAML(
 
 	jsonSpec, err := yaml.YAMLToJSON(yamlSpec)
 	if err != nil {
-		return fmt.Errorf("Could not convert yaml file to json: %s: error %w", string(yamlSpec), err)
+		return fmt.Errorf("could not convert yaml file to json: %s: error %w", string(yamlSpec), err)
 	}
 
 	if err = obj.UnmarshalJSON(jsonSpec); err != nil {
@@ -398,6 +395,7 @@ func (r *resource) createObjFromYAML(
 	// kernel affinity related attributes only set if there is an
 	// annotation specialresource.openshift.io/kernel-affine: true
 	if r.kernelAPI.IsObjectAffine(obj) {
+		ctrl.LoggerFrom(ctx).Info("Object is kernel affine", "objectName", obj.GetName())
 		if err = r.kernelAPI.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor); err != nil {
 			return fmt.Errorf("cannot set kernel affine attributes: %w", err)
 		}
@@ -413,12 +411,12 @@ func (r *resource) createObjFromYAML(
 	// We are asuming that vendors provide pre compiled DriverContainers
 	// If err == nil, build a new container, if err != nil skip it
 	if err = r.rebuildDriverContainer(obj); err != nil {
-		r.log.Info("Skipping building driver-container", "Name", obj.GetName())
+		ctrl.LoggerFrom(ctx).Info("Skipping building driver-container", "buildConfigName", obj.GetName())
 		return nil
 	}
 
 	// Callbacks before CRUD will update the manifests
-	if err = r.BeforeCRUD(obj, owner); err != nil {
+	if err = r.BeforeCRUD(ctx, obj, owner); err != nil {
 		return fmt.Errorf("before CRUD hooks failed: %w", err)
 	}
 	// Create Update Delete Patch resources
@@ -482,14 +480,14 @@ func (r *resource) sendNodesMetrics(ctx context.Context, obj *unstructured.Unstr
 		nodesStr := strings.Join(nodesNames, ",")
 		r.metricsClient.SetUsedNodes(crName, obj.GetName(), obj.GetNamespace(), kind, nodesStr)
 	} else {
-		r.log.Info("No assigned nodes for found for UsedNodes metric", "kind", kind, "name", obj.GetName(), "crName", crName)
+		ctrl.LoggerFrom(ctx).Info("No assigned nodes found for UsedNodes metric", "kind", kind, "object", objKey)
 	}
 }
 
-func (r *resource) BeforeCRUD(obj *unstructured.Unstructured, sr interface{}) error {
+func (r *resource) BeforeCRUD(ctx context.Context, obj *unstructured.Unstructured, sr interface{}) error {
 	annotations := obj.GetAnnotations()
 	if valid, found := annotations["specialresource.openshift.io/proxy"]; found && valid == "true" {
-		if err := r.proxyAPI.Setup(obj); err != nil {
+		if err := r.proxyAPI.Setup(ctx, obj); err != nil {
 			return fmt.Errorf("could not setup Proxy: %w", err)
 		}
 	}

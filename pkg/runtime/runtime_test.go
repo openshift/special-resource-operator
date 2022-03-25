@@ -3,7 +3,6 @@ package runtime
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -19,7 +18,6 @@ import (
 	"github.com/openshift/special-resource-operator/pkg/proxy"
 	"github.com/openshift/special-resource-operator/pkg/upgrade"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestPkgRutime(t *testing.T) {
@@ -47,7 +45,6 @@ var _ = Describe("getPushSecretName", func() {
 		mockProxy = proxy.NewMockProxyAPI(mockCtrl)
 
 		runtimeStruct = &runtime{
-			log:            zap.New(zap.WriteTo(ioutil.Discard)),
 			kubeClient:     mockKubeClient,
 			clusterAPI:     mockCluster,
 			kernelAPI:      mockKernel,
@@ -108,7 +105,6 @@ var _ = Describe("GetRuntimeInformation", func() {
 		mockProxy = proxy.NewMockProxyAPI(mockCtrl)
 
 		runtimeStruct = &runtime{
-			log:            zap.New(zap.WriteTo(ioutil.Discard)),
 			kubeClient:     mockKubeClient,
 			clusterAPI:     mockCluster,
 			kernelAPI:      mockKernel,

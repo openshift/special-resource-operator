@@ -2,6 +2,7 @@
 package watcher
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
@@ -11,14 +12,13 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/oliveagle/jsonpath"
 	srov1beta1 "github.com/openshift/special-resource-operator/api/v1beta1"
-	"github.com/openshift/special-resource-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -71,12 +71,12 @@ func getAPIVersion(gvk schema.GroupVersionKind) string {
 
 type Watcher interface {
 	// ReconcileWatches is a general function that updates list of watched resources based on given SpecialResourceModule
-	ReconcileWatches(srov1beta1.SpecialResourceModule) error
+	ReconcileWatches(context.Context, srov1beta1.SpecialResourceModule) error
 }
 
 func New(ctrl controller.Controller) Watcher {
 	return &watcher{
-		log:               zap.New(zap.UseDevMode(true)).WithName(utils.Print("watcher", utils.Blue)),
+		mapperLog:         ctrl.GetLogger().WithName("watcher"),
 		ctrl:              ctrl,
 		watchedResToPaths: make(map[WatchedResource][]string),
 		watchedResToData:  make(map[WatchedResourceWithPath]pathData),
@@ -84,8 +84,9 @@ func New(ctrl controller.Controller) Watcher {
 }
 
 type watcher struct {
-	log  logr.Logger
-	ctrl controller.Controller
+	// mapperLog is a logger intended to be used in mapper function
+	mapperLog logr.Logger
+	ctrl      controller.Controller
 
 	watchedResToPaths map[WatchedResource][]Path
 	watchedResToData  map[WatchedResourceWithPath]pathData
@@ -111,7 +112,8 @@ func checkIfContainsSRM(desiredWatches []srov1beta1.SpecialResourceModuleWatch, 
 	return false
 }
 
-func (w *watcher) ReconcileWatches(srm srov1beta1.SpecialResourceModule) error {
+func (w *watcher) ReconcileWatches(ctx context.Context, srm srov1beta1.SpecialResourceModule) error {
+	log := ctrl.LoggerFrom(ctx)
 
 	nn := types.NamespacedName{
 		Name:      srm.GetName(),
@@ -127,7 +129,7 @@ func (w *watcher) ReconcileWatches(srm srov1beta1.SpecialResourceModule) error {
 		if removeFromNamespacedNamesToTrigger {
 			for idx, nnToTrigger := range pathData.NamespacedNames {
 				if nnToTrigger == nn {
-					w.log.Info("removing watched resource", "resource", watchedResourceWithPath, "namespacedName", nnToTrigger)
+					log.Info("removing watched resource", "resource", watchedResourceWithPath, "namespacedName", nnToTrigger)
 					pathData.NamespacedNames = append(pathData.NamespacedNames[:idx], pathData.NamespacedNames[idx+1:]...)
 					w.watchedResToData[watchedResourceWithPath] = pathData
 					break
@@ -137,7 +139,7 @@ func (w *watcher) ReconcileWatches(srm srov1beta1.SpecialResourceModule) error {
 
 		// If there's no SRM to trigger reconciliation for for this resource+path: remove it.
 		if len(pathData.NamespacedNames) == 0 {
-			w.log.Info("empty list of CR to trigger for resource", "resource", watchedResourceWithPath)
+			log.Info("empty list of CR to trigger for resource", "resource", watchedResourceWithPath)
 			delete(w.watchedResToData, watchedResourceWithPath)
 
 			if paths, ok := w.watchedResToPaths[watchedResourceWithPath.WatchedResource]; ok {
@@ -150,7 +152,7 @@ func (w *watcher) ReconcileWatches(srm srov1beta1.SpecialResourceModule) error {
 				}
 
 				if len(w.watchedResToPaths[watchedResourceWithPath.WatchedResource]) == 0 {
-					w.log.Info("empty list of paths to observe", "resource", watchedResourceWithPath.WatchedResource)
+					log.Info("empty list of paths to observe", "resource", watchedResourceWithPath.WatchedResource)
 					delete(w.watchedResToPaths, watchedResourceWithPath.WatchedResource)
 				}
 			}
@@ -159,7 +161,7 @@ func (w *watcher) ReconcileWatches(srm srov1beta1.SpecialResourceModule) error {
 
 	// Addition
 	for _, toWatch := range srm.Spec.Watch {
-		if err := w.tryAddResourceToWatch(toWatch, nn); err != nil {
+		if err := w.tryAddResourceToWatch(ctx, toWatch, nn); err != nil {
 			return err
 		}
 	}
@@ -167,12 +169,12 @@ func (w *watcher) ReconcileWatches(srm srov1beta1.SpecialResourceModule) error {
 	return nil
 }
 
-func (w *watcher) tryAddResourceToWatch(r srov1beta1.SpecialResourceModuleWatch, nnToTrigger types.NamespacedName) error {
+func (w *watcher) tryAddResourceToWatch(ctx context.Context, r srov1beta1.SpecialResourceModuleWatch, nnToTrigger types.NamespacedName) error {
 	if w == nil {
 		return errors.New("watcher is not initialized")
 	}
 
-	l := w.log.WithValues("resource", r, "triggers", nnToTrigger)
+	l := ctrl.LoggerFrom(ctx, "resource", r, "triggers", nnToTrigger)
 
 	wr := WatchedResource{
 		ApiVersion: r.ApiVersion,
@@ -266,7 +268,7 @@ func (w *watcher) mapper(o client.Object) []reconcile.Request {
 	var unstr *unstructured.Unstructured
 	var ok bool
 	if unstr, ok = o.(*unstructured.Unstructured); !ok {
-		w.log.Info("failed to convert incoming object to Unstructed")
+		w.mapperLog.Info("failed to convert incoming object to Unstructed")
 		return crsToTrigger
 	}
 
@@ -282,7 +284,7 @@ func (w *watcher) mapper(o client.Object) []reconcile.Request {
 			// Get current value of property at path
 			vals, err := GetJSONPath(path, *unstr)
 			if err != nil {
-				w.log.Error(err, "failed to obtain a value", "path", path)
+				w.mapperLog.Error(err, "failed to obtain a value", "path", path)
 			}
 
 			// Compare obtained value against stored one
@@ -318,7 +320,7 @@ func GetJSONPath(path string, obj unstructured.Unstructured) ([]string, error) {
 	switch reflect.TypeOf(match).Kind() {
 	case reflect.Slice:
 		if res, ok := match.([]interface{}); !ok {
-			return nil, errors.New("Error converting result to string")
+			return nil, errors.New("error converting result to string")
 		} else {
 			strSlice := make([]string, 0)
 			for _, element := range res {
@@ -329,7 +331,7 @@ func GetJSONPath(path string, obj unstructured.Unstructured) ([]string, error) {
 	case reflect.String:
 		return []string{match.(string)}, nil
 	}
-	return nil, errors.New("Unsupported result")
+	return nil, errors.New("unsupported result")
 }
 
 func areEqual(s1, s2 []string) bool {

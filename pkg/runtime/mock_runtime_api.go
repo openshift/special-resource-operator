@@ -65,13 +65,13 @@ func (mr *MockRuntimeAPIMockRecorder) InitRuntimeInfo() *gomock.Call {
 }
 
 // LogRuntimeInformation mocks base method.
-func (m *MockRuntimeAPI) LogRuntimeInformation(info *RuntimeInformation) {
+func (m *MockRuntimeAPI) LogRuntimeInformation(ctx context.Context, info *RuntimeInformation) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "LogRuntimeInformation", info)
+	m.ctrl.Call(m, "LogRuntimeInformation", ctx, info)
 }
 
 // LogRuntimeInformation indicates an expected call of LogRuntimeInformation.
-func (mr *MockRuntimeAPIMockRecorder) LogRuntimeInformation(info interface{}) *gomock.Call {
+func (mr *MockRuntimeAPIMockRecorder) LogRuntimeInformation(ctx, info interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogRuntimeInformation", reflect.TypeOf((*MockRuntimeAPI)(nil).LogRuntimeInformation), info)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogRuntimeInformation", reflect.TypeOf((*MockRuntimeAPI)(nil).LogRuntimeInformation), ctx, info)
 }

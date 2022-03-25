@@ -41,9 +41,9 @@ var _ = Describe("specialResourceFinalizer_AddToSpecialResource", func() {
 	It("should add the finalizer", func() {
 		sr := &v1beta1.SpecialResource{}
 
-		mockKubeClient.EXPECT().Update(context.TODO(), sr)
+		mockKubeClient.EXPECT().Update(context.Background(), sr)
 
-		err := finalizers.NewSpecialResourceFinalizer(mockKubeClient, nil).AddToSpecialResource(context.TODO(), sr)
+		err := finalizers.NewSpecialResourceFinalizer(mockKubeClient, nil).AddToSpecialResource(context.Background(), sr)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(controllerutil.ContainsFinalizer(sr, finalizers.FinalizerString)).To(BeTrue())
 	})
@@ -53,9 +53,9 @@ var _ = Describe("specialResourceFinalizer_AddToSpecialResource", func() {
 
 		randomError := errors.New("random error")
 
-		mockKubeClient.EXPECT().Update(context.TODO(), sr).Return(randomError)
+		mockKubeClient.EXPECT().Update(context.Background(), sr).Return(randomError)
 
-		err := finalizers.NewSpecialResourceFinalizer(mockKubeClient, nil).AddToSpecialResource(context.TODO(), sr)
+		err := finalizers.NewSpecialResourceFinalizer(mockKubeClient, nil).AddToSpecialResource(context.Background(), sr)
 		Expect(err).To(Equal(randomError))
 	})
 })
@@ -64,7 +64,7 @@ var _ = Describe("specialResourceFinalizer_Finalize", func() {
 	It("should do nothing if the CR does not have the finalizer", func() {
 		sr := &v1beta1.SpecialResource{}
 
-		err := finalizers.NewSpecialResourceFinalizer(mockKubeClient, nil).Finalize(context.TODO(), sr)
+		err := finalizers.NewSpecialResourceFinalizer(mockKubeClient, nil).Finalize(context.Background(), sr)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -125,23 +125,23 @@ var _ = Describe("specialResourceFinalizer_Finalize", func() {
 		gomock.InOrder(
 			mockKubeClient.
 				EXPECT().
-				GetNodesByLabels(context.TODO(), nodeSelector).
+				GetNodesByLabels(context.Background(), nodeSelector).
 				Return(nodes, nil),
-			mockKubeClient.EXPECT().Update(context.TODO(), emptyNode),
+			mockKubeClient.EXPECT().Update(context.Background(), emptyNode),
 			mockKubeClient.
 				EXPECT().
-				Get(context.TODO(), types.NamespacedName{Name: srNamespace}, &ns).
+				Get(context.Background(), types.NamespacedName{Name: srNamespace}, &ns).
 				Do(func(_ context.Context, _ types.NamespacedName, obj client.Object) {
 					obj.SetOwnerReferences(refs)
 				}),
-			mockKubeClient.EXPECT().Delete(context.TODO(), nsWithOwnerReference),
-			mockPollActions.EXPECT().ForResourceUnavailability(context.TODO(), nsWithOwnerReference),
-			mockKubeClient.EXPECT().Update(context.TODO(), srWithoutFinalizer),
+			mockKubeClient.EXPECT().Delete(context.Background(), nsWithOwnerReference),
+			mockPollActions.EXPECT().ForResourceUnavailability(context.Background(), nsWithOwnerReference),
+			mockKubeClient.EXPECT().Update(context.Background(), srWithoutFinalizer),
 		)
 
 		f := finalizers.NewSpecialResourceFinalizer(mockKubeClient, mockPollActions)
 
-		err := f.Finalize(context.TODO(), sr)
+		err := f.Finalize(context.Background(), sr)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })

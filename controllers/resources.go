@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 var (
@@ -24,6 +25,8 @@ var (
 )
 
 func (r *SpecialResourceReconciler) createImagePullerRoleBinding(ctx context.Context, wi *WorkItem) error {
+	log := ctrl.LoggerFrom(ctx)
+
 	rb := &unstructured.Unstructured{}
 	rb.SetAPIVersion("rbac.authorization.k8s.io/v1")
 	rb.SetKind("RoleBinding")
@@ -31,7 +34,7 @@ func (r *SpecialResourceReconciler) createImagePullerRoleBinding(ctx context.Con
 	namespacedName := types.NamespacedName{Namespace: wi.SpecialResource.Spec.Namespace, Name: "system:image-pullers"}
 	err := r.KubeClient.Get(ctx, namespacedName, rb)
 	if apierrors.IsNotFound(err) {
-		wi.Log.Error(err, "Warning: RoleBinding not found", "name", namespacedName)
+		log.Error(err, "Warning: RoleBinding not found", "roleBindingName", namespacedName)
 		return nil
 	} else if err != nil {
 		return errors.Wrap(err, "Error checking for image-pullers roleBinding")
@@ -45,7 +48,7 @@ func (r *SpecialResourceReconciler) createImagePullerRoleBinding(ctx context.Con
 	newSubject["namespace"] = wi.SpecialResource.Spec.Namespace
 
 	if apierrors.IsNotFound(err) {
-		wi.Log.Info("ImagePuller RoleBinding not found, creating")
+		log.Info("ImagePuller RoleBinding not found, creating")
 		rb.SetName("system:image-puller")
 		rb.SetNamespace(wi.SpecialResource.Spec.Namespace)
 
@@ -99,7 +102,7 @@ func (r *SpecialResourceReconciler) createImagePullerRoleBinding(ctx context.Con
 				return nil
 			}
 		default:
-			wi.Log.Info("subject", "DEFAULT NOT THE CORRECT TYPE", subject)
+			log.Info("subject", "DEFAULT NOT THE CORRECT TYPE", subject)
 		}
 	}
 
@@ -118,6 +121,7 @@ func (r *SpecialResourceReconciler) createImagePullerRoleBinding(ctx context.Con
 
 // ReconcileChartStates Reconcile Hardware States
 func (r *SpecialResourceReconciler) ReconcileChartStates(ctx context.Context, wi *WorkItem) error {
+	log := ctrl.LoggerFrom(ctx)
 
 	basicChart := *wi.Chart
 	basicChart.Templates = []*chart.File{}
@@ -143,14 +147,14 @@ func (r *SpecialResourceReconciler) ReconcileChartStates(ctx context.Context, wi
 	})
 
 	for _, stateYAML := range stateYAMLS {
-		wi.Log.Info("Executing", "State", stateYAML.Name)
+		log.Info("Executing", "State", stateYAML.Name)
 		if suErr := r.StatusUpdater.SetAsProgressing(ctx, wi.SpecialResource, s.HandlingState, fmt.Sprintf("Working on: %s", stateYAML.Name)); suErr != nil {
-			wi.Log.Error(suErr, "failed to update CR's status to Progressing")
+			log.Error(suErr, "failed to update CR's status to Progressing")
 			return suErr
 		}
 
 		if wi.SpecialResource.Spec.Debug {
-			wi.Log.Info("Debug active. Showing YAML contents", "name", stateYAML.Name, "data", stateYAML.Data)
+			log.Info("Debug active. Showing YAML contents", "yamlName", stateYAML.Name, "yamlData", stateYAML.Data)
 		}
 
 		step := basicChart
@@ -199,7 +203,7 @@ func (r *SpecialResourceReconciler) ReconcileChartStates(ctx context.Context, wi
 
 			if wi.SpecialResource.Spec.Debug {
 				d, _ := yaml.Marshal(step.Values)
-				wi.Log.Info("Debug active. Showing YAML values", "values", d)
+				log.Info("Debug active. Showing YAML values", "values", d)
 			}
 
 			err = r.Helmer.Run(
@@ -240,7 +244,7 @@ func (r *SpecialResourceReconciler) ReconcileChartStates(ctx context.Context, wi
 
 		// If resource available, label the nodes according to the current state
 		// if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
-		if err := r.labelNodesAccordingToState(ctx, wi.Log, wi.SpecialResource.Spec.NodeSelector, stateName); err != nil {
+		if err := r.labelNodesAccordingToState(ctx, wi.SpecialResource.Spec.NodeSelector, stateName); err != nil {
 			return err
 		}
 	}

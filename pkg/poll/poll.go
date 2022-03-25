@@ -8,7 +8,6 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift/special-resource-operator/pkg/clients"
 	"github.com/openshift/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift/special-resource-operator/pkg/storage"
@@ -19,8 +18,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	ctrlruntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 //go:generate mockgen -source=poll.go -package=poll -destination=mock_poll_api.go
@@ -35,7 +34,6 @@ type PollActions interface {
 type pollActions struct {
 	kubeClient clients.ClientsInterface
 	lc         lifecycle.Lifecycle
-	log        logr.Logger
 	storage    storage.Storage
 	waitFor    map[string]func(context.Context, *unstructured.Unstructured) error
 }
@@ -44,7 +42,6 @@ func New(kubeClient clients.ClientsInterface, lc lifecycle.Lifecycle, storage st
 	actions := pollActions{
 		kubeClient: kubeClient,
 		lc:         lc,
-		log:        zap.New(zap.UseDevMode(true)).WithName(utils.Print("wait", utils.Brown)),
 		storage:    storage,
 	}
 	waitFor := map[string]func(context.Context, *unstructured.Unstructured) error{
@@ -133,12 +130,12 @@ func (p *pollActions) ForResource(ctx context.Context, obj *unstructured.Unstruc
 	// Wait for general availability, Pods Complete, Running
 	// DaemonSet NumberUnavailable == 0, etc
 	if wait, ok := p.waitFor[obj.GetKind()]; ok {
-		p.log.Info("ForResource", "Kind", obj.GetKind())
+		ctrlruntime.LoggerFrom(ctx).Info("Waiting for resource", "resourceKind", obj.GetKind(), "resourceNamespace", obj.GetNamespace(), "resourceName", obj.GetName())
 		if err = wait(ctx, obj); err != nil {
 			return errors.Wrap(err, "Waiting too long for resource")
 		}
 	} else {
-		utils.WarnOnError(errors.New("No wait function registered for Kind: " + obj.GetKind()))
+		ctrlruntime.LoggerFrom(ctx).Info("Missing wait function for the kind", "kind", obj.GetKind())
 	}
 
 	return nil
@@ -156,8 +153,9 @@ func (p *pollActions) forCRD(ctx context.Context, obj *unstructured.Unstructured
 		return err
 	}
 
-	_, err := p.kubeClient.ServerGroups()
-	utils.WarnOnError(err)
+	if _, err := p.kubeClient.ServerGroups(); err != nil {
+		ctrlruntime.LoggerFrom(ctx).Error(err, "Failed to get ServerGroups")
+	}
 
 	return nil
 }
@@ -175,9 +173,11 @@ func (p *pollActions) forDeployment(ctx context.Context, obj *unstructured.Unstr
 		return err
 	}
 	return p.forResourceFullAvailability(ctx, obj, func(ctx context.Context, obj *unstructured.Unstructured) (bool, error) {
-
 		labels, found, err := unstructured.NestedMap(obj.Object, "spec", "selector", "matchLabels")
-		utils.WarnOnError(err)
+		if err != nil {
+			ctrlruntime.LoggerFrom(ctx).Error(err, "Failed to obtain match labels from unstructured Deployment",
+				"objName", obj.GetName(), "objNamespace", obj.GetNamespace())
+		}
 
 		if !found {
 			return false, err
@@ -203,7 +203,10 @@ func (p *pollActions) forDeployment(ctx context.Context, obj *unstructured.Unstr
 
 		for _, rs := range rss.Items {
 			status, found, err := unstructured.NestedMap(rs.Object, "status")
-			utils.WarnOnError(err)
+			if err != nil {
+				ctrlruntime.LoggerFrom(ctx).Error(err, "Failed to obtain status from unstructured ReplicaSet",
+					"rsName", rs.GetName(), "rsNamespace", rs.GetNamespace())
+			}
 			if !found {
 				return false, nil
 			}
@@ -234,14 +237,20 @@ func (p *pollActions) forStatefulSet(ctx context.Context, obj *unstructured.Unst
 		return err
 	}
 	return p.forResourceFullAvailability(ctx, obj, func(_ context.Context, obj *unstructured.Unstructured) (bool, error) {
-
 		repls, found, err := unstructured.NestedInt64(obj.Object, "spec", "replicas")
-		utils.WarnOnError(err)
+		if err != nil {
+			ctrlruntime.LoggerFrom(ctx).Error(err, "Failed to obtain amount of replicas from unstructured StatefulSet",
+				"objName", obj.GetName(), "objNamespace", obj.GetNamespace())
+		}
 		if !found {
 			return false, errors.New("cannot read .spec.replicas from StatefulSet")
 		}
+
 		status, found, err := unstructured.NestedMap(obj.Object, "status")
-		utils.WarnOnError(err)
+		if err != nil {
+			ctrlruntime.LoggerFrom(ctx).Error(err, "Failed to obtain status from unstructured StatefulSet",
+				"objName", obj.GetName(), "objNamespace", obj.GetNamespace())
+		}
 		if !found {
 			return false, nil
 		}
@@ -262,9 +271,11 @@ func (p *pollActions) forJob(ctx context.Context, obj *unstructured.Unstructured
 	}
 
 	return p.forResourceFullAvailability(ctx, obj, func(_ context.Context, obj *unstructured.Unstructured) (bool, error) {
-
 		conditions, found, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
-		utils.WarnOnError(err)
+		if err != nil {
+			ctrlruntime.LoggerFrom(ctx).Error(err, "Failed to obtain conditions from unstructured Job",
+				"objName", obj.GetName(), "objNamespace", obj.GetNamespace())
+		}
 
 		if !found {
 			return false, nil

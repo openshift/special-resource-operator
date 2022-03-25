@@ -4,13 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 //go:generate mockgen -source=kernel.go -package=kernel -destination=mock_kernel_api.go
@@ -22,14 +20,10 @@ type KernelData interface {
 	PatchVersion(kernelFullVersion string) (string, error)
 }
 
-type kernelData struct {
-	log logr.Logger
-}
+type kernelData struct{}
 
 func NewKernelData() KernelData {
-	return &kernelData{
-		log: zap.New(zap.UseDevMode(true)).WithName(utils.Print("kernel", utils.Green)),
-	}
+	return &kernelData{}
 }
 
 func (k *kernelData) SetAffineAttributes(obj *unstructured.Unstructured,
@@ -121,12 +115,8 @@ func (k *kernelData) IsObjectAffine(obj client.Object) bool {
 
 	annotations := obj.GetAnnotations()
 
-	if affine, found := annotations["specialresource.openshift.io/kernel-affine"]; found && affine == "true" {
-		k.log.Info("Object is Kernel Affine", "Object", obj.GetName())
-		return true
-	}
-
-	return false
+	affine, found := annotations["specialresource.openshift.io/kernel-affine"]
+	return found && affine == "true"
 }
 
 func (k *kernelData) FullVersion(nodeList *corev1.NodeList) (string, error) {
