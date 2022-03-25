@@ -1,9 +1,0 @@
-apiVersion: shipwright.io/v1alpha1
-kind: BuildRun
-metadata:
-  name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}
-spec:
-  buildRef:
-    name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}
-
-    # "{{.KernelFullVersion}}"

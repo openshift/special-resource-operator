@@ -6,7 +6,7 @@ NAMESPACE        ?= special-resource-operator
 PULLPOLICY       ?= IfNotPresent
 TAG              ?= $(shell git rev-parse --abbrev-ref HEAD)
 CSPLIT           ?= csplit - --prefix="" --suppress-matched --suffix-format="%04d.yaml"  /---/ '{*}' --silent
-YAMLFILES        ?= $(shell  find manifests charts -name "*.yaml"  -not \( -path "charts/lustre/lustre-aws-fsx-0.0.1/csi-driver/*" -prune \)  -not \( -path "charts/*/shipwright-*/*" -prune \) -not \( -path "charts/experimental/*" -prune \) )
+YAMLFILES        ?= $(shell  find manifests charts -name "*.yaml")
 CONTAINER_COMMAND := $(or ${CONTAINER_COMMAND},podman)
 CLUSTER_CLIENT := $(or ${CLUSTER_CLIENT},kubectl)
 KUBECONFIG       ?= ${HOME}/.kube/config
@@ -18,7 +18,6 @@ kube-lint: kube-linter
 
 lint: golangci-lint
 	$(GOLANGCILINT) run --modules-download-mode readonly -v --timeout 5m0s
-	shellcheck helm-plugins/file-getter/cat-wrapper
 
 verify: vet
 	if [ `gofmt -l . | wc -l` -ne 0 ]; then \
@@ -27,9 +26,13 @@ verify: vet
 	fi
 
 e2e-test:
-	for d in basic; do \
-          KUBERNETES_CONFIG="$(KUBECONFIG)" NAMESPACE=$(NAMESPACE) go test -v -timeout 40m ./test/e2e/$$d -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit; \
-        done
+	$(CLUSTER_CLIENT) create namespace ping-pong
+	$(CLUSTER_CLIENT) create namespace simple-kmod
+	./scripts/make-cm-recipe charts/example/ping-pong-0.0.1/ ping-pong-chart ping-pong
+	./scripts/make-cm-recipe charts/example/simple-kmod-0.0.1/ simple-kmod-chart simple-kmod
+	KUBERNETES_CONFIG="$(KUBECONFIG)" NAMESPACE=$(NAMESPACE) go test -v -timeout 40m ./test/e2e/basic -ginkgo.v -ginkgo.noColor -ginkgo.failFast || exit;
+	$(CLUSTER_CLIENT) delete namespace ping-pong
+	$(CLUSTER_CLIENT) delete namespace simple-kmod
 
 # Download kube-linter locally if necessary
 KUBELINTER = $(shell pwd)/bin/kube-linter

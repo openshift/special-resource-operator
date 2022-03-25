@@ -17,9 +17,6 @@ RUN ["make", "controller-gen"]
 COPY cmd/ cmd/
 RUN ["make", "helm-plugins/cm-getter/cm-getter"]
 
-COPY charts/ charts/
-RUN ["make", "helm-repo-index"]
-
 COPY hack/ hack/
 COPY helm-plugins/ helm-plugins/
 COPY scripts/ scripts/
@@ -44,7 +41,6 @@ RUN useradd  -r -u 499 nonroot
 RUN getent group nonroot || groupadd -o -g 499 nonroot
 
 COPY --from=builder /workspace/helm-plugins ${HELM_PLUGINS}
-COPY --from=builder /workspace/build/charts /charts
 COPY --from=builder /workspace/manager /manager
 
 ENTRYPOINT ["/manager"]
