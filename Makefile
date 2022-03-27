@@ -88,6 +88,7 @@ helm-plugins/cm-getter: helm-plugins/cm-getter/cm-getter
 .PHONY: helm-plugins
 helm-plugins: helm-plugins/cm-getter
 
+.PHONY: manager
 manager:
 	go build -mod=readonly -o manager main.go
 
