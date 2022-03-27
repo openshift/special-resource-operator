@@ -34,7 +34,6 @@ type RuntimeInformation struct {
 	OperatingSystemDecimal    string                         `json:"operatingSystemDecimal"`
 	KernelFullVersion         string                         `json:"kernelFullVersion"`
 	KernelPatchVersion        string                         `json:"kernelPatchVersion"`
-	DriverToolkitImage        string                         `json:"driverToolkitImage"`
 	Platform                  string                         `json:"platform"`
 	ClusterVersion            string                         `json:"clusterVersion"`
 	ClusterVersionMajorMinor  string                         `json:"clusterVersionMajorMinor"`
@@ -53,7 +52,6 @@ var RunInfo = RuntimeInformation{
 	OperatingSystemDecimal:    "",
 	KernelFullVersion:         "",
 	KernelPatchVersion:        "",
-	DriverToolkitImage:        "",
 	Platform:                  "",
 	ClusterVersion:            "",
 	ClusterVersionMajorMinor:  "",
@@ -71,7 +69,6 @@ func logRuntimeInformation() {
 	log.Info("Runtime Information", "OperatingSystemDecimal", RunInfo.OperatingSystemDecimal)
 	log.Info("Runtime Information", "KernelFullVersion", RunInfo.KernelFullVersion)
 	log.Info("Runtime Information", "KernelPatchVersion", RunInfo.KernelPatchVersion)
-	log.Info("Runtime Information", "DriverToolkitImage", RunInfo.DriverToolkitImage)
 	log.Info("Runtime Information", "Platform", RunInfo.Platform)
 	log.Info("Runtime Information", "ClusterVersion", RunInfo.ClusterVersion)
 	log.Info("Runtime Information", "ClusterVersionMajorMinor", RunInfo.ClusterVersionMajorMinor)

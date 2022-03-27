@@ -192,14 +192,12 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 			RunInfo.OperatingSystemDecimal = version.OSVersion
 			RunInfo.OperatingSystemMajorMinor = version.OSMajorMinor
 			RunInfo.OperatingSystemMajor = version.OSMajor
-			RunInfo.DriverToolkitImage = version.DriverToolkit.ImageURL
 
 			if kernelAffine {
 				log.Info("KernelAffine: ClusterUpgradeInfo",
 					"kernel", RunInfo.KernelFullVersion,
 					"os", RunInfo.OperatingSystemDecimal,
-					"cluster", RunInfo.ClusterVersionMajorMinor,
-					"driverToolkitImage", RunInfo.DriverToolkitImage)
+					"cluster", RunInfo.ClusterVersionMajorMinor)
 			}
 
 			var err error
@@ -235,9 +233,6 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 				RunInfo.KernelFullVersion,
 				RunInfo.OperatingSystemDecimal,
 				r.specialresource.Spec.Debug)
-			//if err != nil {
-			//	return err
-			//}
 
 			replicas += 1
 

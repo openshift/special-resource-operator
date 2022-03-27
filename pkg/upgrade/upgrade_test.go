@@ -3,16 +3,12 @@ package upgrade
 import (
 	"context"
 	"fmt"
-	"io"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
@@ -21,30 +17,6 @@ import (
 func TestPkgUpgrade(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Upgrade Suite")
-}
-
-// fakeLayer is a fake struct implementing github.com/google/go-containerregistry/pkg/v1.Layer interface
-// The fake does not contain any logic because it's not directly accessed by the clusterInfo object,
-// only handled using registry.Registry which is mocked.
-type fakeLayer struct{}
-
-func (fk *fakeLayer) Digest() (v1.Hash, error) {
-	return v1.Hash{}, fmt.Errorf("not implemented")
-}
-func (fk *fakeLayer) DiffID() (v1.Hash, error) {
-	return v1.Hash{}, fmt.Errorf("not implemented")
-}
-func (fk *fakeLayer) Compressed() (io.ReadCloser, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-func (fk *fakeLayer) Uncompressed() (io.ReadCloser, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-func (fk *fakeLayer) Size() (int64, error) {
-	return 0, fmt.Errorf("not implemented")
-}
-func (fk *fakeLayer) MediaType() (types.MediaType, error) {
-	return types.OCILayer, fmt.Errorf("not implemented")
 }
 
 var _ = Describe("ClusterInfo", func() {
@@ -73,8 +45,6 @@ var _ = Describe("ClusterInfo", func() {
 		nodesLabels          []map[string]string
 		clusterVersion       string
 		clusterReleaseImages []string
-		dtkImage             string
-		dtk                  registry.DriverToolkitEntry
 	}
 
 	kernel := "4.18.0-305.19.1.el8_4.x86_64"
@@ -85,23 +55,20 @@ var _ = Describe("ClusterInfo", func() {
 	clusterVersion := "4.9"
 
 	clusterReleaseImages := []string{"quay.io/release/release@sha256:1234567890abcdef"}
-	dtkImageURL := "quay.io/dtk-image/dtk@sha256:1234567890abcdef"
 
 	nodeLabelsWithRTKernel := map[string]string{
-		labelKernelVersionFull:    kernelRT,
-		labelOSReleaseVersionID:   clusterVersion,
-		labelOSReleaseRHELVersion: fmt.Sprintf("%s.%s", systemMajor, systemMinor),
+		labelKernelVersionFull:       kernelRT,
+		labelOSReleaseID:             system,
+		labelOSReleaseVersionID:      clusterVersion,
+		labelOSReleaseVersionIDMajor: systemMajor,
+		labelOSReleaseVersionIDMinor: systemMinor,
 	}
 	nodeLabelsWithRegularKernel := map[string]string{
-		labelKernelVersionFull:    kernel,
-		labelOSReleaseVersionID:   clusterVersion,
-		labelOSReleaseRHELVersion: fmt.Sprintf("%s.%s", systemMajor, systemMinor),
-	}
-	clusterDTK := registry.DriverToolkitEntry{
-		ImageURL:            "",
-		KernelFullVersion:   kernel,
-		RTKernelFullVersion: kernelRT,
-		OSVersion:           fmt.Sprintf("%s.%s", systemMajor, systemMinor),
+		labelKernelVersionFull:       kernel,
+		labelOSReleaseID:             system,
+		labelOSReleaseVersionID:      clusterVersion,
+		labelOSReleaseVersionIDMajor: systemMajor,
+		labelOSReleaseVersionIDMinor: systemMinor,
 	}
 
 	Context("has all required data (happy flow)", func() {
@@ -113,12 +80,6 @@ var _ = Describe("ClusterInfo", func() {
 			}
 
 			ctx := context.TODO()
-
-			mockCluster.EXPECT().VersionHistory(ctx).Return(input.clusterReleaseImages, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, input.clusterReleaseImages[0]).Return(&fakeLayer{}, nil)
-			mockRegistry.EXPECT().ReleaseManifests(gomock.Any()).Return(input.clusterVersion, input.dtkImage, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, input.dtkImage).Return(&fakeLayer{}, nil)
-			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(input.dtk, nil)
 
 			m, err := clusterInfo.GetClusterInfo(ctx, &nodesList)
 
@@ -134,8 +95,6 @@ var _ = Describe("ClusterInfo", func() {
 					nodesLabels:          []map[string]string{nodeLabelsWithRTKernel},
 					clusterVersion:       clusterVersion,
 					clusterReleaseImages: clusterReleaseImages,
-					dtkImage:             dtkImageURL,
-					dtk:                  clusterDTK,
 				},
 				map[string]NodeVersion{
 					kernelRT: {
@@ -143,12 +102,6 @@ var _ = Describe("ClusterInfo", func() {
 						OSMajor:        fmt.Sprintf("%s%s", system, systemMajor),
 						OSMajorMinor:   fmt.Sprintf("%s%s.%s", system, systemMajor, systemMinor),
 						ClusterVersion: clusterVersion,
-						DriverToolkit: registry.DriverToolkitEntry{
-							ImageURL:            dtkImageURL,
-							KernelFullVersion:   kernel,
-							RTKernelFullVersion: kernelRT,
-							OSVersion:           fmt.Sprintf("%s.%s", systemMajor, systemMinor),
-						},
 					},
 				},
 			),
@@ -159,8 +112,6 @@ var _ = Describe("ClusterInfo", func() {
 					nodesLabels:          []map[string]string{nodeLabelsWithRegularKernel},
 					clusterVersion:       clusterVersion,
 					clusterReleaseImages: clusterReleaseImages,
-					dtkImage:             dtkImageURL,
-					dtk:                  clusterDTK,
 				},
 				map[string]NodeVersion{
 					kernel: {
@@ -168,12 +119,6 @@ var _ = Describe("ClusterInfo", func() {
 						OSMajor:        fmt.Sprintf("%s%s", system, systemMajor),
 						OSMajorMinor:   fmt.Sprintf("%s%s.%s", system, systemMajor, systemMinor),
 						ClusterVersion: clusterVersion,
-						DriverToolkit: registry.DriverToolkitEntry{
-							ImageURL:            dtkImageURL,
-							KernelFullVersion:   kernel,
-							RTKernelFullVersion: kernelRT,
-							OSVersion:           fmt.Sprintf("%s.%s", systemMajor, systemMinor),
-						},
 					},
 				},
 			),
@@ -187,8 +132,6 @@ var _ = Describe("ClusterInfo", func() {
 					},
 					clusterVersion:       clusterVersion,
 					clusterReleaseImages: clusterReleaseImages,
-					dtkImage:             dtkImageURL,
-					dtk:                  clusterDTK,
 				},
 				map[string]NodeVersion{
 					kernel: {
@@ -196,101 +139,14 @@ var _ = Describe("ClusterInfo", func() {
 						OSMajor:        fmt.Sprintf("%s%s", system, systemMajor),
 						OSMajorMinor:   fmt.Sprintf("%s%s.%s", system, systemMajor, systemMinor),
 						ClusterVersion: clusterVersion,
-						DriverToolkit: registry.DriverToolkitEntry{
-							ImageURL:            dtkImageURL,
-							KernelFullVersion:   kernel,
-							RTKernelFullVersion: kernelRT,
-							OSVersion:           fmt.Sprintf("%s.%s", systemMajor, systemMinor),
-						},
 					},
 					kernelRT: {
 						OSVersion:      fmt.Sprintf("%s.%s", systemMajor, systemMinor),
 						OSMajor:        fmt.Sprintf("%s%s", system, systemMajor),
 						OSMajorMinor:   fmt.Sprintf("%s%s.%s", system, systemMajor, systemMinor),
 						ClusterVersion: clusterVersion,
-						DriverToolkit: registry.DriverToolkitEntry{
-							ImageURL:            dtkImageURL,
-							KernelFullVersion:   kernel,
-							RTKernelFullVersion: kernelRT,
-							OSVersion:           fmt.Sprintf("%s.%s", systemMajor, systemMinor),
-						},
 					},
 				},
-			),
-		)
-	})
-
-	Context("lacks some required data/is mismatched", func() {
-		badSystemMinor := "0"
-		badKernel := ""
-		badNodeOSLabelsWithRTKernel := map[string]string{
-			labelKernelVersionFull:    kernelRT,
-			labelOSReleaseVersionID:   clusterVersion,
-			labelOSReleaseRHELVersion: fmt.Sprintf("%s.%s", systemMajor, badSystemMinor),
-		}
-		badNodeOSLabelsWithRegularKernel := map[string]string{
-			labelKernelVersionFull:    kernel,
-			labelOSReleaseVersionID:   clusterVersion,
-			labelOSReleaseRHELVersion: fmt.Sprintf("%s.%s", systemMajor, badSystemMinor),
-		}
-		badNodeLabelsNoKernelMatch := map[string]string{
-			labelKernelVersionFull:    badKernel,
-			labelOSReleaseVersionID:   clusterVersion,
-			labelOSReleaseRHELVersion: fmt.Sprintf("%s.%s", systemMajor, systemMinor),
-		}
-
-		DescribeTable("returns information for", func(input testInput, testExpects error) {
-			for _, labels := range input.nodesLabels {
-				node := corev1.Node{}
-				node.SetLabels(labels)
-				nodesList.Items = append(nodesList.Items, node)
-			}
-
-			ctx := context.TODO()
-
-			mockCluster.EXPECT().VersionHistory(ctx).Return(input.clusterReleaseImages, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, input.clusterReleaseImages[0]).Return(&fakeLayer{}, nil)
-			mockRegistry.EXPECT().ReleaseManifests(gomock.Any()).Return(input.clusterVersion, input.dtkImage, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, input.dtkImage).Return(&fakeLayer{}, nil)
-			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(input.dtk, nil)
-
-			m, err := clusterInfo.GetClusterInfo(ctx, &nodesList)
-			Expect(m).To(BeNil())
-
-			Expect(err).Should(MatchError(testExpects))
-		},
-			Entry(
-				"Mismatched OS with regular kernel",
-				testInput{
-					nodesLabels:          []map[string]string{badNodeOSLabelsWithRegularKernel},
-					clusterVersion:       clusterVersion,
-					clusterReleaseImages: clusterReleaseImages,
-					dtkImage:             dtkImageURL,
-					dtk:                  clusterDTK,
-				},
-				fmt.Errorf("OSVersion mismatch NFD: %s.%s vs. DTK: %s.%s", systemMajor, badSystemMinor, systemMajor, systemMinor),
-			),
-			Entry(
-				"Mismatched OS with RT kernel",
-				testInput{
-					nodesLabels:          []map[string]string{badNodeOSLabelsWithRTKernel},
-					clusterVersion:       clusterVersion,
-					clusterReleaseImages: clusterReleaseImages,
-					dtkImage:             dtkImageURL,
-					dtk:                  clusterDTK,
-				},
-				fmt.Errorf("OSVersion mismatch NFD: %s.%s vs. DTK: %s.%s", systemMajor, badSystemMinor, systemMajor, systemMinor),
-			),
-			Entry(
-				"Mismatched kernel between nodes and DTK",
-				testInput{
-					nodesLabels:          []map[string]string{badNodeLabelsNoKernelMatch},
-					clusterVersion:       clusterVersion,
-					clusterReleaseImages: clusterReleaseImages,
-					dtkImage:             dtkImageURL,
-					dtk:                  clusterDTK,
-				},
-				fmt.Errorf("DTK kernel not found running in the cluster. kernelFullVersion: %s. rtKernelFullVersion: %s", kernel, kernelRT),
 			),
 		)
 	})
