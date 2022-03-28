@@ -81,12 +81,6 @@ func main() {
 		"GOMAXPROCS", os.Getenv("GOMAXPROCS"),
 	)
 
-	helmSettings, err := helmer.DefaultSettings()
-	if err != nil {
-		setupLog.Error(err, "failed to create Helm settings")
-		os.Exit(1)
-	}
-
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
 	opts := &ctrl.Options{
@@ -133,7 +127,8 @@ func main() {
 
 	clusterInfoAPI := upgrade.NewClusterInfo(registry.NewRegistry(kubeClient), clusterAPI)
 	runtimeAPI := runtime.NewRuntimeAPI(kubeClient, clusterAPI, kernelAPI, clusterInfoAPI, proxyAPI)
-	helmerAPI, err := helmer.NewHelmer(creator, helmSettings, kubeClient)
+
+	helmerAPI, err := helmer.NewHelmer(creator, kubeClient)
 	if err != nil {
 		setupLog.Error(err, "Unable to setup helmer")
 		os.Exit(1)

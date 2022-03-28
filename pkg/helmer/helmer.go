@@ -30,10 +30,11 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-func DefaultSettings() (*cli.EnvSettings, error) {
+func defaultSettings() (*cli.EnvSettings, error) {
 	s := cli.New()
 
 	cacheDir, err := os.UserCacheDir()
@@ -77,19 +78,39 @@ type helmer struct {
 	apiVersions     chartutil.VersionSet
 }
 
-func NewHelmer(creator resource.Creator, settings *cli.EnvSettings, kubeClient clients.ClientsInterface) (*helmer, error) {
+func NewHelmer(creator resource.Creator, kubeClient clients.ClientsInterface) (*helmer, error) {
+	settings, err := defaultSettings()
+	if err != nil {
+		return nil, fmt.Errorf("unable to create settings: %w", err)
+	}
 	dc, err := settings.RESTClientGetter().ToDiscoveryClient()
 	if err != nil {
 		return nil, fmt.Errorf("unable to get discovery client: %w", err)
 	}
 	dc.Invalidate()
-	kubeVersion, err := dc.ServerVersion()
+	version, err := dc.ServerVersion()
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve server version: %w", err)
 	}
 	apiVersions, err := action.GetVersionSet(dc)
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve API versions: %w", err)
+	}
+	var kubeVersion chartutil.KubeVersion
+	if version != nil {
+		kubeVersion.Version = version.GitVersion
+		kubeVersion.Major = version.Major
+		kubeVersion.Minor = version.Minor
+	}
+	return newHelmerWithVersions(creator, settings, version, apiVersions, kubeClient)
+}
+
+func newHelmerWithVersions(creator resource.Creator, settings *cli.EnvSettings, version *version.Info, apiVersions chartutil.VersionSet, kubeClient clients.ClientsInterface) (*helmer, error) {
+	var kubeVersion chartutil.KubeVersion
+	if version != nil {
+		kubeVersion.Version = version.GitVersion
+		kubeVersion.Major = version.Major
+		kubeVersion.Minor = version.Minor
 	}
 	return &helmer{
 		creator:         creator,
@@ -101,12 +122,8 @@ func NewHelmer(creator resource.Creator, settings *cli.EnvSettings, kubeClient c
 			Generated:    time.Time{},
 			Repositories: []*repo.Entry{},
 		},
-		settings: settings,
-		kubeVersion: chartutil.KubeVersion{
-			Version: kubeVersion.GitVersion,
-			Major:   kubeVersion.Major,
-			Minor:   kubeVersion.Minor,
-		},
+		settings:    settings,
+		kubeVersion: kubeVersion,
 		apiVersions: apiVersions,
 	}, nil
 }
