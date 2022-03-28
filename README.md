@@ -1,5 +1,5 @@
 
-# Special Resource Operator
+# Special Resource Operatorr
 
 The Special Resource Operator (SRO) manages the  deployment of software stacks for hardware accelerators on an existing (day 2) OpenShift or Kubernetes cluster. SRO can be used for a case as simple as building and loading a single kernel module, or as complex as deploying the driver, device plugin, and monitoring stack for a hardware accelerator.
 
