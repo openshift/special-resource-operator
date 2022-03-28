@@ -37,10 +37,11 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
+	"github.com/openshift-psap/special-resource-operator/pkg/runtime"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -50,7 +51,7 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
+	scheme   = k8sruntime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
 
@@ -96,41 +97,46 @@ func main() {
 		setupLog.Error(err, "unable to create k8s clients")
 		os.Exit(1)
 	}
-	clusterCluster := cluster.NewCluster(kubeClient)
+	clusterAPI := cluster.NewCluster(kubeClient)
 
 	metricsClient := metrics.New()
 
 	st := storage.NewStorage(kubeClient)
 	lc := lifecycle.New(kubeClient, st)
 	pollActions := poll.New(kubeClient, lc, st)
-	kernelData := kernel.NewKernelData()
+	kernelAPI := kernel.NewKernelData()
 	proxyAPI := proxy.NewProxyAPI(kubeClient)
 
 	creator := resource.NewCreator(
 		kubeClient,
 		metricsClient,
 		pollActions,
-		kernelData,
+		kernelAPI,
 		scheme,
 		lc,
 		proxyAPI,
 		resourcehelper.New())
 
-	if err = (&controllers.SpecialResourceReconciler{Cluster: clusterCluster,
-		ClusterInfo:   upgrade.NewClusterInfo(registry.NewRegistry(kubeClient), clusterCluster),
+	clusterInfoAPI := upgrade.NewClusterInfo(registry.NewRegistry(kubeClient), clusterAPI)
+	runtimeAPI := runtime.NewRuntimeAPI(kubeClient, clusterAPI, kernelAPI, clusterInfoAPI, proxyAPI)
+
+	if err = (&controllers.SpecialResourceReconciler{
+		Cluster:       clusterAPI,
+		ClusterInfo:   clusterInfoAPI,
 		Creator:       creator,
 		PollActions:   pollActions,
-		Filter:        filter.NewFilter(lc, st, kernelData),
+		Filter:        filter.NewFilter(lc, st, kernelAPI),
 		Finalizer:     finalizers.NewSpecialResourceFinalizer(kubeClient, pollActions),
 		StatusUpdater: state.NewStatusUpdater(kubeClient),
 		Storage:       st,
 		Helmer:        helmer.NewHelmer(creator, helmSettings, kubeClient),
 		Assets:        assets.NewAssets(),
-		KernelData:    kernelData,
+		KernelData:    kernelAPI,
 		Log:           ctrl.Log,
 		Metrics:       metricsClient,
 		Scheme:        scheme,
 		ProxyAPI:      proxyAPI,
+		RuntimeAPI:    runtimeAPI,
 		KubeClient:    kubeClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")

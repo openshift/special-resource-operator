@@ -8,10 +8,12 @@ import (
 	"os"
 	"text/template"
 
+	"github.com/go-logr/logr"
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/internal/controllers/finalizers"
 	"github.com/openshift-psap/special-resource-operator/internal/controllers/state"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
+	"github.com/openshift-psap/special-resource-operator/pkg/runtime"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/pkg/errors"
@@ -19,76 +21,24 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// SpecialResourcesReconcile Takes care of all specialresources in the cluster
-func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler, req ctrl.Request) (ctrl.Result, error) {
-
-	log = r.Log.WithName(utils.Print("reconcile: "+r.Filter.GetMode(), utils.Purple))
-
-	log.Info("Reconciling SpecialResource(s) in all Namespaces")
-
-	specialresources := &srov1beta1.SpecialResourceList{}
-
-	opts := []client.ListOption{}
-	err := r.KubeClient.List(ctx, specialresources, opts...)
-	if err != nil {
-		// Error reading the object - requeue the request.
-		// This should never happen
-		return reconcile.Result{}, err
-	}
-
-	// Set specialResourcesCreated metric to the number of specialresources
-	r.Metrics.SetSpecialResourcesCreated(len(specialresources.Items))
-
-	// Do not reconcile all SRs everytime, get the one were the request
-	// came from, use the List for metrics and dashboard, we also need the
-	// List to find the dependency
-	var request int
-	var found bool
-	if request, found = FindSR(specialresources.Items, req.Name, "Name"); !found {
-		// If we do not find the specialresource it might be deleted,
-		// if it is a depdendency of another specialresource assign the
-		// parent specialresource for processing.
-		obj := types.NamespacedName{
-			Namespace: os.Getenv("OPERATOR_NAMESPACE"),
-			Name:      "special-resource-dependencies",
-		}
-		parent, err := r.Storage.CheckConfigMapEntry(ctx, req.Name, obj)
-		if err != nil {
-			log.Error(err, "failed to check configmap entry", "configmap", obj.String())
-			return reconcile.Result{}, err
-		}
-		request, found = FindSR(specialresources.Items, parent, "Name")
-		if !found {
-			return reconcile.Result{}, nil
-		}
-	}
-
-	r.parent = &specialresources.Items[request]
-	if suErr := r.StatusUpdater.SetAsProgressing(ctx, r.parent, state.Progressing, state.Progressing); suErr != nil {
-		log.Error(suErr, "failed to update CR's status to Progressing")
-		return reconcile.Result{}, suErr
-	}
+func (r *SpecialResourceReconciler) SpecialResourcesReconcile(ctx context.Context, wi *WorkItem) (ctrl.Result, error) {
+	log := wi.Log
 
 	// Execute finalization logic if CR is being deleted
-	isMarkedToBeDeleted := r.parent.GetDeletionTimestamp() != nil
+	isMarkedToBeDeleted := wi.SpecialResource.GetDeletionTimestamp() != nil
 	if isMarkedToBeDeleted {
-		r.specialresource = r.parent
 		log.Info("Marked to be deleted, reconciling finalizer")
-		if suErr := r.StatusUpdater.SetAsProgressing(ctx, r.parent, state.MarkedForDeletion, "CR is marked for deletion"); suErr != nil {
+		if suErr := r.StatusUpdater.SetAsProgressing(ctx, wi.SpecialResource, state.MarkedForDeletion, "CR is marked for deletion"); suErr != nil {
 			log.Error(suErr, "failed to update CR's status to Progressing")
 			return reconcile.Result{}, suErr
 		}
-		err = r.Finalizer.Finalize(ctx, r.specialresource)
-		return reconcile.Result{}, err
+		return reconcile.Result{}, r.Finalizer.Finalize(ctx, wi.SpecialResource)
 	}
 
-	log = r.Log.WithName(utils.Print(r.parent.Name, utils.Green))
-
-	switch r.parent.Spec.ManagementState {
+	switch wi.SpecialResource.Spec.ManagementState {
 	case operatorv1.Force, operatorv1.Managed, "":
 		// The CR must be managed by the operator.
 		// "" is there for completion, as the ManagementState is optional.
@@ -96,37 +46,43 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 	case operatorv1.Removed:
 		// The CR associated resources must be removed, even though the CR still exists.
 		log.Info("ManagementState=Removed; finalizing the SpecialResource")
-		err = removeSpecialResource(ctx, r)
-		return reconcile.Result{}, err
+		return reconcile.Result{}, r.removeSpecialResource(ctx, wi.SpecialResource)
 	case operatorv1.Unmanaged:
 		// The CR must be abandoned by the operator, leaving it in the last known status.
 		// This is already filtered out, leaving for double safety.
 		log.Info("ManagementState=Unmanaged; skipping")
 		return reconcile.Result{}, nil
 	default:
-		return reconcile.Result{}, fmt.Errorf("ManagementState=%q; unhandled state", r.parent.Spec.ManagementState)
+		return reconcile.Result{}, fmt.Errorf("ManagementState=%q; unhandled state", wi.SpecialResource.Spec.ManagementState)
+	}
+
+	if suErr := r.StatusUpdater.SetAsProgressing(ctx, wi.SpecialResource, state.Progressing, state.Progressing); suErr != nil {
+		log.Error(suErr, "failed to update CR's status to Progressing")
+		return reconcile.Result{}, suErr
 	}
 
 	log.Info("Resolving Dependencies")
-
-	pchart, err := r.Helmer.Load(r.parent.Spec.Chart)
+	var err error
+	wi.Chart, err = r.Helmer.Load(wi.SpecialResource.Spec.Chart)
 	if err != nil {
-		if suErr := r.StatusUpdater.SetAsErrored(ctx, r.parent, state.ChartFailure, fmt.Sprintf("Failed to load Helm Chart: %v", err)); suErr != nil {
+		if suErr := r.StatusUpdater.SetAsErrored(ctx, wi.SpecialResource, state.ChartFailure, fmt.Sprintf("Failed to load Helm Chart: %v", err)); suErr != nil {
 			log.Error(suErr, "failed to update CR's status to Errored")
 		}
 		return reconcile.Result{}, err
 	}
 
+	log.Info("Resolving dependencies")
+
 	// Only one level dependency support for now
-	for _, r.dependency = range r.parent.Spec.Dependencies {
+	for _, dependency := range wi.SpecialResource.Spec.Dependencies {
 
-		log = r.Log.WithName(utils.Print(r.dependency.Name, utils.Purple))
-		log.Info("Getting Dependency")
+		clog := log.WithName(utils.Print(dependency.Name, utils.Purple))
+		clog.Info("Getting Dependency")
 
-		cchart, err := r.Helmer.Load(r.dependency.HelmChart)
+		cchart, err := r.Helmer.Load(dependency.HelmChart)
 		if err != nil {
-			if suErr := r.StatusUpdater.SetAsErrored(ctx, r.parent, state.DependencyChartFailure, fmt.Sprintf("Failed to load dependency Helm Chart: %v", err)); suErr != nil {
-				log.Error(suErr, "failed to update CR's status to Errored")
+			if suErr := r.StatusUpdater.SetAsErrored(ctx, wi.SpecialResource, state.DependencyChartFailure, fmt.Sprintf("Failed to load dependency Helm Chart: %v", err)); suErr != nil {
+				clog.Error(suErr, "failed to update CR's status to Errored")
 			}
 			return ctrl.Result{}, err
 		}
@@ -138,53 +94,46 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 			Namespace: os.Getenv("OPERATOR_NAMESPACE"),
 			Name:      "special-resource-dependencies",
 		}
-		if err = r.Storage.UpdateConfigMapEntry(ctx, r.dependency.Name, r.parent.Name, ins); err != nil {
-			if suErr := r.StatusUpdater.SetAsErrored(ctx, r.parent, state.FailedToStoreDependencyInfo, fmt.Sprintf("Failed to store dependency information: %v", err)); suErr != nil {
-				log.Error(suErr, "failed to update CR's status to Errored")
+		if err = r.Storage.UpdateConfigMapEntry(ctx, dependency.Name, wi.SpecialResource.Name, ins); err != nil {
+			if suErr := r.StatusUpdater.SetAsErrored(ctx, wi.SpecialResource, state.FailedToStoreDependencyInfo, fmt.Sprintf("Failed to store dependency information: %v", err)); suErr != nil {
+				clog.Error(suErr, "failed to update CR's status to Errored")
 			}
 			return reconcile.Result{}, err
 		}
 
 		var child srov1beta1.SpecialResource
-		// Assign the specialresource to the reconciler object
-		if child, err = getDependencyFrom(specialresources, r.dependency.Name); err != nil {
-			log.Error(err, "Could not get SpecialResource dependency")
-			if err = createSpecialResourceFrom(ctx, r, cchart, r.dependency.HelmChart); err != nil {
-				log.Error(err, "RECONCILE REQUEUE: Dependency creation failed ")
-				if suErr := r.StatusUpdater.SetAsErrored(ctx, r.parent, state.FailedToCreateDependencySR, fmt.Sprintf("Failed to create SR for dependency: %v", err)); suErr != nil {
-					log.Error(suErr, "failed to update CR's status to Errored")
-				}
-				return reconcile.Result{Requeue: true}, nil
+		if child, err = getDependencyFrom(wi.AllSRs, dependency.Name); err != nil {
+			clog.Info("Failed to find dependency in list of all SpecialResources")
+			if err = r.createSpecialResourceFrom(ctx, clog, cchart, dependency.HelmChart); err != nil {
+				clog.Error(err, "Failed to create SpecialResource for dependency")
+				return reconcile.Result{}, err
 			}
 			// We need to fetch the newly created SpecialResources, reconciling
-			return reconcile.Result{}, nil
+			return reconcile.Result{Requeue: true}, nil
 		}
-		if err := ReconcileSpecialResourceChart(ctx, r, &child, cchart, r.dependency.Set); err != nil {
-			// We do not want a stacktrace here, errors.Wrap already created
-			// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
+
+		child.Spec.Set = dependency.Set
+		childWorkItem := wi.CreateForChild(&child, cchart)
+		if err := r.ReconcileSpecialResourceChart(ctx, childWorkItem); err != nil {
 			if suErr := r.StatusUpdater.SetAsErrored(ctx, &child, state.FailedToDeployDependencyChart, fmt.Sprintf("Failed to deploy dependency: %v", err)); suErr != nil {
-				log.Error(suErr, "failed to update CR's status to Errored")
+				clog.Error(suErr, "failed to update CR's status to Errored")
 			}
-			log.Error(err, "RECONCILE REQUEUE: Could not reconcile chart")
-			//return reconcile.Result{}, errors.New("Reconciling failed")
+			clog.Error(err, "Failed to reconcile chart")
 			return reconcile.Result{Requeue: true}, nil
 		}
 
 	}
 
-	log.Info("Reconciling Parent")
-	if err := ReconcileSpecialResourceChart(ctx, r, r.parent, pchart, r.parent.Spec.Set); err != nil {
-		// We do not want a stacktrace here, errors.Wrap already created
-		// breadcrumb of errors to follow. Just sprintf with %v rather than %+v
-		if suErr := r.StatusUpdater.SetAsErrored(ctx, r.parent, state.FailedToDeployChart, fmt.Sprintf("Failed to deploy SpecialResource's chart: %v", err)); suErr != nil {
+	log.Info("Done resolving dependencies - reconciling main SpecialResource")
+	if err := r.ReconcileSpecialResourceChart(ctx, wi); err != nil {
+		if suErr := r.StatusUpdater.SetAsErrored(ctx, wi.SpecialResource, state.FailedToDeployChart, fmt.Sprintf("Failed to deploy SpecialResource's chart: %v", err)); suErr != nil {
 			log.Error(suErr, "failed to update CR's status to Errored")
 		}
 		log.Error(err, "RECONCILE REQUEUE: Could not reconcile chart")
-		//return reconcile.Result{}, errors.New("Reconciling failed")
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	if suErr := r.StatusUpdater.SetAsReady(ctx, r.parent, state.Success, ""); suErr != nil {
+	if suErr := r.StatusUpdater.SetAsReady(ctx, wi.SpecialResource, state.Success, ""); suErr != nil {
 		log.Error(suErr, "failed to update CR's status to Ready")
 		return reconcile.Result{}, suErr
 	}
@@ -192,14 +141,14 @@ func SpecialResourcesReconcile(ctx context.Context, r *SpecialResourceReconciler
 	return reconcile.Result{}, nil
 }
 
-func TemplateFragment(sr interface{}) error {
+func TemplateFragment(sr interface{}, runInfo *runtime.RuntimeInformation) error {
 	spec, err := json.Marshal(sr)
 	if err != nil {
 		return err
 	}
 
 	// We want the json representation of the data no the golang one
-	info, err := json.MarshalIndent(RunInfo, "", "  ")
+	info, err := json.MarshalIndent(runInfo, "", "  ")
 	if err != nil {
 		return err
 	}
@@ -229,22 +178,18 @@ func TemplateFragment(sr interface{}) error {
 	return json.Unmarshal(buff.Bytes(), sr)
 }
 
-func ReconcileSpecialResourceChart(ctx context.Context, r *SpecialResourceReconciler, sr *srov1beta1.SpecialResource, chart *chart.Chart, values unstructured.Unstructured) error {
+func (r *SpecialResourceReconciler) ReconcileSpecialResourceChart(ctx context.Context, wi *WorkItem) error {
+	wi.Log.Info("Reconciling chart", "chart", wi.Chart.Name)
 
-	r.specialresource = sr
-	r.chart = *chart
-	r.values = values
-
-	log = r.Log.WithName(utils.Print(r.specialresource.Name, utils.Green))
-	log.Info("Reconciling Chart")
-
-	if err := getRuntimeInformation(ctx, r); err != nil {
+	var err error
+	wi.RunInfo, err = r.RuntimeAPI.GetRuntimeInformation(ctx, wi.SpecialResource)
+	if err != nil {
 		return err
 	}
 
-	logRuntimeInformation()
+	r.RuntimeAPI.LogRuntimeInformation(wi.RunInfo)
 
-	for idx, dep := range r.specialresource.Spec.Dependencies {
+	for idx, dep := range wi.SpecialResource.Spec.Dependencies {
 		if dep.Set.Object == nil {
 			dep.Set.Object = make(map[string]interface{})
 		}
@@ -257,52 +202,51 @@ func ReconcileSpecialResourceChart(ctx context.Context, r *SpecialResourceReconc
 			return err
 		}
 
-		r.specialresource.Spec.Dependencies[idx] = dep
+		wi.SpecialResource.Spec.Dependencies[idx] = dep
 	}
 
-	if r.specialresource.Spec.Set.Object == nil {
-		r.specialresource.Spec.Set.Object = make(map[string]interface{})
+	if wi.SpecialResource.Spec.Set.Object == nil {
+		wi.SpecialResource.Spec.Set.Object = make(map[string]interface{})
 	}
 
-	if err := unstructured.SetNestedField(r.specialresource.Spec.Set.Object, "Values", "kind"); err != nil {
+	if err := unstructured.SetNestedField(wi.SpecialResource.Spec.Set.Object, "Values", "kind"); err != nil {
 		return err
 	}
 
-	if err := unstructured.SetNestedField(r.specialresource.Spec.Set.Object, "sro.openshift.io/v1beta1", "apiVersion"); err != nil {
+	if err := unstructured.SetNestedField(wi.SpecialResource.Spec.Set.Object, "sro.openshift.io/v1beta1", "apiVersion"); err != nil {
 		return err
 	}
 
-	if err := TemplateFragment(&r.specialresource); err != nil {
+	if err := TemplateFragment(wi.SpecialResource, wi.RunInfo); err != nil {
 		return err
 	}
 
-	r.specialresource.DeepCopyInto(&RunInfo.SpecialResource)
-
-	if r.values.Object == nil {
-		r.values.Object = make(map[string]interface{})
+	if wi.SpecialResource.Spec.Set.Object == nil {
+		wi.SpecialResource.Spec.Set.Object = make(map[string]interface{})
 	}
-	if err := unstructured.SetNestedField(r.values.Object, "Values", "kind"); err != nil {
+
+	if err := unstructured.SetNestedField(wi.SpecialResource.Spec.Set.Object, "Values", "kind"); err != nil {
 		return err
 	}
 
-	if err := unstructured.SetNestedField(r.values.Object, "sro.openshift.io/v1beta1", "apiVersion"); err != nil {
+	if err := unstructured.SetNestedField(wi.SpecialResource.Spec.Set.Object, "sro.openshift.io/v1beta1", "apiVersion"); err != nil {
 		return err
 	}
 
-	if err := TemplateFragment(&r.values); err != nil {
+	if err := TemplateFragment(&wi.SpecialResource.Spec.Set, wi.RunInfo); err != nil {
 		return err
 	}
 
 	// Add a finalizer to CR if it does not already have one
-	if !utils.StringSliceContains(r.specialresource.GetFinalizers(), finalizers.FinalizerString) {
-		if err := r.Finalizer.AddToSpecialResource(ctx, r.specialresource); err != nil {
-			log.Error(err, "Failed to add finalizer")
+	if !utils.StringSliceContains(wi.SpecialResource.GetFinalizers(), finalizers.FinalizerString) {
+		if err := r.Finalizer.AddToSpecialResource(ctx, wi.SpecialResource); err != nil {
+			wi.Log.Error(err, "Failed to add finalizer")
 			return err
 		}
 	}
 
 	// Reconcile the special resource chart
-	return ReconcileChart(ctx, r)
+	return r.ReconcileChart(ctx, wi)
 }
 
 func FindSR(a []srov1beta1.SpecialResource, x string, by string) (int, bool) {
@@ -317,8 +261,6 @@ func FindSR(a []srov1beta1.SpecialResource, x string, by string) (int, bool) {
 }
 
 func getDependencyFrom(specialresources *srov1beta1.SpecialResourceList, name string) (srov1beta1.SpecialResource, error) {
-
-	log.Info("Looking for SpecialResource in fetched List (all namespaces)")
 	if idx, found := FindSR(specialresources.Items, name, "Name"); found {
 		return specialresources.Items[idx], nil
 	}
@@ -330,7 +272,7 @@ func noop() error {
 	return nil
 }
 
-func createSpecialResourceFrom(ctx context.Context, r *SpecialResourceReconciler, ch *chart.Chart, dp helmerv1beta1.HelmChart) error {
+func (r *SpecialResourceReconciler) createSpecialResourceFrom(ctx context.Context, log logr.Logger, ch *chart.Chart, dp helmerv1beta1.HelmChart) error {
 
 	vals := unstructured.Unstructured{}
 	vals.SetKind("Values")
@@ -348,7 +290,7 @@ func createSpecialResourceFrom(ctx context.Context, r *SpecialResourceReconciler
 	sr.Spec.Dependencies = make([]srov1beta1.SpecialResourceDependency, 0)
 
 	var idx int
-	if idx = utils.FindCRFile(ch.Files, r.dependency.Name); idx == -1 {
+	if idx = utils.FindCRFile(ch.Files, sr.Name); idx == -1 {
 		log.Info("Creating SpecialResource from template, cannot find it in charts directory")
 
 		res, err := r.KubeClient.CreateOrUpdate(ctx, &sr, noop)
@@ -356,7 +298,7 @@ func createSpecialResourceFrom(ctx context.Context, r *SpecialResourceReconciler
 			return fmt.Errorf("%s: %w", res, err)
 		}
 
-		return errors.New("created new SpecialResource we need to Reconcile")
+		return nil
 	}
 
 	log.Info("Creating SpecialResource: " + ch.Files[idx].Name)
@@ -365,19 +307,18 @@ func createSpecialResourceFrom(ctx context.Context, r *SpecialResourceReconciler
 		ctx,
 		ch.Files[idx].Data,
 		false,
-		r.specialresource,
-		r.specialresource.Name,
-		r.specialresource.Namespace,
-		r.specialresource.Spec.NodeSelector,
+		&sr,
+		sr.Name,
+		sr.Namespace,
+		sr.Spec.NodeSelector,
 		"", ""); err != nil {
 		log.Info("Cannot create, something went horribly wrong")
 		return err
 	}
 
-	return errors.New("Created new SpecialResource we need to Reconcile")
+	return nil
 }
 
-func removeSpecialResource(ctx context.Context, r *SpecialResourceReconciler) error {
-	r.specialresource = r.parent
-	return r.Finalizer.Finalize(ctx, r.specialresource)
+func (r *SpecialResourceReconciler) removeSpecialResource(ctx context.Context, sr *srov1beta1.SpecialResource) error {
+	return r.Finalizer.Finalize(ctx, sr)
 }

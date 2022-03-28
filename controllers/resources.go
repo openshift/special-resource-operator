@@ -3,13 +3,12 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"path"
 	"regexp"
 	"sort"
 
 	s "github.com/openshift-psap/special-resource-operator/internal/controllers/state"
-	"github.com/openshift-psap/special-resource-operator/pkg/state"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	"helm.sh/helm/v3/pkg/chart"
@@ -24,21 +23,16 @@ var (
 	affineRegex = regexp.MustCompile(`\n\s+specialresource\.openshift\.io\/kernel\-affine`)
 )
 
-func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconciler) error {
-
-	if found := utils.StringSliceContains(r.dependency.Tags, "image-puller"); !found {
-		log.Info("dep", "ImagePuller", found)
-	}
-
-	log.Info("Looking for ImagePuller RoleBinding")
+func (r *SpecialResourceReconciler) createImagePullerRoleBinding(ctx context.Context, wi *WorkItem) error {
+	wi.Log.Info("Looking for ImagePuller RoleBinding")
 	rb := &unstructured.Unstructured{}
 	rb.SetAPIVersion("rbac.authorization.k8s.io/v1")
 	rb.SetKind("RoleBinding")
 
-	namespacedName := types.NamespacedName{Namespace: r.specialresource.Spec.Namespace, Name: "system:image-pullers"}
+	namespacedName := types.NamespacedName{Namespace: wi.SpecialResource.Spec.Namespace, Name: "system:image-pullers"}
 	err := r.KubeClient.Get(ctx, namespacedName, rb)
 	if apierrors.IsNotFound(err) {
-		log.Info("Warning: RoleBinding system:image-pullers not found. Can be ignored on vanilla k8s or when namespace is being created.")
+		wi.Log.Info("Warning: RoleBinding system:image-pullers not found. Can be ignored on vanilla k8s or when namespace is being created.")
 		return nil
 	} else if err != nil {
 		return errors.Wrap(err, "Error checking for image-pullers roleBinding")
@@ -49,13 +43,13 @@ func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconci
 
 	newSubject["kind"] = "ServiceAccount"
 	newSubject["name"] = "builder"
-	newSubject["namespace"] = r.parent.Spec.Namespace
+	newSubject["namespace"] = wi.SpecialResource.Spec.Namespace
 
 	if apierrors.IsNotFound(err) {
+		wi.Log.Info("ImagePuller RoleBinding not found, creating")
 
-		log.Info("ImagePuller RoleBinding not found, creating")
 		rb.SetName("system:image-puller")
-		rb.SetNamespace(r.specialresource.Spec.Namespace)
+		rb.SetNamespace(wi.SpecialResource.Spec.Namespace)
 
 		if err = unstructured.SetNestedField(rb.Object, "rbac.authorization.k8s.io", "roleRef", "apiGroup"); err != nil {
 			return err
@@ -90,7 +84,7 @@ func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconci
 		return fmt.Errorf("unexpected error: %w", err)
 	}
 
-	log.Info("ImageReference RoleBinding found, updating")
+	wi.Log.Info("ImageReference RoleBinding found, updating")
 
 	oldSubjects, _, err := unstructured.NestedSlice(rb.Object, "subjects")
 	if err != nil {
@@ -105,12 +99,12 @@ func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconci
 				return err
 			}
 
-			if namespace == r.parent.Spec.Namespace {
-				log.Info("ImageReference ServiceAccount found, returning")
+			if namespace == wi.SpecialResource.Spec.Namespace {
+				wi.Log.Info("ImageReference ServiceAccount found, returning")
 				return nil
 			}
 		default:
-			log.Info("subject", "DEFAULT NOT THE CORRECT TYPE", subject)
+			wi.Log.Info("subject", "DEFAULT NOT THE CORRECT TYPE", subject)
 		}
 	}
 
@@ -128,16 +122,16 @@ func createImagePullerRoleBinding(ctx context.Context, r *SpecialResourceReconci
 }
 
 // ReconcileChartStates Reconcile Hardware States
-func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) error {
+func (r *SpecialResourceReconciler) ReconcileChartStates(ctx context.Context, wi *WorkItem) error {
 
-	nostate := r.chart
+	nostate := *wi.Chart
 	nostate.Templates = []*chart.File{}
 
 	stateYAMLS := []*chart.File{}
 
 	// First get all non-state related files from the templates
 	// and save the states in a temporary slice for single execution
-	for _, template := range r.chart.Templates {
+	for _, template := range wi.Chart.Templates {
 		if r.Assets.ValidStateName(template.Name) {
 			stateYAMLS = append(stateYAMLS, template)
 		} else {
@@ -151,21 +145,15 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 
 	for _, stateYAML := range stateYAMLS {
 
-		log.Info("Executing", "State", stateYAML.Name)
-		if suErr := r.StatusUpdater.SetAsProgressing(ctx, r.specialresource, s.HandlingState, fmt.Sprintf("Working on: %s", stateYAML.Name)); suErr != nil {
-			log.Error(suErr, "failed to update CR's status to Progressing")
+		wi.Log.Info("Executing", "State", stateYAML.Name)
+		if suErr := r.StatusUpdater.SetAsProgressing(ctx, wi.SpecialResource, s.HandlingState, fmt.Sprintf("Working on: %s", stateYAML.Name)); suErr != nil {
+			wi.Log.Error(suErr, "failed to update CR's status to Progressing")
 			return suErr
 		}
 
-		if r.specialresource.Spec.Debug {
-			log.Info("Debug active. Showing YAML contents", "name", stateYAML.Name, "data", stateYAML.Data)
+		if wi.SpecialResource.Spec.Debug {
+			wi.Log.Info("Debug active. Showing YAML contents", "name", stateYAML.Name, "data", stateYAML.Data)
 		}
-
-		// Every YAML is one state, we generate the name of the
-		// state special-resource + first 4 digits of the state
-		// e.g.: simple-kmod-0000 this can be used for scheduling or
-		// affinity, anti-affinity
-		state.GenerateName(stateYAML, r.specialresource.Name)
 
 		step := nostate
 		step.Templates = append(nostate.Templates, stateYAML)
@@ -174,40 +162,40 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		// then we need to replicate the object and set a name + os + kernel version
 		kernelAffine := affineRegex.Match(stateYAML.Data)
 
+		// var replicas is to keep track of the number of replicas
+		// and either to break or continue the for looop
 		var replicas int
-		var version upgrade.NodeVersion
 
 		// The cluster has more then one kernel version running
 		// we're replicating the driver-container DaemonSet to
 		// the number of kernel versions running in the cluster
-		if len(RunInfo.ClusterUpgradeInfo) == 0 {
+		if len(wi.RunInfo.ClusterUpgradeInfo) == 0 {
 			return errors.New("no KernelVersion detected, something is wrong")
 		}
 
-		//var replicas is to keep track of the number of replicas
-		// and either to break or continue the for loop
-		for RunInfo.KernelFullVersion, version = range RunInfo.ClusterUpgradeInfo {
+		var version upgrade.NodeVersion
+		for wi.RunInfo.KernelFullVersion, version = range wi.RunInfo.ClusterUpgradeInfo {
 
-			RunInfo.ClusterVersionMajorMinor = version.ClusterVersion
-			RunInfo.OperatingSystemDecimal = version.OSVersion
-			RunInfo.OperatingSystemMajorMinor = version.OSMajorMinor
-			RunInfo.OperatingSystemMajor = version.OSMajor
+			wi.RunInfo.ClusterVersionMajorMinor = version.ClusterVersion
+			wi.RunInfo.OperatingSystemDecimal = version.OSVersion
+			wi.RunInfo.OperatingSystemMajorMinor = version.OSMajorMinor
+			wi.RunInfo.OperatingSystemMajor = version.OSMajor
 
 			if kernelAffine {
-				log.Info("KernelAffine: ClusterUpgradeInfo",
-					"kernel", RunInfo.KernelFullVersion,
-					"os", RunInfo.OperatingSystemDecimal,
-					"cluster", RunInfo.ClusterVersionMajorMinor)
+				wi.Log.Info("KernelAffine: ClusterUpgradeInfo",
+					"kernel", wi.RunInfo.KernelFullVersion,
+					"os", wi.RunInfo.OperatingSystemDecimal,
+					"cluster", wi.RunInfo.ClusterVersionMajorMinor)
 			}
 
 			var err error
 
-			step.Values, err = chartutil.CoalesceValues(&step, r.values.Object)
+			step.Values, err = chartutil.CoalesceValues(&step, wi.SpecialResource.Spec.Set.Object)
 			if err != nil {
 				return err
 			}
 
-			rinfo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&RunInfo)
+			rinfo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(wi.RunInfo)
 			if err != nil {
 				return err
 			}
@@ -217,30 +205,30 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 				return err
 			}
 
-			if r.specialresource.Spec.Debug {
+			if wi.SpecialResource.Spec.Debug {
 				d, _ := yaml.Marshal(step.Values)
-				log.Info("Debug active. Showing YAML values", "values", d)
+				wi.Log.Info("Debug active. Showing YAML values", "values", d)
 			}
 
 			err = r.Helmer.Run(
 				ctx,
 				step,
 				step.Values,
-				r.specialresource,
-				r.specialresource.Name,
-				r.specialresource.Spec.Namespace,
-				r.specialresource.Spec.NodeSelector,
-				RunInfo.KernelFullVersion,
-				RunInfo.OperatingSystemDecimal,
-				r.specialresource.Spec.Debug)
+				wi.SpecialResource,
+				wi.SpecialResource.Name,
+				wi.SpecialResource.Spec.Namespace,
+				wi.SpecialResource.Spec.NodeSelector,
+				wi.RunInfo.KernelFullVersion,
+				wi.RunInfo.OperatingSystemDecimal,
+				wi.SpecialResource.Spec.Debug)
 
 			replicas += 1
 
 			// If the first replica fails we want to create all remaining
 			// ones for parallel startup, otherwise we would wait for the first
 			// then for the second etc.
-			if err != nil && replicas == len(RunInfo.ClusterUpgradeInfo) {
-				r.Metrics.SetCompletedState(r.specialresource.Name, stateYAML.Name, 0)
+			if err != nil && replicas == len(wi.RunInfo.ClusterUpgradeInfo) {
+				r.Metrics.SetCompletedState(wi.SpecialResource.Name, stateYAML.Name, 0)
 				return fmt.Errorf("failed to create state %s: %w ", stateYAML.Name, err)
 			}
 
@@ -250,10 +238,16 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 			}
 		}
 
-		r.Metrics.SetCompletedState(r.specialresource.Name, stateYAML.Name, 1)
+		r.Metrics.SetCompletedState(wi.SpecialResource.Name, stateYAML.Name, 1)
+		// Every YAML is one state, we generate the name of the
+		// state special-resource + first 4 digits of the state
+		// e.g.: simple-kmod-0000 this can be used for scheduling or
+		// affinity, anti-affinity
+		stateName := "specialresource.openshift.io/state-" + wi.SpecialResource.Name + "-" + path.Base(stateYAML.Name)[:4]
+
 		// If resource available, label the nodes according to the current state
 		// if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
-		if err := r.labelNodesAccordingToState(ctx, r.specialresource.Spec.NodeSelector); err != nil {
+		if err := r.labelNodesAccordingToState(ctx, wi.Log, wi.SpecialResource.Spec.NodeSelector, stateName); err != nil {
 			return err
 		}
 	}
@@ -261,12 +255,12 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 	// We're done with states now execute the part of the chart without
 	// states we need to reconcile the nostate Chart
 	var err error
-	nostate.Values, err = chartutil.CoalesceValues(&nostate, r.values.Object)
+	nostate.Values, err = chartutil.CoalesceValues(&nostate, wi.SpecialResource.Spec.Set.Object)
 	if err != nil {
 		return err
 	}
 
-	rinfo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&RunInfo)
+	rinfo, err := runtime.DefaultUnstructuredConverter.ToUnstructured(wi.RunInfo)
 	if err != nil {
 		return err
 	}
@@ -280,16 +274,16 @@ func ReconcileChartStates(ctx context.Context, r *SpecialResourceReconciler) err
 		ctx,
 		nostate,
 		nostate.Values,
-		r.specialresource,
-		r.specialresource.Name,
-		r.specialresource.Spec.Namespace,
-		r.specialresource.Spec.NodeSelector,
-		RunInfo.KernelFullVersion,
-		RunInfo.OperatingSystemDecimal,
+		wi.SpecialResource,
+		wi.SpecialResource.Name,
+		wi.SpecialResource.Spec.Namespace,
+		wi.SpecialResource.Spec.NodeSelector,
+		wi.RunInfo.KernelFullVersion,
+		wi.RunInfo.OperatingSystemDecimal,
 		false)
 }
 
-func createSpecialResourceNamespace(ctx context.Context, r *SpecialResourceReconciler) error {
+func (r *SpecialResourceReconciler) createSpecialResourceNamespace(ctx context.Context, wi *WorkItem) error {
 
 	ns := []byte(`apiVersion: v1
 kind: Namespace
@@ -299,17 +293,17 @@ metadata:
     openshift.io/cluster-monitoring: "true"
   name: `)
 
-	if r.specialresource.Spec.Namespace != "" {
-		add := []byte(r.specialresource.Spec.Namespace)
+	if wi.SpecialResource.Spec.Namespace != "" {
+		add := []byte(wi.SpecialResource.Spec.Namespace)
 		ns = append(ns, add...)
 	} else {
-		r.specialresource.Spec.Namespace = r.specialresource.Name
-		add := []byte(r.specialresource.Spec.Namespace)
+		wi.SpecialResource.Spec.Namespace = wi.SpecialResource.Name
+		add := []byte(wi.SpecialResource.Spec.Namespace)
 		ns = append(ns, add...)
 	}
 
-	if err := r.Creator.CreateFromYAML(ctx, ns, false, r.specialresource, r.specialresource.Name, "", nil, "", ""); err != nil {
-		log.Info("Cannot reconcile specialresource namespace, something went horribly wrong")
+	if err := r.Creator.CreateFromYAML(ctx, ns, false, wi.SpecialResource, wi.SpecialResource.Name, "", nil, "", ""); err != nil {
+		wi.Log.Info("Cannot reconcile specialresource namespace, something went horribly wrong")
 		return err
 	}
 
@@ -317,19 +311,19 @@ metadata:
 }
 
 // ReconcileChart Reconcile Hardware Configurations
-func ReconcileChart(ctx context.Context, r *SpecialResourceReconciler) error {
+func (r *SpecialResourceReconciler) ReconcileChart(ctx context.Context, wi *WorkItem) error {
 	// Leave this here, this is crucial for all following work
 	// Creating and setting the working namespace for the specialresource
 	// specialresource name == namespace if not metadata.namespace is set
-	if err := createSpecialResourceNamespace(ctx, r); err != nil {
+	if err := r.createSpecialResourceNamespace(ctx, wi); err != nil {
 		return fmt.Errorf("could not create the SpecialResource's namespace: %w", err)
 	}
 
-	if err := createImagePullerRoleBinding(ctx, r); err != nil {
+	if err := r.createImagePullerRoleBinding(ctx, wi); err != nil {
 		return fmt.Errorf("could not create ImagePuller RoleBinding: %w", err)
 	}
 
-	if err := ReconcileChartStates(ctx, r); err != nil {
+	if err := r.ReconcileChartStates(ctx, wi); err != nil {
 		return fmt.Errorf("cannot reconcile hardware states: %w", err)
 	}
 
