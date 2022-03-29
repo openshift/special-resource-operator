@@ -1,4 +1,4 @@
-package helmer_test
+package helmer
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/openshift/special-resource-operator/pkg/clients"
-	"github.com/openshift/special-resource-operator/pkg/helmer"
 	"github.com/openshift/special-resource-operator/pkg/resource"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/cli"
@@ -50,7 +49,9 @@ var _ = Describe("helmer_InstallCRDs", func() {
 			CreateFromYAML(context.TODO(), nil, false, owner, name, namespace, nil, "", "").
 			Return(randomError)
 
-		err := helmer.NewHelmer(mockCreator, cli.New(), mockKubeClient).InstallCRDs(context.TODO(), nil, owner, name, namespace)
+		h, err := newHelmerWithVersions(mockCreator, cli.New(), nil, nil, mockKubeClient)
+		Expect(err).NotTo(HaveOccurred())
+		err = h.InstallCRDs(context.TODO(), nil, owner, name, namespace)
 		Expect(err).To(Equal(randomError))
 	})
 
@@ -78,7 +79,9 @@ def
 			EXPECT().
 			CreateFromYAML(context.TODO(), manifests, false, owner, name, namespace, nil, "", "")
 
-		err := helmer.NewHelmer(mockCreator, cli.New(), mockKubeClient).InstallCRDs(context.TODO(), crds, owner, name, namespace)
+		h, err := newHelmerWithVersions(mockCreator, cli.New(), nil, nil, mockKubeClient)
+		Expect(err).NotTo(HaveOccurred())
+		err = h.InstallCRDs(context.TODO(), crds, owner, name, namespace)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
@@ -99,9 +102,9 @@ var _ = Describe("helmer_Run", func() {
 			},
 		}
 
-		err := helmer.
-			NewHelmer(mockCreator, cli.New(), mockKubeClient).
-			Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
+		h, err := newHelmerWithVersions(mockCreator, cli.New(), nil, nil, mockKubeClient)
+		Expect(err).NotTo(HaveOccurred())
+		err = h.Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -125,10 +128,9 @@ var _ = Describe("helmer_Run", func() {
 			EXPECT().
 			CreateFromYAML(context.TODO(), gomock.Any(), false, owner, name, namespace, nil, "", "").
 			Return(randomError)
-
-		err := helmer.
-			NewHelmer(mockCreator, cli.New(), mockKubeClient).
-			Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
+		h, err := newHelmerWithVersions(mockCreator, cli.New(), nil, nil, mockKubeClient)
+		Expect(err).NotTo(HaveOccurred())
+		err = h.Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
 		Expect(errors.Is(err, randomError)).To(BeTrue())
 	})
 })
