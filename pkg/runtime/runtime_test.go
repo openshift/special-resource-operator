@@ -126,7 +126,9 @@ var _ = Describe("GetRuntimeInformation", func() {
 		sr.Spec.Namespace = "my_namespace"
 		sr.Spec.NodeSelector = map[string]string{"key": "value"}
 		nodeList := v1.NodeList{
-			Items: []v1.Node{},
+			Items: []v1.Node{
+				{},
+			},
 		}
 		secrets := &v1.SecretList{}
 		optNs := client.InNamespace(sr.Spec.Namespace)
