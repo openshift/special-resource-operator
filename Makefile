@@ -117,6 +117,14 @@ deploy: manifests kustomize configure ## Deploy controller in the configured Kub
 	$(shell sleep 5)
 	$(CLUSTER_CLIENT) apply -k config/cr
 
+deploy-cm-simple-kmod:
+	$(CLUSTER_CLIENT) create namespace simple-kmod
+	./scripts/make-cm-recipe charts/example/simple-kmod-0.0.1 simple-kmod-chart simple-kmod
+
+deploy-cm-ping-pong:
+	$(CLUSTER_CLIENT) create namespace ping-pong
+	./scripts/make-cm-recipe charts/example/ping-pong-0.0.1 ping-pong-chart ping-pong
+
 # If the CRD is deleted before the CRs the CRD finalizer will hang forever
 # The specialresource finalizer will not execute either
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
