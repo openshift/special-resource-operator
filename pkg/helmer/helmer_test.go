@@ -134,3 +134,30 @@ var _ = Describe("helmer_Run", func() {
 		Expect(errors.Is(err, randomError)).To(BeTrue())
 	})
 })
+
+var _ = Describe("helmer_GetHelmOutput", func() {
+	const (
+		name      = "some-name"
+		namespace = "some-namespace"
+	)
+
+	It("good flow", func() {
+		ch := chart.Chart{
+			Files: []*chart.File{
+				{
+					Name: "crds/test.yml",
+					Data: nil,
+				},
+			},
+			Metadata: &chart.Metadata{
+				Name: name,
+				Type: "application",
+			},
+		}
+
+		h, err := newHelmerWithVersions(mockCreator, cli.New(), nil, nil, mockKubeClient)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = h.GetHelmOutput(context.TODO(), ch, nil, namespace)
+		Expect(err).NotTo(HaveOccurred())
+	})
+})

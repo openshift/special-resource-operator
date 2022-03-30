@@ -64,6 +64,7 @@ func OpenShiftInstallOrder() {
 type Helmer interface {
 	Load(helmerv1beta1.HelmChart) (*chart.Chart, error)
 	Run(context.Context, chart.Chart, map[string]interface{}, v1.Object, string, string, map[string]string, string, string, bool) error
+	GetHelmOutput(context.Context, chart.Chart, map[string]interface{}, string) (string, error)
 }
 
 type helmer struct {
@@ -262,23 +263,16 @@ func (h *helmer) InstallCRDs(ctx context.Context, crds []chart.CRD, owner v1.Obj
 	return nil
 }
 
-func (h *helmer) Run(
-	ctx context.Context,
+func (h *helmer) dryRunHelmChart(ctx context.Context,
 	ch chart.Chart,
 	vals map[string]interface{},
-	owner v1.Object,
-	name string,
-	namespace string,
-	nodeSelector map[string]string,
-	kernelFullVersion string,
-	operatingSystemMajorMinor string,
-	debug bool) error {
+	namespace string) (*release.Release, *action.Install, error) {
 
 	h.actionConfig = new(action.Configuration)
 
 	err := h.actionConfig.Init(h.settings.RESTClientGetter(), namespace, "configmaps", h.logWrap)
 	if err != nil {
-		return fmt.Errorf("Cannot initialize helm action config: %w", err)
+		return nil, nil, fmt.Errorf("Cannot initialize helm action config: %w", err)
 	}
 
 	install := action.NewInstall(h.actionConfig)
@@ -300,13 +294,39 @@ func (h *helmer) Run(
 	}
 
 	if ch.Metadata.Type != "" && ch.Metadata.Type != "application" {
-		return fmt.Errorf("Chart has an unsupported type %s and can not be installed", ch.Metadata.Type)
+		return nil, nil, fmt.Errorf("Chart has an unsupported type %s and can not be installed", ch.Metadata.Type)
 	}
 
 	rel, err := install.Run(&ch, vals)
+	return rel, install, err
+}
+
+func (h *helmer) GetHelmOutput(ctx context.Context,
+	ch chart.Chart,
+	vals map[string]interface{},
+	namespace string) (string, error) {
+	rel, _, err := h.dryRunHelmChart(ctx, ch, vals, namespace)
 	if err != nil {
-		utils.WarnOnError(err)
-		return err
+		return "", fmt.Errorf("failed to process chart, error is %w", err)
+	}
+	return rel.Manifest, nil
+}
+
+func (h *helmer) Run(
+	ctx context.Context,
+	ch chart.Chart,
+	vals map[string]interface{},
+	owner v1.Object,
+	name string,
+	namespace string,
+	nodeSelector map[string]string,
+	kernelFullVersion string,
+	operatingSystemMajorMinor string,
+	debug bool) error {
+
+	rel, install, err := h.dryRunHelmChart(ctx, ch, vals, namespace)
+	if err != nil {
+		return fmt.Errorf("failed to process helm chart: %w", err)
 	}
 
 	if debug {
