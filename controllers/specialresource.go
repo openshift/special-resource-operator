@@ -306,7 +306,7 @@ func (r *SpecialResourceReconciler) createSpecialResourceFrom(ctx context.Contex
 
 	log.Info("Creating SpecialResource", "name", ch.Files[idx].Name)
 
-	if err := r.Creator.CreateFromYAML(
+	if err := r.ResourceAPI.CreateFromYAML(
 		ctx,
 		ch.Files[idx].Data,
 		false,

@@ -64,7 +64,7 @@ type SpecialResourceReconciler struct {
 	Cluster                cluster.Cluster
 	ClusterInfo            upgrade.ClusterInfo
 	ClusterOperatorManager state.ClusterOperatorManager
-	Creator                resource.Creator
+	ResourceAPI            resource.ResourceAPI
 	Filter                 filter.Filter
 	Finalizer              finalizers.SpecialResourceFinalizer
 	Helmer                 helmer.Helmer

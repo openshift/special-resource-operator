@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	ctrl           *gomock.Controller
-	mockCreator    *resource.MockCreator
-	mockKubeClient *clients.MockClientsInterface
+	ctrl            *gomock.Controller
+	mockResourceAPI *resource.MockResourceAPI
+	mockKubeClient  *clients.MockClientsInterface
 )
 
 func TestHelmer(t *testing.T) {
@@ -26,7 +26,7 @@ func TestHelmer(t *testing.T) {
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		mockCreator = resource.NewMockCreator(ctrl)
+		mockResourceAPI = resource.NewMockResourceAPI(ctrl)
 		mockKubeClient = clients.NewMockClientsInterface(ctrl)
 	})
 
@@ -44,12 +44,12 @@ var _ = Describe("helmer_InstallCRDs", func() {
 	It("should return an error when a CRD cannot be created", func() {
 		randomError := errors.New("random error")
 
-		mockCreator.
+		mockResourceAPI.
 			EXPECT().
 			CreateFromYAML(context.TODO(), nil, false, owner, name, namespace, nil, "", "").
 			Return(randomError)
 
-		h, err := newHelmerWithVersions(mockCreator, cli.New(), nil, nil, mockKubeClient)
+		h, err := newHelmerWithVersions(mockResourceAPI, cli.New(), nil, nil, mockKubeClient)
 		Expect(err).NotTo(HaveOccurred())
 		err = h.InstallCRDs(context.TODO(), nil, owner, name, namespace)
 		Expect(err).To(Equal(randomError))
@@ -75,11 +75,11 @@ abc
 def
 `)
 
-		mockCreator.
+		mockResourceAPI.
 			EXPECT().
 			CreateFromYAML(context.TODO(), manifests, false, owner, name, namespace, nil, "", "")
 
-		h, err := newHelmerWithVersions(mockCreator, cli.New(), nil, nil, mockKubeClient)
+		h, err := newHelmerWithVersions(mockResourceAPI, cli.New(), nil, nil, mockKubeClient)
 		Expect(err).NotTo(HaveOccurred())
 		err = h.InstallCRDs(context.TODO(), crds, owner, name, namespace)
 		Expect(err).NotTo(HaveOccurred())
@@ -102,7 +102,7 @@ var _ = Describe("helmer_Run", func() {
 			},
 		}
 
-		h, err := newHelmerWithVersions(mockCreator, cli.New(), nil, nil, mockKubeClient)
+		h, err := newHelmerWithVersions(mockResourceAPI, cli.New(), nil, nil, mockKubeClient)
 		Expect(err).NotTo(HaveOccurred())
 		err = h.Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
 		Expect(err).To(HaveOccurred())
@@ -124,11 +124,11 @@ var _ = Describe("helmer_Run", func() {
 
 		randomError := errors.New("random error")
 
-		mockCreator.
+		mockResourceAPI.
 			EXPECT().
 			CreateFromYAML(context.TODO(), gomock.Any(), false, owner, name, namespace, nil, "", "").
 			Return(randomError)
-		h, err := newHelmerWithVersions(mockCreator, cli.New(), nil, nil, mockKubeClient)
+		h, err := newHelmerWithVersions(mockResourceAPI, cli.New(), nil, nil, mockKubeClient)
 		Expect(err).NotTo(HaveOccurred())
 		err = h.Run(context.TODO(), ch, nil, owner, name, namespace, nil, "", "", false)
 		Expect(errors.Is(err, randomError)).To(BeTrue())
@@ -155,7 +155,7 @@ var _ = Describe("helmer_GetHelmOutput", func() {
 			},
 		}
 
-		h, err := newHelmerWithVersions(mockCreator, cli.New(), nil, nil, mockKubeClient)
+		h, err := newHelmerWithVersions(mockResourceAPI, cli.New(), nil, nil, mockKubeClient)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = h.GetHelmOutput(context.TODO(), ch, nil, namespace)
 		Expect(err).NotTo(HaveOccurred())
