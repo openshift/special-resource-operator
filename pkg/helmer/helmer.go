@@ -69,7 +69,7 @@ type Helmer interface {
 
 type helmer struct {
 	actionConfig    *action.Configuration
-	creator         resource.Creator
+	resourceAPI     resource.ResourceAPI
 	getterProviders getter.Providers
 	log             logr.Logger
 	kubeClient      clients.ClientsInterface
@@ -79,7 +79,7 @@ type helmer struct {
 	apiVersions     chartutil.VersionSet
 }
 
-func NewHelmer(creator resource.Creator, kubeClient clients.ClientsInterface) (*helmer, error) {
+func NewHelmer(resourceAPI resource.ResourceAPI, kubeClient clients.ClientsInterface) (*helmer, error) {
 	settings, err := defaultSettings()
 	if err != nil {
 		return nil, fmt.Errorf("unable to create settings: %w", err)
@@ -103,10 +103,10 @@ func NewHelmer(creator resource.Creator, kubeClient clients.ClientsInterface) (*
 		kubeVersion.Major = version.Major
 		kubeVersion.Minor = version.Minor
 	}
-	return newHelmerWithVersions(creator, settings, version, apiVersions, kubeClient)
+	return newHelmerWithVersions(resourceAPI, settings, version, apiVersions, kubeClient)
 }
 
-func newHelmerWithVersions(creator resource.Creator, settings *cli.EnvSettings, version *version.Info, apiVersions chartutil.VersionSet, kubeClient clients.ClientsInterface) (*helmer, error) {
+func newHelmerWithVersions(resourceAPI resource.ResourceAPI, settings *cli.EnvSettings, version *version.Info, apiVersions chartutil.VersionSet, kubeClient clients.ClientsInterface) (*helmer, error) {
 	var kubeVersion chartutil.KubeVersion
 	if version != nil {
 		kubeVersion.Version = version.GitVersion
@@ -114,7 +114,7 @@ func newHelmerWithVersions(creator resource.Creator, settings *cli.EnvSettings, 
 		kubeVersion.Minor = version.Minor
 	}
 	return &helmer{
-		creator:         creator,
+		resourceAPI:     resourceAPI,
 		getterProviders: getter.All(settings),
 		log:             zap.New(zap.UseDevMode(true)).WithName(utils.Print("helmer", utils.Blue)),
 		kubeClient:      kubeClient,
@@ -255,7 +255,7 @@ func (h *helmer) InstallCRDs(ctx context.Context, crds []chart.CRD, owner v1.Obj
 	for _, crd := range crds {
 		fmt.Fprintf(&manifests, "---\n# Source: %s\n%s\n", crd.Filename, crd.File.Data)
 	}
-	if err := h.creator.CreateFromYAML(ctx, manifests.Bytes(),
+	if err := h.resourceAPI.CreateFromYAML(ctx, manifests.Bytes(),
 		false, owner, name, namespace, nil, "", ""); err != nil {
 		return err
 	}
@@ -367,7 +367,7 @@ func (h *helmer) Run(
 
 	}
 
-	err = h.creator.CreateFromYAML(
+	err = h.resourceAPI.CreateFromYAML(
 		ctx,
 		[]byte(rel.Manifest),
 		h.ReleaseInstalled(name),
@@ -472,7 +472,7 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 		// the most appropriate value to surface.
 		hk.LastRun.Phase = release.HookPhaseUnknown
 
-		if err := h.creator.CreateFromYAML(ctx, []byte(hk.Manifest), false, owner, name, namespace, nil, "", ""); err != nil {
+		if err := h.resourceAPI.CreateFromYAML(ctx, []byte(hk.Manifest), false, owner, name, namespace, nil, "", ""); err != nil {
 
 			hk.LastRun.CompletedAt = helmtime.Now()
 			hk.LastRun.Phase = release.HookPhaseFailed

@@ -10,33 +10,34 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// MockCreator is a mock of Creator interface.
-type MockCreator struct {
+// MockResourceAPI is a mock of ResourceAPI interface.
+type MockResourceAPI struct {
 	ctrl     *gomock.Controller
-	recorder *MockCreatorMockRecorder
+	recorder *MockResourceAPIMockRecorder
 }
 
-// MockCreatorMockRecorder is the mock recorder for MockCreator.
-type MockCreatorMockRecorder struct {
-	mock *MockCreator
+// MockResourceAPIMockRecorder is the mock recorder for MockResourceAPI.
+type MockResourceAPIMockRecorder struct {
+	mock *MockResourceAPI
 }
 
-// NewMockCreator creates a new mock instance.
-func NewMockCreator(ctrl *gomock.Controller) *MockCreator {
-	mock := &MockCreator{ctrl: ctrl}
-	mock.recorder = &MockCreatorMockRecorder{mock}
+// NewMockResourceAPI creates a new mock instance.
+func NewMockResourceAPI(ctrl *gomock.Controller) *MockResourceAPI {
+	mock := &MockResourceAPI{ctrl: ctrl}
+	mock.recorder = &MockResourceAPIMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockCreator) EXPECT() *MockCreatorMockRecorder {
+func (m *MockResourceAPI) EXPECT() *MockResourceAPIMockRecorder {
 	return m.recorder
 }
 
 // CreateFromYAML mocks base method.
-func (m *MockCreator) CreateFromYAML(arg0 context.Context, arg1 []byte, arg2 bool, arg3 v1.Object, arg4, arg5 string, arg6 map[string]string, arg7, arg8 string) error {
+func (m *MockResourceAPI) CreateFromYAML(arg0 context.Context, arg1 []byte, arg2 bool, arg3 v1.Object, arg4, arg5 string, arg6 map[string]string, arg7, arg8 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateFromYAML", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
 	ret0, _ := ret[0].(error)
@@ -44,7 +45,22 @@ func (m *MockCreator) CreateFromYAML(arg0 context.Context, arg1 []byte, arg2 boo
 }
 
 // CreateFromYAML indicates an expected call of CreateFromYAML.
-func (mr *MockCreatorMockRecorder) CreateFromYAML(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 interface{}) *gomock.Call {
+func (mr *MockResourceAPIMockRecorder) CreateFromYAML(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFromYAML", reflect.TypeOf((*MockCreator)(nil).CreateFromYAML), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFromYAML", reflect.TypeOf((*MockResourceAPI)(nil).CreateFromYAML), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+}
+
+// GetObjectsFromYAML mocks base method.
+func (m *MockResourceAPI) GetObjectsFromYAML(arg0 []byte) (*unstructured.UnstructuredList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetObjectsFromYAML", arg0)
+	ret0, _ := ret[0].(*unstructured.UnstructuredList)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetObjectsFromYAML indicates an expected call of GetObjectsFromYAML.
+func (mr *MockResourceAPIMockRecorder) GetObjectsFromYAML(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetObjectsFromYAML", reflect.TypeOf((*MockResourceAPI)(nil).GetObjectsFromYAML), arg0)
 }

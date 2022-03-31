@@ -41,7 +41,7 @@ func TestResource(t *testing.T) {
 	RunSpecs(t, "Resource Suite")
 }
 
-var _ = Describe("creator_CreateFromYAML", func() {
+var _ = Describe("resource_CreateFromYAML", func() {
 	var (
 		ctrl          *gomock.Controller
 		kubeClient    *clients.MockClientsInterface
@@ -131,7 +131,7 @@ spec:
 		Expect(err).NotTo(HaveOccurred())
 
 		err =
-			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI, helper).
+			NewResourceAPI(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI, helper).
 				CreateFromYAML(
 					context.TODO(),
 					yamlSpec,
@@ -256,7 +256,7 @@ spec:
 		Expect(err).NotTo(HaveOccurred())
 
 		err =
-			NewCreator(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI, helper).
+			NewResourceAPI(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI, helper).
 				CreateFromYAML(
 					context.TODO(),
 					yamlSpec,
@@ -273,7 +273,75 @@ spec:
 	})
 })
 
-var _ = Describe("creator_CheckForImagePullBackOff", func() {
+var _ = Describe("resource_GetObjectsFromYAML", func() {
+	var (
+		ctrl          *gomock.Controller
+		kubeClient    *clients.MockClientsInterface
+		mockLifecycle *lifecycle.MockLifecycle
+		metricsClient *metrics.MockMetrics
+		pollActions   *poll.MockPollActions
+		kernelData    *kernel.MockKernelData
+		proxyAPI      *proxy.MockProxyAPI
+		helper        *resourcehelper.MockHelper
+		scheme        *runtime.Scheme
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		kubeClient = clients.NewMockClientsInterface(ctrl)
+		mockLifecycle = lifecycle.NewMockLifecycle(ctrl)
+		metricsClient = metrics.NewMockMetrics(ctrl)
+		pollActions = poll.NewMockPollActions(ctrl)
+		kernelData = kernel.NewMockKernelData(ctrl)
+		proxyAPI = proxy.NewMockProxyAPI(ctrl)
+		helper = resourcehelper.NewMockHelper(ctrl)
+		scheme = runtime.NewScheme()
+		err := v1.AddToScheme(scheme)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		ctrl.Finish()
+	})
+
+	yamlSpec := []byte(`---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podName
+spec:
+  containers:
+  - name: podName
+    image: podimage:1.14.2
+    ports:
+    - containerPort: 80
+  restartPolicy: Always
+---
+apiVersion: v1
+kind: DaemonSet
+metadata:
+  name: dsName
+spec:
+  containers:
+  - name: dsName
+    image: dsimage:1.14.2
+    ports:
+    - containerPort: 80
+  restartPolicy: Always
+`)
+	It("good flow", func() {
+		r := NewResourceAPI(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI, helper)
+		resultList, err := r.GetObjectsFromYAML(yamlSpec)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(resultList.Items)).To(Equal(2))
+		Expect(resultList.Items[0].GetName()).To(Equal("podName"))
+		Expect(resultList.Items[1].GetName()).To(Equal("dsName"))
+		Expect(resultList.Items[0].GetKind()).To(Equal("Pod"))
+		Expect(resultList.Items[1].GetKind()).To(Equal("DaemonSet"))
+	})
+})
+
+var _ = Describe("resource_CheckForImagePullBackOff", func() {
 	var (
 		ctrl        *gomock.Controller
 		kubeClient  *clients.MockClientsInterface
@@ -305,7 +373,7 @@ var _ = Describe("creator_CheckForImagePullBackOff", func() {
 
 		pollActions.EXPECT().ForDaemonSet(context.TODO(), ds)
 
-		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
+		err := NewResourceAPI(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
 			checkForImagePullBackOff(context.TODO(), ds, namespace)
 
 		Expect(err).NotTo(HaveOccurred())
@@ -329,7 +397,7 @@ var _ = Describe("creator_CheckForImagePullBackOff", func() {
 			kubeClient.EXPECT().List(context.TODO(), &v1.PodList{}, opts...).Return(randomError),
 		)
 
-		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
+		err := NewResourceAPI(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
 			checkForImagePullBackOff(context.TODO(), ds, namespace)
 
 		Expect(err).To(Equal(randomError))
@@ -343,7 +411,7 @@ var _ = Describe("creator_CheckForImagePullBackOff", func() {
 			kubeClient.EXPECT().List(context.TODO(), &v1.PodList{}, opts...),
 		)
 
-		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
+		err := NewResourceAPI(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
 			checkForImagePullBackOff(context.TODO(), ds, namespace)
 
 		Expect(err).To(HaveOccurred())
@@ -382,7 +450,7 @@ var _ = Describe("creator_CheckForImagePullBackOff", func() {
 				}),
 		)
 
-		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
+		err := NewResourceAPI(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
 			checkForImagePullBackOff(context.TODO(), ds, namespace)
 
 		Expect(err).To(MatchError("ImagePullBackOff need to rebuild " + vendor + " driver-container"))
@@ -419,7 +487,7 @@ var _ = Describe("creator_CheckForImagePullBackOff", func() {
 				}),
 		)
 
-		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
+		err := NewResourceAPI(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
 			checkForImagePullBackOff(context.TODO(), ds, namespace)
 
 		Expect(err).NotTo(HaveOccurred())
@@ -445,7 +513,7 @@ var _ = Describe("creator_CheckForImagePullBackOff", func() {
 				}),
 		)
 
-		err := NewCreator(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
+		err := NewResourceAPI(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
 			checkForImagePullBackOff(context.TODO(), ds, namespace)
 
 		Expect(err).NotTo(HaveOccurred())
@@ -453,7 +521,7 @@ var _ = Describe("creator_CheckForImagePullBackOff", func() {
 	})
 })
 
-var _ = Describe("creator_BeforeCRUD", func() {
+var _ = Describe("resource_BeforeCRUD", func() {
 	var (
 		ctrl     *gomock.Controller
 		proxyAPI *proxy.MockProxyAPI
@@ -472,7 +540,7 @@ var _ = Describe("creator_BeforeCRUD", func() {
 
 		proxyAPI.EXPECT().Setup(obj).Return(nil).Times(1)
 
-		err := NewCreator(nil, nil, nil, nil, nil, nil, proxyAPI, nil).(*creator).
+		err := NewResourceAPI(nil, nil, nil, nil, nil, nil, proxyAPI, nil).(*resource).
 			BeforeCRUD(obj, nil)
 
 		Expect(err).ToNot(HaveOccurred())
@@ -480,7 +548,7 @@ var _ = Describe("creator_BeforeCRUD", func() {
 
 })
 
-var _ = Describe("creator_AfterCRUD", func() {
+var _ = Describe("resource_AfterCRUD", func() {
 	var (
 		ctrl        *gomock.Controller
 		pollActions *poll.MockPollActions
@@ -500,7 +568,7 @@ var _ = Describe("creator_AfterCRUD", func() {
 
 			expectations()
 
-			err := NewCreator(nil, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
+			err := NewResourceAPI(nil, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
 				AfterCRUD(context.Background(), obj, "ns")
 
 			Expect(err).ToNot(HaveOccurred())
@@ -539,20 +607,20 @@ var _ = Describe("creator_AfterCRUD", func() {
 
 		pollActions.EXPECT().ForResource(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 
-		err := NewCreator(nil, nil, pollActions, nil, nil, nil, nil, nil).(*creator).
+		err := NewResourceAPI(nil, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
 			AfterCRUD(context.Background(), obj, "ns")
 
 		Expect(err).ToNot(HaveOccurred())
 	})
 })
 
-var _ = Describe("creator_CRUD", func() {
+var _ = Describe("resource_CRUD", func() {
 	var (
 		ctrl       *gomock.Controller
 		kubeClient *clients.MockClientsInterface
 		helper     *resourcehelper.MockHelper
 
-		c *creator
+		r *resource
 	)
 
 	BeforeEach(func() {
@@ -563,7 +631,7 @@ var _ = Describe("creator_CRUD", func() {
 		scheme := runtime.NewScheme()
 		Expect(v1.AddToScheme(scheme)).To(Succeed())
 
-		c = NewCreator(kubeClient, nil, nil, nil, scheme, nil, nil, helper).(*creator)
+		r = NewResourceAPI(kubeClient, nil, nil, nil, scheme, nil, nil, helper).(*resource)
 	})
 
 	specialResourceName := "special-resource"
@@ -600,7 +668,7 @@ var _ = Describe("creator_CRUD", func() {
 			}
 			helper.EXPECT().SetMetaData(u, specialResourceName, namespace).Times(times)
 
-			Expect(c.CRUD(context.Background(), u, false, &owner, specialResourceName, namespace)).To(Succeed())
+			Expect(r.CRUD(context.Background(), u, false, &owner, specialResourceName, namespace)).To(Succeed())
 		},
 		Entry("neither SpecialResource nor Namespace", "Pod", "name", namespace, true, true),
 		Entry("Namespace", "Namespace", namespace, "", false, false),
@@ -626,7 +694,7 @@ var _ = Describe("creator_CRUD", func() {
 			}
 			kubeClient.EXPECT().Create(gomock.Any(), gomock.Any()).Times(times)
 
-			Expect(c.CRUD(context.Background(), obj, releaseInstalled, &owner, specialResourceName, namespace)).To(Succeed())
+			Expect(r.CRUD(context.Background(), obj, releaseInstalled, &owner, specialResourceName, namespace)).To(Succeed())
 		},
 		Entry("object is OneTimer & release is installed = no object recreation", true, true),
 		Entry("object is OneTimer & release is not installed = object recreation", true, false),
@@ -645,7 +713,7 @@ var _ = Describe("creator_CRUD", func() {
 				Return(&k8serrors.StatusError{ErrStatus: metav1.Status{Reason: errReason}})
 
 			releaseInstalled := false
-			err := c.CRUD(context.Background(), obj, releaseInstalled, &owner, specialResourceName, namespace)
+			err := r.CRUD(context.Background(), obj, releaseInstalled, &owner, specialResourceName, namespace)
 			Expect(err.Error()).To(ContainSubstring(expectedSubstring))
 		},
 		Entry("forbidden error", metav1.StatusReasonForbidden, "forbidden"),
@@ -665,7 +733,7 @@ var _ = Describe("creator_CRUD", func() {
 			assert()
 
 			releaseInstalled := false
-			Expect(c.CRUD(context.Background(), obj, releaseInstalled, &owner, specialResourceName, namespace)).To(Succeed())
+			Expect(r.CRUD(context.Background(), obj, releaseInstalled, &owner, specialResourceName, namespace)).To(Succeed())
 
 		},
 		Entry("won't happen if object is not updateable",

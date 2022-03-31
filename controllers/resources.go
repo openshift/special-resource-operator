@@ -296,7 +296,7 @@ metadata:
 		ns = append(ns, add...)
 	}
 
-	if err := r.Creator.CreateFromYAML(ctx, ns, false, wi.SpecialResource, wi.SpecialResource.Name, "", nil, "", ""); err != nil {
+	if err := r.ResourceAPI.CreateFromYAML(ctx, ns, false, wi.SpecialResource, wi.SpecialResource.Name, "", nil, "", ""); err != nil {
 		return err
 	}
 

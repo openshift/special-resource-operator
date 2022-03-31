@@ -115,7 +115,7 @@ func main() {
 	kernelAPI := kernel.NewKernelData()
 	proxyAPI := proxy.NewProxyAPI(kubeClient)
 
-	creator := resource.NewCreator(
+	resourceAPI := resource.NewResourceAPI(
 		kubeClient,
 		metricsClient,
 		pollActions,
@@ -128,7 +128,7 @@ func main() {
 	clusterInfoAPI := upgrade.NewClusterInfo(registry.NewRegistry(kubeClient), clusterAPI)
 	runtimeAPI := runtime.NewRuntimeAPI(kubeClient, clusterAPI, kernelAPI, clusterInfoAPI, proxyAPI)
 
-	helmerAPI, err := helmer.NewHelmer(creator, kubeClient)
+	helmerAPI, err := helmer.NewHelmer(resourceAPI, kubeClient)
 	if err != nil {
 		setupLog.Error(err, "Unable to setup helmer")
 		os.Exit(1)
@@ -137,7 +137,7 @@ func main() {
 	if err = (&controllers.SpecialResourceReconciler{Cluster: clusterAPI,
 		ClusterInfo:            clusterInfoAPI,
 		ClusterOperatorManager: state.NewClusterOperatorManager(kubeClient, "special-resource-operator"),
-		Creator:                creator,
+		ResourceAPI:            resourceAPI,
 		PollActions:            pollActions,
 		Filter:                 filter.NewFilter(lc, st, kernelAPI),
 		Finalizer:              finalizers.NewSpecialResourceFinalizer(kubeClient, pollActions),
