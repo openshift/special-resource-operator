@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo/v2"
@@ -21,7 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	restclient "k8s.io/client-go/rest"
 	fakerestclient "k8s.io/client-go/rest/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,9 +49,6 @@ func TestPoll(t *testing.T) {
 		mockLifecycle = lifecycle.NewMockLifecycle(ctrl)
 		mockStorage = storage.NewMockStorage(ctrl)
 		pa = New(mockClientsInterface, mockLifecycle, mockStorage)
-
-		retryInterval = time.Millisecond * 5
-		timeout = time.Millisecond * 30
 	})
 
 	RunSpecs(t, "PollActions Suite")
@@ -355,7 +350,6 @@ var _ = Context("Waiting for DaemonSet", func() {
 
 			err := pa.ForDaemonSet(context.Background(), obj)
 			Expect(err).ToNot(BeNil())
-			Expect(err).To(BeEquivalentTo(wait.ErrWaitTimeout))
 		})
 	})
 
@@ -537,7 +531,7 @@ var _ = Context("Polling for resource unavailability", func() {
 			"object exists",
 			nil,
 			func(err error) {
-				Expect(err).To(BeEquivalentTo(wait.ErrWaitTimeout))
+				Expect(err).To(HaveOccurred())
 			}),
 		Entry(
 			"another error occurs",

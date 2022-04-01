@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"regexp"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/openshift/special-resource-operator/pkg/clients"
@@ -20,7 +19,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -41,11 +39,6 @@ type pollActions struct {
 	storage    storage.Storage
 	waitFor    map[string]func(context.Context, *unstructured.Unstructured) error
 }
-
-var (
-	retryInterval = time.Second * 5
-	timeout       = time.Second * 30
-)
 
 func New(kubeClient clients.ClientsInterface, lc lifecycle.Lifecycle, storage storage.Storage) PollActions {
 	actions := pollActions{
@@ -75,36 +68,27 @@ type statusCallback func(ctx context.Context, obj *unstructured.Unstructured) (b
 func (p *pollActions) forResourceAvailability(ctx context.Context, obj *unstructured.Unstructured) error {
 
 	found := obj.DeepCopy()
-	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
-		err = p.kubeClient.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				p.log.Info("Waiting for creation of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
-				return false, nil
-			}
-			return false, err
+	err := p.kubeClient.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return fmt.Errorf("waiting for creation of %s/%s", obj.GetNamespace(), obj.GetName())
 		}
-		return true, nil
-	})
-	return err
+		return err
+	}
+	return nil
 }
 
 func (p *pollActions) ForResourceUnavailability(ctx context.Context, obj *unstructured.Unstructured) error {
 
 	found := obj.DeepCopy()
-	err := wait.Poll(retryInterval, timeout, func() (done bool, err error) {
-		err = p.kubeClient.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				p.log.Info("Waiting done for deletion of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
-				return true, nil
-			}
-			return true, err
+	err := p.kubeClient.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
 		}
-		p.log.Info("Waiting for deletion of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
-		return false, nil
-	})
-	return err
+		return err
+	}
+	return fmt.Errorf("resource %s/%s still exists", obj.GetNamespace(), obj.GetName())
 }
 
 // makeStatusCallback Closure capturing json path and expected status
@@ -214,27 +198,22 @@ func (p *pollActions) forDeployment(ctx context.Context, obj *unstructured.Unstr
 
 		err = p.kubeClient.List(ctx, &rss, opts...)
 		if err != nil {
-			p.log.Error(err, "Could not get ReplicaSet", "Deployment", obj.GetName())
-			return false, nil
+			return false, err
 		}
 
 		for _, rs := range rss.Items {
-			p.log.Info("Checking ReplicaSet", "name", rs.GetName())
 			status, found, err := unstructured.NestedMap(rs.Object, "status")
 			utils.WarnOnError(err)
 			if !found {
-				p.log.Info("No status for ReplicaSet", "name", rs.GetName())
 				return false, nil
 			}
 
 			_, ok := status["replicas"]
 			if !ok {
-				p.log.Info("No replicas for ReplicaSet", "name", rs.GetName())
 				return false, nil
 			}
 			repls := status["replicas"].(int64)
 			if repls == 0 {
-				p.log.Info("ReplicaSet scheduled for termination", "name", rs.GetName())
 				continue
 			}
 			_, okAvailableReplicas := status["availableReplicas"]
@@ -242,7 +221,6 @@ func (p *pollActions) forDeployment(ctx context.Context, obj *unstructured.Unstr
 				return false, nil
 			}
 			avail := status["availableReplicas"].(int64)
-			p.log.Info("Status", "AvailableReplicas", avail, "Replicas", repls)
 			if avail != repls {
 				return false, nil
 			}
@@ -260,28 +238,20 @@ func (p *pollActions) forStatefulSet(ctx context.Context, obj *unstructured.Unst
 		repls, found, err := unstructured.NestedInt64(obj.Object, "spec", "replicas")
 		utils.WarnOnError(err)
 		if !found {
-			return false, errors.New("Something went horribly wrong, cannot read .spec.replicas from StatefulSet")
+			return false, errors.New("cannot read .spec.replicas from StatefulSet")
 		}
-		p.log.Info("DEBUG", ".spec.replicas", repls)
 		status, found, err := unstructured.NestedMap(obj.Object, "status")
 		utils.WarnOnError(err)
 		if !found {
-			p.log.Info("No status for StatefulSet", "name", obj.GetName())
 			return false, nil
 		}
 		if _, ok := status["currentReplicas"]; !ok {
 			return false, nil
 		}
-
 		currt := status["currentReplicas"].(int64)
-
 		if repls == currt {
-			p.log.Info("Status", "Replicas", repls, "CurrentReplicas", currt)
 			return true, nil
 		}
-
-		p.log.Info("Status", "Replicas", repls, "CurrentReplicas", currt)
-
 		return false, nil
 	})
 }
@@ -373,29 +343,21 @@ func (p *pollActions) forLifecycleAvailability(ctx context.Context, obj *unstruc
 		Name:      "special-resource-lifecycle",
 	}
 
-	return wait.Poll(retryInterval, timeout, func() (done bool, err error) {
-
-		p.log.Info("Waiting for lifecycle update of ", "Namespace", obj.GetNamespace(), "Name", obj.GetName())
-
-		pl := p.lc.GetPodFromDaemonSet(ctx, objKey)
-
-		for _, pod := range pl.Items {
-			p.log.Info("Checking lifecycle of", "Pod", pod.GetName())
-			hs, err := utils.FNV64a(pod.GetNamespace() + pod.GetName())
-			if err != nil {
-				return false, err
-			}
-			value, err := p.storage.CheckConfigMapEntry(ctx, hs, ins)
-			if err != nil {
-				return false, err
-			}
-			if value != "" {
-				return false, nil
-			}
+	pl := p.lc.GetPodFromDaemonSet(ctx, objKey)
+	for _, pod := range pl.Items {
+		hs, err := utils.FNV64a(pod.GetNamespace() + pod.GetName())
+		if err != nil {
+			return err
 		}
-		p.log.Info("All Pods running latest DaemonSet Template, we can move on")
-		return true, nil
-	})
+		value, err := p.storage.CheckConfigMapEntry(ctx, hs, ins)
+		if err != nil {
+			return err
+		}
+		if value != "" {
+			return fmt.Errorf("pod %s/%s not available", obj.GetNamespace(), pod.GetName())
+		}
+	}
+	return nil
 }
 
 func (p *pollActions) ForDaemonSet(ctx context.Context, obj *unstructured.Unstructured) error {
@@ -454,32 +416,22 @@ func (p *pollActions) forBuild(ctx context.Context, obj *unstructured.Unstructur
 func (p *pollActions) forResourceFullAvailability(ctx context.Context, obj *unstructured.Unstructured, callback statusCallback) error {
 
 	found := obj.DeepCopy()
+	err := p.kubeClient.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
+	if err != nil {
+		return fmt.Errorf("failed to get object %s/%s/%s: %w", obj.GetKind(), obj.GetNamespace(), obj.GetName(), err)
+	}
+	fnd, err := callback(ctx, found)
+	if err != nil {
+		return fmt.Errorf("callback failed for %s/%s/%s: %w", obj.GetKind(), obj.GetNamespace(), obj.GetName(), err)
+	}
 
-	return wait.Poll(retryInterval, timeout, func() (bool, error) {
-		err := p.kubeClient.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
-		if err != nil {
-			p.log.Error(err, "failed to get an object", "name", obj.GetName(), "namespace", obj.GetNamespace())
-			return false, err
-		}
-		fnd, err := callback(ctx, found)
-		if err != nil {
-			p.log.Error(err, "callback failed", "name", obj.GetName(), "namespace", obj.GetNamespace())
-			return fnd, err
-		}
-
-		if fnd {
-			p.log.Info("Resource available ", "Kind", obj.GetKind()+": "+obj.GetNamespace()+"/"+obj.GetName())
-			return true, nil
-		}
-		p.log.Info("Waiting for availability of ", "Kind", obj.GetKind()+": "+obj.GetNamespace()+"/"+obj.GetName())
-		return false, nil
-	})
+	if fnd {
+		return nil
+	}
+	return fmt.Errorf("resource %s/%s/%s not available", obj.GetKind(), obj.GetNamespace(), obj.GetName())
 }
 
 func (p *pollActions) ForDaemonSetLogs(ctx context.Context, obj *unstructured.Unstructured, pattern string) error {
-
-	p.log.Info("WaitForDaemonSetLogs", "Name", obj.GetName())
-
 	pods := &unstructured.UnstructuredList{}
 	pods.SetAPIVersion("v1")
 	pods.SetKind("pod")
@@ -493,7 +445,6 @@ func (p *pollActions) ForDaemonSetLogs(ctx context.Context, obj *unstructured.Un
 		return errors.New("Cannot find Label app=, missing take a look at the manifests")
 	}
 
-	p.log.Info("Looking for Pods with label app=" + selector)
 	label["app"] = selector
 
 	opts := []client.ListOption{
@@ -507,7 +458,6 @@ func (p *pollActions) ForDaemonSetLogs(ctx context.Context, obj *unstructured.Un
 	}
 
 	for _, pod := range pods.Items {
-		p.log.Info("WaitForDaemonSetLogs", "Pod", pod.GetName())
 		podLogOpts := v1.PodLogOptions{}
 		req := p.kubeClient.GetPodLogs(pod.GetNamespace(), pod.GetName(), &podLogOpts)
 		podLogs, err := req.Stream(ctx)
@@ -529,7 +479,6 @@ func (p *pollActions) ForDaemonSetLogs(ctx context.Context, obj *unstructured.Un
 
 		logs := buf.String()
 		lastBytes := logs[len(logs)-cutoff:]
-		p.log.Info("WaitForDaemonSetLogs", "LastBytes", lastBytes)
 
 		var match bool
 
