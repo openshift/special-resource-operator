@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: podman
+spec:
+  containers:
+  - name: podman
+    image: registry.redhat.io/rhel8/podman:latest
+    command:
+    - /usr/sbin/init
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - name: pull-secret
+      mountPath: "/run/user/0/containers/"
+      readOnly: true
+  volumes:
+  - name: pull-secret
+    secret:
+      secretName: pull-secret
