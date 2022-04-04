@@ -55,6 +55,7 @@ type RuntimeInformation struct {
 type RuntimeAPI interface {
 	GetRuntimeInformation(ctx context.Context, sr *srov1beta1.SpecialResource) (*RuntimeInformation, error)
 	LogRuntimeInformation(info *RuntimeInformation)
+	InitRuntimeInfo() *RuntimeInformation
 }
 
 type runtime struct {
@@ -98,9 +99,8 @@ func (rt *runtime) LogRuntimeInformation(info *RuntimeInformation) {
 		"Proxy", info.Proxy)
 }
 
-func (rt *runtime) GetRuntimeInformation(ctx context.Context, sr *srov1beta1.SpecialResource) (*RuntimeInformation, error) {
-
-	info := &RuntimeInformation{
+func (rt *runtime) InitRuntimeInfo() *RuntimeInformation {
+	return &RuntimeInformation{
 		Kind:                      "Values",
 		OperatingSystemMajor:      "",
 		OperatingSystemMajorMinor: "",
@@ -117,6 +117,11 @@ func (rt *runtime) GetRuntimeInformation(ctx context.Context, sr *srov1beta1.Spe
 		Proxy:                     proxy.Configuration{},
 		GroupName:                 ResourceGroupName{DriverBuild: "driver-build", DriverContainer: "driver-container", RuntimeEnablement: "runtime-enablement", DevicePlugin: "device-plugin", DeviceMonitoring: "device-monitoring", DeviceDashboard: "device-dashboard", DeviceFeatureDiscovery: "device-feature-discovery", CSIDriver: "csi-driver"},
 	}
+}
+
+func (rt *runtime) GetRuntimeInformation(ctx context.Context, sr *srov1beta1.SpecialResource) (*RuntimeInformation, error) {
+
+	info := rt.InitRuntimeInfo()
 
 	nodeList, err := rt.kubeClient.GetNodesByLabels(ctx, sr.Spec.NodeSelector)
 	if err != nil {

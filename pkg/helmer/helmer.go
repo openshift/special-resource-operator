@@ -61,6 +61,8 @@ func OpenShiftInstallOrder() {
 	releaseutil.InstallOrder = utils.StringSliceInsert(releaseutil.InstallOrder, idx, "Certificates")
 }
 
+//go:generate mockgen -source=helmer.go -package=helmer -destination=mock_helmer_api.go
+
 type Helmer interface {
 	Load(helmerv1beta1.HelmChart) (*chart.Chart, error)
 	Run(context.Context, chart.Chart, map[string]interface{}, v1.Object, string, string, map[string]string, string, string, bool) error
