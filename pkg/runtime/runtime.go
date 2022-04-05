@@ -127,6 +127,9 @@ func (rt *runtime) GetRuntimeInformation(ctx context.Context, sr *srov1beta1.Spe
 	if err != nil {
 		return nil, fmt.Errorf("failed to get nodes list during getRuntimeInformation: %w", err)
 	}
+	if len(nodeList.Items) == 0 {
+		return nil, errors.New("No matching nodes for nodeSelector")
+	}
 
 	info.OperatingSystemMajor, info.OperatingSystemMajorMinor, info.OperatingSystemDecimal, err = rt.clusterAPI.OperatingSystem(nodeList)
 	if err != nil {
