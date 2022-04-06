@@ -37,11 +37,13 @@ func (m *MockPreflightAPI) EXPECT() *MockPreflightAPIMockRecorder {
 }
 
 // PreflightUpgradeCheck mocks base method.
-func (m *MockPreflightAPI) PreflightUpgradeCheck(ctx context.Context, sr *v1beta1.SpecialResource, runInfo *runtime.RuntimeInformation) error {
+func (m *MockPreflightAPI) PreflightUpgradeCheck(ctx context.Context, sr *v1beta1.SpecialResource, runInfo *runtime.RuntimeInformation) (bool, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PreflightUpgradeCheck", ctx, sr, runInfo)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(string)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // PreflightUpgradeCheck indicates an expected call of PreflightUpgradeCheck.

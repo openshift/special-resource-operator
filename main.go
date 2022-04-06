@@ -36,6 +36,7 @@ import (
 	"github.com/openshift/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift/special-resource-operator/pkg/metrics"
 	"github.com/openshift/special-resource-operator/pkg/poll"
+	"github.com/openshift/special-resource-operator/pkg/preflight"
 	"github.com/openshift/special-resource-operator/pkg/proxy"
 	"github.com/openshift/special-resource-operator/pkg/registry"
 	"github.com/openshift/special-resource-operator/pkg/resource"
@@ -107,7 +108,7 @@ func main() {
 	}
 	clusterAPI := cluster.NewCluster(kubeClient)
 
-	metricsClient := metrics.New()
+	metricsAPI := metrics.New()
 
 	st := storage.NewStorage(kubeClient)
 	lc := lifecycle.New(kubeClient, st)
@@ -117,7 +118,7 @@ func main() {
 
 	resourceAPI := resource.NewResourceAPI(
 		kubeClient,
-		metricsClient,
+		metricsAPI,
 		pollActions,
 		kernelAPI,
 		scheme,
@@ -125,8 +126,8 @@ func main() {
 		proxyAPI,
 		resourcehelper.New())
 
-	reg := registry.NewRegistry(kubeClient)
-	clusterInfoAPI := upgrade.NewClusterInfo(reg, clusterAPI)
+	registryAPI := registry.NewRegistry(kubeClient)
+	clusterInfoAPI := upgrade.NewClusterInfo(registryAPI, clusterAPI)
 	runtimeAPI := runtime.NewRuntimeAPI(kubeClient, clusterAPI, kernelAPI, clusterInfoAPI, proxyAPI)
 
 	helmerAPI, err := helmer.NewHelmer(resourceAPI, kubeClient)
@@ -134,6 +135,8 @@ func main() {
 		setupLog.Error(err, "Unable to setup helmer")
 		os.Exit(1)
 	}
+	preflightAPI := preflight.NewPreflightAPI(registryAPI, clusterAPI, clusterInfoAPI, resourceAPI, helmerAPI, runtimeAPI, kernelAPI)
+	statusUpdater := state.NewStatusUpdater(kubeClient)
 
 	if err = (&controllers.SpecialResourceReconciler{Cluster: clusterAPI,
 		ClusterInfo:            clusterInfoAPI,
@@ -142,13 +145,13 @@ func main() {
 		PollActions:            pollActions,
 		Filter:                 filter.NewFilter(controllers.SRgvk, controllers.SROwnedLabel, lc, st, kernelAPI),
 		Finalizer:              finalizers.NewSpecialResourceFinalizer(kubeClient, pollActions),
-		StatusUpdater:          state.NewStatusUpdater(kubeClient),
+		StatusUpdater:          statusUpdater,
 		Storage:                st,
 		Helmer:                 helmerAPI,
 		Assets:                 assets.NewAssets(),
 		KernelData:             kernelAPI,
 		Log:                    ctrl.Log,
-		Metrics:                metricsClient,
+		Metrics:                metricsAPI,
 		Scheme:                 scheme,
 		ProxyAPI:               proxyAPI,
 		RuntimeAPI:             runtimeAPI,
@@ -164,14 +167,28 @@ func main() {
 		Helmer:      helmerAPI,
 		Assets:      assets.NewAssets(),
 		Log:         ctrl.Log,
-		Metrics:     metricsClient,
+		Metrics:     metricsAPI,
 		Scheme:      scheme,
 		KubeClient:  kubeClient,
-		Registry:    reg,
+		Registry:    registryAPI,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create module controller", "controller", "SpecialResourceModule")
 		os.Exit(1)
 	}
+
+	if err = (&controllers.PreflightValidationReconciler{
+		Log:           ctrl.Log,
+		ClusterAPI:    clusterAPI,
+		Helmer:        helmerAPI,
+		PreflightAPI:  preflightAPI,
+		RuntimeAPI:    runtimeAPI,
+		StatusUpdater: statusUpdater,
+		KubeClient:    kubeClient,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PreflightValidation")
+		os.Exit(1)
+	}
+
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

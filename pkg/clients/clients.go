@@ -49,6 +49,7 @@ type ClientsInterface interface {
 	Invalidate()
 	ServerGroups() (*metav1.APIGroupList, error)
 	StatusUpdate(ctx context.Context, obj client.Object) error
+	StatusPatch(ctx context.Context, original, modified client.Object) error
 	CreateOrUpdate(ctx context.Context, obj client.Object, fn controllerutil.MutateFn) (controllerutil.OperationResult, error)
 	HasResource(resource schema.GroupVersionResource) (bool, error)
 	GetNodesByLabels(ctx context.Context, matchingLabels map[string]string) (*v1.NodeList, error)
@@ -145,6 +146,11 @@ func (k *k8sClients) ServerGroups() (*metav1.APIGroupList, error) {
 
 func (k *k8sClients) StatusUpdate(ctx context.Context, obj client.Object) error {
 	return k.runtimeClient.Status().Update(ctx, obj)
+}
+
+func (k *k8sClients) StatusPatch(ctx context.Context, original, modified client.Object) error {
+	patch := client.MergeFrom(original)
+	return k.runtimeClient.Status().Patch(ctx, modified, patch)
 }
 
 func (k *k8sClients) CreateOrUpdate(ctx context.Context, obj client.Object, fn controllerutil.MutateFn) (controllerutil.OperationResult, error) {

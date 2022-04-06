@@ -293,6 +293,20 @@ func (mr *MockClientsInterfaceMockRecorder) ServerGroups() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerGroups", reflect.TypeOf((*MockClientsInterface)(nil).ServerGroups))
 }
 
+// StatusPatch mocks base method.
+func (m *MockClientsInterface) StatusPatch(ctx context.Context, original, modified client.Object) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StatusPatch", ctx, original, modified)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StatusPatch indicates an expected call of StatusPatch.
+func (mr *MockClientsInterfaceMockRecorder) StatusPatch(ctx, original, modified interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatusPatch", reflect.TypeOf((*MockClientsInterface)(nil).StatusPatch), ctx, original, modified)
+}
+
 // StatusUpdate mocks base method.
 func (m *MockClientsInterface) StatusUpdate(ctx context.Context, obj client.Object) error {
 	m.ctrl.T.Helper()

@@ -9,7 +9,6 @@ import (
 	"github.com/openshift/special-resource-operator/pkg/cluster"
 	"github.com/openshift/special-resource-operator/pkg/helmer"
 	"github.com/openshift/special-resource-operator/pkg/kernel"
-	"github.com/openshift/special-resource-operator/pkg/metrics"
 	"github.com/openshift/special-resource-operator/pkg/registry"
 	"github.com/openshift/special-resource-operator/pkg/resource"
 	"github.com/openshift/special-resource-operator/pkg/runtime"
@@ -23,12 +22,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+const (
+	VerificationStatusReasonBuildConfigPresent = "Verification successful, BuildConfig is present in the recipe"
+	VerificationStatusReasonNoDaemonSet        = "Verification successful, no driver-container present in the recipe"
+	VerificationStatusReasonUnknown            = "Verification has not started yet"
+	VerificationStatusReasonVerified           = "Verification successful, driver-container for the next kernel version is present"
+)
+
 //go:generate mockgen -source=preflight.go -package=preflight -destination=mock_preflight_api.go
 
 type PreflightAPI interface {
 	PreflightUpgradeCheck(ctx context.Context,
 		sr *srov1beta1.SpecialResource,
-		runInfo *runtime.RuntimeInformation) error
+		runInfo *runtime.RuntimeInformation) (bool, string, error)
 	PrepareRuntimeInfo(ctx context.Context, image string) (*runtime.RuntimeInformation, error)
 }
 
@@ -37,7 +43,6 @@ func NewPreflightAPI(registryAPI registry.Registry,
 	clusterInfoAPI upgrade.ClusterInfo,
 	resourceAPI resource.ResourceAPI,
 	helmerAPI helmer.Helmer,
-	metricsAPI metrics.Metrics,
 	runtimeAPI runtime.RuntimeAPI,
 	kernelAPI kernel.KernelData) PreflightAPI {
 	return &preflight{
@@ -47,7 +52,6 @@ func NewPreflightAPI(registryAPI registry.Registry,
 		clusterInfoAPI: clusterInfoAPI,
 		resourceAPI:    resourceAPI,
 		helmerAPI:      helmerAPI,
-		metricsAPI:     metricsAPI,
 		runtimeAPI:     runtimeAPI,
 		kernelAPI:      kernelAPI,
 	}
@@ -60,14 +64,13 @@ type preflight struct {
 	clusterInfoAPI upgrade.ClusterInfo
 	resourceAPI    resource.ResourceAPI
 	helmerAPI      helmer.Helmer
-	metricsAPI     metrics.Metrics
 	runtimeAPI     runtime.RuntimeAPI
 	kernelAPI      kernel.KernelData
 }
 
 func (p *preflight) PreflightUpgradeCheck(ctx context.Context,
 	sr *srov1beta1.SpecialResource,
-	runInfo *runtime.RuntimeInformation) error {
+	runInfo *runtime.RuntimeInformation) (bool, string, error) {
 
 	p.log.Info("Start preflight for cr", "name", sr.Name)
 	sr.DeepCopyInto(&runInfo.SpecialResource)
@@ -75,23 +78,15 @@ func (p *preflight) PreflightUpgradeCheck(ctx context.Context,
 	chart, err := p.helmerAPI.Load(sr.Spec.Chart)
 	if err != nil {
 		p.log.Error(err, "Failed to load helm chart for CR", "name", sr.Name)
-		return err
+		return false, fmt.Sprintf("Failed to load helm chart for CR %s", sr.Name), err
 	}
 
 	yamlsList, err := p.processFullChartTemplates(ctx, chart, sr.Spec.Set, runInfo, sr.Namespace, runInfo.KernelFullVersion)
 	if err != nil {
 		p.log.Error(err, "Failed to process full chart during preflight check")
-		return err
+		return false, fmt.Sprintf("Failed to process full chart for CR %s", sr.Name), err
 	}
-	verified, err := p.handleYAMLsCheck(ctx, yamlsList, runInfo.KernelFullVersion)
-	if err != nil {
-		p.log.Error(err, "Failed to verify the chart during preflight check", "err", err)
-		return err
-	}
-
-	p.log.Info("ClusterUpgrade: CR verification:", "CR", sr.Name, "verified", verified)
-	p.alertUserIfNeeded(verified, sr.Name)
-	return nil
+	return p.handleYAMLsCheck(ctx, yamlsList, runInfo.KernelFullVersion)
 }
 
 func (p *preflight) processFullChartTemplates(ctx context.Context,
@@ -137,41 +132,37 @@ func (p *preflight) processFullChartTemplates(ctx context.Context,
 }
 
 //[TODO] - handle multiple daemonsets and buildconfigs
-func (p *preflight) handleYAMLsCheck(ctx context.Context, yamlsList string, upgradeKernelVersion string) (bool, error) {
+func (p *preflight) handleYAMLsCheck(ctx context.Context, yamlsList string, upgradeKernelVersion string) (bool, string, error) {
 	objList, err := p.resourceAPI.GetObjectsFromYAML([]byte(yamlsList))
 	if err != nil {
 		p.log.Error(err, "failed to extract object from chart yaml list during preflight")
-		return false, err
+		return false, "Failed to extract object from chart yaml list during preflight", err
 	}
-	verified := true
+
 	for _, obj := range objList.Items {
 		kind := obj.GetKind()
 		if kind == "BuildConfig" {
 			// no more need to check daemons set, build config is present
 			p.log.Info("preflight: buildconfig related to daemonset, skipping image verification")
-			break
+			return true, VerificationStatusReasonBuildConfigPresent, nil
 		}
 		if kind == "DaemonSet" {
-			verified, err = p.daemonSetPreflightCheck(ctx, &obj, upgradeKernelVersion)
-			if err != nil {
-				return false, err
-			}
-			break
+			return p.daemonSetPreflightCheck(ctx, &obj, upgradeKernelVersion)
 		}
 	}
-	return verified, nil
+	return true, VerificationStatusReasonNoDaemonSet, nil
 }
 
-func (p *preflight) daemonSetPreflightCheck(ctx context.Context, obj *unstructured.Unstructured, upgradeKernelVersion string) (bool, error) {
+func (p *preflight) daemonSetPreflightCheck(ctx context.Context, obj *unstructured.Unstructured, upgradeKernelVersion string) (bool, string, error) {
 	var ds k8sv1.DaemonSet
 	err := k8sruntime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &ds)
 	if err != nil {
 		p.log.Error(err, "failed to convert YAML daemonset into struct daemonset")
-		return false, err
+		return false, "failed to convert YAML daemonset into struct daemonset", err
 	}
 	if len(ds.Spec.Template.Spec.Containers) == 0 {
 		p.log.Error(nil, "invalid daemonset, no container  data present")
-		return false, fmt.Errorf("invalid daemonset, no container  data present")
+		return false, "invalid daemonset, no container  data present", fmt.Errorf("invalid daemonset, no container  data present")
 	}
 	image := ds.Spec.Template.Spec.Containers[0].Image
 
@@ -179,15 +170,15 @@ func (p *preflight) daemonSetPreflightCheck(ctx context.Context, obj *unstructur
 
 	repo, digests, auth, err := p.registryAPI.GetLayersDigests(ctx, image)
 	if err != nil {
-		p.log.Error(err, "Failed to get layers digests for image", "image", image)
-		return false, nil
+		p.log.Info("Failed to get layers digests for image", "image", image)
+		return false, fmt.Sprintf("image %s is inaccessible or does not exists", image), nil
 	}
 
 	for i := len(digests) - 1; i >= 0; i-- {
 		layer, err := p.registryAPI.GetLayerByDigest(repo, digests[i], auth)
 		if err != nil {
-			p.log.Error(err, "Failed to extract/access image", "image", image, "err", err)
-			return false, nil
+			p.log.Info("Failed to extract/access layer from image", "layer", digests[i], "image", image)
+			return false, fmt.Sprintf("image %s layer %s is inaccessible", image, digests[i]), nil
 		}
 		dtk, err := p.registryAPI.ExtractToolkitRelease(layer)
 		if err != nil {
@@ -198,13 +189,13 @@ func (p *preflight) daemonSetPreflightCheck(ctx context.Context, obj *unstructur
 		p.log.Info("dtk info present in layer", "layerIndex", i)
 		if dtk.KernelFullVersion != upgradeKernelVersion {
 			p.log.Info("DTK kernel version differs from the upgrade node version", "dtkVersion", dtk.KernelFullVersion, "upgradeVersion", upgradeKernelVersion)
-			return false, nil
+			return false, fmt.Sprintf("image kernel version %s different from upgrade kernel version %s", dtk.KernelFullVersion, upgradeKernelVersion), nil
 		}
-		return true, nil
+		return true, VerificationStatusReasonVerified, nil
 	}
 
-	p.log.Info("DTK info not present on any layer of the image, not good", "image", image)
-	return false, nil
+	p.log.Info("DTK info not present on any layer of the image, invaid image format", "image", image)
+	return false, fmt.Sprintf("image %s does not contain DTK data on any layer", image), nil
 }
 
 func (p *preflight) PrepareRuntimeInfo(ctx context.Context, image string) (*runtime.RuntimeInformation, error) {
@@ -278,14 +269,4 @@ func (p *preflight) getKernelFullVersion(ctx context.Context, image string) (str
 	}
 
 	return dtk.KernelFullVersion, err
-}
-
-func (p *preflight) alertUserIfNeeded(verified bool, crName string) {
-	if verified {
-		p.log.Info("preflight check validation success, disabling alert", "crName", crName)
-		p.metricsAPI.SetUpgradeAlert(crName, 0)
-	} else {
-		p.log.Info("preflight check validation failure, raising alert", "crName", crName)
-		p.metricsAPI.SetUpgradeAlert(crName, 1)
-	}
 }

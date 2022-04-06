@@ -120,9 +120,7 @@ func (rt *runtime) InitRuntimeInfo() *RuntimeInformation {
 }
 
 func (rt *runtime) GetRuntimeInformation(ctx context.Context, sr *srov1beta1.SpecialResource) (*RuntimeInformation, error) {
-
 	info := rt.InitRuntimeInfo()
-
 	nodeList, err := rt.kubeClient.GetNodesByLabels(ctx, sr.Spec.NodeSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get nodes list during getRuntimeInformation: %w", err)

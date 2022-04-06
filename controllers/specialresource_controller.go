@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -149,8 +148,7 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 func (r *SpecialResourceReconciler) getSpecialResources(ctx context.Context, req ctrl.Request) (*srov1beta1.SpecialResource, *srov1beta1.SpecialResourceList, error) {
 	specialresources := &srov1beta1.SpecialResourceList{}
 
-	opts := []client.ListOption{}
-	err := r.KubeClient.List(ctx, specialresources, opts...)
+	err := r.KubeClient.List(ctx, specialresources)
 	if err != nil {
 		return nil, nil, err
 	}

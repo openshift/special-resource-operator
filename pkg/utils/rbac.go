@@ -6,6 +6,8 @@ package utils
 // +kubebuilder:rbac:groups=sro.openshift.io,resources=specialresourcemodules/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=sro.openshift.io,resources=specialresources/finalizers,verbs=get;update;patch
 // +kubebuilder:rbac:groups=sro.openshift.io,resources=specialresourcemodules/finalizers,verbs=get;update;patch
+// +kubebuilder:rbac:groups=sro.openshift.io,resources=preflightvalidations,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=sro.openshift.io,resources=preflightvalidations/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods/log,verbs=get
 // +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete

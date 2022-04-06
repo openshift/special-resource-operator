@@ -4,6 +4,7 @@
 resources:
   - bases/sro.openshift.io_specialresources.yaml
   - bases/sro.openshift.io_specialresourcemodules.yaml
+  - bases/sro.openshift.io_preflightvalidations.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # patchesStrategicMerge:
