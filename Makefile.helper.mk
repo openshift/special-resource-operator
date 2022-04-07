@@ -42,7 +42,7 @@ kube-linter:
 # Download golangci-lint locally if necessary
 GOLANGCILINT = $(shell pwd)/bin/golangci-lint
 golangci-lint:
-	$(call go-get-tool,$(GOLANGCILINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.43.0)
+	$(call go-get-tool,$(GOLANGCILINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.45.2)
 
 # Additional bundle options for ART
 DEFAULT_CHANNEL="4.9"
