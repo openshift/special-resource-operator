@@ -27,6 +27,7 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 	helmtime "helm.sh/helm/v3/pkg/time"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -422,6 +423,14 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 	obj.SetAPIVersion("v1")
 	obj.SetName(string("sh.helm.hooks." + hook))
 	obj.SetNamespace(namespace)
+	obj.SetOwnerReferences([]metav1.OwnerReference{
+		{
+			APIVersion: "sro.openshift.io/v1beta1",
+			Kind:       "SpecialResource",
+			Name:       owner.GetName(),
+			UID:        owner.GetUID(),
+		},
+	})
 
 	found := obj.DeepCopy()
 
