@@ -27,6 +27,9 @@ COPY controllers/ controllers/
 COPY internal/ internal/
 COPY pkg/ pkg/
 
+# Required to include the build information into the binary
+COPY .git .git
+
 RUN ["make", "manager"]
 
 FROM debian:bullseye-slim

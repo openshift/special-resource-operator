@@ -17,7 +17,10 @@ limitations under the License.
 package main
 
 import (
+	"errors"
 	"os"
+	"runtime/debug"
+	"strings"
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/cmd/cli"
@@ -77,6 +80,13 @@ func main() {
 	}
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+
+	vcsData, err := vcsBuildSettingsToLogArgs()
+	if err != nil {
+		setupLog.Error(err, "Could not get VCS settings")
+	} else {
+		setupLog.Info("VCS build settings", vcsData...)
+	}
 
 	opts := &ctrl.Options{
 		LeaderElection:     cl.EnableLeaderElection,
@@ -149,4 +159,25 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func vcsBuildSettingsToLogArgs() ([]any, error) {
+	bi, ok := debug.ReadBuildInfo()
+	if !ok {
+		return nil, errors.New("could not read build info")
+	}
+
+	ret := make([]any, 0)
+
+	for _, s := range bi.Settings {
+		if strings.HasPrefix(s.Key, "vcs") {
+			ret = append(ret, s.Key, s.Value)
+		}
+	}
+
+	if len(ret) == 0 {
+		return ret, errors.New("build data contains no VCS settings")
+	}
+
+	return ret, nil
 }

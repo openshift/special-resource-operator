@@ -71,16 +71,16 @@ fmt: ## Run go fmt against code.
 	go fmt ./...
 
 vet: ## Run go vet against code.
-	go vet -mod=readonly ./...
+	go vet ./...
 
 unit-test:
 	# Use `go run github.com/onsi/ginkgo/v2/ginkgo` as only the ginkgo binary supports --skip-package
-	go run -mod=readonly github.com/onsi/ginkgo/v2/ginkgo --skip-package ./test/e2e -coverprofile cover.out ./...
+	go run github.com/onsi/ginkgo/v2/ginkgo --skip-package ./test/e2e -coverprofile cover.out ./...
 
 ##@ Build
 
 helm-plugins/cm-getter/cm-getter: $(shell find cmd/helm-cm-getter -type f -name '*.go')
-	go build -mod=readonly -o $@ ./cmd/helm-cm-getter
+	go build -o $@ ./cmd/helm-cm-getter
 
 .PHONY: helm-plugins/cm-getter
 helm-plugins/cm-getter: helm-plugins/cm-getter/cm-getter
@@ -90,10 +90,10 @@ helm-plugins: helm-plugins/cm-getter
 
 .PHONY: manager
 manager:
-	go build -mod=readonly -o manager main.go
+	go build -o manager
 
 run: manifests generate ## Run against the configured Kubernetes cluster in ~/.kube/config
-	go run -mod=readonly ./main.go
+	go run ./main.go
 
 local-image-build: ## Build container image with the manager.
 	$(CONTAINER_COMMAND) build -t $(IMG) .
