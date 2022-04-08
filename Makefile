@@ -40,6 +40,7 @@ IMG ?= quay.io/openshift/origin-special-resource-rhel8-operator:latest
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.21
+TEST ?= ./...
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -73,7 +74,7 @@ vet: ## Run go vet against code.
 
 unit-test:
 	# Use `go run github.com/onsi/ginkgo/v2/ginkgo` as only the ginkgo binary supports --skip-package
-	go run github.com/onsi/ginkgo/v2/ginkgo --skip-package ./test/e2e -coverprofile cover.out ./...
+	go run github.com/onsi/ginkgo/v2/ginkgo --skip-package ./test/e2e -coverprofile cover.out $(TEST)
 
 ##@ Build
 
