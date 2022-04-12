@@ -132,6 +132,9 @@ undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.
 	if [ ! -z "$$($(CLUSTER_CLIENT) get crd | grep specialresource)" ]; then         \
 		$(CLUSTER_CLIENT) delete --ignore-not-found sr --all;                    \
 	fi;
+	if [ ! -z "$$(kubectl get crd | grep specialresourcemodule)" ]; then         \
+		$(CLUSTER_CLIENT) delete --ignore-not-found srm --all;                    \
+	fi;
 	# Give SRO time to reconcile
 	sleep 10
 	$(KUSTOMIZE) build config/namespace | $(CLUSTER_CLIENT) delete --ignore-not-found -f -

@@ -3,6 +3,7 @@
 # It should be run by config/default
 resources:
   - bases/sro.openshift.io_specialresources.yaml
+  - bases/sro.openshift.io_specialresourcemodules.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 # patchesStrategicMerge:

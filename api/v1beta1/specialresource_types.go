@@ -197,6 +197,78 @@ type SpecialResourceList struct {
 	Items []SpecialResource `json:"items"`
 }
 
+type SpecialResourceModuleSelector struct {
+	// +kubebuilder:validation:Required
+	Path string `json:"path"`
+	// +kubebuilder:validation:Required
+	Value string `json:"value"`
+	// +kubebuilder:validation:Optional
+	Exclude bool `json:"exclude"`
+}
+
+type SpecialResourceModuleWatch struct {
+	// +kubebuilder:validation:Required
+	ApiVersion string `json:"apiVersion"`
+	// +kubebuilder:validation:Required
+	Kind string `json:"kind"`
+	// +kubebuilder:validation:Optional
+	Name string `json:"name,omitempty"`
+	// +kubebuilder:validation:Optional
+	Namespace string `json:"namespace,omitempty"`
+	// +kubebuilder:validation:Required
+	Path string `json:"path"`
+	// +kubebuilder:validation:Optional
+	Selector []SpecialResourceModuleSelector `json:"selector,omitempty"`
+}
+
+type SpecialResourceModuleSpec struct {
+	// Chart describes the Helm chart that needs to be installed.
+	// +kubebuilder:validation:Required
+	Chart helmerv1beta1.HelmChart `json:"chart"`
+	// Namespace describes in which namespace the chart will be installed.
+	// +kubebuilder:validation:Required
+	Namespace string `json:"namespace"`
+	// Set is a user-defined hierarchical value tree from where the chart takes its parameters.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:EmbeddedResource
+	Set unstructured.Unstructured `json:"set,omitempty"`
+	// Watch describes from which resources the OCP version/base image will be sourced to determine
+	// which DTK to use.
+	// +kubebuilder:validation:Required
+	Watch []SpecialResourceModuleWatch `json:"watch"`
+}
+
+type SpecialResourceModuleVersionStatus struct {
+	ReconciledTemplates []string `json:"reconciledTemplates,omitempty"`
+	Complete            bool     `json:"complete"`
+}
+type SpecialResourceModuleStatus struct {
+	Versions map[string]SpecialResourceModuleVersionStatus `json:"versions,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:path=specialresourcemodules,scope=Cluster
+// +kubebuilder:resource:path=specialresourcemodules,scope=Cluster,shortName=srm
+type SpecialResourceModule struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	// +kubebuilder:validation:Required
+	Spec   SpecialResourceModuleSpec   `json:"spec,omitempty"`
+	Status SpecialResourceModuleStatus `json:"status,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:resource:path=specialresourcemodules,scope=Cluster
+// +kubebuilder:resource:path=specialresourcemodules,scope=Cluster,shortName=srm
+type SpecialResourceModuleList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []SpecialResourceModule `json:"items"`
+}
+
 func init() {
 	SchemeBuilder.Register(&SpecialResource{}, &SpecialResourceList{})
+	SchemeBuilder.Register(&SpecialResourceModule{}, &SpecialResourceModuleList{})
 }

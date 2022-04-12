@@ -8,6 +8,7 @@ rules:
   - sro.openshift.io
   resources:
   - specialresources
+  - specialresourcemodules
   verbs:
   - get
   - list
@@ -16,5 +17,6 @@ rules:
   - sro.openshift.io
   resources:
   - specialresources/status
+  - specialresourcemodules/status
   verbs:
   - get

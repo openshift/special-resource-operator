@@ -125,7 +125,8 @@ func main() {
 		proxyAPI,
 		resourcehelper.New())
 
-	clusterInfoAPI := upgrade.NewClusterInfo(registry.NewRegistry(kubeClient), clusterAPI)
+	reg := registry.NewRegistry(kubeClient)
+	clusterInfoAPI := upgrade.NewClusterInfo(reg, clusterAPI)
 	runtimeAPI := runtime.NewRuntimeAPI(kubeClient, clusterAPI, kernelAPI, clusterInfoAPI, proxyAPI)
 
 	helmerAPI, err := helmer.NewHelmer(resourceAPI, kubeClient)
@@ -139,7 +140,7 @@ func main() {
 		ClusterOperatorManager: state.NewClusterOperatorManager(kubeClient, "special-resource-operator"),
 		ResourceAPI:            resourceAPI,
 		PollActions:            pollActions,
-		Filter:                 filter.NewFilter(lc, st, kernelAPI),
+		Filter:                 filter.NewFilter(controllers.SRgvk, controllers.SROwnedLabel, lc, st, kernelAPI),
 		Finalizer:              finalizers.NewSpecialResourceFinalizer(kubeClient, pollActions),
 		StatusUpdater:          state.NewStatusUpdater(kubeClient),
 		Storage:                st,
@@ -154,6 +155,21 @@ func main() {
 		KubeClient:             kubeClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "SpecialResource")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.SpecialResourceModuleReconciler{
+		ResourceAPI: resourceAPI,
+		Filter:      filter.NewFilter(controllers.SRMgvk, controllers.SRMOwnedLabel, lc, st, kernelAPI),
+		Helmer:      helmerAPI,
+		Assets:      assets.NewAssets(),
+		Log:         ctrl.Log,
+		Metrics:     metricsClient,
+		Scheme:      scheme,
+		KubeClient:  kubeClient,
+		Registry:    reg,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create module controller", "controller", "SpecialResourceModule")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

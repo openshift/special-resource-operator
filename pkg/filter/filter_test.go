@@ -32,9 +32,13 @@ var (
 	f             filter
 )
 
+const (
+	kind       = "v1beta1.SpecialResource"
+	ownedLabel = "owned.label"
+)
+
 func TestFilter(t *testing.T) {
 	RegisterFailHandler(Fail)
-
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockLifecycle = lifecycle.NewMockLifecycle(ctrl)
@@ -45,6 +49,8 @@ func TestFilter(t *testing.T) {
 			lifecycle:  mockLifecycle,
 			storage:    mockStorage,
 			kernelData: mockKernel,
+			kind:       kind,
+			ownedLabel: ownedLabel,
 		}
 	})
 
@@ -62,9 +68,9 @@ var _ = Describe("IsSpecialResource", func() {
 			Expect(f.isSpecialResource(obj)).To(m)
 		},
 		Entry(
-			Kind,
+			kind,
 			&v1beta1.SpecialResource{
-				TypeMeta: metav1.TypeMeta{Kind: Kind},
+				TypeMeta: metav1.TypeMeta{Kind: kind},
 			},
 			BeTrue(),
 		),
@@ -72,7 +78,7 @@ var _ = Describe("IsSpecialResource", func() {
 			"Pod owned by SRO",
 			&corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{OwnedLabel: "true"},
+					Labels: map[string]string{ownedLabel: "true"},
 				},
 			},
 			BeFalse(),
@@ -116,7 +122,7 @@ var _ = Describe("Owned", func() {
 			&corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					OwnerReferences: []metav1.OwnerReference{
-						{Kind: Kind},
+						{Kind: kind},
 					},
 				},
 			},
@@ -126,7 +132,7 @@ var _ = Describe("Owned", func() {
 			"via labels",
 			&corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{OwnedLabel: "whatever"},
+					Labels: map[string]string{ownedLabel: "whatever"},
 				},
 			},
 			BeTrue(),
@@ -159,7 +165,7 @@ var _ = Describe("Predicate", func() {
 				&corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 					},
 				},
@@ -173,7 +179,7 @@ var _ = Describe("Predicate", func() {
 			Entry(
 				"unmanaged special resource",
 				&v1beta1.SpecialResource{
-					TypeMeta: metav1.TypeMeta{Kind: Kind},
+					TypeMeta: metav1.TypeMeta{Kind: kind},
 					Spec: v1beta1.SpecialResourceSpec{
 						ManagementState: operatorv1.Unmanaged,
 					},
@@ -205,7 +211,7 @@ var _ = Describe("Predicate", func() {
 				&corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 						Generation:      1,
 						ResourceVersion: "dummy1",
@@ -214,7 +220,7 @@ var _ = Describe("Predicate", func() {
 				&corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 						Generation:      1,
 						ResourceVersion: "dummy1",
@@ -230,7 +236,7 @@ var _ = Describe("Predicate", func() {
 				&corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 						Generation:      1,
 						ResourceVersion: "dummy1",
@@ -239,7 +245,7 @@ var _ = Describe("Predicate", func() {
 				&corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 						Generation:      2,
 						ResourceVersion: "dummy1",
@@ -273,7 +279,7 @@ var _ = Describe("Predicate", func() {
 				&appsv1.DaemonSet{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 						Generation:      1,
 						ResourceVersion: "dummy1",
@@ -282,7 +288,7 @@ var _ = Describe("Predicate", func() {
 				&appsv1.DaemonSet{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 						Generation:      2,
 						ResourceVersion: "dummy2",
@@ -298,7 +304,7 @@ var _ = Describe("Predicate", func() {
 				&appsv1.DaemonSet{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 						Annotations: map[string]string{
 							"specialresource.openshift.io/kernel-affine": "true",
@@ -310,7 +316,7 @@ var _ = Describe("Predicate", func() {
 				&appsv1.DaemonSet{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 						Annotations: map[string]string{
 							"specialresource.openshift.io/kernel-affine": "true",
@@ -330,7 +336,7 @@ var _ = Describe("Predicate", func() {
 				&appsv1.DaemonSet{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 						Annotations: map[string]string{
 							"specialresource.openshift.io/kernel-affine": "true",
@@ -342,7 +348,7 @@ var _ = Describe("Predicate", func() {
 				&appsv1.DaemonSet{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 						Annotations: map[string]string{
 							"specialresource.openshift.io/kernel-affine": "true",
@@ -361,7 +367,7 @@ var _ = Describe("Predicate", func() {
 				&v1beta1.SpecialResource{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 						Generation:      1,
 						ResourceVersion: "dummy1",
@@ -370,7 +376,7 @@ var _ = Describe("Predicate", func() {
 				&v1beta1.SpecialResource{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 						Generation:      2,
 						ResourceVersion: "dummy2",
@@ -386,7 +392,7 @@ var _ = Describe("Predicate", func() {
 				&v1beta1.SpecialResource{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 						Generation:      1,
 						ResourceVersion: "dummy1",
@@ -395,7 +401,7 @@ var _ = Describe("Predicate", func() {
 				&v1beta1.SpecialResource{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 						Generation:      2,
 						ResourceVersion: "dummy2",
@@ -452,7 +458,7 @@ var _ = Describe("Predicate", func() {
 				&corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
-							{Kind: Kind},
+							{Kind: kind},
 						},
 					},
 				},
@@ -466,7 +472,7 @@ var _ = Describe("Predicate", func() {
 			Entry(
 				"unmanaged special resource",
 				&v1beta1.SpecialResource{
-					TypeMeta: metav1.TypeMeta{Kind: Kind},
+					TypeMeta: metav1.TypeMeta{Kind: kind},
 					Spec: v1beta1.SpecialResourceSpec{
 						ManagementState: operatorv1.Unmanaged,
 					},

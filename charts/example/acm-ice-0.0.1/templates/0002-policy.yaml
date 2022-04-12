@@ -1,0 +1,70 @@
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+ name: policy-{{.Values.specialResourceModule.metadata.name}}-mc
+ annotations:
+   policy.open-cluster-management.io/categories: CM Configuration Management
+   policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
+   policy.open-cluster-management.io/standards: NIST-CSF
+spec:
+ remediationAction: enforce
+ disabled: false
+ policy-templates:
+   - objectDefinition:
+       apiVersion: policy.open-cluster-management.io/v1
+       kind: ConfigurationPolicy
+       metadata:
+         name: policy-{{.Values.specialResourceModule.metadata.name}}-mc
+       spec:
+         remediationAction: enforce
+         severity: low
+         namespaceselector:
+           exclude:
+             - kube-*
+           include:
+             - '*'
+         object-templates:
+           - complianceType: mustonlyhave
+             objectDefinition:
+               apiVersion: machineconfiguration.openshift.io/v1
+               kind: MachineConfig
+               metadata:
+                 labels:
+                   machineconfiguration.openshift.io/role: worker
+                 name: 10-{{.Values.specialResourceModule.metadata.name}}
+               spec:
+                 config:
+                   ignition:
+                    version: 3.2.0
+                   storage:
+                     files:
+                       - contents:
+                           source: 'data:text/plain;charset=us-ascii;base64,IyEvYmluL2Jhc2gKc2V0IC1ldQoKQUNUSU9OPSQxOyBzaGlmdApJTUFHRT0kMTsgc2hpZnQKS0VSTkVMPWB1bmFtZSAtcmAKCnBvZG1hbiBwdWxsIC0tYXV0aGZpbGUgL3Zhci9saWIva3ViZWxldC9jb25maWcuanNvbiAke0lNQUdFfToke0tFUk5FTH0gMj4mMQoKbG9hZF9rbW9kcygpIHsKCiAgICBwb2RtYW4gcnVuIC1pIC0tcHJpdmlsZWdlZCAtdiAvbGliL21vZHVsZXMvJHtLRVJORUx9L2tlcm5lbC9kcml2ZXJzLzovbGliL21vZHVsZXMvJHtLRVJORUx9L2tlcm5lbC9kcml2ZXJzLyAke0lNQUdFfToke0tFUk5FTH0gbG9hZC5zaAp9CnVubG9hZF9rbW9kcygpIHsKICAgIHBvZG1hbiBydW4gLWkgLS1wcml2aWxlZ2VkIC12IC9saWIvbW9kdWxlcy8ke0tFUk5FTH0va2VybmVsL2RyaXZlcnMvOi9saWIvbW9kdWxlcy8ke0tFUk5FTH0va2VybmVsL2RyaXZlcnMvICR7SU1BR0V9OiR7S0VSTkVMfSB1bmxvYWQuc2gKfQoKY2FzZSAiJHtBQ1RJT059IiBpbgogICAgbG9hZCkKICAgICAgICBsb2FkX2ttb2RzCiAgICA7OwogICAgdW5sb2FkKQogICAgICAgIHVubG9hZF9rbW9kcwogICAgOzsKICAgICopCiAgICAgICAgZWNobyAiVW5rbm93biBjb21tYW5kLiBFeGl0aW5nLiIKICAgICAgICBlY2hvICJVc2FnZToiCiAgICAgICAgZWNobyAiIgogICAgICAgIGVjaG8gImxvYWQgICAgICAgIExvYWQga2VybmVsIG1vZHVsZShzKSIKICAgICAgICBlY2hvICJ1bmxvYWQgICAgICBVbmxvYWQga2VybmVsIG1vZHVsZShzKSIKICAgICAgICBleGl0IDEKZXNhYwo='
+                         filesystem: root
+                         mode: 493
+                         path: /usr/local/bin/{{.Values.specialResourceModule.metadata.name}}
+                   systemd:
+                     units:
+                     - contents: |
+                         [Unit]
+                         Description=out-of-tree driver loader
+                         # Start after the network is up
+                         Wants=network-online.target
+                         After=network-online.target
+                         # Also after docker.service (no effect on systems without docker)
+                         After=docker.service
+                         # Before kubelet.service (no effect on systems without kubernetes)
+                         Before=kubelet.service
+ 
+                         [Service]
+                         Type=oneshot
+                         RemainAfterExit=true
+                         # Use bash to workaround https://github.com/coreos/rpm-ostree/issues/1936
+                         ExecStart=/usr/bin/bash -c "while ! /usr/local/bin/{{.Values.specialResourceModule.metadata.name}} load {{.Values.registry}}/{{.Values.specialResourceModule.metadata.name}}-{{.Values.groupName.driverContainer}}; do sleep 10; done"
+                         ExecStop=/usr/bin/bash -c "/usr/local/bin/{{.Values.specialResourceModule.metadata.name}} unload {{.Values.registry}}/{{.Values.specialResourceModule.metadata.name}}-{{.Values.groupName.driverContainer}}"
+                         StandardOutput=journal+console
+ 
+                         [Install]
+                         WantedBy=default.target
+                       enabled: true
+                       name: "{{.Values.specialResourceModule.metadata.name}}.service"

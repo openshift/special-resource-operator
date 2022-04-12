@@ -20,7 +20,6 @@ import (
 
 	"github.com/openshift/special-resource-operator/internal/resourcehelper"
 	"github.com/openshift/special-resource-operator/pkg/clients"
-	"github.com/openshift/special-resource-operator/pkg/filter"
 	"github.com/openshift/special-resource-operator/pkg/kernel"
 	"github.com/openshift/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift/special-resource-operator/pkg/metrics"
@@ -37,7 +36,7 @@ var (
 //go:generate mockgen -source=resource.go -package=resource -destination=mock_resource_api.go
 
 type ResourceAPI interface {
-	CreateFromYAML(context.Context, []byte, bool, v1.Object, string, string, map[string]string, string, string) error
+	CreateFromYAML(context.Context, []byte, bool, v1.Object, string, string, map[string]string, string, string, string) error
 	GetObjectsFromYAML([]byte) (*unstructured.UnstructuredList, error)
 }
 
@@ -130,7 +129,8 @@ func (r *resource) CreateFromYAML(
 	namespace string,
 	nodeSelector map[string]string,
 	kernelFullVersion string,
-	operatingSystemMajorMinor string) error {
+	operatingSystemMajorMinor string,
+	ownerLabel string) error {
 
 	scanner := yamlutil.NewYAMLScanner(yamlFile)
 
@@ -147,7 +147,8 @@ func (r *resource) CreateFromYAML(
 			namespace,
 			nodeSelector,
 			kernelFullVersion,
-			operatingSystemMajorMinor)
+			operatingSystemMajorMinor,
+			ownerLabel)
 		if err != nil {
 			return err
 		}
@@ -360,7 +361,8 @@ func (r *resource) createObjFromYAML(
 	namespace string,
 	nodeSelector map[string]string,
 	kernelFullVersion string,
-	operatingSystemMajorMinor string) error {
+	operatingSystemMajorMinor string,
+	ownerLabel string) error {
 	obj := &unstructured.Unstructured{
 		Object: map[string]interface{}{},
 	}
@@ -390,7 +392,7 @@ func (r *resource) createObjFromYAML(
 	// We used this for predicate filtering, we're watching a lot of
 	// API Objects we want to ignore all objects that do not have this
 	// label.
-	if err = r.helper.SetLabel(obj, filter.OwnedLabel); err != nil {
+	if err = r.helper.SetLabel(obj, ownerLabel); err != nil {
 		return fmt.Errorf("could not set label: %w", err)
 	}
 	// kernel affinity related attributes only set if there is an

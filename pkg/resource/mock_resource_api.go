@@ -37,17 +37,17 @@ func (m *MockResourceAPI) EXPECT() *MockResourceAPIMockRecorder {
 }
 
 // CreateFromYAML mocks base method.
-func (m *MockResourceAPI) CreateFromYAML(arg0 context.Context, arg1 []byte, arg2 bool, arg3 v1.Object, arg4, arg5 string, arg6 map[string]string, arg7, arg8 string) error {
+func (m *MockResourceAPI) CreateFromYAML(arg0 context.Context, arg1 []byte, arg2 bool, arg3 v1.Object, arg4, arg5 string, arg6 map[string]string, arg7, arg8, arg9 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateFromYAML", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	ret := m.ctrl.Call(m, "CreateFromYAML", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateFromYAML indicates an expected call of CreateFromYAML.
-func (mr *MockResourceAPIMockRecorder) CreateFromYAML(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 interface{}) *gomock.Call {
+func (mr *MockResourceAPIMockRecorder) CreateFromYAML(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFromYAML", reflect.TypeOf((*MockResourceAPI)(nil).CreateFromYAML), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFromYAML", reflect.TypeOf((*MockResourceAPI)(nil).CreateFromYAML), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
 }
 
 // GetObjectsFromYAML mocks base method.

@@ -66,7 +66,7 @@ func OpenShiftInstallOrder() {
 
 type Helmer interface {
 	Load(helmerv1beta1.HelmChart) (*chart.Chart, error)
-	Run(context.Context, chart.Chart, map[string]interface{}, v1.Object, string, string, map[string]string, string, string, bool) error
+	Run(context.Context, chart.Chart, map[string]interface{}, v1.Object, string, string, map[string]string, string, string, bool, string) error
 	GetHelmOutput(context.Context, chart.Chart, map[string]interface{}, string) (string, error)
 }
 
@@ -251,7 +251,7 @@ func (h *helmer) deleteHookByPolicy(hook *release.Hook, policy release.HookDelet
 	return nil
 }
 
-func (h *helmer) InstallCRDs(ctx context.Context, crds []chart.CRD, owner v1.Object, name string, namespace string) error {
+func (h *helmer) InstallCRDs(ctx context.Context, crds []chart.CRD, owner v1.Object, name, namespace, ownerLabel string) error {
 
 	var manifests bytes.Buffer
 
@@ -259,7 +259,7 @@ func (h *helmer) InstallCRDs(ctx context.Context, crds []chart.CRD, owner v1.Obj
 		fmt.Fprintf(&manifests, "---\n# Source: %s\n%s\n", crd.Filename, crd.File.Data)
 	}
 	if err := h.resourceAPI.CreateFromYAML(ctx, manifests.Bytes(),
-		false, owner, name, namespace, nil, "", ""); err != nil {
+		false, owner, name, namespace, nil, "", "", ownerLabel); err != nil {
 		return err
 	}
 
@@ -325,7 +325,8 @@ func (h *helmer) Run(
 	nodeSelector map[string]string,
 	kernelFullVersion string,
 	operatingSystemMajorMinor string,
-	debug bool) error {
+	debug bool,
+	ownerLabel string) error {
 
 	rel, install, err := h.dryRunHelmChart(ctx, ch, vals, namespace)
 	if err != nil {
@@ -356,7 +357,7 @@ func (h *helmer) Run(
 	// Pre-install anything in the crd/ directory.
 	if crds := ch.CRDObjects(); len(crds) > 0 {
 
-		err := h.InstallCRDs(ctx, crds, owner, install.ReleaseName, install.Namespace)
+		err := h.InstallCRDs(ctx, crds, owner, install.ReleaseName, install.Namespace, ownerLabel)
 		if err != nil {
 			return fmt.Errorf("cannot install CRDs: %w", err)
 		}
@@ -364,7 +365,7 @@ func (h *helmer) Run(
 
 	// pre-install hooks
 	if !install.DisableHooks {
-		if err := h.ExecHook(ctx, rel, release.HookPreInstall, owner, name, namespace); err != nil {
+		if err := h.ExecHook(ctx, rel, release.HookPreInstall, owner, name, namespace, ownerLabel); err != nil {
 			return h.failRelease(rel, fmt.Errorf("failed pre-install: %s", err))
 		}
 
@@ -379,14 +380,15 @@ func (h *helmer) Run(
 		namespace,
 		nodeSelector,
 		kernelFullVersion,
-		operatingSystemMajorMinor)
+		operatingSystemMajorMinor,
+		ownerLabel)
 
 	if err != nil {
 		return h.failRelease(rel, err)
 	}
 
 	if !install.DisableHooks {
-		if err := h.ExecHook(ctx, rel, release.HookPostInstall, owner, name, namespace); err != nil {
+		if err := h.ExecHook(ctx, rel, release.HookPostInstall, owner, name, namespace, ownerLabel); err != nil {
 			return h.failRelease(rel, fmt.Errorf("failed post-install: %s", err))
 		}
 	}
@@ -416,7 +418,7 @@ func (x hookByWeight) Less(i, j int) bool {
 	return x[i].Weight < x[j].Weight
 }
 
-func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release.HookEvent, owner v1.Object, name string, namespace string) error {
+func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release.HookEvent, owner v1.Object, name, namespace, ownerLabel string) error {
 
 	obj := unstructured.Unstructured{}
 	obj.SetKind("ConfigMap")
@@ -483,7 +485,7 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 		// the most appropriate value to surface.
 		hk.LastRun.Phase = release.HookPhaseUnknown
 
-		if err := h.resourceAPI.CreateFromYAML(ctx, []byte(hk.Manifest), false, owner, name, namespace, nil, "", ""); err != nil {
+		if err := h.resourceAPI.CreateFromYAML(ctx, []byte(hk.Manifest), false, owner, name, namespace, nil, "", "", ownerLabel); err != nil {
 
 			hk.LastRun.CompletedAt = helmtime.Now()
 			hk.LastRun.Phase = release.HookPhaseFailed

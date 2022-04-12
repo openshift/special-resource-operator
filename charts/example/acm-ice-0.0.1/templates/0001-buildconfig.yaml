@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{.Values.specialResourceModule.metadata.name}}-scripts
+data:
+  load.sh: |
+    #!/bin/bash
+    set -eu
+
+    # unload in-tree driver
+    rmmod ice || true
+
+    # load out-of-tree driver
+    insmod /ice-driver/ice.ko
+
+    echo "Loaded out-of-tree ICE"
+    lsmod | grep ice || true
+
+  unload.sh: |
+    #!/bin/bash
+    set -eu
+
+    # unload the out-of-tree driver
+    rmmod ice
+
+    # load the in-tree driver
+    modprobe ice
+
+    echo "Unloaded out-of-tree and reloaded in-tree ICE driver"
+    lsmod | grep ice || true
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  labels:
+    app: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.kernelFullVersion | replace "." "-" | replace "_" "-" | trunc 63 }}
+  name: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.kernelFullVersion | replace "." "-" | replace "_" "-" | trunc 63 }}
+  annotations:
+    specialresource.openshift.io/wait: "true"
+spec:
+  nodeSelector:
+    node-role.kubernetes.io/worker: ""
+  runPolicy: "Serial"
+  triggers:
+    - type: "ConfigChange"
+    - type: "ImageChange"
+  source:
+    configMaps:
+    - configMap:
+        name: {{.Values.specialResourceModule.metadata.name}}-scripts
+      destinationDir: ./scripts
+    dockerfile: |
+      ARG IMAGE
+      ARG BUILD_IMAGE
+
+      FROM ${BUILD_IMAGE} AS builder
+      WORKDIR /build/
+      
+      ARG DRIVER_VER
+      
+      # TODO: Offline build (without wget)
+
+      RUN wget https://netix.dl.sourceforge.net/project/e1000/ice%20stable/$DRIVER_VER/ice-$DRIVER_VER.tar.gz
+      RUN tar zxf ice-$DRIVER_VER.tar.gz
+      WORKDIR ice-$DRIVER_VER/src
+      
+      ARG KERNEL_VERSION
+      RUN BUILD_KERNEL=$KERNEL_VERSION KSRC=/lib/modules/$KERNEL_VERSION/build/ make
+      
+      # TODO: Sign
+      
+      FROM ${IMAGE}
+      
+      ARG DRIVER_VER
+      ARG KERNEL_VERSION
+      
+      RUN microdnf install --disablerepo=* --enablerepo=ubi-8-baseos -y kmod
+      
+      COPY --from=builder /build/ice-$DRIVER_VER/src/ice.ko /ice-driver/
+      COPY scripts/load.sh scripts/unload.sh /usr/local/bin
+      RUN ["chmod", "+x", "/usr/local/bin/load.sh", "/usr/local/bin/unload.sh"]
+  strategy:
+    dockerStrategy:
+      buildArgs:
+        - name: BUILD_IMAGE
+          value: {{ .Values.driverToolkitImage  }}
+        - name: KERNEL_VERSION
+          value: {{ .Values.kernelFullVersion }}
+        - name: IMAGE
+          value: registry.access.redhat.com/ubi8/ubi-minimal
+        {{- range $arg := .Values.buildArgs }}
+        - name: {{ $arg.name }}
+          value: {{ $arg.value }}
+        {{- end }}
+  output:
+    to:
+      kind: DockerImage
+      name: {{.Values.registry}}/{{.Values.specialResourceModule.metadata.name}}-{{.Values.groupName.driverContainer}}:{{.Values.kernelFullVersion}}

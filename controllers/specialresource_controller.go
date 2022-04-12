@@ -58,8 +58,10 @@ import (
 )
 
 const (
-	minDelay = 100 * time.Millisecond
-	maxDelay = 3 * time.Second
+	minDelaySR   = 100 * time.Millisecond
+	maxDelaySR   = 3 * time.Second
+	SRgvk        = "SpecialResource"
+	SROwnedLabel = "specialresource.openshift.io/owned"
 )
 
 // SpecialResourceReconciler reconciles a SpecialResource object
@@ -205,7 +207,7 @@ func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			Owns(&v1.Secret{}).
 			WithOptions(controller.Options{
 				MaxConcurrentReconciles: 1,
-				RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(minDelay, maxDelay),
+				RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(minDelaySR, maxDelaySR),
 			}).
 			WithEventFilter(r.Filter.GetPredicates()).
 			Complete(r)

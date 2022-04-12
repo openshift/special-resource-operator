@@ -1,0 +1,29 @@
+apiVersion: sro.openshift.io/v1beta1
+kind: SpecialResourceModule
+metadata:
+  name: acm-ice
+spec:
+  namespace: acm-ice
+  chart:
+    name: acm-ice
+    version: 0.0.1
+    repository:
+      name: chart
+      url: cm://acm-ice/acm-ice-chart
+  set:
+    kind: Values
+    apiVersion: sro.openshift.io/v1beta1
+    buildArgs:
+      - name: DRIVER_VER
+        value: "1.6.4"
+    registry: quay.io/pacevedo
+  watch:
+    - path: "$.metadata.labels.openshiftVersion"
+      apiVersion: cluster.open-cluster-management.io/v1
+      kind: ManagedCluster
+      name: spoke1
+    #- path: $.status.clusterClaims[?(@.name == 'osimage.openshift.io')].value # disconnected version
+    - path: "$.metadata.labels.openshiftVersion" # connected version
+      apiVersion: cluster.open-cluster-management.io/v1
+      kind: ManagedCluster
+      name: spoke2

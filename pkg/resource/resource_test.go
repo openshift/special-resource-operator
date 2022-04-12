@@ -142,6 +142,7 @@ spec:
 					nodeSelector,
 					kernelFullVersion,
 					operatingSystemMajorMinor,
+					ownedLabel,
 				)
 
 		Expect(err).NotTo(HaveOccurred())
@@ -267,6 +268,7 @@ spec:
 					nodeSelector,
 					kernelFullVersion,
 					operatingSystemMajorMinor,
+					ownedLabel,
 				)
 
 		Expect(err).NotTo(HaveOccurred())
