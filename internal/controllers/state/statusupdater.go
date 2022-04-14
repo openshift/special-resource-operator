@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/openshift/special-resource-operator/api/v1beta1"
 	"github.com/openshift/special-resource-operator/pkg/clients"
@@ -34,6 +35,7 @@ type StatusUpdater interface {
 	SetAsReady(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error
 	SetAsProgressing(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error
 	SetAsErrored(ctx context.Context, sr *v1beta1.SpecialResource, reason, message string) error
+	SetVerificationStatus(ctx context.Context, pv *v1beta1.PreflightValidation, status *v1beta1.SRStatus, verificationStatus, message string) error
 }
 
 type statusUpdater struct {
@@ -77,4 +79,16 @@ func (su *statusUpdater) SetAsErrored(ctx context.Context, sr *v1beta1.SpecialRe
 	sr.Status.State = fmt.Sprintf("Errored: %s", message)
 
 	return su.kubeClient.StatusUpdate(ctx, sr)
+}
+
+func (su *statusUpdater) SetVerificationStatus(ctx context.Context,
+	pv *v1beta1.PreflightValidation,
+	status *v1beta1.SRStatus,
+	verificationStatus string,
+	message string) error {
+	original := pv.DeepCopy()
+	status.VerificationStatus = verificationStatus
+	status.StatusReason = message
+	status.LastTransitionTime = metav1.NewTime(time.Now())
+	return su.kubeClient.StatusPatch(ctx, original, pv)
 }

@@ -14,7 +14,6 @@ import (
 	"github.com/openshift/special-resource-operator/pkg/cluster"
 	"github.com/openshift/special-resource-operator/pkg/helmer"
 	"github.com/openshift/special-resource-operator/pkg/kernel"
-	"github.com/openshift/special-resource-operator/pkg/metrics"
 	"github.com/openshift/special-resource-operator/pkg/registry"
 	"github.com/openshift/special-resource-operator/pkg/resource"
 	"github.com/openshift/special-resource-operator/pkg/runtime"
@@ -42,7 +41,6 @@ var (
 	mockClusterInfoAPI *upgrade.MockClusterInfo
 	mockResourceAPI    *resource.MockResourceAPI
 	mockHelmerAPI      *helmer.MockHelmer
-	mockMetricsAPI     *metrics.MockMetrics
 	mockRuntimeAPI     *runtime.MockRuntimeAPI
 	mockKernelAPI      *kernel.MockKernelData
 	p                  *preflight
@@ -58,7 +56,6 @@ func TestPreflight(t *testing.T) {
 		mockClusterInfoAPI = upgrade.NewMockClusterInfo(ctrl)
 		mockResourceAPI = resource.NewMockResourceAPI(ctrl)
 		mockHelmerAPI = helmer.NewMockHelmer(ctrl)
-		mockMetricsAPI = metrics.NewMockMetrics(ctrl)
 		mockRuntimeAPI = runtime.NewMockRuntimeAPI(ctrl)
 		mockKernelAPI = kernel.NewMockKernelData(ctrl)
 		p = NewPreflightAPI(mockRegistryAPI,
@@ -66,7 +63,6 @@ func TestPreflight(t *testing.T) {
 			mockClusterInfoAPI,
 			mockResourceAPI,
 			mockHelmerAPI,
-			mockMetricsAPI,
 			mockRuntimeAPI,
 			mockKernelAPI).(*preflight)
 	})
@@ -83,10 +79,11 @@ var _ = Describe("handleYAMLsCheck", func() {
 	It("get objects from yaml failure", func() {
 		mockResourceAPI.EXPECT().GetObjectsFromYAML([]byte("some yaml")).Return(nil, fmt.Errorf("some error"))
 
-		verified, err := p.handleYAMLsCheck(context.TODO(), "some yaml", upgradeKernelVersion)
+		verified, message, err := p.handleYAMLsCheck(context.TODO(), "some yaml", upgradeKernelVersion)
 
 		Expect(err).To(HaveOccurred())
 		Expect(verified).To(BeFalse())
+		Expect(message).To(Equal("Failed to extract object from chart yaml list during preflight"))
 	})
 
 	It("build config is present in the yamls list", func() {
@@ -94,10 +91,11 @@ var _ = Describe("handleYAMLsCheck", func() {
 
 		mockResourceAPI.EXPECT().GetObjectsFromYAML([]byte("some yaml")).Return(objList, nil)
 
-		verified, err := p.handleYAMLsCheck(context.TODO(), "some yaml", upgradeKernelVersion)
+		verified, message, err := p.handleYAMLsCheck(context.TODO(), "some yaml", upgradeKernelVersion)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeTrue())
+		Expect(message).To(Equal(VerificationStatusReasonBuildConfigPresent))
 	})
 
 	It("build config and daemonset are missing in the yamls list", func() {
@@ -105,10 +103,11 @@ var _ = Describe("handleYAMLsCheck", func() {
 
 		mockResourceAPI.EXPECT().GetObjectsFromYAML([]byte("some yaml")).Return(objList, nil)
 
-		verified, err := p.handleYAMLsCheck(context.TODO(), "some yaml", upgradeKernelVersion)
+		verified, message, err := p.handleYAMLsCheck(context.TODO(), "some yaml", upgradeKernelVersion)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeTrue())
+		Expect(message).To(Equal(VerificationStatusReasonNoDaemonSet))
 	})
 
 	It("build config missing, daemonset present in the yamls list", func() {
@@ -122,10 +121,11 @@ var _ = Describe("handleYAMLsCheck", func() {
 		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil)
 		mockRegistryAPI.EXPECT().ExtractToolkitRelease(&digestLayer).Return(dtk, nil)
 
-		verified, err := p.handleYAMLsCheck(context.TODO(), "some yaml", upgradeKernelVersion)
+		verified, message, err := p.handleYAMLsCheck(context.TODO(), "some yaml", upgradeKernelVersion)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeTrue())
+		Expect(message).To(Equal(VerificationStatusReasonVerified))
 	})
 })
 
@@ -140,10 +140,11 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil)
 		mockRegistryAPI.EXPECT().ExtractToolkitRelease(&digestLayer).Return(dtk, nil)
 
-		verified, err := p.daemonSetPreflightCheck(context.TODO(), daemonObj, upgradeKernelVersion)
+		verified, message, err := p.daemonSetPreflightCheck(context.TODO(), daemonObj, upgradeKernelVersion)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeTrue())
+		Expect(message).To(Equal(VerificationStatusReasonVerified))
 	})
 
 	It("image is not available", func() {
@@ -151,10 +152,11 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 
 		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, []string{}, nil, fmt.Errorf("some error"))
 
-		verified, err := p.daemonSetPreflightCheck(context.TODO(), daemonObj, upgradeKernelVersion)
+		verified, message, err := p.daemonSetPreflightCheck(context.TODO(), daemonObj, upgradeKernelVersion)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeFalse())
+		Expect(message).To(Equal(fmt.Sprintf("image %s is inaccessible or does not exists", dsImage)))
 	})
 
 	It("dtk kernel version is not correct", func() {
@@ -167,10 +169,11 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil)
 		mockRegistryAPI.EXPECT().ExtractToolkitRelease(&digestLayer).Return(dtk, nil)
 
-		verified, err := p.daemonSetPreflightCheck(context.TODO(), daemonObj, upgradeKernelVersion)
+		verified, message, err := p.daemonSetPreflightCheck(context.TODO(), daemonObj, upgradeKernelVersion)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeFalse())
+		Expect(message).To(Equal(fmt.Sprintf("image kernel version %s different from upgrade kernel version %s", incorrectUpgradeKernelVersion, upgradeKernelVersion)))
 	})
 
 	It("dtk is missing", func() {
@@ -182,10 +185,11 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil)
 		mockRegistryAPI.EXPECT().ExtractToolkitRelease(&digestLayer).Return(nil, fmt.Errorf("some error"))
 
-		verified, err := p.daemonSetPreflightCheck(context.TODO(), daemonObj, upgradeKernelVersion)
+		verified, message, err := p.daemonSetPreflightCheck(context.TODO(), daemonObj, upgradeKernelVersion)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeFalse())
+		Expect(message).To(Equal(fmt.Sprintf("image %s does not contain DTK data on any layer", dsImage)))
 	})
 })
 

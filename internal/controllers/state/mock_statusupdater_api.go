@@ -76,3 +76,17 @@ func (mr *MockStatusUpdaterMockRecorder) SetAsReady(ctx, sr, reason, message int
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAsReady", reflect.TypeOf((*MockStatusUpdater)(nil).SetAsReady), ctx, sr, reason, message)
 }
+
+// SetVerificationStatus mocks base method.
+func (m *MockStatusUpdater) SetVerificationStatus(ctx context.Context, pv *v1beta1.PreflightValidation, status *v1beta1.SRStatus, verificationStatus, message string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetVerificationStatus", ctx, pv, status, verificationStatus, message)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetVerificationStatus indicates an expected call of SetVerificationStatus.
+func (mr *MockStatusUpdaterMockRecorder) SetVerificationStatus(ctx, pv, status, verificationStatus, message interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetVerificationStatus", reflect.TypeOf((*MockStatusUpdater)(nil).SetVerificationStatus), ctx, pv, status, verificationStatus, message)
+}

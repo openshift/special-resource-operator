@@ -1104,6 +1104,26 @@ rules:
 - apiGroups:
   - sro.openshift.io
   resources:
+  - preflightvalidations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sro.openshift.io
+  resources:
+  - preflightvalidations/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - sro.openshift.io
+  resources:
   - specialresourcemodules
   verbs:
   - create
