@@ -9,7 +9,9 @@ import (
 	v1stream "github.com/google/go-containerregistry/pkg/v1/stream"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	k8sv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/openshift/special-resource-operator/pkg/cluster"
 	"github.com/openshift/special-resource-operator/pkg/helmer"
@@ -26,6 +28,7 @@ const (
 	upgradePatchKernelVersion     = "upgradePatchKernelVersion"
 	incorrectUpgradeKernelVersion = "incorrectUpgradeKenrelVersion"
 	dsImage                       = "daemonSetImage"
+	dsName                        = "daemonSetName"
 	ocpImage                      = "ocpImage"
 	layersRepo                    = "layersRepo"
 	clusterVersion                = "clusterVersion"
@@ -86,8 +89,8 @@ var _ = Describe("handleYAMLsCheck", func() {
 		Expect(message).To(Equal("Failed to extract object from chart yaml list during preflight"))
 	})
 
-	It("build config is present in the yamls list", func() {
-		objList := prepareObjListForTest(3, true, true)
+	It("number of build configs in the yamls list is equal to number of daemon sets", func() {
+		objList := prepareObjListForTest(3, 2, 2)
 
 		mockResourceAPI.EXPECT().GetObjectsFromYAML([]byte("some yaml")).Return(objList, nil)
 
@@ -99,7 +102,7 @@ var _ = Describe("handleYAMLsCheck", func() {
 	})
 
 	It("build config and daemonset are missing in the yamls list", func() {
-		objList := prepareObjListForTest(3, false, false)
+		objList := prepareObjListForTest(3, 0, 0)
 
 		mockResourceAPI.EXPECT().GetObjectsFromYAML([]byte("some yaml")).Return(objList, nil)
 
@@ -110,16 +113,16 @@ var _ = Describe("handleYAMLsCheck", func() {
 		Expect(message).To(Equal(VerificationStatusReasonNoDaemonSet))
 	})
 
-	It("build config missing, daemonset present in the yamls list", func() {
+	It("number of build configs in the yamls list is less to number of daemon sets", func() {
 		digestsList := []string{firstDigestLayer}
 		digestLayer := v1stream.Layer{}
 		dtk := &registry.DriverToolkitEntry{KernelFullVersion: upgradeKernelVersion}
-		objList := prepareObjListForTest(3, false, true)
+		objList := prepareObjListForTest(3, 2, 4)
 
 		mockResourceAPI.EXPECT().GetObjectsFromYAML([]byte("some yaml")).Return(objList, nil)
-		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, digestsList, nil, nil)
-		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil)
-		mockRegistryAPI.EXPECT().ExtractToolkitRelease(&digestLayer).Return(dtk, nil)
+		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, digestsList, nil, nil).Times(2)
+		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil).Times(2)
+		mockRegistryAPI.EXPECT().ExtractToolkitRelease(&digestLayer).Return(dtk, nil).Times(2)
 
 		verified, message, err := p.handleYAMLsCheck(context.TODO(), "some yaml", upgradeKernelVersion)
 
@@ -134,7 +137,7 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 		digestsList := []string{firstDigestLayer}
 		digestLayer := v1stream.Layer{}
 		dtk := &registry.DriverToolkitEntry{KernelFullVersion: upgradeKernelVersion}
-		daemonObj := prepareDaemonSet()
+		daemonObj := prepareDaemonSet("driver-module")
 
 		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, digestsList, nil, nil)
 		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil)
@@ -148,7 +151,7 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 	})
 
 	It("image is not available", func() {
-		daemonObj := prepareDaemonSet()
+		daemonObj := prepareDaemonSet("driver-module")
 
 		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, []string{}, nil, fmt.Errorf("some error"))
 
@@ -156,14 +159,14 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeFalse())
-		Expect(message).To(Equal(fmt.Sprintf("image %s is inaccessible or does not exists", dsImage)))
+		Expect(message).To(Equal(fmt.Sprintf("DaemonSet %s, image %s inaccessible or does not exists", dsName, dsImage)))
 	})
 
 	It("dtk kernel version is not correct", func() {
 		digestsList := []string{firstDigestLayer}
 		digestLayer := v1stream.Layer{}
 		dtk := &registry.DriverToolkitEntry{KernelFullVersion: incorrectUpgradeKernelVersion}
-		daemonObj := prepareDaemonSet()
+		daemonObj := prepareDaemonSet("driver-module")
 
 		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, digestsList, nil, nil)
 		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil)
@@ -173,13 +176,13 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeFalse())
-		Expect(message).To(Equal(fmt.Sprintf("image kernel version %s different from upgrade kernel version %s", incorrectUpgradeKernelVersion, upgradeKernelVersion)))
+		Expect(message).To(Equal(fmt.Sprintf("DaemonSet %s, image kernel version %s different from upgrade kernel version %s", dsName, incorrectUpgradeKernelVersion, upgradeKernelVersion)))
 	})
 
 	It("dtk is missing", func() {
 		digestsList := []string{firstDigestLayer}
 		digestLayer := v1stream.Layer{}
-		daemonObj := prepareDaemonSet()
+		daemonObj := prepareDaemonSet("driver-module")
 
 		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, digestsList, nil, nil)
 		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil)
@@ -189,7 +192,7 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeFalse())
-		Expect(message).To(Equal(fmt.Sprintf("image %s does not contain DTK data on any layer", dsImage)))
+		Expect(message).To(Equal(fmt.Sprintf("DaemonSet %s, image %s does not contain DTK data on any layer", dsName, dsImage)))
 	})
 })
 
@@ -216,30 +219,60 @@ var _ = Describe("PrepareRuntimeInfo", func() {
 	})
 })
 
-func prepareObjListForTest(numItems int, buildConfigFlag, daemonSetFlag bool) *unstructured.UnstructuredList {
+// numBuildConfigs should less or equal to numDaemonSets
+// all BuildConfigs should paired to DaemonSets
+func prepareObjListForTest(numIrrelevantItems int,
+	numBuildConfigs int,
+	numDaemonSets int) *unstructured.UnstructuredList {
+	Expect(numBuildConfigs).To(BeNumerically("<=", numDaemonSets))
 	objList := &unstructured.UnstructuredList{
 		Items: []unstructured.Unstructured{},
 	}
 
-	for i := 0; i < numItems; i++ {
+	for i := 0; i < numIrrelevantItems; i++ {
 		item := unstructured.Unstructured{}
 		item.SetKind(fmt.Sprintf("objKind%d", i))
 		objList.Items = append(objList.Items, item)
 	}
-	if buildConfigFlag {
+	for i := 0; i < numBuildConfigs; i++ {
 		buildItem := unstructured.Unstructured{}
 		buildItem.SetKind("BuildConfig")
+		annotatations := map[string]string{
+			"specialresource.openshift.io/driver-container-vendor": fmt.Sprintf("driver-module-with-build-config%d", i),
+		}
+		buildItem.SetAnnotations(annotatations)
 		objList.Items = append(objList.Items, buildItem)
 	}
-	if daemonSetFlag {
-		objList.Items = append(objList.Items, *prepareDaemonSet())
+	for i := 0; i < numDaemonSets; i++ {
+		moduleName := fmt.Sprintf("driver-module-with-build-config%d", i)
+		if i >= numBuildConfigs {
+			moduleName = fmt.Sprintf("driver-module-without-build-config%d", i)
+		}
+		objList.Items = append(objList.Items, *prepareDaemonSetObj(moduleName))
 	}
+
+	/*
+		if buildConfigFlag {
+			buildItem := unstructured.Unstructured{}
+			buildItem.SetKind("BuildConfig")
+			objList.Items = append(objList.Items, buildItem)
+		}
+		if daemonSetFlag {
+			objList.Items = append(objList.Items, *prepareDaemonSetObj())
+		}
+	*/
 	return objList
 }
 
-func prepareDaemonSet() *unstructured.Unstructured {
+func prepareDaemonSetObj(moduleName string) *unstructured.Unstructured {
+	annotations := map[string]string{
+		"specialresource.openshift.io/state":                   "driver-container",
+		"specialresource.openshift.io/driver-container-vendor": moduleName,
+	}
 	item := unstructured.Unstructured{}
 	item.SetKind("DaemonSet")
+	item.SetName(dsName)
+	item.SetAnnotations(annotations)
 	containersSlice := make([]interface{}, 1)
 	imageSlice := map[string]interface{}{}
 	containersSlice[0] = imageSlice
@@ -248,4 +281,12 @@ func prepareDaemonSet() *unstructured.Unstructured {
 	err = unstructured.SetNestedSlice(item.Object, containersSlice, "spec", "template", "spec", "containers")
 	Expect(err).NotTo(HaveOccurred())
 	return &item
+}
+
+func prepareDaemonSet(moduleName string) *k8sv1.DaemonSet {
+	ds := k8sv1.DaemonSet{}
+	obj := prepareDaemonSetObj(moduleName)
+	err := k8sruntime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &ds)
+	Expect(err).NotTo(HaveOccurred())
+	return &ds
 }

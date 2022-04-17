@@ -23,10 +23,10 @@ import (
 )
 
 const (
-	VerificationStatusReasonBuildConfigPresent = "Verification successful, BuildConfig is present in the recipe"
+	VerificationStatusReasonBuildConfigPresent = "Verification successful, all driver-containers have paired BuildConfigs in the recipe"
 	VerificationStatusReasonNoDaemonSet        = "Verification successful, no driver-container present in the recipe"
 	VerificationStatusReasonUnknown            = "Verification has not started yet"
-	VerificationStatusReasonVerified           = "Verification successful, driver-container for the next kernel version is present"
+	VerificationStatusReasonVerified           = "Verification successful, all driver-containers for the next kernel version are present"
 )
 
 //go:generate mockgen -source=preflight.go -package=preflight -destination=mock_preflight_api.go
@@ -131,7 +131,6 @@ func (p *preflight) processFullChartTemplates(ctx context.Context,
 	return p.helmerAPI.GetHelmOutput(ctx, fullChart, fullChart.Values, namespace)
 }
 
-//[TODO] - handle multiple daemonsets and buildconfigs
 func (p *preflight) handleYAMLsCheck(ctx context.Context, yamlsList string, upgradeKernelVersion string) (bool, string, error) {
 	objList, err := p.resourceAPI.GetObjectsFromYAML([]byte(yamlsList))
 	if err != nil {
@@ -139,30 +138,68 @@ func (p *preflight) handleYAMLsCheck(ctx context.Context, yamlsList string, upgr
 		return false, "Failed to extract object from chart yaml list during preflight", err
 	}
 
-	for _, obj := range objList.Items {
-		kind := obj.GetKind()
-		if kind == "BuildConfig" {
-			// no more need to check daemons set, build config is present
-			p.log.Info("preflight: buildconfig related to daemonset, skipping image verification")
+	daemonSetList, buildConfigPresent, err := p.getRelevantDaemonSets(objList)
+	if err != nil {
+		return false, "Error while trying to parse BuildConfigs and DaemonSets", err
+	}
+	if len(daemonSetList) == 0 {
+		if buildConfigPresent {
 			return true, VerificationStatusReasonBuildConfigPresent, nil
-		}
-		if kind == "DaemonSet" {
-			return p.daemonSetPreflightCheck(ctx, &obj, upgradeKernelVersion)
+		} else {
+			return true, VerificationStatusReasonNoDaemonSet, nil
 		}
 	}
-	return true, VerificationStatusReasonNoDaemonSet, nil
+
+	for _, daemonSet := range daemonSetList {
+		verified, message, err := p.daemonSetPreflightCheck(ctx, daemonSet, upgradeKernelVersion)
+		if err != nil || !verified {
+			return verified, message, err
+		}
+	}
+	return true, VerificationStatusReasonVerified, nil
 }
 
-func (p *preflight) daemonSetPreflightCheck(ctx context.Context, obj *unstructured.Unstructured, upgradeKernelVersion string) (bool, string, error) {
-	var ds k8sv1.DaemonSet
-	err := k8sruntime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &ds)
-	if err != nil {
-		p.log.Error(err, "failed to convert YAML daemonset into struct daemonset")
-		return false, "failed to convert YAML daemonset into struct daemonset", err
+func (p *preflight) getRelevantDaemonSets(objList *unstructured.UnstructuredList) ([]*k8sv1.DaemonSet, bool, error) {
+	buildConfigMap := map[string]struct{}{}
+	tempDSList := []*k8sv1.DaemonSet{}
+	buildConfigPresent := false
+	for _, obj := range objList.Items {
+		switch obj.GetKind() {
+		case "BuildConfig":
+			buildConfigPresent = true
+			annotations := obj.GetAnnotations()
+			driverContainerToken, found := annotations["specialresource.openshift.io/driver-container-vendor"]
+			if found {
+				buildConfigMap[driverContainerToken] = struct{}{}
+			}
+
+		case "DaemonSet":
+			daemonSet := k8sv1.DaemonSet{}
+			err := k8sruntime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &daemonSet)
+			if err != nil {
+				p.log.Error(err, "failed to convert YAML daemonset into struct daemonset")
+				return nil, false, err
+			}
+			state, found := daemonSet.Annotations["specialresource.openshift.io/state"]
+			if found && state == "driver-container" {
+				tempDSList = append(tempDSList, &daemonSet)
+			}
+		}
 	}
+	resultList := []*k8sv1.DaemonSet{}
+	for _, item := range tempDSList {
+		driverContainerToken := item.Annotations["specialresource.openshift.io/driver-container-vendor"]
+		if _, exists := buildConfigMap[driverContainerToken]; !exists {
+			resultList = append(resultList, item)
+		}
+	}
+	return resultList, buildConfigPresent, nil
+}
+
+func (p *preflight) daemonSetPreflightCheck(ctx context.Context, ds *k8sv1.DaemonSet, upgradeKernelVersion string) (bool, string, error) {
 	if len(ds.Spec.Template.Spec.Containers) == 0 {
 		p.log.Error(nil, "invalid daemonset, no container  data present")
-		return false, "invalid daemonset, no container  data present", fmt.Errorf("invalid daemonset, no container  data present")
+		return false, fmt.Sprintf("invalid daemonset %s, no container  data present", ds.Name), fmt.Errorf("invalid daemonset, no container  data present")
 	}
 	image := ds.Spec.Template.Spec.Containers[0].Image
 
@@ -171,14 +208,14 @@ func (p *preflight) daemonSetPreflightCheck(ctx context.Context, obj *unstructur
 	repo, digests, auth, err := p.registryAPI.GetLayersDigests(ctx, image)
 	if err != nil {
 		p.log.Info("Failed to get layers digests for image", "image", image)
-		return false, fmt.Sprintf("image %s is inaccessible or does not exists", image), nil
+		return false, fmt.Sprintf("DaemonSet %s, image %s inaccessible or does not exists", ds.Name, image), nil
 	}
 
 	for i := len(digests) - 1; i >= 0; i-- {
 		layer, err := p.registryAPI.GetLayerByDigest(repo, digests[i], auth)
 		if err != nil {
 			p.log.Info("Failed to extract/access layer from image", "layer", digests[i], "image", image)
-			return false, fmt.Sprintf("image %s layer %s is inaccessible", image, digests[i]), nil
+			return false, fmt.Sprintf("DaemonSet %s, image %s, layer %s is inaccessible", ds.Name, image, digests[i]), nil
 		}
 		dtk, err := p.registryAPI.ExtractToolkitRelease(layer)
 		if err != nil {
@@ -189,13 +226,13 @@ func (p *preflight) daemonSetPreflightCheck(ctx context.Context, obj *unstructur
 		p.log.Info("dtk info present in layer", "layerIndex", i)
 		if dtk.KernelFullVersion != upgradeKernelVersion {
 			p.log.Info("DTK kernel version differs from the upgrade node version", "dtkVersion", dtk.KernelFullVersion, "upgradeVersion", upgradeKernelVersion)
-			return false, fmt.Sprintf("image kernel version %s different from upgrade kernel version %s", dtk.KernelFullVersion, upgradeKernelVersion), nil
+			return false, fmt.Sprintf("DaemonSet %s, image kernel version %s different from upgrade kernel version %s", ds.Name, dtk.KernelFullVersion, upgradeKernelVersion), nil
 		}
 		return true, VerificationStatusReasonVerified, nil
 	}
 
 	p.log.Info("DTK info not present on any layer of the image, invaid image format", "image", image)
-	return false, fmt.Sprintf("image %s does not contain DTK data on any layer", image), nil
+	return false, fmt.Sprintf("DaemonSet %s, image %s does not contain DTK data on any layer", ds.Name, image), nil
 }
 
 func (p *preflight) PrepareRuntimeInfo(ctx context.Context, image string) (*runtime.RuntimeInformation, error) {
