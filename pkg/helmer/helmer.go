@@ -46,7 +46,6 @@ func defaultSettings() (*cli.EnvSettings, error) {
 	s.RepositoryConfig = filepath.Join(cacheDir, "special-resource-operator/helm/repositories/config.yaml")
 	s.RepositoryCache = filepath.Join(cacheDir, "special-resource-operator/helm/cache")
 	s.RegistryConfig = filepath.Join(cacheDir, "special-resource-operator/helm/registry.json")
-	s.Debug = true
 	s.MaxHistory = 10
 
 	return s, nil
