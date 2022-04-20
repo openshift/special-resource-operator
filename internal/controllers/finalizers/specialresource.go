@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift/special-resource-operator/api/v1beta1"
 	"github.com/openshift/special-resource-operator/pkg/clients"
 	"github.com/openshift/special-resource-operator/pkg/poll"
@@ -27,7 +26,6 @@ type SpecialResourceFinalizer interface {
 
 type specialResourceFinalizer struct {
 	kubeClient  clients.ClientsInterface
-	log         logr.Logger
 	pollActions poll.PollActions
 }
 
@@ -37,18 +35,17 @@ func NewSpecialResourceFinalizer(
 ) SpecialResourceFinalizer {
 	return &specialResourceFinalizer{
 		kubeClient:  kubeClient,
-		log:         ctrl.Log.WithName("finalizers"),
 		pollActions: pollActions,
 	}
 }
 
 func (srf *specialResourceFinalizer) AddToSpecialResource(ctx context.Context, sr *v1beta1.SpecialResource) error {
-	srf.log.Info("Adding finalizer to special resource")
+	ctrl.LoggerFrom(ctx).Info("Adding finalizer")
 	controllerutil.AddFinalizer(sr, FinalizerString)
 
 	// Update CR
 	if err := srf.kubeClient.Update(ctx, sr); err != nil {
-		srf.log.Error(err, "Adding finalizer failed")
+		ctrl.LoggerFrom(ctx).Error(err, "Adding finalizer failed")
 		return err
 	}
 
@@ -59,14 +56,14 @@ func (srf *specialResourceFinalizer) Finalize(ctx context.Context, sr *v1beta1.S
 	if utils.StringSliceContains(sr.GetFinalizers(), FinalizerString) {
 		// Run finalization logic for specialresource
 		if err := srf.finalizeSpecialResource(ctx, sr); err != nil {
-			srf.log.Error(err, "Finalization logic failed.")
+			ctrl.LoggerFrom(ctx).Error(err, "Finalization logic failed.")
 			return err
 		}
 
 		controllerutil.RemoveFinalizer(sr, FinalizerString)
 
 		if err := srf.kubeClient.Update(ctx, sr); err != nil {
-			srf.log.Error(err, "Could not remove finalizer after running finalization logic")
+			ctrl.LoggerFrom(ctx).Error(err, "Could not remove finalizer after running finalization logic")
 			return err
 		}
 	}
@@ -114,7 +111,7 @@ func (srf *specialResourceFinalizer) finalizeSpecialResource(ctx context.Context
 	if sr.Name == "special-resource-preamble" {
 		err := srf.finalizeNodes(ctx, sr, "specialresource.openshift.io")
 		if err != nil {
-			srf.log.Error(err, "finalizeSpecialResource special-resource-preamble failed")
+			ctrl.LoggerFrom(ctx).Error(err, "Failed to finalize special-resource-preamble")
 			return err
 		}
 	}
@@ -135,7 +132,7 @@ func (srf *specialResourceFinalizer) finalizeSpecialResource(ctx context.Context
 			if apierrors.IsNotFound(err) {
 				return nil
 			} else {
-				srf.log.Error(err, "Failed to get namespace", "namespace", sr.Spec.Namespace, "SpecialResource", sr.Name)
+				ctrl.LoggerFrom(ctx).Error(err, "Failed to get namespace", "namespace", sr.Spec.Namespace, "SpecialResource", sr.Name)
 				return err
 			}
 		}
@@ -143,12 +140,12 @@ func (srf *specialResourceFinalizer) finalizeSpecialResource(ctx context.Context
 		for _, owner := range ns.GetOwnerReferences() {
 			if owner.Kind == "SpecialResource" {
 				if err := srf.kubeClient.Delete(ctx, &ns); err != nil {
-					srf.log.Error(err, "Failed to delete namespace", "namespace", sr.Spec.Namespace)
+					ctrl.LoggerFrom(ctx).Error(err, "Failed to delete namespace", "namespace", sr.Spec.Namespace)
 					return err
 				}
 
 				if err := srf.pollActions.ForResourceUnavailability(ctx, &ns); err != nil {
-					srf.log.Error(err, "Failed to delete namespace", "namespace", sr.Spec.Namespace)
+					ctrl.LoggerFrom(ctx).Error(err, "Failed to delete namespace", "namespace", sr.Spec.Namespace)
 					return err
 				}
 			}

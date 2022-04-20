@@ -1,14 +1,12 @@
 package kernel
 
 import (
-	"io/ioutil"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var (
@@ -19,9 +17,7 @@ func TestKernel(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	BeforeEach(func() {
-		kernel = kernelData{
-			log: zap.New(zap.WriteTo(ioutil.Discard)),
-		}
+		kernel = kernelData{}
 	})
 
 	RunSpecs(t, "Kernel Suite")

@@ -15,7 +15,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/openshift/special-resource-operator/pkg/clients"
-	"github.com/openshift/special-resource-operator/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -248,13 +247,15 @@ func (r *registry) getHeaderFromLayer(layer v1.Layer, headerName string) (*unstr
 	if err != nil {
 		return nil, err
 	}
-	defer r.dclose(targz)
+	// err ignored because we're only reading
+	defer targz.Close()
 
 	gr, err := gzip.NewReader(targz)
 	if err != nil {
 		return nil, err
 	}
-	defer r.dclose(gr)
+	// err ignored because we're only reading
+	defer gr.Close()
 
 	tr := tar.NewReader(gr)
 
@@ -283,10 +284,4 @@ func (r *registry) getHeaderFromLayer(layer v1.Layer, headerName string) (*unstr
 	}
 
 	return nil, fmt.Errorf("header %s not found in the layer", headerName)
-}
-
-func (r *registry) dclose(c io.Closer) {
-	if err := c.Close(); err != nil {
-		utils.WarnOnError(err)
-	}
 }

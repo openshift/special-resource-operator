@@ -29,7 +29,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	buildv1 "github.com/openshift/api/build/v1"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/chart"
@@ -48,7 +47,6 @@ import (
 	"github.com/openshift/special-resource-operator/pkg/registry"
 	"github.com/openshift/special-resource-operator/pkg/resource"
 	sroruntime "github.com/openshift/special-resource-operator/pkg/runtime"
-	"github.com/openshift/special-resource-operator/pkg/utils"
 	"github.com/openshift/special-resource-operator/pkg/watcher"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -95,7 +93,6 @@ type ocpVersionInfo struct {
 
 // SpecialResourceModuleReconciler reconciles a SpecialResourceModule object
 type SpecialResourceModuleReconciler struct {
-	Log    logr.Logger
 	Scheme *k8sruntime.Scheme
 
 	Metrics     metrics.Metrics
@@ -314,7 +311,7 @@ func (r *SpecialResourceModuleReconciler) getVersionInfoFromImage(ctx context.Co
 }
 
 func (r *SpecialResourceModuleReconciler) getOCPVersions(ctx context.Context, watchList []srov1beta1.SpecialResourceModuleWatch) (map[string]ocpVersionInfo, error) {
-	logVersion := r.Log.WithName(utils.Print("versions", utils.Purple))
+	log := ctrl.LoggerFrom(ctx)
 	versionMap := make(map[string]ocpVersionInfo)
 	for _, resource := range watchList {
 		objs, err := r.getAllResources(resource.Kind, resource.ApiVersion, resource.Namespace, resource.Name)
@@ -331,7 +328,7 @@ func (r *SpecialResourceModuleReconciler) getOCPVersions(ctx context.Context, wa
 		for _, obj := range objs {
 			result, err := watcher.GetJSONPath(resource.Path, obj)
 			if err != nil {
-				logVersion.Error(err, "Error when looking for path. Continue", "name", obj.GetName(), "path", resource.Path)
+				log.Error(err, "Error when looking for path. Continue", "objectName", obj.GetName(), "path", resource.Path)
 				continue
 			}
 			for _, element := range result {
@@ -341,10 +338,10 @@ func (r *SpecialResourceModuleReconciler) getOCPVersions(ctx context.Context, wa
 					if err != nil {
 						return nil, err
 					}
-					logVersion.Info("Version from regex", "name", obj.GetName(), "element", element)
+					log.Info("Version from regex", "objectName", obj.GetName(), "element", element)
 					image = tmp
 				} else if strings.Contains(element, "@") || strings.Contains(element, ":") {
-					logVersion.Info("Version from image", "name", obj.GetName(), "element", element)
+					log.Info("Version from image", "objectName", obj.GetName(), "element", element)
 					image = element
 				} else {
 					return nil, fmt.Errorf("format error. %s is not a valid image/version", element)
@@ -437,6 +434,7 @@ func (r *SpecialResourceModuleReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 	if platform == "OCP" {
 		c, err := ctrl.NewControllerManagedBy(mgr).
+			Named("specialresourcemodule").
 			For(&srov1beta1.SpecialResourceModule{}).
 			Owns(&buildv1.BuildConfig{}).
 			WithOptions(controller.Options{
@@ -454,8 +452,8 @@ func (r *SpecialResourceModuleReconciler) SetupWithManager(mgr ctrl.Manager) err
 
 // Reconcile Reconiliation entry point
 func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logModule := r.Log.WithName(utils.Print("reconcile: "+req.Name, utils.Purple))
-	logModule.Info("Reconciling")
+	log := ctrl.LoggerFrom(ctx)
+	log.Info("Reconciling")
 
 	srm := &srov1beta1.SpecialResourceModuleList{}
 
@@ -468,18 +466,18 @@ func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctr
 	var request int
 	var found bool
 	if request, found = FindSRM(srm.Items, req.Name); !found {
-		logModule.Info("Not found")
+		log.Info("Not found")
 		return reconcile.Result{}, nil
 	}
 	resource := srm.Items[request]
 
 	if resource.GetDeletionTimestamp() != nil {
-		logModule.Info("Deleted resource")
+		log.Info("Deleted resource")
 		return reconcile.Result{}, r.deleteNamespace(ctx, resource.Spec.Namespace)
 	}
 
-	if err := r.Watcher.ReconcileWatches(resource); err != nil {
-		logModule.Error(err, "failed to update watched resources")
+	if err := r.Watcher.ReconcileWatches(ctx, resource); err != nil {
+		log.Error(err, "failed to update watched resources")
 		return reconcile.Result{}, err
 	}
 
@@ -509,11 +507,11 @@ func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctr
 	}
 
 	for _, element := range deleteList {
-		logModule.Info("Removing version", "version", element.DTKImage)
+		log.Info("Removing version", "version", element.DTKImage)
 		//TODO hwo to do this? I need special labels for that.
 	}
 	for _, element := range updateList {
-		logModule.Info("Reconciling version", "version", element.DTKImage)
+		log.Info("Reconciling version", "version", element.DTKImage)
 		metadata := getMetadata(resource, element)
 		var inputList []string
 		if data, ok := resource.Status.Versions[element.DTKImage]; ok {
@@ -533,6 +531,6 @@ func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctr
 
 	}
 
-	logModule.Info("Done")
+	log.Info("Done")
 	return reconcile.Result{}, nil
 }

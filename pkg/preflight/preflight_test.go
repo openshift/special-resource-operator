@@ -1,7 +1,7 @@
 package preflight
 
 import (
-	"context"
+	context "context"
 	"fmt"
 	"testing"
 
@@ -82,7 +82,7 @@ var _ = Describe("handleYAMLsCheck", func() {
 	It("get objects from yaml failure", func() {
 		mockResourceAPI.EXPECT().GetObjectsFromYAML([]byte("some yaml")).Return(nil, fmt.Errorf("some error"))
 
-		verified, message, err := p.handleYAMLsCheck(context.TODO(), "some yaml", upgradeKernelVersion)
+		verified, message, err := p.handleYAMLsCheck(context.Background(), "some yaml", upgradeKernelVersion)
 
 		Expect(err).To(HaveOccurred())
 		Expect(verified).To(BeFalse())
@@ -94,7 +94,7 @@ var _ = Describe("handleYAMLsCheck", func() {
 
 		mockResourceAPI.EXPECT().GetObjectsFromYAML([]byte("some yaml")).Return(objList, nil)
 
-		verified, message, err := p.handleYAMLsCheck(context.TODO(), "some yaml", upgradeKernelVersion)
+		verified, message, err := p.handleYAMLsCheck(context.Background(), "some yaml", upgradeKernelVersion)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeTrue())
@@ -106,7 +106,7 @@ var _ = Describe("handleYAMLsCheck", func() {
 
 		mockResourceAPI.EXPECT().GetObjectsFromYAML([]byte("some yaml")).Return(objList, nil)
 
-		verified, message, err := p.handleYAMLsCheck(context.TODO(), "some yaml", upgradeKernelVersion)
+		verified, message, err := p.handleYAMLsCheck(context.Background(), "some yaml", upgradeKernelVersion)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeTrue())
@@ -124,7 +124,7 @@ var _ = Describe("handleYAMLsCheck", func() {
 		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil).Times(2)
 		mockRegistryAPI.EXPECT().ExtractToolkitRelease(&digestLayer).Return(dtk, nil).Times(2)
 
-		verified, message, err := p.handleYAMLsCheck(context.TODO(), "some yaml", upgradeKernelVersion)
+		verified, message, err := p.handleYAMLsCheck(context.Background(), "some yaml", upgradeKernelVersion)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeTrue())
@@ -143,7 +143,7 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil)
 		mockRegistryAPI.EXPECT().ExtractToolkitRelease(&digestLayer).Return(dtk, nil)
 
-		verified, message, err := p.daemonSetPreflightCheck(context.TODO(), daemonObj, upgradeKernelVersion)
+		verified, message, err := p.daemonSetPreflightCheck(context.Background(), daemonObj, upgradeKernelVersion)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeTrue())
@@ -155,7 +155,7 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 
 		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, []string{}, nil, fmt.Errorf("some error"))
 
-		verified, message, err := p.daemonSetPreflightCheck(context.TODO(), daemonObj, upgradeKernelVersion)
+		verified, message, err := p.daemonSetPreflightCheck(context.Background(), daemonObj, upgradeKernelVersion)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeFalse())
@@ -172,7 +172,7 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil)
 		mockRegistryAPI.EXPECT().ExtractToolkitRelease(&digestLayer).Return(dtk, nil)
 
-		verified, message, err := p.daemonSetPreflightCheck(context.TODO(), daemonObj, upgradeKernelVersion)
+		verified, message, err := p.daemonSetPreflightCheck(context.Background(), daemonObj, upgradeKernelVersion)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeFalse())
@@ -188,7 +188,7 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil)
 		mockRegistryAPI.EXPECT().ExtractToolkitRelease(&digestLayer).Return(nil, fmt.Errorf("some error"))
 
-		verified, message, err := p.daemonSetPreflightCheck(context.TODO(), daemonObj, upgradeKernelVersion)
+		verified, message, err := p.daemonSetPreflightCheck(context.Background(), daemonObj, upgradeKernelVersion)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(verified).To(BeFalse())
@@ -213,7 +213,7 @@ var _ = Describe("PrepareRuntimeInfo", func() {
 		mockClusterAPI.EXPECT().Version(gomock.Any()).Return(clusterVersion, clusterMajorMinor, nil)
 		mockClusterAPI.EXPECT().OSImageURL(gomock.Any()).Return(osImageURL, nil)
 
-		_, err := p.PrepareRuntimeInfo(context.TODO(), ocpImage)
+		_, err := p.PrepareRuntimeInfo(context.Background(), ocpImage)
 
 		Expect(err).NotTo(HaveOccurred())
 	})

@@ -17,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
@@ -26,9 +25,9 @@ type Filter interface {
 	GetMode() string
 }
 
-func NewFilter(kind, ownedLabel string, lifecycle lifecycle.Lifecycle, storage storage.Storage, kernelData kernel.KernelData) Filter {
+func NewFilter(log logr.Logger, kind, ownedLabel string, lifecycle lifecycle.Lifecycle, storage storage.Storage, kernelData kernel.KernelData) Filter {
 	return &filter{
-		log:        zap.New(zap.UseDevMode(true)).WithName(utils.Print("filter", utils.Purple)),
+		log:        log.WithName("filter"),
 		lifecycle:  lifecycle,
 		storage:    storage,
 		kernelData: kernelData,
@@ -125,14 +124,14 @@ func (f *filter) GetPredicates() predicate.Predicate {
 
 			if f.isSpecialResource(obj) {
 				if !f.isSpecialResourceUnmanaged(obj) {
-					f.log.Info("Creating managed special resource", "name", obj.GetName())
+					f.log.Info("Creating managed special resource", "specialResourceName", obj.GetName())
 					return true
 				}
 				return false
 			}
 
 			if f.owned(obj) {
-				f.log.Info("Creating owned object", "name", obj.GetName(), "namespace", obj.GetNamespace(), "kind", obj.GetObjectKind())
+				f.log.Info("Creating owned object", "objName", obj.GetName(), "objNamespace", obj.GetNamespace(), "objKind", obj.GetObjectKind())
 				return true
 			}
 
@@ -156,21 +155,26 @@ func (f *filter) GetPredicates() predicate.Predicate {
 			obj := e.ObjectNew
 
 			// Required for the case when pods are deleted due to OS upgrade
-			if f.owned(obj) && f.kernelData.IsObjectAffine(obj) {
-				if e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() &&
-					e.ObjectOld.GetResourceVersion() == e.ObjectNew.GetResourceVersion() {
-					return false
-				} else {
-					if reflect.TypeOf(obj).String() == "*v1.DaemonSet" && e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
-						err := f.lifecycle.UpdateDaemonSetPods(context.TODO(), obj)
-						utils.WarnOnError(err)
-					}
-					if f.isSpecialResource(obj) && f.isSpecialResourceUnmanaged(obj) {
+			if f.owned(obj) {
+				if f.kernelData.IsObjectAffine(obj) {
+					f.log.Info("Object is kernel affine", "object", obj.GetName())
+
+					if e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() &&
+						e.ObjectOld.GetResourceVersion() == e.ObjectNew.GetResourceVersion() {
 						return false
+					} else {
+						if reflect.TypeOf(obj).String() == "*v1.DaemonSet" && e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
+							if err := f.lifecycle.UpdateDaemonSetPods(context.TODO(), obj); err != nil {
+								f.log.Error(err, "Failed to update lifecycle cm with DaemonSet's Pods")
+							}
+						}
+						if f.isSpecialResource(obj) && f.isSpecialResourceUnmanaged(obj) {
+							return false
+						}
+						f.log.Info("Updating owned object. generation or resourceVersion kernel affine changed",
+							"name", obj.GetName(), "namespace", obj.GetNamespace(), "kind", obj.GetObjectKind())
+						return true
 					}
-					f.log.Info("Updating owned object. generation or resourceVersion kernel affine changed",
-						"name", obj.GetName(), "namespace", obj.GetNamespace(), "kind", obj.GetObjectKind())
-					return true
 				}
 			}
 
@@ -192,17 +196,18 @@ func (f *filter) GetPredicates() predicate.Predicate {
 				if f.isSpecialResourceUnmanaged(obj) {
 					return false
 				}
-				f.log.Info("Updating special resource", "name", obj.GetName())
+				f.log.Info("Updating special resource", "srName", obj.GetName())
 				return true
 			}
 
 			// If we do not own the object, do not care
 			if f.owned(obj) {
 				if reflect.TypeOf(obj).String() == "*v1.DaemonSet" {
-					err := f.lifecycle.UpdateDaemonSetPods(context.TODO(), obj)
-					utils.WarnOnError(err)
+					if err := f.lifecycle.UpdateDaemonSetPods(context.TODO(), obj); err != nil {
+						f.log.Error(err, "Failed to update lifecycle cm with DaemonSet's Pods")
+					}
 				}
-				f.log.Info("Updating owned object", "name", obj.GetName(), "namespace", obj.GetNamespace(), "kind", obj.GetObjectKind())
+				f.log.Info("Updating owned object", "objName", obj.GetName(), "objNamespace", obj.GetNamespace(), "objKind", obj.GetObjectKind())
 				return true
 			}
 
@@ -215,7 +220,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 			/* want to recreate it so handle the delete event */
 			obj := e.Object
 			if f.isSpecialResource(obj) {
-				f.log.Info("Deleting special resource", "name", obj.GetName())
+				f.log.Info("Deleting special resource", "srName", obj.GetName())
 				return true
 			}
 
@@ -228,12 +233,13 @@ func (f *filter) GetPredicates() predicate.Predicate {
 				}
 				key, err := utils.FNV64a(obj.GetNamespace() + obj.GetName())
 				if err != nil {
-					utils.WarnOnError(err)
+					f.log.Error(err, "Failed to calculate FNV64a for the object", "ns+name", obj.GetNamespace()+obj.GetName())
 					return false
 				}
-				err = f.storage.DeleteConfigMapEntry(context.TODO(), key, ins)
-				utils.WarnOnError(err)
-				f.log.Info("Deleting owned object", "name", obj.GetName(), "namespace", obj.GetNamespace(), "kind", obj.GetObjectKind())
+				if err = f.storage.DeleteConfigMapEntry(context.TODO(), key, ins); err != nil {
+					f.log.Error(err, "Failed to delete key from lifecycle configmap", "ns+name", obj.GetNamespace()+obj.GetName(), "key", key)
+				}
+				f.log.Info("Deleting owned object", "objName", obj.GetName(), "objNamespace", obj.GetNamespace(), "objKind", obj.GetObjectKind())
 				return true
 			}
 			return false
@@ -247,14 +253,14 @@ func (f *filter) GetPredicates() predicate.Predicate {
 			obj := e.Object
 			if f.isSpecialResource(obj) {
 				if !f.isSpecialResourceUnmanaged(obj) {
-					f.log.Info("Generic special resource", "name", obj.GetName())
+					f.log.Info("Generic special resource", "srName", obj.GetName())
 					return true
 				}
 				return false
 			}
 			// If we do not own the object, do not care
 			if f.owned(obj) {
-				f.log.Info("Generic owned resource", "name", obj.GetName(), "namespace", obj.GetNamespace(), "kind", obj.GetObjectKind())
+				f.log.Info("Generic owned resource", "objName", obj.GetName(), "objNamespace", obj.GetNamespace(), "objKind", obj.GetObjectKind())
 				return true
 			}
 			return false

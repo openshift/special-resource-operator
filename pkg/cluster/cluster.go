@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	imagev1 "github.com/openshift/api/image/v1"
 	"github.com/openshift/special-resource-operator/pkg/clients"
 	"github.com/openshift/special-resource-operator/pkg/utils"
@@ -18,7 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 //go:generate mockgen -source=cluster.go -package=cluster -destination=mock_cluster_api.go
@@ -34,13 +32,11 @@ type Cluster interface {
 
 func NewCluster(clients clients.ClientsInterface) Cluster {
 	return &cluster{
-		log:     zap.New(zap.UseDevMode(true)).WithName(utils.Print("cache", utils.Brown)),
 		clients: clients,
 	}
 }
 
 type cluster struct {
-	log     logr.Logger
 	clients clients.ClientsInterface
 }
 
@@ -82,7 +78,6 @@ func (c *cluster) GetDTKImages(ctx context.Context) ([]string, error) {
 }
 
 func (c *cluster) Version(ctx context.Context) (string, string, error) {
-
 	version, err := c.clients.ClusterVersionGet(ctx, metav1.GetOptions{})
 	if err != nil {
 		return "", "", fmt.Errorf("ConfigClient unable to get ClusterVersions: %w", err)

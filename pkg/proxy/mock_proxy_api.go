@@ -51,15 +51,15 @@ func (mr *MockProxyAPIMockRecorder) ClusterConfiguration(ctx interface{}) *gomoc
 }
 
 // Setup mocks base method.
-func (m *MockProxyAPI) Setup(obj *unstructured.Unstructured) error {
+func (m *MockProxyAPI) Setup(ctx context.Context, obj *unstructured.Unstructured) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Setup", obj)
+	ret := m.ctrl.Call(m, "Setup", ctx, obj)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Setup indicates an expected call of Setup.
-func (mr *MockProxyAPIMockRecorder) Setup(obj interface{}) *gomock.Call {
+func (mr *MockProxyAPIMockRecorder) Setup(ctx, obj interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Setup", reflect.TypeOf((*MockProxyAPI)(nil).Setup), obj)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Setup", reflect.TypeOf((*MockProxyAPI)(nil).Setup), ctx, obj)
 }

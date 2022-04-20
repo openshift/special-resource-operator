@@ -6,13 +6,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/go-logr/logr"
-
 	"github.com/openshift/special-resource-operator/pkg/cluster"
 	"github.com/openshift/special-resource-operator/pkg/registry"
 	"github.com/openshift/special-resource-operator/pkg/utils"
+
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type NodeVersion struct {
@@ -32,7 +31,6 @@ type ClusterInfo interface {
 
 func NewClusterInfo(reg registry.Registry, cluster cluster.Cluster) ClusterInfo {
 	return &clusterInfo{
-		log:      zap.New(zap.UseDevMode(true)).WithName(utils.Print("upgrade", utils.Blue)),
 		registry: reg,
 		cluster:  cluster,
 		cache:    make(map[string]*registry.DriverToolkitEntry),
@@ -40,7 +38,6 @@ func NewClusterInfo(reg registry.Registry, cluster cluster.Cluster) ClusterInfo 
 }
 
 type clusterInfo struct {
-	log      logr.Logger
 	registry registry.Registry
 	cluster  cluster.Cluster
 	cache    map[string]*registry.DriverToolkitEntry
@@ -158,9 +155,11 @@ func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, dtkImages []str
 }
 
 func (ci *clusterInfo) GetDTKData(ctx context.Context, imageURL string) (*registry.DriverToolkitEntry, error) {
+	log := ctrl.LoggerFrom(ctx)
+
 	dtk := ci.cache[imageURL]
 	if dtk != nil {
-		ci.log.Info("History from cache", "imageURL", imageURL, "dtk", dtk)
+		log.Info("Using DTK image from cache", "imageURL", imageURL, "dtk", dtk)
 	} else {
 		layer, err := ci.registry.LastLayer(ctx, imageURL)
 		if err != nil {
@@ -176,7 +175,7 @@ func (ci *clusterInfo) GetDTKData(ctx context.Context, imageURL string) (*regist
 		}
 
 		ci.cache[imageURL] = dtk
-		ci.log.Info("History added to cache", "imageURL", imageURL, "dtk", dtk)
+		log.Info("Added DTK image to cache", "imageURL", imageURL, "dtk", dtk)
 	}
 	return dtk, nil
 }

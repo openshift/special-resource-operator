@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift/special-resource-operator/pkg/clients"
 	helmerv1beta1 "github.com/openshift/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift/special-resource-operator/pkg/resource"
@@ -32,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/version"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	ctrlruntime "sigs.k8s.io/controller-runtime"
 )
 
 func defaultSettings() (*cli.EnvSettings, error) {
@@ -73,7 +72,6 @@ type helmer struct {
 	actionConfig    *action.Configuration
 	resourceAPI     resource.ResourceAPI
 	getterProviders getter.Providers
-	log             logr.Logger
 	kubeClient      clients.ClientsInterface
 	repoFile        *repo.File
 	settings        *cli.EnvSettings
@@ -118,7 +116,6 @@ func newHelmerWithVersions(resourceAPI resource.ResourceAPI, settings *cli.EnvSe
 	return &helmer{
 		resourceAPI:     resourceAPI,
 		getterProviders: getter.All(settings),
-		log:             zap.New(zap.UseDevMode(true)).WithName(utils.Print("helmer", utils.Blue)),
 		kubeClient:      kubeClient,
 		repoFile: &repo.File{
 			APIVersion:   "",
@@ -175,7 +172,6 @@ func (h *helmer) Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 	}
 
 	if err := h.AddorUpdateRepo(entry); err != nil {
-		utils.WarnOnError(err)
 		return nil, err
 	}
 
@@ -206,11 +202,6 @@ func (h *helmer) Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 
 	return loaded, err
 
-}
-
-func (h *helmer) logWrap(format string, v ...interface{}) {
-	msg := fmt.Sprintf(format, v...)
-	h.log.Info("Helm", "internal", msg)
 }
 
 func (h *helmer) failRelease(rel *release.Release, err error) error {
@@ -270,9 +261,13 @@ func (h *helmer) dryRunHelmChart(ctx context.Context,
 	vals map[string]interface{},
 	namespace string) (*release.Release, *action.Install, error) {
 
+	log := ctrlruntime.LoggerFrom(ctx)
 	h.actionConfig = new(action.Configuration)
 
-	err := h.actionConfig.Init(h.settings.RESTClientGetter(), namespace, "configmaps", h.logWrap)
+	err := h.actionConfig.Init(h.settings.RESTClientGetter(), namespace, "configmaps", func(format string, v ...interface{}) {
+		msg := fmt.Sprintf(format, v...)
+		log.Info("Helm", "internal", msg)
+	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("Cannot initialize helm action config: %w", err)
 	}
@@ -327,6 +322,8 @@ func (h *helmer) Run(
 	debug bool,
 	ownerLabel string) error {
 
+	log := ctrlruntime.LoggerFrom(ctx)
+
 	rel, install, err := h.dryRunHelmChart(ctx, ch, vals, namespace)
 	if err != nil {
 		return fmt.Errorf("failed to process helm chart: %w", err)
@@ -337,9 +334,9 @@ func (h *helmer) Run(
 		if err != nil {
 			return err
 		}
-		h.log.Info("Debug active. Showing manifests", "json", json, "manifest", rel.Manifest)
+		log.Info("Debug active. Showing manifests", "json", json, "manifest", rel.Manifest)
 		for _, hook := range rel.Hooks {
-			h.log.Info("Debug active. Showing hooks", "name", hook.Name, "manifest", hook.Manifest)
+			log.Info("Debug active. Showing hooks", "hookName", hook.Name, "manifest", hook.Manifest)
 		}
 	}
 
@@ -349,8 +346,7 @@ func (h *helmer) Run(
 		// We could try to recover gracefully here, but since nothing has been installed
 		// yet, this is probably safer than trying to continue when we know storage is
 		// not working.
-		utils.WarnOnError(err)
-		//return err
+		log.Error(err, "Failed to create a Helm release")
 	}
 
 	// Pre-install anything in the crd/ directory.
@@ -440,9 +436,9 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 	if err := h.kubeClient.Get(ctx, key, found); err != nil {
 
 		if apierrors.IsNotFound(err) {
-			h.log.Info("Hook not found", "name", string(hook))
+			ctrlruntime.LoggerFrom(ctx).Info("Hook not found", "hookName", string(hook))
 		} else {
-			return fmt.Errorf("Unexpected error getting hook cm %s: %w", hook, err)
+			return fmt.Errorf("unexpected error getting hook cm %s: %w", hook, err)
 		}
 	} else {
 		return nil

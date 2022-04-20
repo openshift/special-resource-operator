@@ -1,6 +1,7 @@
 package watcher
 
 import (
+	context "context"
 	"fmt"
 	"strings"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	reconcile "sigs.k8s.io/controller-runtime/pkg/reconcile"
 	source "sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -33,6 +35,8 @@ var _ = Describe("Watcher", func() {
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 		mockController = NewMockController(mockCtrl)
+
+		mockController.EXPECT().GetLogger().Return(ctrl.LoggerFrom(context.Background()))
 		w = New(mockController)
 	})
 
@@ -112,7 +116,7 @@ var _ = Describe("Watcher", func() {
 			mockController.EXPECT().Watch(gvkMatcherFromUnstructured(*dummy), gomock.Any()).Return(nil)
 
 			By("adding watches for SpecialResourceModule")
-			err := w.ReconcileWatches(srm1)
+			err := w.ReconcileWatches(context.Background(), srm1)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("simulating update of watched ClusterVersion")
@@ -125,7 +129,7 @@ var _ = Describe("Watcher", func() {
 			Expect(requests).To(BeEmpty())
 
 			By("adding watches for another SpecialResourceModule")
-			err = w.ReconcileWatches(srm2)
+			err = w.ReconcileWatches(context.Background(), srm2)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("simulating update of watched ClusterVersion with new data")
@@ -169,7 +173,7 @@ var _ = Describe("Watcher", func() {
 
 			By("removing one of the SpecialResourceModules")
 			srm2.Spec.Watch = make([]srov1beta1.SpecialResourceModuleWatch, 0)
-			err = w.ReconcileWatches(srm2)
+			err = w.ReconcileWatches(context.Background(), srm2)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("simulating update of watched ClusterVersion, but the observed data changed again")

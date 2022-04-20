@@ -5,14 +5,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/special-resource-operator/pkg/clients"
-	"github.com/openshift/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type Configuration struct {
@@ -25,32 +22,30 @@ type Configuration struct {
 //go:generate mockgen -source=proxy.go -package=proxy -destination=mock_proxy_api.go
 
 type ProxyAPI interface {
-	Setup(obj *unstructured.Unstructured) error
+	Setup(ctx context.Context, obj *unstructured.Unstructured) error
 	ClusterConfiguration(ctx context.Context) (Configuration, error)
 }
 
 type proxy struct {
 	kubeClient clients.ClientsInterface
-	log        logr.Logger
 	config     Configuration
 }
 
 func NewProxyAPI(kubeClient clients.ClientsInterface) ProxyAPI {
 	return &proxy{
 		kubeClient: kubeClient,
-		log:        zap.New(zap.UseDevMode(true)).WithName(utils.Print("proxy", utils.Green)),
 	}
 }
 
-func (p *proxy) Setup(obj *unstructured.Unstructured) error {
+func (p *proxy) Setup(ctx context.Context, obj *unstructured.Unstructured) error {
 
 	if strings.Compare(obj.GetKind(), "Pod") == 0 {
-		if err := p.setupPod(obj); err != nil {
+		if err := p.setupPod(ctx, obj); err != nil {
 			return errors.Wrap(err, "Cannot setup Pod Proxy")
 		}
 	}
 	if strings.Compare(obj.GetKind(), "DaemonSet") == 0 {
-		if err := p.setupDaemonSet(obj); err != nil {
+		if err := p.setupDaemonSet(ctx, obj); err != nil {
 			return errors.Wrap(err, "Cannot setup DaemonSet Proxy")
 		}
 
@@ -61,7 +56,7 @@ func (p *proxy) Setup(obj *unstructured.Unstructured) error {
 
 // We may generalize more depending on how many entities need proxy settings.
 // path... -> Pod, DaemonSet, BuildConfig, etc.
-func (p *proxy) setupDaemonSet(obj *unstructured.Unstructured) error {
+func (p *proxy) setupDaemonSet(ctx context.Context, obj *unstructured.Unstructured) error {
 	containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
 	if err != nil {
 		return err
@@ -71,14 +66,14 @@ func (p *proxy) setupDaemonSet(obj *unstructured.Unstructured) error {
 		return fmt.Errorf("spec.template.spec.containers not found in the daemon yaml")
 	}
 
-	if err = p.setupContainersProxy(containers); err != nil {
+	if err = p.setupContainersProxy(ctx, containers); err != nil {
 		return fmt.Errorf("cannot set proxy for Pod: %w", err)
 	}
 
 	return nil
 }
 
-func (p *proxy) setupPod(obj *unstructured.Unstructured) error {
+func (p *proxy) setupPod(ctx context.Context, obj *unstructured.Unstructured) error {
 	containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "containers")
 	if err != nil {
 		return err
@@ -88,14 +83,14 @@ func (p *proxy) setupPod(obj *unstructured.Unstructured) error {
 		return fmt.Errorf("spec.containers not found in the pod yaml")
 	}
 
-	if err = p.setupContainersProxy(containers); err != nil {
+	if err = p.setupContainersProxy(ctx, containers); err != nil {
 		return fmt.Errorf("cannot set proxy for Pod: %w", err)
 	}
 
 	return nil
 }
 
-func (p *proxy) setupContainersProxy(containers []interface{}) error {
+func (p *proxy) setupContainersProxy(ctx context.Context, containers []interface{}) error {
 
 	for _, container := range containers {
 		switch container := container.(type) {
@@ -133,7 +128,7 @@ func (p *proxy) setupContainersProxy(containers []interface{}) error {
 			}
 
 		default:
-			p.log.Info("container", "DEFAULT NOT THE CORRECT TYPE", container)
+			ctrl.LoggerFrom(ctx).Info("Unexpected container type to set proxy for", "container", container)
 		}
 		break
 	}
@@ -142,6 +137,7 @@ func (p *proxy) setupContainersProxy(containers []interface{}) error {
 }
 
 func (p *proxy) ClusterConfiguration(ctx context.Context) (Configuration, error) {
+	log := ctrl.LoggerFrom(ctx)
 	proxy := &p.config
 
 	proxiesAvailable, err := p.kubeClient.HasResource(configv1.SchemeGroupVersion.WithResource("proxies"))
@@ -149,7 +145,7 @@ func (p *proxy) ClusterConfiguration(ctx context.Context) (Configuration, error)
 		return *proxy, errors.Wrap(err, "Error discovering proxies API resource")
 	}
 	if !proxiesAvailable {
-		p.log.Info("Warning: Could not find proxies API resource. Can be ignored on vanilla K8s.")
+		log.Info("Warning: Could not find proxies API resource. Can be ignored on vanilla K8s.")
 		return *proxy, nil
 	}
 
@@ -165,28 +161,27 @@ func (p *proxy) ClusterConfiguration(ctx context.Context) (Configuration, error)
 	for _, cfg := range cfgs.Items {
 		cfgName := cfg.GetName()
 
-		var fnd bool
 		var err error
 		// If no proxy is configured, we do not exit we just give a warning
 		// and initialized the Proxy struct with zero sized strings
 		if strings.Contains(cfgName, "cluster") {
-			if proxy.HttpProxy, fnd, err = unstructured.NestedString(cfg.Object, "spec", "httpProxy"); err != nil {
-				utils.WarnOnErrorOrNotFound(fnd, err)
+			if proxy.HttpProxy, _, err = unstructured.NestedString(cfg.Object, "spec", "httpProxy"); err != nil {
+				log.Error(err, "Failed to obtain httpProxy")
 				proxy.HttpProxy = ""
 			}
 
-			if proxy.HttpsProxy, fnd, err = unstructured.NestedString(cfg.Object, "spec", "httpsProxy"); err != nil {
-				utils.WarnOnErrorOrNotFound(fnd, err)
+			if proxy.HttpsProxy, _, err = unstructured.NestedString(cfg.Object, "spec", "httpsProxy"); err != nil {
+				log.Error(err, "Failed to obtain httpsProxy")
 				proxy.HttpsProxy = ""
 			}
 
-			if proxy.NoProxy, fnd, err = unstructured.NestedString(cfg.Object, "spec", "noProxy"); err != nil {
-				utils.WarnOnErrorOrNotFound(fnd, err)
+			if proxy.NoProxy, _, err = unstructured.NestedString(cfg.Object, "spec", "noProxy"); err != nil {
+				log.Error(err, "Failed to obtain noProxy")
 				proxy.NoProxy = ""
 			}
 
-			if proxy.TrustedCA, fnd, err = unstructured.NestedString(cfg.Object, "spec", "trustedCA", "name"); err != nil {
-				utils.WarnOnErrorOrNotFound(fnd, err)
+			if proxy.TrustedCA, _, err = unstructured.NestedString(cfg.Object, "spec", "trustedCA", "name"); err != nil {
+				log.Error(err, "Failed to obtain trustedCA's name")
 				proxy.TrustedCA = ""
 			}
 		}

@@ -21,7 +21,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-logr/logr"
 	buildv1 "github.com/openshift/api/build/v1"
 	imagev1 "github.com/openshift/api/image/v1"
 	secv1 "github.com/openshift/api/security/v1"
@@ -65,7 +64,6 @@ const (
 
 // SpecialResourceReconciler reconciles a SpecialResource object
 type SpecialResourceReconciler struct {
-	Log    logr.Logger
 	Scheme *k8sruntime.Scheme
 
 	Metrics                metrics.Metrics
@@ -91,7 +89,7 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	var res reconcile.Result
 
-	log := r.Log.WithName(utils.Print(req.Name, utils.Purple))
+	log := ctrl.LoggerFrom(ctx)
 	log.Info("Reconciling", "mode", r.Filter.GetMode())
 
 	log.Info("TODO: preflight checks")
@@ -110,7 +108,6 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	wi := &WorkItem{
 		SpecialResource: sr,
 		AllSRs:          srs,
-		Log:             log,
 	}
 
 	conds := utils.NotAvailableProgressingNotDegraded(
@@ -179,8 +176,6 @@ func (r *SpecialResourceReconciler) getSpecialResources(ctx context.Context, req
 
 // SetupWithManager main initalization for manager
 func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	log := r.Log.WithName(utils.Print("setup", utils.Brown))
-
 	platform, err := r.KubeClient.GetPlatform()
 	if err != nil {
 		return err
@@ -188,6 +183,7 @@ func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if platform == "OCP" {
 		return ctrl.NewControllerManagedBy(mgr).
+			Named("specialresource").
 			For(&srov1beta1.SpecialResource{}).
 			Owns(&v1.Pod{}).
 			Owns(&appsv1.DaemonSet{}).
@@ -210,8 +206,8 @@ func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			WithEventFilter(r.Filter.GetPredicates()).
 			Complete(r)
 	} else {
-		log.Info("Warning: assuming vanilla K8s. Manager will own a limited set of resources.")
 		return ctrl.NewControllerManagedBy(mgr).
+			Named("specialresource").
 			For(&srov1beta1.SpecialResource{}).
 			Owns(&v1.Pod{}).
 			Owns(&appsv1.DaemonSet{}).

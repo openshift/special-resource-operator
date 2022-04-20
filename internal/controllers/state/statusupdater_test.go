@@ -74,7 +74,7 @@ var _ = Describe("SetAs{Ready,Progressing,Errored}", func() {
 		func(expectedType string, call func(state.StatusUpdater) error) {
 			gomock.InOrder(
 				kubeClient.EXPECT().
-					StatusUpdate(context.TODO(), gomock.All(conditionExclusivityMatcher{expectedType}, legacyStatusMatcher{expectedType})).
+					StatusUpdate(gomock.Any(), gomock.All(conditionExclusivityMatcher{expectedType}, legacyStatusMatcher{expectedType})).
 					Return(nil),
 			)
 

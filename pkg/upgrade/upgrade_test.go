@@ -1,7 +1,7 @@
 package upgrade
 
 import (
-	"context"
+	context "context"
 	"fmt"
 	"io"
 	"testing"
@@ -17,8 +17,6 @@ import (
 
 	"github.com/openshift/special-resource-operator/pkg/cluster"
 	"github.com/openshift/special-resource-operator/pkg/registry"
-	"github.com/openshift/special-resource-operator/pkg/utils"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestPkgUpgrade(t *testing.T) {
@@ -121,13 +119,11 @@ var _ = Describe("ClusterInfo", func() {
 				})
 			}
 
-			ctx := context.TODO()
-
-			mockCluster.EXPECT().GetDTKImages(ctx).Return(input.dtkImages, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, input.dtkImages[0]).Return(&fakeLayer{}, nil)
+			mockCluster.EXPECT().GetDTKImages(context.Background()).Return(input.dtkImages, nil)
+			mockRegistry.EXPECT().LastLayer(context.Background(), input.dtkImages[0]).Return(&fakeLayer{}, nil)
 			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(input.dtk, nil)
 
-			m, err := clusterInfo.GetClusterInfo(ctx, &nodesList)
+			m, err := clusterInfo.GetClusterInfo(context.Background(), &nodesList)
 
 			Expect(err).ToNot(HaveOccurred())
 
@@ -251,13 +247,11 @@ var _ = Describe("ClusterInfo", func() {
 				})
 			}
 
-			ctx := context.TODO()
-
-			mockCluster.EXPECT().GetDTKImages(ctx).Return(input.dtkImages, nil)
-			mockRegistry.EXPECT().LastLayer(ctx, input.dtkImages[0]).Return(&fakeLayer{}, nil)
+			mockCluster.EXPECT().GetDTKImages(context.Background()).Return(input.dtkImages, nil)
+			mockRegistry.EXPECT().LastLayer(context.Background(), input.dtkImages[0]).Return(&fakeLayer{}, nil)
 			mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(input.dtk, nil)
 
-			m, err := clusterInfo.GetClusterInfo(ctx, &nodesList)
+			m, err := clusterInfo.GetClusterInfo(context.Background(), &nodesList)
 			Expect(m).To(BeNil())
 
 			Expect(err).Should(MatchError(testExpects))
@@ -311,7 +305,6 @@ var _ = Describe("GetDTKData", func() {
 		mockRegistry = registry.NewMockRegistry(mockCtrl)
 		mockCluster = cluster.NewMockCluster(mockCtrl)
 		ci = clusterInfo{
-			log:      zap.New(zap.UseDevMode(true)).WithName(utils.Print("upgrade", utils.Blue)),
 			registry: mockRegistry,
 			cluster:  mockCluster,
 			cache:    make(map[string]*registry.DriverToolkitEntry),
@@ -341,7 +334,7 @@ var _ = Describe("GetDTKData", func() {
 		mockRegistry.EXPECT().LastLayer(gomock.Any(), "imageURL2").Return(&fakeLayer{}, nil)
 		mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(&dtk2, nil)
 
-		resDTK, err := ci.GetDTKData(context.TODO(), "imageURL2")
+		resDTK, err := ci.GetDTKData(context.Background(), "imageURL2")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resDTK).To(Equal(&dtk2))
 	})
@@ -357,7 +350,7 @@ var _ = Describe("GetDTKData", func() {
 		mockRegistry.EXPECT().LastLayer(gomock.Any(), gomock.Any()).Return(&fakeLayer{}, nil).Times(0)
 		mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(&dtk1, nil).Times(0)
 
-		resDTK, err := ci.GetDTKData(context.TODO(), "imageURL1")
+		resDTK, err := ci.GetDTKData(context.Background(), "imageURL1")
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resDTK).To(Equal(&dtk1))
 	})
@@ -365,13 +358,13 @@ var _ = Describe("GetDTKData", func() {
 	It("errors scenario", func() {
 		mockRegistry.EXPECT().LastLayer(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("some error"))
 		mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(nil, nil).Times(0)
-		resDTK, err := ci.GetDTKData(context.TODO(), "imageURL")
+		resDTK, err := ci.GetDTKData(context.Background(), "imageURL")
 		Expect(err).To(HaveOccurred())
 		Expect(resDTK).To(BeNil())
 
 		mockRegistry.EXPECT().LastLayer(gomock.Any(), gomock.Any()).Return(nil, nil)
 		mockRegistry.EXPECT().ExtractToolkitRelease(gomock.Any()).Return(nil, nil).Times(0)
-		resDTK, err = ci.GetDTKData(context.TODO(), "imageURL")
+		resDTK, err = ci.GetDTKData(context.Background(), "imageURL")
 		Expect(err).To(HaveOccurred())
 		Expect(resDTK).To(BeNil())
 	})

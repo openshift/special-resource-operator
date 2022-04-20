@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
 	operatorv1helpers "github.com/openshift/library-go/pkg/operator/v1helpers"
 	srov1beta1 "github.com/openshift/special-resource-operator/api/v1beta1"
 	"github.com/openshift/special-resource-operator/pkg/clients"
-	"github.com/openshift/special-resource-operator/pkg/utils"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -26,7 +24,6 @@ type ClusterOperatorManager interface {
 
 type clusterOperatorManager struct {
 	kubeClient   clients.ClientsInterface
-	log          logr.Logger
 	operatorName string
 }
 
@@ -34,7 +31,6 @@ type clusterOperatorManager struct {
 func NewClusterOperatorManager(kubeClient clients.ClientsInterface, operatorName string) ClusterOperatorManager {
 	return &clusterOperatorManager{
 		kubeClient:   kubeClient,
-		log:          ctrl.Log.WithName(utils.Print("cluster-operator-manager", utils.Blue)),
 		operatorName: operatorName,
 	}
 }
@@ -59,7 +55,7 @@ func (com *clusterOperatorManager) Refresh(ctx context.Context, cond []configv1.
 	}
 
 	if !clusterOperatorAvailable {
-		com.log.Info("Warning: ClusterOperator resource not available. Can be ignored on vanilla k8s.")
+		ctrl.LoggerFrom(ctx).Info("Warning: ClusterOperator resource not available. Can be ignored on vanilla k8s.")
 		return nil
 	}
 
@@ -69,7 +65,7 @@ func (com *clusterOperatorManager) Refresh(ctx context.Context, cond []configv1.
 		return fmt.Errorf("could not get or create the ClusterOperator: %v", err)
 	}
 
-	com.log.Info("Reconciling ClusterOperator")
+	ctrl.LoggerFrom(ctx).Info("Updating ClusterOperator")
 
 	co.Status.Conditions = cond
 
@@ -92,7 +88,7 @@ func (com *clusterOperatorManager) getOrCreate(ctx context.Context) (*configv1.C
 	co, err := com.kubeClient.ClusterOperatorGet(ctx, com.operatorName, metav1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			com.log.Info("No ClusterOperator found... Creating ClusterOperator for SRO")
+			ctrl.LoggerFrom(ctx).Info("SRO's ClusterOperator not found - creating")
 
 			co = &configv1.ClusterOperator{
 				ObjectMeta: metav1.ObjectMeta{Name: com.operatorName},
@@ -126,7 +122,7 @@ func (com *clusterOperatorManager) clusterOperatorUpdateRelatedObjects(ctx conte
 	//Add namespace for each specialresource to related objects
 	for _, sr := range specialresources.Items {
 		if sr.Spec.Namespace != "" { // preamble specialresource has no namespace
-			com.log.Info("Adding to relatedObjects", "namespace", sr.Spec.Namespace)
+			ctrl.LoggerFrom(ctx).Info("Adding namespace to ClusterOperator's RelatedObjects", "namespace", sr.Spec.Namespace)
 			relatedObjects = append(relatedObjects, configv1.ObjectReference{Group: "", Resource: "namespaces", Name: sr.Spec.Namespace})
 		}
 	}

@@ -120,7 +120,7 @@ spec:
 				Do(func(obj *unstructured.Unstructured, nm string, ns string) {
 					resourcehelper.New().SetMetaData(obj, nm, ns)
 				}),
-			kubeClient.EXPECT().Get(context.TODO(), nsn, unstructuredMatcher).Times(1),
+			kubeClient.EXPECT().Get(context.Background(), nsn, unstructuredMatcher).Times(1),
 			helper.EXPECT().IsNotUpdateable("Pod").Times(1).Return(true),
 			metricsClient.EXPECT().SetCompletedKind(specialResourceName, "Pod", "nginx", namespace, 1).Times(1),
 		)
@@ -133,7 +133,7 @@ spec:
 		err =
 			NewResourceAPI(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI, helper).
 				CreateFromYAML(
-					context.TODO(),
+					context.Background(),
 					yamlSpec,
 					false,
 					&owner,
@@ -236,7 +236,7 @@ spec:
 				}),
 			kubeClient.
 				EXPECT().
-				Get(context.TODO(), nsn, unstructuredMatcher).
+				Get(context.Background(), nsn, unstructuredMatcher).
 				Return(k8serrors.NewNotFound(v1.Resource("pod"), name)),
 			helper.EXPECT().IsOneTimer(gomock.Any()).Times(1),
 			helper.EXPECT().SetMetaData(gomock.Any(), specialResourceName, namespace).Times(1).
@@ -245,7 +245,7 @@ spec:
 				}),
 			kubeClient.
 				EXPECT().
-				Create(context.TODO(), &newPod),
+				Create(context.Background(), &newPod),
 			metricsClient.
 				EXPECT().
 				SetCompletedKind(specialResourceName, "Pod", name, namespace, 1),
@@ -259,7 +259,7 @@ spec:
 		err =
 			NewResourceAPI(kubeClient, metricsClient, pollActions, kernelData, scheme, mockLifecycle, proxyAPI, helper).
 				CreateFromYAML(
-					context.TODO(),
+					context.Background(),
 					yamlSpec,
 					false,
 					&owner,
@@ -373,10 +373,10 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 	It("should return no error if polling returned nil", func() {
 		ds := &unstructured.Unstructured{}
 
-		pollActions.EXPECT().ForDaemonSet(context.TODO(), ds)
+		pollActions.EXPECT().ForDaemonSet(context.Background(), ds)
 
 		err := NewResourceAPI(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
-			checkForImagePullBackOff(context.TODO(), ds, namespace)
+			checkForImagePullBackOff(context.Background(), ds, namespace)
 
 		Expect(err).NotTo(HaveOccurred())
 	})
@@ -395,12 +395,12 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 		ds := getDaemonSet()
 
 		gomock.InOrder(
-			pollActions.EXPECT().ForDaemonSet(context.TODO(), ds).Return(errors.New("some error")),
-			kubeClient.EXPECT().List(context.TODO(), &v1.PodList{}, opts...).Return(randomError),
+			pollActions.EXPECT().ForDaemonSet(context.Background(), ds).Return(errors.New("some error")),
+			kubeClient.EXPECT().List(context.Background(), &v1.PodList{}, opts...).Return(randomError),
 		)
 
 		err := NewResourceAPI(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
-			checkForImagePullBackOff(context.TODO(), ds, namespace)
+			checkForImagePullBackOff(context.Background(), ds, namespace)
 
 		Expect(err).To(Equal(randomError))
 	})
@@ -409,12 +409,12 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 		ds := getDaemonSet()
 
 		gomock.InOrder(
-			pollActions.EXPECT().ForDaemonSet(context.TODO(), ds).Return(errors.New("some error")),
-			kubeClient.EXPECT().List(context.TODO(), &v1.PodList{}, opts...),
+			pollActions.EXPECT().ForDaemonSet(context.Background(), ds).Return(errors.New("some error")),
+			kubeClient.EXPECT().List(context.Background(), &v1.PodList{}, opts...),
 		)
 
 		err := NewResourceAPI(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
-			checkForImagePullBackOff(context.TODO(), ds, namespace)
+			checkForImagePullBackOff(context.Background(), ds, namespace)
 
 		Expect(err).To(HaveOccurred())
 	})
@@ -426,10 +426,10 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 		ds.SetAnnotations(map[string]string{"specialresource.openshift.io/driver-container-vendor": vendor})
 
 		gomock.InOrder(
-			pollActions.EXPECT().ForDaemonSet(context.TODO(), ds).Return(errors.New("some error")),
+			pollActions.EXPECT().ForDaemonSet(context.Background(), ds).Return(errors.New("some error")),
 			kubeClient.
 				EXPECT().
-				List(context.TODO(), &v1.PodList{}, opts...).
+				List(context.Background(), &v1.PodList{}, opts...).
 				Do(func(_ context.Context, pl *v1.PodList, _ client.InNamespace, _ client.MatchingLabels) {
 					pl.Items = []v1.Pod{
 						{
@@ -453,7 +453,7 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 		)
 
 		err := NewResourceAPI(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
-			checkForImagePullBackOff(context.TODO(), ds, namespace)
+			checkForImagePullBackOff(context.Background(), ds, namespace)
 
 		Expect(err).To(MatchError("ImagePullBackOff need to rebuild " + vendor + " driver-container"))
 		Expect(UpdateVendor).To(Equal(vendor))
@@ -463,10 +463,10 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 		ds := getDaemonSet()
 
 		gomock.InOrder(
-			pollActions.EXPECT().ForDaemonSet(context.TODO(), ds).Return(errors.New("some error")),
+			pollActions.EXPECT().ForDaemonSet(context.Background(), ds).Return(errors.New("some error")),
 			kubeClient.
 				EXPECT().
-				List(context.TODO(), &v1.PodList{}, opts...).
+				List(context.Background(), &v1.PodList{}, opts...).
 				Do(func(_ context.Context, pl *v1.PodList, _ client.InNamespace, _ client.MatchingLabels) {
 					pl.Items = []v1.Pod{
 						{
@@ -490,7 +490,7 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 		)
 
 		err := NewResourceAPI(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
-			checkForImagePullBackOff(context.TODO(), ds, namespace)
+			checkForImagePullBackOff(context.Background(), ds, namespace)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(UpdateVendor).To(BeEmpty())
@@ -500,10 +500,10 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 		ds := getDaemonSet()
 
 		gomock.InOrder(
-			pollActions.EXPECT().ForDaemonSet(context.TODO(), ds).Return(errors.New("some error")),
+			pollActions.EXPECT().ForDaemonSet(context.Background(), ds).Return(errors.New("some error")),
 			kubeClient.
 				EXPECT().
-				List(context.TODO(), &v1.PodList{}, opts...).
+				List(context.Background(), &v1.PodList{}, opts...).
 				Do(func(_ context.Context, pl *v1.PodList, _ client.InNamespace, _ client.MatchingLabels) {
 					pl.Items = []v1.Pod{
 						{
@@ -516,7 +516,7 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 		)
 
 		err := NewResourceAPI(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
-			checkForImagePullBackOff(context.TODO(), ds, namespace)
+			checkForImagePullBackOff(context.Background(), ds, namespace)
 
 		Expect(err).NotTo(HaveOccurred())
 		Expect(UpdateVendor).To(BeEmpty())
@@ -540,10 +540,10 @@ var _ = Describe("resource_BeforeCRUD", func() {
 			"specialresource.openshift.io/proxy": "true",
 		})
 
-		proxyAPI.EXPECT().Setup(obj).Return(nil).Times(1)
+		proxyAPI.EXPECT().Setup(context.Background(), obj).Return(nil).Times(1)
 
 		err := NewResourceAPI(nil, nil, nil, nil, nil, nil, proxyAPI, nil).(*resource).
-			BeforeCRUD(obj, nil)
+			BeforeCRUD(context.Background(), obj, nil)
 
 		Expect(err).ToNot(HaveOccurred())
 	})
