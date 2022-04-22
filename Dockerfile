@@ -34,8 +34,7 @@ RUN ["make", "manager"]
 
 FROM debian:bullseye-slim
 
-RUN ["apt", "update"]
-RUN ["apt", "install", "-y", "ca-certificates"]
+RUN apt update && apt install -y ca-certificates
 
 WORKDIR /
 

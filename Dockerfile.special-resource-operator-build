@@ -3,8 +3,7 @@ FROM golang:1.18
 RUN curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
 RUN chmod 700 get_helm.sh
 RUN ./get_helm.sh
-RUN apt update
-RUN apt install -y docker podman
+RUN apt update && apt install -y docker podman
 RUN curl -L "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" -o /tmp/kubectl
 RUN install -o root -g root -m 0755 /tmp/kubectl /usr/local/bin/kubectl
 RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.43.0
