@@ -241,7 +241,7 @@ func (h *helmer) Run(
 	install := action.NewInstall(h.actionConfig)
 
 	install.DryRun = true
-	install.ReleaseName = ch.Metadata.Name
+	install.ReleaseName = name
 	install.Replace = false
 	install.ClientOnly = false
 	install.APIVersions = []string{}
