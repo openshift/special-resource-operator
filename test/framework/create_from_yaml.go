@@ -7,7 +7,6 @@ import (
 
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -22,7 +21,6 @@ import (
 
 var (
 	scheme = runtime.NewScheme()
-	log    = ctrl.Log.WithName(utils.Print("deploy", utils.Blue))
 )
 
 func init() {
@@ -30,7 +28,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(srov1beta1.AddToScheme(scheme))
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	ctrl.SetLogger(zap.New())
 
 }
 
@@ -67,7 +65,8 @@ func CreateFromYAML(ctx context.Context, yamlFile []byte, cl client.Client) erro
 				return err
 			}
 		}
-		log.Info(message, "Kind", obj.GetKind(), "Name", obj.GetName())
+		ctrl.LoggerFrom(ctx).Info(message, "objKind", obj.GetKind(), "objName", obj.GetName())
+
 	}
 	return nil
 }
@@ -89,7 +88,7 @@ func DeleteFromYAMLWithCR(ctx context.Context, yamlFile []byte, cl client.Client
 		if err != nil {
 			return err
 		}
-		log.Info("Deleted", "Kind", obj.GetKind(), "Name", obj.GetName())
+		ctrl.LoggerFrom(ctx).Info("Deleted", "objKind", obj.GetKind(), "objName", obj.GetName())
 	}
 
 	return nil
@@ -122,7 +121,7 @@ func DeleteFromYAML(ctx context.Context, yamlFile []byte, cl client.Client) erro
 			}
 		}
 
-		log.Info(message, "Kind", obj.GetKind(), "Name", obj.GetName())
+		ctrl.LoggerFrom(ctx).Info(message, "objKind", obj.GetKind(), "objName", obj.GetName())
 	}
 
 	return nil
@@ -136,7 +135,7 @@ func DeleteAllSpecialResources(ctx context.Context, cl client.Client) error {
 	err := cl.List(ctx, specialresources, opts...)
 	if err != nil {
 		if strings.Contains(err.Error(), "no matches for kind \"SpecialResource\" in version ") {
-			utils.WarnOnError(err)
+			ctrl.LoggerFrom(ctx).Error(err, "'SpecialResource' kind not found")
 			return nil
 		}
 		// This should never happen
@@ -145,7 +144,7 @@ func DeleteAllSpecialResources(ctx context.Context, cl client.Client) error {
 
 	delOpts := []client.DeleteOption{}
 	for _, sr := range specialresources.Items {
-		log.Info("Deleting", "SR", sr.GetName())
+		ctrl.LoggerFrom(ctx).Info("Deleting", "SR", sr.GetName())
 		if err = cl.Delete(ctx, &sr, delOpts...); err != nil {
 			return err
 		}

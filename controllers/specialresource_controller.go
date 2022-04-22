@@ -20,7 +20,6 @@ import (
 	"context"
 	"os"
 
-	"github.com/go-logr/logr"
 	buildv1 "github.com/openshift/api/build/v1"
 	imagev1 "github.com/openshift/api/image/v1"
 	secv1 "github.com/openshift/api/security/v1"
@@ -52,12 +51,10 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/runtime"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 )
 
 // SpecialResourceReconciler reconciles a SpecialResource object
 type SpecialResourceReconciler struct {
-	Log    logr.Logger
 	Scheme *k8sruntime.Scheme
 
 	Metrics       metrics.Metrics
@@ -79,17 +76,15 @@ type SpecialResourceReconciler struct {
 
 // Reconcile Reconiliation entry point
 func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	log := ctrl.LoggerFrom(ctx)
 
-	var res reconcile.Result
-
-	log := r.Log.WithName(utils.Print(req.Name, utils.Purple))
 	log.Info("Reconciling", "mode", r.Filter.GetMode())
 
 	log.Info("TODO: preflight checks")
 
 	sr, srs, err := r.getSpecialResources(ctx, req)
 	if err != nil {
-		log.Error(err, "failed to get SpecialResources")
+		log.Error(err, "Failed to get SpecialResources")
 		return ctrl.Result{}, err
 	} else if sr == nil {
 		log.Info("SpecialResource not found - probably deleted. Not reconciling.")
@@ -101,11 +96,10 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	wi := &WorkItem{
 		SpecialResource: sr,
 		AllSRs:          srs,
-		Log:             log,
 	}
 
 	// Reconcile all specialresources
-	if res, err = r.SpecialResourcesReconcile(ctx, wi); err == nil || !res.Requeue {
+	if res, err := r.SpecialResourcesReconcile(ctx, wi); err == nil || !res.Requeue {
 		return res, errors.Wrap(err, "Failed to reconcile SpecialResource")
 	}
 
@@ -148,8 +142,6 @@ func (r *SpecialResourceReconciler) getSpecialResources(ctx context.Context, req
 
 // SetupWithManager main initalization for manager
 func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	log := r.Log.WithName(utils.Print("setup", utils.Brown))
-
 	platform, err := r.KubeClient.GetPlatform()
 	if err != nil {
 		return err
@@ -157,6 +149,7 @@ func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if platform == "OCP" {
 		return ctrl.NewControllerManagedBy(mgr).
+			Named("specialresource").
 			For(&srov1beta1.SpecialResource{}).
 			Owns(&v1.Pod{}).
 			Owns(&appsv1.DaemonSet{}).
@@ -178,8 +171,8 @@ func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			WithEventFilter(r.Filter.GetPredicates()).
 			Complete(r)
 	} else {
-		log.Info("Warning: assuming vanilla K8s. Manager will own a limited set of resources.")
 		return ctrl.NewControllerManagedBy(mgr).
+			Named("specialresource").
 			For(&srov1beta1.SpecialResource{}).
 			Owns(&v1.Pod{}).
 			Owns(&appsv1.DaemonSet{}).

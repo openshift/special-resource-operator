@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
@@ -12,8 +11,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 //go:generate mockgen -source=lifecycle.go -package=lifecycle -destination=mock_lifecycle_api.go
@@ -26,14 +25,12 @@ type Lifecycle interface {
 
 type lifecycle struct {
 	kubeClient clients.ClientsInterface
-	log        logr.Logger
 	storage    storage.Storage
 }
 
 func New(kubeClient clients.ClientsInterface, storage storage.Storage) Lifecycle {
 	return &lifecycle{
 		kubeClient: kubeClient,
-		log:        zap.New(zap.UseDevMode(true)).WithName(utils.Print("lifecycle", utils.Green)),
 		storage:    storage,
 	}
 }
@@ -43,7 +40,7 @@ func (l *lifecycle) GetPodFromDaemonSet(ctx context.Context, key types.Namespace
 
 	err := l.kubeClient.Get(ctx, key, ds)
 	if apierrors.IsNotFound(err) || err != nil {
-		utils.WarnOnError(err)
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to get DaemonSet", "key", key)
 		return &v1.PodList{}
 	}
 
@@ -55,7 +52,7 @@ func (l *lifecycle) GetPodFromDeployment(ctx context.Context, key types.Namespac
 
 	err := l.kubeClient.Get(ctx, key, dp)
 	if apierrors.IsNotFound(err) || err != nil {
-		utils.WarnOnError(err)
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to get Deployment", "key", key)
 		return &v1.PodList{}
 	}
 
@@ -71,15 +68,15 @@ func (l *lifecycle) getPodListForUpperObject(ctx context.Context, matchLabels ma
 	}
 
 	if err := l.kubeClient.List(ctx, pl, opts...); err != nil {
-		utils.WarnOnError(err)
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to list Pods", "ns", ns, "labels", matchLabels)
 	}
 
 	return pl
 }
 
 func (l *lifecycle) UpdateDaemonSetPods(ctx context.Context, obj client.Object) error {
-
-	l.log.Info("UpdateDaemonSetPods")
+	log := ctrl.LoggerFrom(ctx)
+	log.Info("UpdateDaemonSetPods")
 
 	key := types.NamespacedName{
 		Namespace: obj.GetNamespace(),
@@ -99,10 +96,10 @@ func (l *lifecycle) UpdateDaemonSetPods(ctx context.Context, obj client.Object) 
 			return err
 		}
 		value := "*v1.Pod"
-		l.log.Info(pod.GetName(), "hs", hs, "value", value)
+		log.Info("Updating Pod entry in lifecycle configmap", "podName", pod.GetName(), "key", hs, "value", value)
 		err = l.storage.UpdateConfigMapEntry(ctx, hs, value, ins)
 		if err != nil {
-			utils.WarnOnError(err)
+			ctrl.LoggerFrom(ctx).Error(err, "Failed to update ConfigMap entry", "key", hs, "value", value, "configmap", ins)
 			return err
 		}
 	}

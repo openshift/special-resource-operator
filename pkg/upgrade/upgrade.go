@@ -4,13 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
-
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/registry"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const (
@@ -37,14 +33,12 @@ type ClusterInfo interface {
 
 func NewClusterInfo(registry registry.Registry, cluster cluster.Cluster) ClusterInfo {
 	return &clusterInfo{
-		log:      zap.New(zap.UseDevMode(true)).WithName(utils.Print("upgrade", utils.Blue)),
 		registry: registry,
 		cluster:  cluster,
 	}
 }
 
 type clusterInfo struct {
-	log      logr.Logger
 	registry registry.Registry
 	cluster  cluster.Cluster
 }

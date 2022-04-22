@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	helmerv1beta1 "github.com/openshift-psap/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
@@ -30,7 +29,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func DefaultSettings() (*cli.EnvSettings, error) {
@@ -69,7 +68,6 @@ type helmer struct {
 	actionConfig    *action.Configuration
 	creator         resource.Creator
 	getterProviders getter.Providers
-	log             logr.Logger
 	kubeClient      clients.ClientsInterface
 	repoFile        *repo.File
 	settings        *cli.EnvSettings
@@ -79,7 +77,6 @@ func NewHelmer(creator resource.Creator, settings *cli.EnvSettings, kubeClient c
 	return &helmer{
 		creator:         creator,
 		getterProviders: getter.All(settings),
-		log:             zap.New(zap.UseDevMode(true)).WithName(utils.Print("helmer", utils.Blue)),
 		kubeClient:      kubeClient,
 		repoFile: &repo.File{
 			APIVersion:   "",
@@ -134,7 +131,6 @@ func (h *helmer) Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 	}
 
 	if err := h.AddorUpdateRepo(entry); err != nil {
-		utils.WarnOnError(err)
 		return nil, err
 	}
 
@@ -153,7 +149,6 @@ func (h *helmer) Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 	act.Verify = false
 
 	repoChartName := entry.Name + "/" + spec.Name
-	h.log.Info("Locating", "chart", repoChartName)
 
 	var err error
 	var path string
@@ -166,11 +161,6 @@ func (h *helmer) Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 
 	return loaded, err
 
-}
-
-func (h *helmer) logWrap(format string, v ...interface{}) {
-	msg := fmt.Sprintf(format, v...)
-	h.log.Info("Helm", "internal", msg)
 }
 
 func (h *helmer) failRelease(rel *release.Release, err error) error {
@@ -236,10 +226,14 @@ func (h *helmer) Run(
 	kernelFullVersion string,
 	operatingSystemMajorMinor string,
 	debug bool) error {
+	log := ctrl.LoggerFrom(ctx)
 
 	h.actionConfig = new(action.Configuration)
 
-	err := h.actionConfig.Init(h.settings.RESTClientGetter(), namespace, "configmaps", h.logWrap)
+	err := h.actionConfig.Init(h.settings.RESTClientGetter(), namespace, "configmaps",
+		func(format string, v ...interface{}) {
+			ctrl.LoggerFrom(ctx).Info("Helm", "internal", fmt.Sprintf(format, v...))
+		})
 	if err != nil {
 		return fmt.Errorf("Cannot initialize helm action config: %w", err)
 	}
@@ -268,8 +262,6 @@ func (h *helmer) Run(
 	// Pre-install anything in the crd/ directory. We do this before Helm
 	// contacts the upstream server and builds the capabilities object.
 	if crds := ch.CRDObjects(); !install.ClientOnly && !install.SkipCRDs && len(crds) > 0 {
-
-		h.log.Info("Release CRDs")
 		err := h.InstallCRDs(ctx, crds, owner, install.ReleaseName, install.Namespace)
 		if err != nil {
 			return fmt.Errorf("Cannot install CRDs: %w", err)
@@ -278,7 +270,7 @@ func (h *helmer) Run(
 
 	rel, err := install.Run(&ch, vals)
 	if err != nil {
-		utils.WarnOnError(err)
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to run Helm install")
 		return err
 	}
 
@@ -287,9 +279,9 @@ func (h *helmer) Run(
 		if err != nil {
 			return err
 		}
-		h.log.Info("Debug active. Showing manifests", "json", json, "manifest", rel.Manifest)
+		log.Info("Debug active. Showing manifests", "json", json, "manifest", rel.Manifest)
 		for _, hook := range rel.Hooks {
-			h.log.Info("Debug active. Showing hooks", "name", hook.Name, "manifest", hook.Manifest)
+			log.Info("Debug active. Showing hooks", "hookName", hook.Name, "manifest", hook.Manifest)
 		}
 	}
 
@@ -299,11 +291,9 @@ func (h *helmer) Run(
 		// We could try to recover gracefully here, but since nothing has been installed
 		// yet, this is probably safer than trying to continue when we know storage is
 		// not working.
-		utils.WarnOnError(err)
-		//return err
+		log.Error(err, "Failed to create a Helm release")
 	}
 
-	h.log.Info("Release pre-install hooks")
 	// pre-install hooks
 	if !install.DisableHooks {
 		if err := h.ExecHook(ctx, rel, release.HookPreInstall, owner, name, namespace); err != nil {
@@ -312,7 +302,6 @@ func (h *helmer) Run(
 
 	}
 
-	h.log.Info("Release manifests")
 	err = h.creator.CreateFromYAML(
 		ctx,
 		[]byte(rel.Manifest),
@@ -328,7 +317,6 @@ func (h *helmer) Run(
 		return h.failRelease(rel, err)
 	}
 
-	h.log.Info("Release post-install hooks")
 	if !install.DisableHooks {
 		if err := h.ExecHook(ctx, rel, release.HookPostInstall, owner, name, namespace); err != nil {
 			return h.failRelease(rel, fmt.Errorf("failed post-install: %s", err))
@@ -361,7 +349,6 @@ func (x hookByWeight) Less(i, j int) bool {
 }
 
 func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release.HookEvent, owner v1.Object, name string, namespace string) error {
-
 	obj := unstructured.Unstructured{}
 	obj.SetKind("ConfigMap")
 	obj.SetAPIVersion("v1")
@@ -375,12 +362,11 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 	if err := h.kubeClient.Get(ctx, key, found); err != nil {
 
 		if apierrors.IsNotFound(err) {
-			h.log.Info("Hooks", string(hook), "NotReady (IsNotFound)")
+			ctrl.LoggerFrom(ctx).Info("Hook not found", "hookName", string(hook))
 		} else {
 			return fmt.Errorf("Unexpected error getting hook cm %s: %w", hook, err)
 		}
 	} else {
-		h.log.Info("Hooks", string(hook), "Ready (Get)")
 		return nil
 	}
 
@@ -445,19 +431,12 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 	}
 
 	if err := h.kubeClient.Create(ctx, &obj); err != nil {
-		h.log.Error(err, "Could not create the ConfigMap")
-
 		if apierrors.IsAlreadyExists(err) {
-			h.log.Info("Hooks", string(hook), "Ready (IsAlreadyExists)")
 			return nil
 		}
 
-		if apierrors.IsForbidden(err) {
-			return fmt.Errorf("API error is forbidden: %w", err)
-		}
-		return fmt.Errorf("Unexpected error creating hook cm %s: %w", hook, err)
+		return fmt.Errorf("unable to create hook %s: %w", hook, err)
 	}
-	h.log.Info("Hooks", string(hook), "Ready (Created)")
 	return nil
 }
 

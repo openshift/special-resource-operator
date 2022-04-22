@@ -8,7 +8,6 @@ import (
 	"os"
 	"text/template"
 
-	"github.com/go-logr/logr"
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/internal/controllers/finalizers"
 	"github.com/openshift-psap/special-resource-operator/internal/controllers/state"
@@ -25,14 +24,14 @@ import (
 )
 
 func (r *SpecialResourceReconciler) SpecialResourcesReconcile(ctx context.Context, wi *WorkItem) (ctrl.Result, error) {
-	log := wi.Log
+	log := ctrl.LoggerFrom(ctx)
 
 	// Execute finalization logic if CR is being deleted
 	isMarkedToBeDeleted := wi.SpecialResource.GetDeletionTimestamp() != nil
 	if isMarkedToBeDeleted {
 		log.Info("Marked to be deleted, reconciling finalizer")
 		if suErr := r.StatusUpdater.SetAsProgressing(ctx, wi.SpecialResource, state.MarkedForDeletion, "CR is marked for deletion"); suErr != nil {
-			log.Error(suErr, "failed to update CR's status to Progressing")
+			log.Error(suErr, "Failed to update CR's status to Progressing")
 			return reconcile.Result{}, suErr
 		}
 		return reconcile.Result{}, r.Finalizer.Finalize(ctx, wi.SpecialResource)
@@ -57,32 +56,33 @@ func (r *SpecialResourceReconciler) SpecialResourcesReconcile(ctx context.Contex
 	}
 
 	if suErr := r.StatusUpdater.SetAsProgressing(ctx, wi.SpecialResource, state.Progressing, state.Progressing); suErr != nil {
-		log.Error(suErr, "failed to update CR's status to Progressing")
+		log.Error(suErr, "Failed to update CR's status to Progressing")
 		return reconcile.Result{}, suErr
 	}
 
-	log.Info("Resolving Dependencies")
 	var err error
 	wi.Chart, err = r.Helmer.Load(wi.SpecialResource.Spec.Chart)
 	if err != nil {
+		log.Error(err, "Failed to load the Helm chart")
 		if suErr := r.StatusUpdater.SetAsErrored(ctx, wi.SpecialResource, state.ChartFailure, fmt.Sprintf("Failed to load Helm Chart: %v", err)); suErr != nil {
-			log.Error(suErr, "failed to update CR's status to Errored")
+			log.Error(suErr, "Failed to update CR's status to Errored")
 		}
 		return reconcile.Result{}, err
 	}
 
-	log.Info("Resolving dependencies")
+	log.Info("Resolving dependencies", "count", len(wi.SpecialResource.Spec.Dependencies))
 
 	// Only one level dependency support for now
 	for _, dependency := range wi.SpecialResource.Spec.Dependencies {
 
-		clog := log.WithName(utils.Print(dependency.Name, utils.Purple))
-		clog.Info("Getting Dependency")
+		clog := log.WithValues("dependency", dependency.Name)
+		cctx := ctrl.LoggerInto(ctx, clog)
 
 		cchart, err := r.Helmer.Load(dependency.HelmChart)
 		if err != nil {
-			if suErr := r.StatusUpdater.SetAsErrored(ctx, wi.SpecialResource, state.DependencyChartFailure, fmt.Sprintf("Failed to load dependency Helm Chart: %v", err)); suErr != nil {
-				clog.Error(suErr, "failed to update CR's status to Errored")
+			log.Error(err, "Failed to load dependency Helm chart")
+			if suErr := r.StatusUpdater.SetAsErrored(cctx, wi.SpecialResource, state.DependencyChartFailure, fmt.Sprintf("Failed to load dependency Helm Chart: %v", err)); suErr != nil {
+				clog.Error(suErr, "Failed to update CR's status to Errored")
 			}
 			return ctrl.Result{}, err
 		}
@@ -94,9 +94,9 @@ func (r *SpecialResourceReconciler) SpecialResourcesReconcile(ctx context.Contex
 			Namespace: os.Getenv("OPERATOR_NAMESPACE"),
 			Name:      "special-resource-dependencies",
 		}
-		if err = r.Storage.UpdateConfigMapEntry(ctx, dependency.Name, wi.SpecialResource.Name, ins); err != nil {
-			if suErr := r.StatusUpdater.SetAsErrored(ctx, wi.SpecialResource, state.FailedToStoreDependencyInfo, fmt.Sprintf("Failed to store dependency information: %v", err)); suErr != nil {
-				clog.Error(suErr, "failed to update CR's status to Errored")
+		if err = r.Storage.UpdateConfigMapEntry(cctx, dependency.Name, wi.SpecialResource.Name, ins); err != nil {
+			if suErr := r.StatusUpdater.SetAsErrored(cctx, wi.SpecialResource, state.FailedToStoreDependencyInfo, fmt.Sprintf("Failed to store dependency information: %v", err)); suErr != nil {
+				clog.Error(suErr, "Failed to update CR's status to Errored")
 			}
 			return reconcile.Result{}, err
 		}
@@ -104,7 +104,7 @@ func (r *SpecialResourceReconciler) SpecialResourcesReconcile(ctx context.Contex
 		var child srov1beta1.SpecialResource
 		if child, err = getDependencyFrom(wi.AllSRs, dependency.Name); err != nil {
 			clog.Info("Failed to find dependency in list of all SpecialResources")
-			if err = r.createSpecialResourceFrom(ctx, clog, cchart, dependency.HelmChart); err != nil {
+			if err = r.createSpecialResourceFrom(cctx, cchart, dependency.HelmChart); err != nil {
 				clog.Error(err, "Failed to create SpecialResource for dependency")
 				return reconcile.Result{}, err
 			}
@@ -114,9 +114,9 @@ func (r *SpecialResourceReconciler) SpecialResourcesReconcile(ctx context.Contex
 
 		child.Spec.Set = dependency.Set
 		childWorkItem := wi.CreateForChild(&child, cchart)
-		if err := r.ReconcileSpecialResourceChart(ctx, childWorkItem); err != nil {
-			if suErr := r.StatusUpdater.SetAsErrored(ctx, &child, state.FailedToDeployDependencyChart, fmt.Sprintf("Failed to deploy dependency: %v", err)); suErr != nil {
-				clog.Error(suErr, "failed to update CR's status to Errored")
+		if err := r.ReconcileSpecialResourceChart(cctx, childWorkItem); err != nil {
+			if suErr := r.StatusUpdater.SetAsErrored(cctx, &child, state.FailedToDeployDependencyChart, fmt.Sprintf("Failed to deploy dependency: %v", err)); suErr != nil {
+				clog.Error(suErr, "Failed to update CR's status to Errored")
 			}
 			clog.Error(err, "Failed to reconcile chart")
 			return reconcile.Result{Requeue: true}, nil
@@ -134,10 +134,10 @@ func (r *SpecialResourceReconciler) SpecialResourcesReconcile(ctx context.Contex
 	}
 
 	if suErr := r.StatusUpdater.SetAsReady(ctx, wi.SpecialResource, state.Success, ""); suErr != nil {
-		log.Error(suErr, "failed to update CR's status to Ready")
+		log.Error(suErr, "Failed to update CR's status to Ready")
 		return reconcile.Result{}, suErr
 	}
-	log.Info("RECONCILE SUCCESS: All resources done")
+	log.Info("RECONCILE SUCCESS")
 	return reconcile.Result{}, nil
 }
 
@@ -179,7 +179,8 @@ func TemplateFragment(sr interface{}, runInfo *runtime.RuntimeInformation) error
 }
 
 func (r *SpecialResourceReconciler) ReconcileSpecialResourceChart(ctx context.Context, wi *WorkItem) error {
-	wi.Log.Info("Reconciling chart", "chart", wi.Chart.Name)
+	log := ctrl.LoggerFrom(ctx)
+	log.Info("Reconciling chart", "chart", wi.Chart.Name())
 
 	var err error
 	wi.RunInfo, err = r.RuntimeAPI.GetRuntimeInformation(ctx, wi.SpecialResource)
@@ -187,7 +188,7 @@ func (r *SpecialResourceReconciler) ReconcileSpecialResourceChart(ctx context.Co
 		return err
 	}
 
-	r.RuntimeAPI.LogRuntimeInformation(wi.RunInfo)
+	r.RuntimeAPI.LogRuntimeInformation(ctx, wi.RunInfo)
 
 	for idx, dep := range wi.SpecialResource.Spec.Dependencies {
 		if dep.Set.Object == nil {
@@ -240,7 +241,7 @@ func (r *SpecialResourceReconciler) ReconcileSpecialResourceChart(ctx context.Co
 	// Add a finalizer to CR if it does not already have one
 	if !utils.StringSliceContains(wi.SpecialResource.GetFinalizers(), finalizers.FinalizerString) {
 		if err := r.Finalizer.AddToSpecialResource(ctx, wi.SpecialResource); err != nil {
-			wi.Log.Error(err, "Failed to add finalizer")
+			log.Error(err, "Failed to add finalizer")
 			return err
 		}
 	}
@@ -272,7 +273,8 @@ func noop() error {
 	return nil
 }
 
-func (r *SpecialResourceReconciler) createSpecialResourceFrom(ctx context.Context, log logr.Logger, ch *chart.Chart, dp helmerv1beta1.HelmChart) error {
+func (r *SpecialResourceReconciler) createSpecialResourceFrom(ctx context.Context, ch *chart.Chart, dp helmerv1beta1.HelmChart) error {
+	log := ctrl.LoggerFrom(ctx)
 
 	vals := unstructured.Unstructured{}
 	vals.SetKind("Values")
@@ -301,22 +303,9 @@ func (r *SpecialResourceReconciler) createSpecialResourceFrom(ctx context.Contex
 		return nil
 	}
 
-	log.Info("Creating SpecialResource: " + ch.Files[idx].Name)
+	log.Info("Creating SpecialResource", "specialResourceName", ch.Files[idx].Name)
 
-	if err := r.Creator.CreateFromYAML(
-		ctx,
-		ch.Files[idx].Data,
-		false,
-		&sr,
-		sr.Name,
-		sr.Namespace,
-		sr.Spec.NodeSelector,
-		"", ""); err != nil {
-		log.Info("Cannot create, something went horribly wrong")
-		return err
-	}
-
-	return nil
+	return r.Creator.CreateFromYAML(ctx, ch.Files[idx].Data, false, &sr, sr.Name, sr.Namespace, sr.Spec.NodeSelector, "", "")
 }
 
 func (r *SpecialResourceReconciler) removeSpecialResource(ctx context.Context, sr *srov1beta1.SpecialResource) error {

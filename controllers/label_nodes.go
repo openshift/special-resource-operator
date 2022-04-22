@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // If resource available, label the nodes according to the current state
 // if e.g driver-container ready -> specialresource.openshift.io/driver-container:ready
-func (r *SpecialResourceReconciler) labelNodesAccordingToState(ctx context.Context, log logr.Logger, nodeSelector map[string]string, key string) error {
-
+func (r *SpecialResourceReconciler) labelNodesAccordingToState(ctx context.Context, nodeSelector map[string]string, key string) error {
+	log := ctrl.LoggerFrom(ctx)
 	nodeList, err := r.KubeClient.GetNodesByLabels(ctx, nodeSelector)
 	if err != nil {
 		return fmt.Errorf("failed to get nodes with labels in labelNodesAccordingToState: %w", err)
@@ -32,8 +32,6 @@ func (r *SpecialResourceReconciler) labelNodesAccordingToState(ctx context.Conte
 			log.Error(err, "Failed to label the node", "label", key)
 			return fmt.Errorf("couldn't Update Node: %w", err)
 		}
-
-		log.Info("Labelled node", "node", node.GetName(), "label", key)
 	}
 
 	return nil

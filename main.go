@@ -19,6 +19,7 @@ package main
 import (
 	"errors"
 	"os"
+	goruntime "runtime"
 	"runtime/debug"
 	"strings"
 
@@ -72,6 +73,13 @@ func main() {
 		setupLog.Error(err, "could not parse command-line arguments")
 		os.Exit(1)
 	}
+	setupLog.Info("Environment and flags",
+		"enable-leader-election", cl.EnableLeaderElection,
+		"metrics-addr", cl.MetricsAddr,
+		"OPERATOR_NAMESPACE", os.Getenv("OPERATOR_NAMESPACE"),
+		"RELEASE_VERSION", os.Getenv("RELEASE_VERSION"),
+		"GOARCH", goruntime.GOARCH,
+		"GOMAXPROCS", os.Getenv("GOMAXPROCS"))
 
 	helmSettings, err := helmer.DefaultSettings()
 	if err != nil {
@@ -79,7 +87,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
+	ctrl.SetLogger(zap.New())
 
 	vcsData, err := vcsBuildSettingsToLogArgs()
 	if err != nil {
@@ -135,14 +143,13 @@ func main() {
 		ClusterInfo:   clusterInfoAPI,
 		Creator:       creator,
 		PollActions:   pollActions,
-		Filter:        filter.NewFilter(lc, st, kernelAPI),
+		Filter:        filter.NewFilter(ctrl.Log, lc, st, kernelAPI),
 		Finalizer:     finalizers.NewSpecialResourceFinalizer(kubeClient, pollActions),
 		StatusUpdater: state.NewStatusUpdater(kubeClient),
 		Storage:       st,
 		Helmer:        helmer.NewHelmer(creator, helmSettings, kubeClient),
 		Assets:        assets.NewAssets(),
 		KernelData:    kernelAPI,
-		Log:           ctrl.Log,
 		Metrics:       metricsClient,
 		Scheme:        scheme,
 		ProxyAPI:      proxyAPI,

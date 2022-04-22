@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,9 +12,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/yaml"
 
 	"github.com/openshift-psap/special-resource-operator/internal/resourcehelper"
@@ -43,7 +42,6 @@ type Creator interface {
 type creator struct {
 	kubeClient    clients.ClientsInterface
 	lc            lifecycle.Lifecycle
-	log           logr.Logger
 	metricsClient metrics.Metrics
 	pollActions   poll.PollActions
 	kernelData    kernel.KernelData
@@ -65,7 +63,6 @@ func NewCreator(
 	return &creator{
 		kubeClient:    kubeClient,
 		lc:            lc,
-		log:           zap.New(zap.UseDevMode(true)).WithName(utils.Print("resource", utils.Blue)),
 		metricsClient: metricsClient,
 		pollActions:   pollActions,
 		kernelData:    kernelData,
@@ -76,32 +73,34 @@ func NewCreator(
 }
 
 func (c *creator) AfterCRUD(ctx context.Context, obj *unstructured.Unstructured, namespace string) error {
+	log := ctrl.LoggerFrom(ctx, "objKind", obj.GetObjectKind().GroupVersionKind().Kind, "objNamespace", obj.GetNamespace(), "objName", obj.GetName())
 
 	annotations := obj.GetAnnotations()
 	clients.Namespace = namespace
 
 	if state, found := annotations["specialresource.openshift.io/state"]; found && state == "driver-container" {
-		c.log.Info("specialresource.openshift.io/state")
+		log.Info("Handling annotation specialresource.openshift.io/state")
 		if err := c.checkForImagePullBackOff(ctx, obj, namespace); err != nil {
 			return fmt.Errorf("cannot check for ImagePullBackOff: %w", err)
 		}
 	}
 
 	if wait, found := annotations["specialresource.openshift.io/wait"]; found && wait == "true" {
-		c.log.Info("specialresource.openshift.io/wait")
+		log.Info("Handling annotation specialresource.openshift.io/wait")
 		if err := c.pollActions.ForResource(ctx, obj); err != nil {
 			return fmt.Errorf("could not wait for resource: %w", err)
 		}
 	}
 
 	if pattern, found := annotations["specialresource.openshift.io/wait-for-logs"]; found && len(pattern) > 0 {
-		c.log.Info("specialresource.openshift.io/wait-for-logs")
+		log.Info("Handling annotation specialresource.openshift.io/wait-for-logs")
 		if err := c.pollActions.ForDaemonSetLogs(ctx, obj, pattern); err != nil {
 			return fmt.Errorf("could not wait for DaemonSet logs: %w", err)
 		}
 	}
 
 	if _, found := annotations["helm.sh/hook"]; found {
+		log.Info("Handling annotation helm.sh/hook")
 		// In the case of hooks we're always waiting for all ressources
 		if err := c.pollActions.ForResource(ctx, obj); err != nil {
 			return fmt.Errorf("could not wait for resource: %w", err)
@@ -160,11 +159,9 @@ func (c *creator) CreateFromYAML(
 // CRUD Create Update Delete Resource
 func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object, name string, namespace string) error {
 
-	var logg logr.Logger
+	log := ctrl.LoggerFrom(ctx, "objKind", obj.GetKind(), "objName", obj.GetName())
 	if c.helper.IsNamespaced(obj.GetKind()) {
-		logg = c.log.WithValues("Kind", obj.GetKind()+": "+obj.GetNamespace()+"/"+obj.GetName())
-	} else {
-		logg = c.log.WithValues("Kind", obj.GetKind()+": "+obj.GetName())
+		log = log.WithValues("objNamespace", obj.GetNamespace())
 	}
 
 	// SpecialResource is the parent, all other objects are childs and need a reference
@@ -188,17 +185,12 @@ func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, rele
 		if err != nil {
 			return fmt.Errorf("could not determine if the object is a one-timer: %w", err)
 		}
+		log.Info("Resource", "releaseInstalled", releaseInstalled, "oneTimer", oneTimer)
 
 		// We are not recreating all objects if a release is already installed
 		if releaseInstalled && oneTimer {
-			logg.Info("Skipping creation")
 			return nil
 		}
-
-		logg.Info("Not found, creating")
-
-		logg.Info("Release", "Installed", releaseInstalled)
-		logg.Info("Is", "OneTimer", oneTimer)
 
 		if err = utils.Annotate(obj); err != nil {
 			return fmt.Errorf("can not annotate with hash: %w", err)
@@ -233,7 +225,6 @@ func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, rele
 	// Not updating Pod because we can only update image and some other
 	// specific minor fields.
 	if c.helper.IsNotUpdateable(obj.GetKind()) {
-		logg.Info("Not Updateable", "Resource", obj.GetKind())
 		return nil
 	}
 
@@ -242,11 +233,10 @@ func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, rele
 		return err
 	}
 	if equal {
-		logg.Info("Found, not updating, hash the same: " + found.GetKind() + "/" + found.GetName())
 		return nil
 	}
 
-	logg.Info("Found, updating")
+	log.Info("Updating resource")
 	required := obj.DeepCopy()
 
 	if err = utils.Annotate(required); err != nil {
@@ -268,6 +258,7 @@ func (c *creator) CRUD(ctx context.Context, obj *unstructured.Unstructured, rele
 }
 
 func (c *creator) checkForImagePullBackOff(ctx context.Context, obj *unstructured.Unstructured, namespace string) error {
+	log := ctrl.LoggerFrom(ctx, "objKind", obj.GetKind(), "objName", obj.GetName())
 
 	if err := c.pollActions.ForDaemonSet(ctx, obj); err == nil {
 		return nil
@@ -279,8 +270,6 @@ func (c *creator) checkForImagePullBackOff(ctx context.Context, obj *unstructure
 	// DaemonSet is not coming up, lets check if we have to rebuild
 	pods := &corev1.PodList{}
 
-	c.log.Info("checkForImagePullBackOff get PodList from: " + namespace)
-
 	opts := []client.ListOption{
 		client.InNamespace(namespace),
 		client.MatchingLabels(map[string]string{"app": value}),
@@ -288,29 +277,24 @@ func (c *creator) checkForImagePullBackOff(ctx context.Context, obj *unstructure
 
 	err := c.kubeClient.List(ctx, pods, opts...)
 	if err != nil {
-		c.log.Error(err, "Could not get PodList")
+		log.Error(err, "Could not get PodList")
 		return err
 	}
 
 	if len(pods.Items) == 0 {
-		return fmt.Errorf("no Pods found, reconciling")
+		return fmt.Errorf("no Pods found")
 	}
 
 	var reason string
 
 	for _, pod := range pods.Items {
-		c.log.Info("checkForImagePullBackOff", "PodName", pod.GetName())
-
 		containerStatuses := pod.Status.ContainerStatuses
-
 		if containerStatuses == nil {
 			phase := pod.Status.Phase
 
 			if phase == "" {
 				return errors.New("pod has an empty phase")
 			}
-
-			c.log.Info("Pod is in phase: " + string(phase))
 			continue
 		}
 
@@ -320,8 +304,6 @@ func (c *creator) checkForImagePullBackOff(ctx context.Context, obj *unstructure
 			if containerStatus.State.Waiting != nil {
 				reason = containerStatus.State.Waiting.Reason
 			}
-
-			c.log.Info("Reason", "reason", reason)
 		}
 
 		if reason == "ImagePullBackOff" || reason == "ErrImagePull" {
@@ -332,7 +314,6 @@ func (c *creator) checkForImagePullBackOff(ctx context.Context, obj *unstructure
 			}
 		}
 
-		c.log.Info("Unsetting updateVendor, Pods not in ImagePullBackOff or ErrImagePull")
 		UpdateVendor = ""
 		return nil
 	}
@@ -350,13 +331,14 @@ func (c *creator) createObjFromYAML(
 	nodeSelector map[string]string,
 	kernelFullVersion string,
 	operatingSystemMajorMinor string) error {
+
 	obj := &unstructured.Unstructured{
 		Object: map[string]interface{}{},
 	}
 
 	jsonSpec, err := yaml.YAMLToJSON(yamlSpec)
 	if err != nil {
-		return fmt.Errorf("Could not convert yaml file to json: %s: error %w", string(yamlSpec), err)
+		return fmt.Errorf("could not convert yaml file to json: %s: error %w", string(yamlSpec), err)
 	}
 
 	if err = obj.UnmarshalJSON(jsonSpec); err != nil {
@@ -365,7 +347,6 @@ func (c *creator) createObjFromYAML(
 
 	//  Do not override the namespace if already set
 	if c.helper.IsNamespaced(obj.GetKind()) && obj.GetNamespace() == "" {
-		c.log.Info("Namespace empty settting", "namespace", namespace)
 		obj.SetNamespace(namespace)
 	}
 
@@ -386,6 +367,7 @@ func (c *creator) createObjFromYAML(
 	// kernel affinity related attributes only set if there is an
 	// annotation specialresource.openshift.io/kernel-affine: true
 	if c.kernelData.IsObjectAffine(obj) {
+		ctrl.LoggerFrom(ctx).Info("Object is kernel affine", "objectName", obj.GetName())
 		if err = c.kernelData.SetAffineAttributes(obj, kernelFullVersion, operatingSystemMajorMinor); err != nil {
 			return fmt.Errorf("cannot set kernel affine attributes: %w", err)
 		}
@@ -401,12 +383,12 @@ func (c *creator) createObjFromYAML(
 	// We are asuming that vendors provide pre compiled DriverContainers
 	// If err == nil, build a new container, if err != nil skip it
 	if err = c.rebuildDriverContainer(obj); err != nil {
-		c.log.Info("Skipping building driver-container", "Name", obj.GetName())
+		ctrl.LoggerFrom(ctx).Info("Skipping building driver-container", "buildConfigName", obj.GetName())
 		return nil
 	}
 
 	// Callbacks before CRUD will update the manifests
-	if err = c.BeforeCRUD(obj, owner); err != nil {
+	if err = c.BeforeCRUD(ctx, obj, owner); err != nil {
 		return fmt.Errorf("before CRUD hooks failed: %w", err)
 	}
 	// Create Update Delete Patch resources
@@ -431,24 +413,17 @@ func (c *creator) createObjFromYAML(
 }
 
 func (c *creator) rebuildDriverContainer(obj *unstructured.Unstructured) error {
-
-	logger := c.log.WithValues("Kind", obj.GetKind(), "Namespace", obj.GetNamespace(), "Name", obj.GetName())
 	// BuildConfig are currently not triggered by an update need to delete first
 	if obj.GetKind() == "BuildConfig" {
 		annotations := obj.GetAnnotations()
 		if vendor, ok := annotations["specialresource.openshift.io/driver-container-vendor"]; ok {
-			logger.Info("driver-container-vendor", "vendor", vendor)
 			if vendor == UpdateVendor {
-				logger.Info("vendor == updateVendor", "vendor", vendor, "updateVendor", UpdateVendor)
 				return nil
 			}
-			logger.Info("vendor != updateVendor", "vendor", vendor, "updateVendor", UpdateVendor)
 			return errors.New("vendor != updateVendor")
 		}
-		logger.Info("No annotation driver-container-vendor found, not skipping")
 		return nil
 	}
-
 	return nil
 }
 
@@ -477,14 +452,14 @@ func (c *creator) sendNodesMetrics(ctx context.Context, obj *unstructured.Unstru
 		nodesStr := strings.Join(nodesNames, ",")
 		c.metricsClient.SetUsedNodes(crName, obj.GetName(), obj.GetNamespace(), kind, nodesStr)
 	} else {
-		c.log.Info("No assigned nodes for found for UsedNodes metric", "kind", kind, "name", obj.GetName(), "crName", crName)
+		ctrl.LoggerFrom(ctx).Info("No assigned nodes found for UsedNodes metric", "objKind", kind, "object", objKey)
 	}
 }
 
-func (c *creator) BeforeCRUD(obj *unstructured.Unstructured, sr interface{}) error {
+func (c *creator) BeforeCRUD(ctx context.Context, obj *unstructured.Unstructured, sr interface{}) error {
 	annotations := obj.GetAnnotations()
 	if valid, found := annotations["specialresource.openshift.io/proxy"]; found && valid == "true" {
-		if err := c.proxyAPI.Setup(obj); err != nil {
+		if err := c.proxyAPI.Setup(ctx, obj); err != nil {
 			return fmt.Errorf("could not setup Proxy: %w", err)
 		}
 	}

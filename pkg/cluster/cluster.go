@@ -6,18 +6,17 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/utils"
+
 	configv1 "github.com/openshift/api/config/v1"
 	machinev1 "github.com/openshift/machine-config-operator/pkg/apis/machineconfiguration.openshift.io/v1"
-
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 //go:generate mockgen -source=cluster.go -package=cluster -destination=mock_cluster_api.go
@@ -31,13 +30,11 @@ type Cluster interface {
 
 func NewCluster(clients clients.ClientsInterface) Cluster {
 	return &cluster{
-		log:     zap.New(zap.UseDevMode(true)).WithName(utils.Print("cache", utils.Brown)),
 		clients: clients,
 	}
 }
 
 type cluster struct {
-	log     logr.Logger
 	clients clients.ClientsInterface
 }
 
@@ -48,6 +45,7 @@ func (c *cluster) Version(ctx context.Context) (string, string, error) {
 		return "", "", err
 	}
 	if !available {
+		ctrl.LoggerFrom(ctx).Info("ClusterVersion not available")
 		return "", "", nil
 	}
 
@@ -85,6 +83,7 @@ func (c *cluster) VersionHistory(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 	if !available {
+		ctrl.LoggerFrom(ctx).Info("ClusterVersion not available")
 		return stat, nil
 	}
 
@@ -111,7 +110,7 @@ func (c *cluster) OSImageURL(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("Error discovering machineconfig API resource: %w", err)
 	}
 	if !machineConfigAvailable {
-		c.log.Info("Warning: Could not find machineconfig API resource. Can be ignored on vanilla k8s.")
+		ctrl.LoggerFrom(ctx).Info("Warning: Could not find machineconfig API resource. Can be ignored on vanilla k8s.")
 		return "", nil
 	}
 
@@ -177,7 +176,6 @@ func (c *cluster) clusterVersionAvailable() (bool, error) {
 		return false, err
 	}
 	if !clusterVersionAvailable {
-		c.log.Info("Warning: ClusterVersion API resource not available. Can be ignored on vanilla k8s.")
 		return false, nil
 	}
 	return true, nil

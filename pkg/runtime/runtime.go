@@ -5,20 +5,17 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	srov1beta1 "github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/cluster"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
-
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/upgrade"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 
 	corev1 "k8s.io/api/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 type ResourceGroupName struct {
@@ -55,11 +52,10 @@ type RuntimeInformation struct {
 
 type RuntimeAPI interface {
 	GetRuntimeInformation(ctx context.Context, sr *srov1beta1.SpecialResource) (*RuntimeInformation, error)
-	LogRuntimeInformation(info *RuntimeInformation)
+	LogRuntimeInformation(ctx context.Context, info *RuntimeInformation)
 }
 
 type runtime struct {
-	log            logr.Logger
 	kubeClient     clients.ClientsInterface
 	clusterAPI     cluster.Cluster
 	kernelAPI      kernel.KernelData
@@ -73,7 +69,6 @@ func NewRuntimeAPI(kubeClient clients.ClientsInterface,
 	clusterInfoAPI upgrade.ClusterInfo,
 	proxyAPI proxy.ProxyAPI) RuntimeAPI {
 	return &runtime{
-		log:            zap.New(zap.UseDevMode(true)).WithName(utils.Print("runtime", utils.Blue)),
 		kubeClient:     kubeClient,
 		clusterAPI:     clusterAPI,
 		kernelAPI:      kernelAPI,
@@ -82,8 +77,8 @@ func NewRuntimeAPI(kubeClient clients.ClientsInterface,
 	}
 }
 
-func (rt *runtime) LogRuntimeInformation(info *RuntimeInformation) {
-	rt.log.Info("Runtime Information",
+func (rt *runtime) LogRuntimeInformation(ctx context.Context, info *RuntimeInformation) {
+	ctrl.LoggerFrom(ctx).Info("Runtime Information",
 		"OperatingSystemMajor", info.OperatingSystemMajor,
 		"OperatingSystemMajorMinor", info.OperatingSystemMajorMinor,
 		"OperatingSystemDecimal", info.OperatingSystemDecimal,
@@ -158,7 +153,9 @@ func (rt *runtime) GetRuntimeInformation(ctx context.Context, sr *srov1beta1.Spe
 	}
 
 	info.PushSecretName, err = rt.getPushSecretName(ctx, sr, info.Platform)
-	utils.WarnOnError(err)
+	if err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "Failed to get push secret's name")
+	}
 
 	info.OSImageURL, err = rt.clusterAPI.OSImageURL(ctx)
 	if err != nil {

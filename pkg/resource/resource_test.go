@@ -470,10 +470,10 @@ var _ = Describe("creator_BeforeCRUD", func() {
 			"specialresource.openshift.io/proxy": "true",
 		})
 
-		proxyAPI.EXPECT().Setup(obj).Return(nil).Times(1)
+		proxyAPI.EXPECT().Setup(context.Background(), obj).Return(nil).Times(1)
 
 		err := NewCreator(nil, nil, nil, nil, nil, nil, proxyAPI, nil).(*creator).
-			BeforeCRUD(obj, nil)
+			BeforeCRUD(context.Background(), obj, nil)
 
 		Expect(err).ToNot(HaveOccurred())
 	})

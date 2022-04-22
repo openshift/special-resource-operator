@@ -7,10 +7,6 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
-
-	"github.com/go-logr/logr"
-	"github.com/openshift-psap/special-resource-operator/pkg/utils"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 // Metadata manifests filename and content
@@ -27,13 +23,11 @@ type Assets interface {
 }
 
 type assets struct {
-	log     logr.Logger
 	reState *regexp.Regexp
 }
 
 func NewAssets() Assets {
 	return &assets{
-		log:     zap.New(zap.UseDevMode(true)).WithName(utils.Print("manifests", utils.Brown)),
 		reState: regexp.MustCompile(`^[0-9]{4}[-_].*\.yaml$`),
 	}
 }
@@ -61,7 +55,7 @@ func (a *assets) filePathWalkDir(root string, ext string) ([]string, error) {
 	var files []string
 
 	if _, err := os.Stat(root); os.IsNotExist(err) {
-		if fmt.Errorf("Directory %s does not exist, giving up: %w ", root, err) != nil {
+		if fmt.Errorf("directory %s does not exist, giving up: %w ", root, err) != nil {
 			return nil, err
 		}
 	}
@@ -69,7 +63,6 @@ func (a *assets) filePathWalkDir(root string, ext string) ([]string, error) {
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 
 		if info.IsDir() {
-			a.log.Info("WalkDir", "path IsDir", path)
 			// Ignore root directory but skipdir any subdirectories
 			if path == root {
 				return nil
@@ -77,7 +70,6 @@ func (a *assets) filePathWalkDir(root string, ext string) ([]string, error) {
 			return filepath.SkipDir
 		}
 		if filepath.Ext(path) != ext {
-			a.log.Info("WalkDir", "path does not match *.yaml", path)
 			return nil
 		}
 
@@ -85,7 +77,6 @@ func (a *assets) filePathWalkDir(root string, ext string) ([]string, error) {
 			return nil
 		}
 
-		a.log.Info("WalkDir", "path valid", path)
 		files = append(files, path)
 		return nil
 	})

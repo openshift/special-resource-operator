@@ -3,7 +3,6 @@ package proxy
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -15,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestProxy(t *testing.T) {
@@ -26,9 +24,7 @@ func TestProxy(t *testing.T) {
 var _ = Describe("Setup", func() {
 	var proxyStruct proxy
 	BeforeEach(func() {
-		proxyStruct = proxy{
-			log: zap.New(zap.WriteTo(ioutil.Discard)),
-		}
+		proxyStruct = proxy{}
 	})
 
 	It("should return an error for Pod with empty spec", func() {
@@ -41,7 +37,7 @@ var _ = Describe("Setup", func() {
 
 		uo := unstructured.Unstructured{Object: m}
 
-		err = proxyStruct.Setup(&uo)
+		err = proxyStruct.Setup(context.Background(), &uo)
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -75,7 +71,7 @@ var _ = Describe("Setup", func() {
 
 		uo := unstructured.Unstructured{Object: m}
 
-		err = proxyStruct.Setup(&uo)
+		err = proxyStruct.Setup(context.Background(), &uo)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &pod)
@@ -100,7 +96,7 @@ var _ = Describe("Setup", func() {
 
 		uo := unstructured.Unstructured{Object: m}
 
-		err = proxyStruct.Setup(&uo)
+		err = proxyStruct.Setup(context.Background(), &uo)
 		Expect(err).To(HaveOccurred())
 	})
 
@@ -138,7 +134,7 @@ var _ = Describe("Setup", func() {
 
 		uo := unstructured.Unstructured{Object: m}
 
-		err = proxyStruct.Setup(&uo)
+		err = proxyStruct.Setup(context.Background(), &uo)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(uo.Object, &ds)
@@ -166,7 +162,6 @@ var _ = Describe("ClusterConfiguration", func() {
 		mockKubeClient = clients.NewMockClientsInterface(ctrl)
 		proxyStruct = proxy{
 			kubeClient: mockKubeClient,
-			log:        zap.New(zap.WriteTo(ioutil.Discard)),
 		}
 	})
 
