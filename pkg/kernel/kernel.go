@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/openshift/special-resource-operator/pkg/utils"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,61 +32,52 @@ func (k *kernelData) SetAffineAttributes(obj *unstructured.Unstructured,
 	kernelVersion := strings.ReplaceAll(kernelFullVersion, "_", "-")
 	hash64, err := utils.FNV64a(operatingSystemMajorMinor + "-" + kernelVersion)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not get hash: %w", err)
 	}
 	name := obj.GetName() + "-" + hash64
 	obj.SetName(name)
 
-	if obj.GetKind() == "BuildRun" {
+	switch obj.GetKind() {
+	case "BuildRun":
 		if err := unstructured.SetNestedField(obj.Object, name, "spec", "buildRef", "name"); err != nil {
-			return err
+			return fmt.Errorf("could not set spec.buildRef.name in BuildRun object: %w", err)
 		}
-	}
-
-	if obj.GetKind() == "DaemonSet" || obj.GetKind() == "Deployment" || obj.GetKind() == "StatefulSet" {
+	case "DaemonSet", "Deployment", "StatefulSet":
 		if err := unstructured.SetNestedField(obj.Object, name, "metadata", "labels", "app"); err != nil {
-			return err
+			return fmt.Errorf("could not set metadata.labels.app in DaemonSet object: %w", err)
 		}
 
 		if err := unstructured.SetNestedField(obj.Object, name, "spec", "selector", "matchLabels", "app"); err != nil {
-			return err
+			return fmt.Errorf("could not set spec.selector.matchLabels.app in DaemonSet object: %w", err)
 		}
 
 		if err := unstructured.SetNestedField(obj.Object, name, "spec", "template", "metadata", "labels", "app"); err != nil {
-			return err
-		}
-
-		if err := unstructured.SetNestedField(obj.Object, name, "spec", "template", "metadata", "labels", "app"); err != nil {
-			return err
+			return fmt.Errorf("could not set spec.template.metadata.labels.app in DaemonSet object: %w", err)
 		}
 	}
 
 	if err := k.setVersionNodeAffinity(obj, kernelFullVersion); err != nil {
-		return errors.Wrap(err, "Cannot set kernel version node affinity for obj: "+obj.GetKind())
+		return fmt.Errorf("cannot set kernel version node affinity for obj %s: %w", obj.GetKind(), err)
 	}
 	return nil
 }
 
 func (k *kernelData) setVersionNodeAffinity(obj *unstructured.Unstructured, kernelFullVersion string) error {
 
-	if strings.Compare(obj.GetKind(), "DaemonSet") == 0 ||
-		strings.Compare(obj.GetKind(), "Deployment") == 0 ||
-		strings.Compare(obj.GetKind(), "Statefulset") == 0 {
+	switch obj.GetKind() {
+	case "DaemonSet", "Deployment", "Statefulset":
 		if err := k.versionNodeAffinity(kernelFullVersion, obj, "spec", "template", "spec", "nodeSelector"); err != nil {
-			return errors.Wrap(err, "Cannot setup DaemonSet kernel version affinity")
+			return fmt.Errorf("cannot setup %s's kernel version affinity: %w", obj.GetKind(), err)
 		}
-	}
-	if strings.Compare(obj.GetKind(), "Pod") == 0 {
+	case "Pod":
 		if err := k.versionNodeAffinity(kernelFullVersion, obj, "spec", "nodeSelector"); err != nil {
-			return errors.Wrap(err, "Cannot setup Pod kernel version affinity")
+			return fmt.Errorf("cannot setup %s's kernel version affinity: %w", obj.GetKind(), err)
 		}
-	}
-	if strings.Compare(obj.GetKind(), "BuildConfig") == 0 {
+	case "BuildConfig":
 		if err := k.versionNodeAffinity(kernelFullVersion, obj, "spec", "nodeSelector"); err != nil {
-			return errors.Wrap(err, "Cannot setup BuildConfig kernel version affinity")
+			return fmt.Errorf("cannot setup %s's kernel version affinity: %w", obj.GetKind(), err)
 		}
 	}
-
 	return nil
 }
 
@@ -95,7 +85,7 @@ func (k *kernelData) versionNodeAffinity(kernelFullVersion string, obj *unstruct
 
 	nodeSelector, found, err := unstructured.NestedMap(obj.Object, fields...)
 	if err != nil {
-		return err
+		return fmt.Errorf("couldn't find %s in %s: %w", strings.Join(fields, "."), obj.GetKind(), err)
 	}
 
 	if !found {
@@ -105,7 +95,7 @@ func (k *kernelData) versionNodeAffinity(kernelFullVersion string, obj *unstruct
 	nodeSelector["feature.node.kubernetes.io/kernel-version.full"] = kernelFullVersion
 
 	if err := unstructured.SetNestedMap(obj.Object, nodeSelector, fields...); err != nil {
-		return errors.Wrap(err, "Cannot update nodeSelector")
+		return fmt.Errorf("couldn't set %s in %s: %w", strings.Join(fields, "."), obj.GetKind(), err)
 	}
 
 	return nil
