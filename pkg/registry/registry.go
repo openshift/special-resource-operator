@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"runtime"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -100,8 +101,8 @@ func (r *registry) getImageRegistryCredentials(ctx context.Context, registry str
 	}
 }
 
-func (r *registry) LastLayer(ctx context.Context, entry string) (v1.Layer, error) {
-	repo, digests, registryAuths, err := r.GetLayersDigests(ctx, entry)
+func (r *registry) LastLayer(ctx context.Context, image string) (v1.Layer, error) {
+	repo, digests, registryAuths, err := r.GetLayersDigests(ctx, image)
 	if err != nil {
 		return nil, err
 	}
@@ -187,8 +188,8 @@ func (r *registry) ReleaseImageMachineOSConfig(layer v1.Layer) (string, error) {
 	return "", fmt.Errorf("failed to find machine-os-content in the release-manifests/image-references")
 }
 
-func (r *registry) GetLayersDigests(ctx context.Context, entry string) (string, []string, []crane.Option, error) {
-	registry, err := r.registryFromImageURL(entry)
+func (r *registry) GetLayersDigests(ctx context.Context, image string) (string, []string, []crane.Option, error) {
+	registry, err := r.registryFromImageURL(image)
 	if err != nil {
 		return "", nil, nil, err
 	}
@@ -200,14 +201,14 @@ func (r *registry) GetLayersDigests(ctx context.Context, entry string) (string, 
 
 	var repo string
 
-	if hash := strings.Split(entry, "@"); len(hash) > 1 {
+	if hash := strings.Split(image, "@"); len(hash) > 1 {
 		repo = hash[0]
-	} else if tag := strings.Split(entry, ":"); len(tag) > 1 {
+	} else if tag := strings.Split(image, ":"); len(tag) > 1 {
 		repo = tag[0]
 	}
 
 	if repo == "" {
-		return "", nil, nil, fmt.Errorf("image url %s is not valid, does not contain hash or tag", entry)
+		return "", nil, nil, fmt.Errorf("image url %s is not valid, does not contain hash or tag", image)
 	}
 
 	var registryAuths []crane.Option
@@ -215,23 +216,14 @@ func (r *registry) GetLayersDigests(ctx context.Context, entry string) (string, 
 		registryAuths = append(registryAuths, crane.WithAuth(authn.FromConfig(authn.AuthConfig{Username: auth.Email, Auth: auth.Auth})))
 	}
 
-	manifest, err := crane.Manifest(entry, registryAuths...)
+	manifest, err := r.getManifestStreamFromImage(image, repo, registryAuths)
 	if err != nil {
 		return "", nil, nil, err
 	}
 
-	release := unstructured.Unstructured{}
-	if err = json.Unmarshal(manifest, &release.Object); err != nil {
-		return "", nil, nil, err
-	}
-
-	layers, _, err := unstructured.NestedSlice(release.Object, "layers")
+	digests, err := r.getLayersDigestsFromManifestStream(manifest)
 	if err != nil {
 		return "", nil, nil, err
-	}
-	digests := make([]string, len(layers))
-	for i, layer := range layers {
-		digests[i] = layer.(map[string]interface{})["digest"].(string)
 	}
 
 	return repo, digests, registryAuths, nil
@@ -239,6 +231,53 @@ func (r *registry) GetLayersDigests(ctx context.Context, entry string) (string, 
 
 func (r *registry) GetLayerByDigest(repo string, digest string, auth []crane.Option) (v1.Layer, error) {
 	return crane.PullLayer(repo+"@"+digest, auth...)
+}
+
+func (r *registry) getManifestStreamFromImage(image, repo string, options []crane.Option) ([]byte, error) {
+	manifest, err := crane.Manifest(image, options...)
+	if err != nil {
+		return nil, err
+	}
+
+	release := unstructured.Unstructured{}
+	if err = json.Unmarshal(manifest, &release.Object); err != nil {
+		return nil, err
+	}
+
+	imageMediaType, mediaTypeFound, err := unstructured.NestedString(release.Object, "mediaType")
+	if err != nil {
+		return nil, err
+	}
+	if !mediaTypeFound {
+		return nil, fmt.Errorf("mediaType is missing from the image %s manifest", image)
+	}
+
+	if strings.Contains(imageMediaType, "manifest.list") {
+		archDigest, err := r.getImageDigestFromMultiImage(manifest)
+		if err != nil {
+			return nil, err
+		}
+		// get the manifest stream for the image of the architecture
+		manifest, err = crane.Manifest(repo+"@"+archDigest, options...)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return manifest, nil
+}
+
+func (r *registry) getLayersDigestsFromManifestStream(manifestStream []byte) ([]string, error) {
+	manifest := v1.Manifest{}
+
+	if err := json.Unmarshal(manifestStream, &manifest); err != nil {
+		return nil, err
+	}
+
+	digests := make([]string, len(manifest.Layers))
+	for i, layer := range manifest.Layers {
+		digests[i] = layer.Digest.Algorithm + ":" + layer.Digest.Hex
+	}
+	return digests, nil
 }
 
 func (r *registry) getHeaderFromLayer(layer v1.Layer, headerName string) (*unstructured.Unstructured, error) {
@@ -284,4 +323,19 @@ func (r *registry) getHeaderFromLayer(layer v1.Layer, headerName string) (*unstr
 	}
 
 	return nil, fmt.Errorf("header %s not found in the layer", headerName)
+}
+
+func (r *registry) getImageDigestFromMultiImage(manifestListStream []byte) (string, error) {
+	arch := runtime.GOARCH
+	manifestList := v1.IndexManifest{}
+
+	if err := json.Unmarshal(manifestListStream, &manifestList); err != nil {
+		return "", err
+	}
+	for _, manifest := range manifestList.Manifests {
+		if manifest.Platform != nil && manifest.Platform.Architecture == arch {
+			return manifest.Digest.Algorithm + ":" + manifest.Digest.Hex, nil
+		}
+	}
+	return "", fmt.Errorf("Failed to find manifest for architecture %s", arch)
 }
