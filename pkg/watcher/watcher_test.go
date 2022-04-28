@@ -3,7 +3,9 @@ package watcher
 import (
 	context "context"
 	"fmt"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	srov1beta1 "github.com/openshift/special-resource-operator/api/v1beta1"
@@ -188,6 +190,42 @@ var _ = Describe("Watcher", func() {
 			Expect(requests).To(ContainElements(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: srm1.Namespace, Name: srm1.Name}}))
 			Expect(requests).ToNot(ContainElements(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: srm2.Namespace, Name: srm2.Name}}))
 		})
+	})
+
+	It("handles concurrent map reads and writes", func() {
+		dummyWR := WatchedResource{
+			ApiVersion: dummyWatch.ApiVersion,
+			Kind:       dummyWatch.Kind,
+			Name:       dummyWatch.Name,
+			Namespace:  dummyWatch.Namespace,
+		}
+
+		nnToTrigger := types.NamespacedName{Namespace: "", Name: "test"}
+
+		// object that mapper will actually find so will execute more code (and access both maps) instead of quickly returning
+		w.(*watcher).addToWatched(dummyWR, dummyWatch.Path, nnToTrigger)
+
+		wg := &sync.WaitGroup{}
+		go func() {
+			defer wg.Done()
+
+			for i := 0; i <= 100000; i++ {
+				toWatch := dummyWR
+				toWatch.Name = dummyWR.Name + strconv.Itoa(i)
+				w.(*watcher).addToWatched(toWatch, dummyWatch.Path, nnToTrigger)
+			}
+		}()
+
+		go func() {
+			defer wg.Done()
+
+			for i := 0; i <= 100000; i++ {
+				_ = w.(*watcher).mapper(dummy)
+			}
+		}()
+
+		wg.Add(2)
+		wg.Wait()
 	})
 })
 
