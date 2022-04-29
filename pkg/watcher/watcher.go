@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/oliveagle/jsonpath"
@@ -90,6 +91,8 @@ type watcher struct {
 
 	watchedResToPaths map[WatchedResource][]Path
 	watchedResToData  map[WatchedResourceWithPath]pathData
+
+	dataMutex sync.Mutex
 }
 
 func isEqualWatchedResource(watch1, watch2 srov1beta1.SpecialResourceModuleWatch) bool {
@@ -199,7 +202,6 @@ func (w *watcher) tryAddResourceToWatch(ctx context.Context, r srov1beta1.Specia
 		return err
 	}
 
-	// TODO: Potential race? Registering first, then adding to a map = mapper func might get invoked before adding to a map?
 	w.addToWatched(wr, r.Path, nnToTrigger)
 	l.Info("added resource to be watched")
 
@@ -224,6 +226,10 @@ func (w *watcher) addToWatched(wr WatchedResource, path string, nnToTrigger type
 	var ok bool
 	var paths []Path
 	addPath := true
+
+	w.dataMutex.Lock()
+	defer w.dataMutex.Unlock()
+
 	if paths, ok = w.watchedResToPaths[wr]; !ok {
 		paths = make([]string, 0)
 	} else {
@@ -272,7 +278,9 @@ func (w *watcher) mapper(o client.Object) []reconcile.Request {
 		return crsToTrigger
 	}
 
-	//TODO cache resources, maybe? take the resourceversion and generation?
+	w.dataMutex.Lock()
+	defer w.dataMutex.Unlock()
+
 	paths, ok := w.watchedResToPaths[wrObj]
 	if !ok {
 		wrObj.Name = o.GetName()
