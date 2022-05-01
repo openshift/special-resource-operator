@@ -2,8 +2,6 @@ package lifecycle
 
 import (
 	"context"
-	"fmt"
-	"os"
 
 	"github.com/openshift/special-resource-operator/pkg/clients"
 	"github.com/openshift/special-resource-operator/pkg/storage"
@@ -21,7 +19,6 @@ import (
 type Lifecycle interface {
 	GetPodFromDaemonSet(context.Context, types.NamespacedName) *v1.PodList
 	GetPodFromDeployment(context.Context, types.NamespacedName) *v1.PodList
-	UpdateDaemonSetPods(context.Context, client.Object) error
 }
 
 type lifecycle struct {
@@ -77,37 +74,4 @@ func (l *lifecycle) getPodListForUpperObject(ctx context.Context, matchLabels ma
 	}
 
 	return pl
-}
-
-func (l *lifecycle) UpdateDaemonSetPods(ctx context.Context, obj client.Object) error {
-	log := ctrl.LoggerFrom(ctx)
-
-	log.Info("UpdateDaemonSetPods")
-
-	key := types.NamespacedName{
-		Namespace: obj.GetNamespace(),
-		Name:      obj.GetName(),
-	}
-	ins := types.NamespacedName{
-		Namespace: os.Getenv("OPERATOR_NAMESPACE"),
-		Name:      "special-resource-lifecycle",
-	}
-
-	pl := l.GetPodFromDaemonSet(ctx, key)
-
-	for _, pod := range pl.Items {
-
-		hs, err := utils.FNV64a(pod.GetNamespace() + pod.GetName())
-		if err != nil {
-			return err
-		}
-		value := "*v1.Pod"
-		log.Info(pod.GetName(), "hs", hs, "value", value)
-		err = l.storage.UpdateConfigMapEntry(ctx, hs, value, ins)
-		if err != nil {
-			return fmt.Errorf("Failed to update '%s:%s' in ConfigMap %v: %w", hs, value, ins, err)
-		}
-	}
-
-	return nil
 }

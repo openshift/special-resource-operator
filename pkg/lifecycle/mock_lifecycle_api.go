@@ -11,7 +11,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 	types "k8s.io/apimachinery/pkg/types"
-	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // MockLifecycle is a mock of Lifecycle interface.
@@ -63,18 +62,4 @@ func (m *MockLifecycle) GetPodFromDeployment(arg0 context.Context, arg1 types.Na
 func (mr *MockLifecycleMockRecorder) GetPodFromDeployment(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPodFromDeployment", reflect.TypeOf((*MockLifecycle)(nil).GetPodFromDeployment), arg0, arg1)
-}
-
-// UpdateDaemonSetPods mocks base method.
-func (m *MockLifecycle) UpdateDaemonSetPods(arg0 context.Context, arg1 client.Object) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateDaemonSetPods", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateDaemonSetPods indicates an expected call of UpdateDaemonSetPods.
-func (mr *MockLifecycleMockRecorder) UpdateDaemonSetPods(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateDaemonSetPods", reflect.TypeOf((*MockLifecycle)(nil).UpdateDaemonSetPods), arg0, arg1)
 }
