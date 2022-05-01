@@ -2,6 +2,7 @@ package lifecycle
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/openshift/special-resource-operator/pkg/clients"
@@ -40,7 +41,9 @@ func (l *lifecycle) GetPodFromDaemonSet(ctx context.Context, key types.Namespace
 
 	err := l.kubeClient.Get(ctx, key, ds)
 	if apierrors.IsNotFound(err) || err != nil {
-		ctrl.LoggerFrom(ctx).Error(err, "Failed to get DaemonSet", "key", key)
+		if err != nil {
+			ctrl.LoggerFrom(ctx).Info(utils.WarnString("Failed to get DaemonSet"), "key", key, "error", err)
+		}
 		return &v1.PodList{}
 	}
 
@@ -52,7 +55,9 @@ func (l *lifecycle) GetPodFromDeployment(ctx context.Context, key types.Namespac
 
 	err := l.kubeClient.Get(ctx, key, dp)
 	if apierrors.IsNotFound(err) || err != nil {
-		ctrl.LoggerFrom(ctx).Error(err, "Failed to get Deployment", "key", key)
+		if err != nil {
+			ctrl.LoggerFrom(ctx).Info(utils.WarnString("Failed to get Deployment"), "key", key, "error", err)
+		}
 		return &v1.PodList{}
 	}
 
@@ -68,7 +73,7 @@ func (l *lifecycle) getPodListForUpperObject(ctx context.Context, matchLabels ma
 	}
 
 	if err := l.kubeClient.List(ctx, pl, opts...); err != nil {
-		ctrl.LoggerFrom(ctx).Error(err, "Failed to list Pods", "ns", ns, "labels", matchLabels)
+		ctrl.LoggerFrom(ctx).Info(utils.WarnString("Failed to list Pods"), "ns", ns, "labels", matchLabels, "error", err)
 	}
 
 	return pl
@@ -100,8 +105,7 @@ func (l *lifecycle) UpdateDaemonSetPods(ctx context.Context, obj client.Object) 
 		log.Info(pod.GetName(), "hs", hs, "value", value)
 		err = l.storage.UpdateConfigMapEntry(ctx, hs, value, ins)
 		if err != nil {
-			ctrl.LoggerFrom(ctx).Error(err, "Failed to update ConfigMap entry", "key", hs, "value", value, "configmap", ins)
-			return err
+			return fmt.Errorf("Failed to update '%s:%s' in ConfigMap %v: %w", hs, value, ins, err)
 		}
 	}
 
