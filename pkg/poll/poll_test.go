@@ -2,6 +2,7 @@ package poll
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -15,7 +16,9 @@ import (
 	"github.com/openshift/special-resource-operator/pkg/clients"
 	"github.com/openshift/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift/special-resource-operator/pkg/storage"
+	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -316,89 +319,81 @@ var _ = Context("Waiting for DaemonSet", func() {
 		Expect(unstructured.SetNestedField(obj.Object, "OnDelete", "spec", "updateStrategy", "type")).To(Succeed())
 	})
 
-	Context("but the pod is marked", func() {
-		It("timeout waiting for no such pods", func() {
-			podList := &v1.PodList{
-				Items: []v1.Pod{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "some-driver-container-1",
-							Namespace: "some-namespace",
-						},
-					},
-				},
-			}
+	It("daemon set is not created yet", func() {
+		mockClientsInterface.EXPECT().Get(gomock.Any(), namespacedName, gomock.Any()).Return(fmt.Errorf("some error"))
 
-			// forResourceAvailability
-			mockClientsInterface.EXPECT().
-				Get(gomock.Any(), namespacedName, gomock.Any()).
-				Return(nil).
-				AnyTimes()
+		err := pa.ForDaemonSet(context.Background(), obj)
+		Expect(err).ToNot(BeNil())
 
-			// forLifecycleAvailability
-			mockLifecycle.EXPECT().
-				GetPodFromDaemonSet(gomock.Any(), namespacedName).
-				Return(podList).
-				AnyTimes()
-
-			// Pod has an entry in 'lifecycle' ConfigMap. Entry adding occurs when OS upgrade is performed
-			// (refer to pkg/filter)
-			mockStorage.EXPECT().
-				CheckConfigMapEntry(gomock.Any(), gomock.Any(), gomock.Any()).
-				Return("*v1.Pod", nil).
-				AnyTimes()
-
-			err := pa.ForDaemonSet(context.Background(), obj)
-			Expect(err).ToNot(BeNil())
-		})
 	})
 
-	Context("which is created, but the pods are not ready", func() {
-		It("will propagate an error", func() {
-			podList := &v1.PodList{
-				Items: []v1.Pod{
-					{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      "some-driver-container-1",
-							Namespace: "some-namespace",
-						},
+	It("daemon set created, but the pods with previous generation exists", func() {
+		dsAnnotations := map[string]string{apps.DeprecatedTemplateGeneration: "2"}
+		obj.SetAnnotations(dsAnnotations)
+		podList := &v1.PodList{
+			Items: []v1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "some-driver-container-1",
+						Namespace: "some-namespace",
+						Labels:    map[string]string{extensions.DaemonSetTemplateGenerationKey: "1"},
 					},
 				},
-			}
+			},
+		}
+		mockClientsInterface.EXPECT().Get(gomock.Any(), namespacedName, gomock.Any()).Return(nil)
+		mockLifecycle.EXPECT().GetPodFromDaemonSet(gomock.Any(), namespacedName).Return(podList)
 
-			gomock.InOrder(
-				// forResourceAvailability
-				mockClientsInterface.EXPECT().
-					Get(gomock.Any(), namespacedName, gomock.Any()).
-					Return(nil),
+		err := pa.ForDaemonSet(context.Background(), obj)
+		Expect(err).ToNot(BeNil())
+	})
 
-				// forLifecycleAvailability
-				mockLifecycle.EXPECT().
-					GetPodFromDaemonSet(gomock.Any(), namespacedName).
-					Return(podList).
-					AnyTimes(),
+	It("daemon set created, no old pods, daemons set is not good", func() {
+		dsAnnotations := map[string]string{apps.DeprecatedTemplateGeneration: "2"}
+		obj.SetAnnotations(dsAnnotations)
+		podList := &v1.PodList{
+			Items: []v1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "some-driver-container-1",
+						Namespace: "some-namespace",
+						Labels:    map[string]string{extensions.DaemonSetTemplateGenerationKey: "2"},
+					},
+				},
+			},
+		}
+		mockClientsInterface.EXPECT().Get(gomock.Any(), namespacedName, gomock.Any()).Return(nil).AnyTimes()
+		mockLifecycle.EXPECT().GetPodFromDaemonSet(gomock.Any(), namespacedName).Return(podList)
+		Expect(unstructured.SetNestedField(obj.Object, int64(1), "status", "numberUnavailable")).To(Succeed())
+		Expect(unstructured.SetNestedField(obj.Object, int64(2), "status", "numberAvailable")).To(Succeed())
+		Expect(unstructured.SetNestedField(obj.Object, int64(3), "status", "desiredNumberScheduled")).To(Succeed())
 
-				mockStorage.EXPECT().
-					CheckConfigMapEntry(gomock.Any(), gomock.Any(), gomock.Any()).
-					Return("", nil).
-					AnyTimes(),
+		err := pa.ForDaemonSet(context.Background(), obj)
+		Expect(err).ToNot(BeNil())
+	})
 
-				// forResourceFullAvailability
-				mockClientsInterface.EXPECT().
-					Get(gomock.Any(), namespacedName, gomock.Any()).
-					DoAndReturn(func(_ context.Context, _ client.ObjectKey, o client.Object) error {
-						u := o.(*unstructured.Unstructured)
-						Expect(unstructured.SetNestedField(u.Object, int64(1), "status", "desiredNumberScheduled")).To(Succeed())
-						Expect(unstructured.SetNestedField(u.Object, int64(0), "status", "numberUnavailable")).To(Succeed())
-						Expect(unstructured.SetNestedField(u.Object, int64(1), "status", "numberAvailable")).To(Succeed())
-						return nil
-					}).
-					AnyTimes(),
-			)
+	It("daemon set created, no olds pods, new pods are ready, daemons set is good", func() {
+		dsAnnotations := map[string]string{apps.DeprecatedTemplateGeneration: "2"}
+		obj.SetAnnotations(dsAnnotations)
+		podList := &v1.PodList{
+			Items: []v1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "some-driver-container-1",
+						Namespace: "some-namespace",
+						Labels:    map[string]string{extensions.DaemonSetTemplateGenerationKey: "2"},
+					},
+				},
+			},
+		}
+		mockClientsInterface.EXPECT().Get(gomock.Any(), namespacedName, gomock.Any()).Return(nil).AnyTimes()
+		mockLifecycle.EXPECT().GetPodFromDaemonSet(gomock.Any(), namespacedName).Return(podList)
+		Expect(unstructured.SetNestedField(obj.Object, int64(0), "status", "numberUnavailable")).To(Succeed())
+		Expect(unstructured.SetNestedField(obj.Object, int64(3), "status", "numberAvailable")).To(Succeed())
+		Expect(unstructured.SetNestedField(obj.Object, int64(3), "status", "desiredNumberScheduled")).To(Succeed())
 
-			err := pa.ForDaemonSet(context.Background(), obj)
-			Expect(err).To(BeNil())
-		})
+		err := pa.ForDaemonSet(context.Background(), obj)
+		Expect(err).To(BeNil())
 	})
 })
 

@@ -5,16 +5,16 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"regexp"
 
 	"github.com/openshift/special-resource-operator/pkg/clients"
 	"github.com/openshift/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift/special-resource-operator/pkg/storage"
-	"github.com/openshift/special-resource-operator/pkg/utils"
 
 	"github.com/pkg/errors"
+	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -344,30 +344,23 @@ func (p *pollActions) forLifecycleAvailability(ctx context.Context, obj *unstruc
 		return nil
 	}
 
+	annotations := obj.GetAnnotations()
+	tempGenerator := annotations[apps.DeprecatedTemplateGeneration]
+
 	objKey := types.NamespacedName{
 		Namespace: obj.GetNamespace(),
 		Name:      obj.GetName(),
 	}
 
-	ins := types.NamespacedName{
-		Namespace: os.Getenv("OPERATOR_NAMESPACE"),
-		Name:      "special-resource-lifecycle",
-	}
-
 	pl := p.lc.GetPodFromDaemonSet(ctx, objKey)
 	for _, pod := range pl.Items {
-		hs, err := utils.FNV64a(pod.GetNamespace() + pod.GetName())
-		if err != nil {
-			return err
-		}
-		value, err := p.storage.CheckConfigMapEntry(ctx, hs, ins)
-		if err != nil {
-			return err
-		}
-		if value != "" {
+		podLabels := pod.GetLabels()
+		podGenerator := podLabels[extensions.DaemonSetTemplateGenerationKey]
+		if podGenerator != tempGenerator {
 			return fmt.Errorf("pod %s/%s not available", obj.GetNamespace(), pod.GetName())
 		}
 	}
+
 	return nil
 }
 

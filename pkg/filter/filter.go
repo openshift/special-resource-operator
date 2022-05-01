@@ -1,9 +1,7 @@
 package filter
 
 import (
-	"context"
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 
@@ -13,8 +11,6 @@ import (
 	"github.com/openshift/special-resource-operator/pkg/kernel"
 	"github.com/openshift/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift/special-resource-operator/pkg/storage"
-	"github.com/openshift/special-resource-operator/pkg/utils"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -163,11 +159,6 @@ func (f *filter) GetPredicates() predicate.Predicate {
 						e.ObjectOld.GetResourceVersion() == e.ObjectNew.GetResourceVersion() {
 						return false
 					} else {
-						if reflect.TypeOf(obj).String() == "*v1.DaemonSet" && e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
-							if err := f.lifecycle.UpdateDaemonSetPods(context.TODO(), obj); err != nil {
-								f.log.Error(err, "Failed to update lifecycle cm with DaemonSet's Pods")
-							}
-						}
 						if f.isSpecialResource(obj) && f.isSpecialResourceUnmanaged(obj) {
 							return false
 						}
@@ -202,11 +193,6 @@ func (f *filter) GetPredicates() predicate.Predicate {
 
 			// If we do not own the object, do not care
 			if f.owned(obj) {
-				if reflect.TypeOf(obj).String() == "*v1.DaemonSet" {
-					if err := f.lifecycle.UpdateDaemonSetPods(context.TODO(), obj); err != nil {
-						f.log.Error(err, "Failed to update lifecycle cm with DaemonSet's Pods")
-					}
-				}
 				f.log.Info("Updating owned object", "objName", obj.GetName(), "objNamespace", obj.GetNamespace(), "objKind", obj.GetObjectKind())
 				return true
 			}
@@ -226,19 +212,6 @@ func (f *filter) GetPredicates() predicate.Predicate {
 
 			// If we do not own the object, do not care
 			if f.owned(obj) {
-
-				ins := types.NamespacedName{
-					Namespace: os.Getenv("OPERATOR_NAMESPACE"),
-					Name:      "special-resource-lifecycle",
-				}
-				key, err := utils.FNV64a(obj.GetNamespace() + obj.GetName())
-				if err != nil {
-					f.log.Error(err, "Failed to calculate FNV64a for the object", "ns+name", obj.GetNamespace()+obj.GetName())
-					return false
-				}
-				if err = f.storage.DeleteConfigMapEntry(context.TODO(), key, ins); err != nil {
-					f.log.Error(err, "Failed to delete key from lifecycle configmap", "ns+name", obj.GetNamespace()+obj.GetName(), "key", key)
-				}
 				f.log.Info("Deleting owned object", "objName", obj.GetName(), "objNamespace", obj.GetNamespace(), "objKind", obj.GetObjectKind())
 				return true
 			}
