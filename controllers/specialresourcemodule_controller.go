@@ -493,24 +493,20 @@ func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctr
 		resource.Status.Versions = make(map[string]srov1beta1.SpecialResourceModuleVersionStatus)
 	}
 
-	updateList := make([]ocpVersionInfo, 0)
-	deleteList := make([]ocpVersionInfo, 0)
-	for resourceVersion := range resource.Status.Versions {
-		if data, ok := clusterVersions[resourceVersion]; ok {
-			updateList = append(updateList, data)
-		} else {
-			deleteList = append(deleteList, data)
+	updateList := make([]string, 0, len(clusterVersions))
+	for key := range clusterVersions {
+		updateList = append(updateList, key)
+	}
+	sort.Strings(updateList)
+
+	for key := range resource.Status.Versions {
+		if _, ok := clusterVersions[key]; !ok {
+			log.Info("Removing version from status", "version", key)
+			delete(resource.Status.Versions, key)
 		}
 	}
-	for _, clusterInfo := range clusterVersions {
-		updateList = append(updateList, clusterInfo)
-	}
-
-	for _, element := range deleteList {
-		log.Info("Removing version", "version", element.DTKImage)
-		//TODO hwo to do this? I need special labels for that.
-	}
-	for _, element := range updateList {
+	for _, key := range updateList {
+		element := clusterVersions[key]
 		log.Info("Reconciling version", "version", element.DTKImage)
 		metadata := getMetadata(resource, element)
 		var inputList []string
