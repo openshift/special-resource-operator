@@ -69,20 +69,17 @@ func (p *preflight) PreflightUpgradeCheck(ctx context.Context,
 	sr *srov1beta1.SpecialResource,
 	runInfo *runtime.RuntimeInformation) (bool, string, error) {
 
-	log := ctrlruntime.LoggerFrom(ctx)
-
-	log.Info("Start preflight for CR", "specialresource", sr.Name)
 	sr.DeepCopyInto(&runInfo.SpecialResource)
 
 	chart, err := p.helmerAPI.Load(sr.Spec.Chart)
 	if err != nil {
-		log.Error(err, "Failed to load helm chart for CR", "specialresource", sr.Name)
+		err = fmt.Errorf("failed to load chart in PreflightUpgradeCheck, CR %s: %w", sr.Name, err)
 		return false, fmt.Sprintf("Failed to load helm chart for CR %s", sr.Name), err
 	}
 
 	yamlsList, err := p.processFullChartTemplates(ctx, chart, sr.Spec.Set, runInfo, sr.Namespace, runInfo.KernelFullVersion)
 	if err != nil {
-		log.Error(err, "Failed to process full chart during preflight check")
+		err = fmt.Errorf("failed to processFullChartTemplates in PreflightUpgradeCheck, CR name %s: %w", sr.Name, err)
 		return false, fmt.Sprintf("Failed to process full chart for CR %s", sr.Name), err
 	}
 	return p.handleYAMLsCheck(ctx, yamlsList, runInfo.KernelFullVersion)
@@ -95,15 +92,11 @@ func (p *preflight) processFullChartTemplates(ctx context.Context,
 	namespace string,
 	upgradeKernelVersion string) (string, error) {
 
-	log := ctrlruntime.LoggerFrom(ctx)
-
 	var err error
 	// [TODO] - check that templates are not messed up during helm processing
 	fullChart := *chart
 	fullChart.Templates = []*helmchart.File{}
 	fullChart.Templates = append(fullChart.Templates, chart.Templates...)
-
-	log.Info("Start preflight check for", "helm", fullChart.Name())
 
 	nodeVersion := runInfo.ClusterUpgradeInfo[upgradeKernelVersion]
 
@@ -115,35 +108,31 @@ func (p *preflight) processFullChartTemplates(ctx context.Context,
 
 	fullChart.Values, err = chartutil.CoalesceValues(&fullChart, values.Object)
 	if err != nil {
-		log.Error(err, "failed to coalesce CR values for chart during preflight")
-		return "", err
+		return "", fmt.Errorf("failed to coalesce values in processFullChartTemplates, chart name %s: %w", fullChart.Name(), err)
 	}
 	rinfo, err := k8sruntime.DefaultUnstructuredConverter.ToUnstructured(&runInfo)
 	if err != nil {
-		log.Error(err, "failed to convert runInfo type to unstructured")
-		return "", err
+		return "", fmt.Errorf("failed to onvert runInfo type to unstructured in processFullChartTemplates, chart name %s: %w", fullChart.Name(), err)
 	}
 
 	fullChart.Values, err = chartutil.CoalesceValues(&fullChart, rinfo)
 	if err != nil {
-		log.Error(err, "failed to coalesce run info values into chart during preflight")
-		return "", err
+		return "", fmt.Errorf("failed to coalesce runInfo into chart in processFullChartTemplates, chart name %s: %w", fullChart.Name(), err)
 	}
 
 	return p.helmerAPI.GetHelmOutput(ctx, fullChart, fullChart.Values, namespace)
 }
 
 func (p *preflight) handleYAMLsCheck(ctx context.Context, yamlsList string, upgradeKernelVersion string) (bool, string, error) {
-	log := ctrlruntime.LoggerFrom(ctx)
-
 	objList, err := p.resourceAPI.GetObjectsFromYAML([]byte(yamlsList))
 	if err != nil {
-		log.Error(err, "failed to extract object from chart yaml list during preflight")
+		err = fmt.Errorf("failed to extract object from chart yaml listing handleYAMLsCheck: %w", err)
 		return false, "Failed to extract object from chart yaml list during preflight", err
 	}
 
 	daemonSetList, buildConfigPresent, err := p.getRelevantDaemonSets(objList)
 	if err != nil {
+		err = fmt.Errorf("failure of getRelevantDaemonSets in handleYAMLsCheck: %w", err)
 		return false, "Error while trying to parse BuildConfigs and DaemonSets", err
 	}
 	if len(daemonSetList) == 0 {
@@ -156,8 +145,11 @@ func (p *preflight) handleYAMLsCheck(ctx context.Context, yamlsList string, upgr
 
 	for _, daemonSet := range daemonSetList {
 		verified, message, err := p.daemonSetPreflightCheck(ctx, daemonSet, upgradeKernelVersion)
-		if err != nil || !verified {
-			return verified, message, err
+		if err != nil {
+			return false, message, fmt.Errorf("failure of daemonSet %s in handleYAMLsCheck: %w", daemonSet.Name, err)
+		}
+		if !verified {
+			return verified, message, nil
 		}
 	}
 	return true, VerificationStatusReasonVerified, nil
@@ -181,7 +173,7 @@ func (p *preflight) getRelevantDaemonSets(objList *unstructured.UnstructuredList
 			daemonSet := k8sv1.DaemonSet{}
 			err := k8sruntime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &daemonSet)
 			if err != nil {
-				return nil, false, err
+				return nil, false, fmt.Errorf("failed to convert unstructured into DaemonSet in getRelevantDaemonSets: %w", err)
 			}
 			state, found := daemonSet.Annotations["specialresource.openshift.io/state"]
 			if found && state == "driver-container" {
@@ -202,117 +194,95 @@ func (p *preflight) getRelevantDaemonSets(objList *unstructured.UnstructuredList
 func (p *preflight) daemonSetPreflightCheck(ctx context.Context, ds *k8sv1.DaemonSet, upgradeKernelVersion string) (bool, string, error) {
 	log := ctrlruntime.LoggerFrom(ctx)
 	if len(ds.Spec.Template.Spec.Containers) == 0 {
-		log.Error(nil, "invalid daemonset, no container  data present")
-		return false, fmt.Sprintf("invalid daemonset %s, no container  data present", ds.Name), fmt.Errorf("invalid daemonset, no container  data present")
+		return false, fmt.Sprintf("invalid daemonset %s, no container  data present", ds.Name), fmt.Errorf("invalid daemonset %s, no container  data present", ds.Name)
 	}
 	image := ds.Spec.Template.Spec.Containers[0].Image
 
-	log.Info("daemonset image for preflight validation", "image", image)
-
 	repo, digests, auth, err := p.registryAPI.GetLayersDigests(ctx, image)
 	if err != nil {
-		log.Info("Failed to get layers digests for image", "image", image)
+		log.Info("image layers inaccessible, DS image probably does not exists", "daemonset", ds.Name, "image", image)
 		return false, fmt.Sprintf("DaemonSet %s, image %s inaccessible or does not exists", ds.Name, image), nil
 	}
 
 	for i := len(digests) - 1; i >= 0; i-- {
 		layer, err := p.registryAPI.GetLayerByDigest(repo, digests[i], auth)
 		if err != nil {
-			log.Info("Failed to extract/access layer from image", "layer", digests[i], "image", image)
+			log.Info("layer from image inaccessible", "layer", digests[i], "repo", repo, "image", image)
 			return false, fmt.Sprintf("DaemonSet %s, image %s, layer %s is inaccessible", ds.Name, image, digests[i]), nil
 		}
 		dtk, err := p.registryAPI.ExtractToolkitRelease(layer)
 		if err != nil {
-			log.Info("dtk info not present", "image", image, "layerIndex", i)
 			continue
 		}
 
-		log.Info("dtk info present in layer", "layerIndex", i)
 		if dtk.KernelFullVersion != upgradeKernelVersion {
-			log.Info("DTK kernel version differs from the upgrade node version", "dtkVersion", dtk.KernelFullVersion, "upgradeVersion", upgradeKernelVersion)
+			log.Info("DTK kernel version differs from the upgrade node version", "ds name", ds.Name, "dtkVersion", dtk.KernelFullVersion, "upgradeVersion", upgradeKernelVersion)
 			return false, fmt.Sprintf("DaemonSet %s, image kernel version %s different from upgrade kernel version %s", ds.Name, dtk.KernelFullVersion, upgradeKernelVersion), nil
 		}
 		return true, VerificationStatusReasonVerified, nil
 	}
 
-	log.Info("DTK info not present on any layer of the image, invaid image format", "image", image)
+	log.Info("DTK info not present on any layer of the image, invaid image format", "ds name", ds.Name, "image", image)
 	return false, fmt.Sprintf("DaemonSet %s, image %s does not contain DTK data on any layer", ds.Name, image), nil
 }
 
 func (p *preflight) PrepareRuntimeInfo(ctx context.Context, image string) (*runtime.RuntimeInformation, error) {
-	log := ctrlruntime.LoggerFrom(ctx)
-
 	var err error
 	runInfo := p.runtimeAPI.InitRuntimeInfo()
 	runInfo.OperatingSystemMajor, runInfo.OperatingSystemMajorMinor, runInfo.OperatingSystemDecimal, err = p.getOSData(ctx, image)
 	if err != nil {
-		log.Error(err, "Failed to get os data for preflight")
-		return nil, err
+		return nil, fmt.Errorf("failed to get OS data in PrepareRuntimeInfo: %w", err)
 	}
 	runInfo.KernelFullVersion, err = p.getKernelFullVersion(ctx, image)
 	if err != nil {
-		log.Error(err, "Failed to get kernel full version for preflight")
-		return nil, err
+		return nil, fmt.Errorf("failed to get kernel full version in PrepareRuntimeInfo: %w", err)
 	}
 	runInfo.KernelPatchVersion, err = p.kernelAPI.PatchVersion(runInfo.KernelFullVersion)
 	if err != nil {
-		log.Error(err, "Failed to get kernel patch version for preflight", "fullVersion", runInfo.KernelPatchVersion)
-		return nil, err
+		return nil, fmt.Errorf("failed to get kernel patch version from kernel version %s in PrepareRuntimeInfo: %w", runInfo.KernelFullVersion, err)
 	}
 
 	runInfo.ClusterVersion, runInfo.ClusterVersionMajorMinor, err = p.clusterAPI.Version(ctx)
 	if err != nil {
-		log.Error(err, "Failed to get cluster version info for preflight")
-		return nil, err
+		return nil, fmt.Errorf("failed to get cluster version info in PrepareRuntimeInfo: %w", err)
 	}
 
 	runInfo.OSImageURL, err = p.clusterAPI.OSImageURL(ctx)
 	if err != nil {
-		log.Error(err, "failed to os image url for preflight")
-		return nil, err
+		return nil, fmt.Errorf("failed to get os image url in PrepareRuntimeInfo: %w", err)
 	}
 
 	return runInfo, nil
 }
 
 func (p *preflight) getOSData(ctx context.Context, image string) (string, string, string, error) {
-	log := ctrlruntime.LoggerFrom(ctx)
-
 	layer, err := p.registryAPI.LastLayer(ctx, image)
 	if err != nil {
-		log.Error(err, "failed to get last layer of image", "image", image)
-		return "", "", "", err
+		return "", "", "", fmt.Errorf("failed to get last layer of image %s in getOSData: %w", image, err)
 	}
 
 	machineOSConfig, err := p.registryAPI.ReleaseImageMachineOSConfig(layer)
 	if err != nil {
-		log.Error(err, "failed to get machine os config from image", "image", image)
-		return "", "", "", err
+		return "", "", "", fmt.Errorf("failed to get machine config from image %s in getOSData: %w", image, err)
 	}
 	return utils.ParseOSInfo(machineOSConfig)
 }
 
 func (p *preflight) getKernelFullVersion(ctx context.Context, image string) (string, error) {
-	log := ctrlruntime.LoggerFrom(ctx)
-
 	layer, err := p.registryAPI.LastLayer(ctx, image)
 	if err != nil {
-		log.Error(err, "failed to get last layer of image", "image", image)
-		return "", err
+		return "", fmt.Errorf("failed to get last layer of image %s in getKernelFullVersion: %w", image, err)
 	}
 	dtkImageURL, err := p.registryAPI.ReleaseManifests(layer)
 	if err != nil {
-		log.Error(err, "failed to get driver toolkit image ref from image", "image", image)
-		return "", err
+		return "", fmt.Errorf("failed to get driver toolkit image ref from image %s in getKernelFullVersion: %w", image, err)
 	}
 	if dtkImageURL == "" {
-		log.Info("failed to find dtk image in the release manifests")
-		return "", fmt.Errorf("failed to find the DTK image data in the release")
+		return "", fmt.Errorf("failed to find the DTK image data in the release image %s in getKernelFullVersion", image)
 	}
 	dtk, err := p.clusterInfoAPI.GetDTKData(ctx, dtkImageURL)
 	if err != nil {
-		log.Error(err, "failed to get dtk data from dtk image", "image", dtkImageURL)
-		return "", err
+		return "", fmt.Errorf("failed to get DTK data from  image url %s in getKernelFullVersion: %w", dtkImageURL, err)
 	}
 
 	return dtk.KernelFullVersion, err
