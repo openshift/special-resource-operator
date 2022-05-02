@@ -33,6 +33,7 @@ import (
 	"github.com/openshift/special-resource-operator/pkg/helmer"
 	"github.com/openshift/special-resource-operator/pkg/preflight"
 	"github.com/openshift/special-resource-operator/pkg/runtime"
+	"github.com/openshift/special-resource-operator/pkg/utils"
 )
 
 const reconcileRequeueInSeconds = 60
@@ -63,13 +64,13 @@ func (r *PreflightValidationReconciler) Reconcile(ctx context.Context, req ctrl.
 	reconRes := ctrl.Result{}
 
 	log := ctrl.LoggerFrom(ctx)
-	log.Info("ClusterPreflightController Request")
+	log.Info("Start PreflightValidation Reconciliation")
 
 	pv := srov1beta1.PreflightValidation{}
 	err := r.KubeClient.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: req.Name}, &pv)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("PreflightValidation not found - probably deleted. Not reconciling")
+			log.Info("PreflightValidation reconcile success. Reconciliation object not found, probably deleted. Not reconciling")
 			return reconRes, nil
 		} else {
 			log.Error(err, "preflight validation reconcile failed to find object")
@@ -78,7 +79,7 @@ func (r *PreflightValidationReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	if pv.GetDeletionTimestamp() != nil {
-		log.Info("CR is marked for deletion, skipping preflight")
+		log.Info("PreflightValidation reconcile success. CR is marked for deletion, not reconciling")
 		return reconRes, nil
 	}
 
@@ -89,9 +90,10 @@ func (r *PreflightValidationReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	if reconCompleted {
-		log.Info("Reconciliation successful for preflight")
+		log.Info("PreflightValidation reconciliation success")
 		return ctrl.Result{}, nil
 	}
+	log.Info("PreflightValidation reconciliation requeue")
 	return ctrl.Result{RequeueAfter: time.Second * reconcileRequeueInSeconds}, nil
 }
 
@@ -104,19 +106,17 @@ func (r *PreflightValidationReconciler) runPreflightValidation(ctx context.Conte
 
 	runInfo, err := r.PreflightAPI.PrepareRuntimeInfo(ctx, pv.Spec.UpdateImage)
 	if err != nil {
-		log.Info("Failed to get runtime info from image", "image", pv.Spec.UpdateImage)
-		return false, err
+		return false, fmt.Errorf("failed to get runtime info for image %s in runPreflightValidation: %w", pv.Spec.UpdateImage, err)
 	}
 
 	err = r.KubeClient.List(ctx, specialresources)
 	if err != nil {
-		log.Error(err, "Failed to get list of all SRs")
-		return false, fmt.Errorf("failed to get list of all SRs, %s", err)
+		return false, fmt.Errorf("failed to get list of all SRs, %w", err)
 	}
 
 	err = r.presetStatusesForCRs(ctx, specialresources, pv)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to preset statuses for CRs: %w", err)
 	}
 
 	for _, sr := range specialresources.Items {
@@ -124,7 +124,7 @@ func (r *PreflightValidationReconciler) runPreflightValidation(ctx context.Conte
 			continue
 		}
 		if sr.GetDeletionTimestamp() != nil {
-			log.Info("CR is marked for deletion, skipping preflight", "specialresource", sr.Name)
+			log.Info("CR is marked for deletion, skipping preflight validation")
 			continue
 		}
 
@@ -133,10 +133,12 @@ func (r *PreflightValidationReconciler) runPreflightValidation(ctx context.Conte
 				continue
 			}
 		}
+
+		log.Info("start preflight validation for CR %s", sr.Name)
+
 		verified, message, err := r.PreflightAPI.PreflightUpgradeCheck(ctx, &sr, runInfo)
-		if err != nil {
-			log.Error(err, "Failure during Preflight Upgrade check")
-		}
+
+		log.Info("preflight validation result for CR %s is %t, errrored %t", sr.Name, verified, err != nil)
 
 		r.updatePreflightStatus(ctx, pv, sr.Name, message, verified, err)
 	}
@@ -166,7 +168,7 @@ func (r *PreflightValidationReconciler) updatePreflightStatus(ctx context.Contex
 	srStatus := r.getPreflightSRStatus(pv, crName)
 	errUpdate := r.StatusUpdater.SetVerificationStatus(ctx, pv, srStatus, verificationStatus, message)
 	if errUpdate != nil {
-		ctrl.LoggerFrom(ctx).Error(errUpdate, "failed to update the status of SR CR in preflight", "specialresource", crName)
+		ctrl.LoggerFrom(ctx).Info(utils.WarnString("failed to update the status of SR CR in preflight"), "specialresource", crName)
 	}
 }
 
@@ -179,8 +181,7 @@ func (r *PreflightValidationReconciler) presetStatusesForCRs(ctx context.Context
 		if srStatus.VerificationStatus == "" {
 			err := r.StatusUpdater.SetVerificationStatus(ctx, pv, srStatus, srov1beta1.VerificationUnknown, preflight.VerificationStatusReasonUnknown)
 			if err != nil {
-				ctrl.LoggerFrom(ctx).Error(err, "failed to set SR CR status to unknown", "specialresource", sr.Name)
-				return err
+				return fmt.Errorf("failed to set SR %s status to unknown: %w", sr.Name, err)
 			}
 		}
 	}
@@ -191,12 +192,12 @@ func (r *PreflightValidationReconciler) checkPreflightCompletion(ctx context.Con
 	pv := srov1beta1.PreflightValidation{}
 	err := r.KubeClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: name}, &pv)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to get preflight validation object in checkPreflightCompletion: %w", err)
 	}
 
 	for _, srStatus := range pv.Status.SRStatuses {
 		if srStatus.VerificationStatus != srov1beta1.VerificationTrue {
-			ctrl.LoggerFrom(ctx).Info("at least one SR CR is not verified yet", "specialresource", srStatus.Name, "status", srStatus.VerificationStatus)
+			ctrl.LoggerFrom(ctx).Info("at least one CR is not verified yet", "specialresource", srStatus.Name, "status", srStatus.VerificationStatus)
 			return false, nil
 		}
 	}
