@@ -2,10 +2,10 @@ package resource
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -172,11 +172,11 @@ func (r *resource) GetObjectsFromYAML(yamlFile []byte) (*unstructured.Unstructur
 
 		jsonSpec, err := yaml.YAMLToJSON(yamlSpec)
 		if err != nil {
-			return nil, fmt.Errorf("could not convert YAML file to json: %s: error %w", string(yamlSpec), err)
+			return nil, fmt.Errorf("could not convert YAML file %s to json: %w", string(yamlSpec), err)
 		}
 
 		if err = obj.UnmarshalJSON(jsonSpec); err != nil {
-			return nil, fmt.Errorf("cannot unmarshall JSON spec, check your manifest: %s: %w", jsonSpec, err)
+			return nil, fmt.Errorf("cannot unmarshall JSON spec %s, check your manifest: %w", jsonSpec, err)
 		}
 		objList.Items = append(objList.Items, obj)
 	}
@@ -195,7 +195,7 @@ func (r *resource) CRUD(ctx context.Context, obj *unstructured.Unstructured, rel
 	// but only set the ownerreference if created by SRO do not set ownerreference per default
 	if obj.GetKind() != "SpecialResource" && obj.GetKind() != "Namespace" {
 		if err := controllerutil.SetControllerReference(owner, obj, r.scheme); err != nil {
-			return err
+			return fmt.Errorf("couldn't set owner %v to %v: %w", owner, obj, err)
 		}
 
 		r.helper.SetMetaData(obj, name, namespace)
@@ -233,7 +233,7 @@ func (r *resource) CRUD(ctx context.Context, obj *unstructured.Unstructured, rel
 
 		if err = r.kubeClient.Create(ctx, obj); err != nil {
 			if apierrors.IsForbidden(err) {
-				return fmt.Errorf("API error: forbidden: %w", err)
+				return fmt.Errorf("API error - forbidden: %w", err)
 			}
 
 			return fmt.Errorf("unknown error: %w", err)
@@ -243,7 +243,7 @@ func (r *resource) CRUD(ctx context.Context, obj *unstructured.Unstructured, rel
 	}
 
 	if apierrors.IsForbidden(err) {
-		return fmt.Errorf("forbidden: check Role, ClusterRole and Bindings for operator: %w", err)
+		return fmt.Errorf("forbidden - check Role, ClusterRole and Bindings for operator: %w", err)
 	}
 
 	if err != nil {
@@ -286,7 +286,6 @@ func (r *resource) CRUD(ctx context.Context, obj *unstructured.Unstructured, rel
 }
 
 func (r *resource) checkForImagePullBackOff(ctx context.Context, obj *unstructured.Unstructured, namespace string) error {
-	log := ctrl.LoggerFrom(ctx, "objKind", obj.GetKind(), "objName", obj.GetName())
 
 	if err := r.pollActions.ForDaemonSet(ctx, obj); err == nil {
 		return nil
@@ -305,8 +304,7 @@ func (r *resource) checkForImagePullBackOff(ctx context.Context, obj *unstructur
 
 	err := r.kubeClient.List(ctx, pods, opts...)
 	if err != nil {
-		log.Error(err, "Could not get PodList")
-		return err
+		return fmt.Errorf("could not get PodList: %w", err)
 	}
 
 	if len(pods.Items) == 0 {
@@ -366,11 +364,11 @@ func (r *resource) createObjFromYAML(
 
 	jsonSpec, err := yaml.YAMLToJSON(yamlSpec)
 	if err != nil {
-		return fmt.Errorf("could not convert yaml file to json: %s: error %w", string(yamlSpec), err)
+		return fmt.Errorf("could not convert yaml file %s to json: %w", string(yamlSpec), err)
 	}
 
 	if err = obj.UnmarshalJSON(jsonSpec); err != nil {
-		return fmt.Errorf("cannot unmarshall json spec, check your manifest: %s: %w", jsonSpec, err)
+		return fmt.Errorf("cannot unmarshall json spec %s, check your manifest: %w", jsonSpec, err)
 	}
 
 	//  Do not override the namespace if already set
@@ -426,7 +424,7 @@ func (r *resource) createObjFromYAML(
 			return fmt.Errorf("webhook not ready, requeue: %w", err)
 		}
 
-		return fmt.Errorf("CRUD exited non-zero on Object: %+v: %w", obj, err)
+		return fmt.Errorf("CRUD exited non-zero on Object %+v: %w", obj, err)
 	}
 
 	// Callbacks after CRUD will wait for ressource and check status
@@ -448,7 +446,7 @@ func (r *resource) rebuildDriverContainer(obj *unstructured.Unstructured) error 
 			if vendor == UpdateVendor {
 				return nil
 			}
-			return errors.New("vendor != updateVendor")
+			return fmt.Errorf("%s (vendor) != %s (updateVendor)", vendor, UpdateVendor)
 		}
 		return nil
 	}

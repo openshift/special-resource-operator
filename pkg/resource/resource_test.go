@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -395,21 +396,21 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 		ds := getDaemonSet()
 
 		gomock.InOrder(
-			pollActions.EXPECT().ForDaemonSet(context.Background(), ds).Return(errors.New("some error")),
+			pollActions.EXPECT().ForDaemonSet(context.Background(), ds).Return(fmt.Errorf("some error")),
 			kubeClient.EXPECT().List(context.Background(), &v1.PodList{}, opts...).Return(randomError),
 		)
 
 		err := NewResourceAPI(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
 			checkForImagePullBackOff(context.Background(), ds, namespace)
 
-		Expect(err).To(Equal(randomError))
+		Expect(err).To(MatchError(randomError))
 	})
 
 	It("should return an error if no pods were found", func() {
 		ds := getDaemonSet()
 
 		gomock.InOrder(
-			pollActions.EXPECT().ForDaemonSet(context.Background(), ds).Return(errors.New("some error")),
+			pollActions.EXPECT().ForDaemonSet(context.Background(), ds).Return(fmt.Errorf("some error")),
 			kubeClient.EXPECT().List(context.Background(), &v1.PodList{}, opts...),
 		)
 
@@ -426,7 +427,7 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 		ds.SetAnnotations(map[string]string{"specialresource.openshift.io/driver-container-vendor": vendor})
 
 		gomock.InOrder(
-			pollActions.EXPECT().ForDaemonSet(context.Background(), ds).Return(errors.New("some error")),
+			pollActions.EXPECT().ForDaemonSet(context.Background(), ds).Return(fmt.Errorf("some error")),
 			kubeClient.
 				EXPECT().
 				List(context.Background(), &v1.PodList{}, opts...).
@@ -463,7 +464,7 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 		ds := getDaemonSet()
 
 		gomock.InOrder(
-			pollActions.EXPECT().ForDaemonSet(context.Background(), ds).Return(errors.New("some error")),
+			pollActions.EXPECT().ForDaemonSet(context.Background(), ds).Return(fmt.Errorf("some error")),
 			kubeClient.
 				EXPECT().
 				List(context.Background(), &v1.PodList{}, opts...).
@@ -500,7 +501,7 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 		ds := getDaemonSet()
 
 		gomock.InOrder(
-			pollActions.EXPECT().ForDaemonSet(context.Background(), ds).Return(errors.New("some error")),
+			pollActions.EXPECT().ForDaemonSet(context.Background(), ds).Return(fmt.Errorf("some error")),
 			kubeClient.
 				EXPECT().
 				List(context.Background(), &v1.PodList{}, opts...).
