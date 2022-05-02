@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/openshift/special-resource-operator/pkg/kernel"
 	"github.com/openshift/special-resource-operator/pkg/proxy"
 	"github.com/openshift/special-resource-operator/pkg/upgrade"
-	"github.com/pkg/errors"
+	"github.com/openshift/special-resource-operator/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -151,7 +152,7 @@ func (rt *runtime) GetRuntimeInformation(ctx context.Context, sr *srov1beta1.Spe
 	}
 
 	if info.PushSecretName, err = rt.getPushSecretName(ctx, sr, info.Platform); err != nil {
-		ctrl.LoggerFrom(ctx).Error(err, "Failed to get push secret's name")
+		ctrl.LoggerFrom(ctx).Info(utils.WarnString("Failed to get push secret's name"), "error", err)
 	}
 
 	info.OSImageURL, err = rt.clusterAPI.OSImageURL(ctx)
@@ -173,7 +174,7 @@ func (rt *runtime) getPushSecretName(ctx context.Context, sr *srov1beta1.Special
 	secrets := &corev1.SecretList{}
 	err := rt.kubeClient.List(ctx, secrets, client.InNamespace(sr.Spec.Namespace))
 	if err != nil {
-		return "", errors.Wrap(err, "cannot get SecretList")
+		return "", fmt.Errorf("cannot get SecretList: %w", err)
 	}
 	for _, secret := range secrets.Items {
 		secretName := secret.GetName()
