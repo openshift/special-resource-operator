@@ -26,8 +26,6 @@ type Cluster interface {
 	OSImageURL(context.Context) (string, error)
 	OperatingSystem(*corev1.NodeList) (string, string, string, error)
 	GetDTKImages(context.Context) ([]string, error)
-	NextUpgradeVersion(context.Context) (string, error)
-	IsClusterInUpgrade(context.Context) (bool, error)
 }
 
 func NewCluster(clients clients.ClientsInterface) Cluster {
@@ -80,7 +78,7 @@ func (c *cluster) GetDTKImages(ctx context.Context) ([]string, error) {
 func (c *cluster) Version(ctx context.Context) (string, string, error) {
 	version, err := c.clients.ClusterVersionGet(ctx, metav1.GetOptions{})
 	if err != nil {
-		return "", "", fmt.Errorf("ConfigClient unable to get ClusterVersions: %w", err)
+		return "", "", fmt.Errorf("failed to get cluster version object: %w", err)
 	}
 
 	var majorMinor string
@@ -100,7 +98,7 @@ func (c *cluster) Version(ctx context.Context) (string, string, error) {
 		return condition.Version, majorMinor, nil
 	}
 
-	return "", "", errors.New("Undefined Cluster Version")
+	return "", "", errors.New("no cluster version deployment was completed")
 }
 
 func (c *cluster) OSImageURL(ctx context.Context) (string, error) {
@@ -111,15 +109,15 @@ func (c *cluster) OSImageURL(ctx context.Context) (string, error) {
 	namespacedName := types.NamespacedName{Namespace: "openshift-machine-config-operator", Name: "machine-config-osimageurl"}
 	err := c.clients.Get(ctx, namespacedName, cm)
 	if apierrors.IsNotFound(err) {
-		return "", fmt.Errorf("ConfigMap machine-config-osimageurl -n  openshift-machine-config-operator not found: %w", err)
+		return "", fmt.Errorf("failed to find configmap  machine-config-osimageurl in openshift-machine-config-operator namespace: %w", err)
 	}
 
 	osImageURL, found, err := unstructured.NestedString(cm.Object, "data", "osImageURL")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("configmap machine-config-osimageurl invalid format: %w", err)
 	}
 	if !found {
-		return "", errors.New("osImageURL not found")
+		return "", errors.New("osImageURL was not found in data of configmap machine-config-osimageurl")
 	}
 
 	return osImageURL, nil
@@ -134,46 +132,8 @@ func (c *cluster) OperatingSystem(nodeList *corev1.NodeList) (string, string, st
 	for _, node := range nodeList.Items {
 		_, nodeOS, nodeOSMajor, err = utils.ParseOSInfo(node.Status.NodeInfo.OSImage)
 		if err != nil {
-			return "", "", "", fmt.Errorf("unable to get node %s OS image info: %w", node.Name, err)
+			return "", "", "", fmt.Errorf("failed to parse node %s OS image info: %w", node.Name, err)
 		}
 	}
 	return "rhel" + nodeOSMajor, "rhel" + nodeOS, nodeOS, nil
-}
-
-func (c *cluster) NextUpgradeVersion(ctx context.Context) (string, error) {
-	version, err := c.clients.ClusterVersionGet(ctx, metav1.GetOptions{})
-	if err != nil {
-		return "", fmt.Errorf("ConfigClient unable to get ClusterVersions: %w", err)
-	}
-
-	if version.Status.Desired.Image == "" {
-		return "", errors.New("cluster version does not contain desired image")
-	}
-
-	return version.Status.Desired.Image, nil
-}
-
-func (c *cluster) IsClusterInUpgrade(ctx context.Context) (bool, error) {
-	version, err := c.clients.ClusterVersionGet(ctx, metav1.GetOptions{})
-	if err != nil {
-		return false, fmt.Errorf("ConfigClient unable to get ClusterVersions: %w", err)
-	}
-
-	desiredImage := version.Status.Desired.Image
-
-	latestVersionIndex := -1
-
-	for i, condition := range version.Status.History {
-		if condition.State == "Completed" {
-			if latestVersionIndex == -1 || condition.CompletionTime.Time.After(version.Status.History[latestVersionIndex].CompletionTime.Time) {
-				latestVersionIndex = i
-			}
-		}
-	}
-	if latestVersionIndex == -1 {
-		// probably cluster is still in the final stages of installation
-		return false, nil
-	}
-
-	return version.Status.History[latestVersionIndex].Image != desiredImage, nil
 }
