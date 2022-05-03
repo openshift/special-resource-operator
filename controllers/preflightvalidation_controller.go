@@ -134,11 +134,11 @@ func (r *PreflightValidationReconciler) runPreflightValidation(ctx context.Conte
 			}
 		}
 
-		log.Info("start preflight validation for CR %s", sr.Name)
+		log.Info("start preflight validation", "srName", sr.Name)
 
 		verified, message, err := r.PreflightAPI.PreflightUpgradeCheck(ctx, &sr, runInfo)
 
-		log.Info("preflight validation result for CR %s is %t, errrored %t", sr.Name, verified, err != nil)
+		log.Info("preflight validation result", "srName", sr.Name, "verified", verified, "errored", err != nil)
 
 		r.updatePreflightStatus(ctx, pv, sr.Name, message, verified, err)
 	}
