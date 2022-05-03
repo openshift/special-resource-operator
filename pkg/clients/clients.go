@@ -66,15 +66,15 @@ type k8sClients struct {
 func NewClients(runtimeClient client.Client, restConfig *restclient.Config, eventRecorder record.EventRecorder) (ClientsInterface, error) {
 	kubeClientSet, err := getKubeClientSet(restConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failure of getKubeClientSet in NewClients: %w", err)
 	}
 	configClient, err := getConfigClient(restConfig)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failure of getConfigClient in NewClients: %w", err)
 	}
 	cachedDiscoveryClient, err := getCachedDiscoveryClient()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failure of getCachedDiscoveryClient in NewClients: %w", err)
 	}
 	return &k8sClients{
 		runtimeClient:   runtimeClient,
@@ -158,7 +158,7 @@ func (k *k8sClients) CreateOrUpdate(ctx context.Context, obj client.Object, fn c
 func (k *k8sClients) HasResource(resource schema.GroupVersionResource) (bool, error) {
 	dclient, err := discovery.NewDiscoveryClientForConfig(k.restConfig)
 	if err != nil {
-		return false, fmt.Errorf("Cannot retrieve a DiscoveryClient: %w", err)
+		return false, fmt.Errorf("Cannot retrieve a DiscoveryClient in HasResource: %w", err)
 	}
 	if dclient == nil {
 		return false, nil
@@ -170,7 +170,7 @@ func (k *k8sClients) HasResource(resource schema.GroupVersionResource) (bool, er
 		return false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("Cannot query ServerResources: %w", err)
+		return false, fmt.Errorf("Cannot query ServerResources in HasResource: %w", err)
 	} else {
 		for _, serverResource := range resources.APIResources {
 			if serverResource.Name == resource.Resource {
@@ -188,7 +188,7 @@ func (k *k8sClients) GetNodesByLabels(ctx context.Context, matchingLabels map[st
 	nodes := v1.NodeList{}
 	err := k.runtimeClient.List(ctx, &nodes, opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to list nodes: %w", err)
 	}
 
 	// filter nodes by taints
