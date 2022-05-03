@@ -30,7 +30,6 @@ import (
 	"time"
 
 	buildv1 "github.com/openshift/api/build/v1"
-	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chartutil"
 	corev1 "k8s.io/api/core/v1"
@@ -427,27 +426,19 @@ func (r *SpecialResourceModuleReconciler) reconcileChart(ctx context.Context, sr
 
 // SetupWithManager main initalization for manager
 func (r *SpecialResourceModuleReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	platform, err := r.KubeClient.GetPlatform()
-	if err != nil {
-		return err
-	}
+	c, err := ctrl.NewControllerManagedBy(mgr).
+		Named("specialresourcemodule").
+		For(&srov1beta1.SpecialResourceModule{}).
+		Owns(&buildv1.BuildConfig{}).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: 1,
+			RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(minDelaySRM, maxDelaySRM),
+		}).
+		WithEventFilter(r.Filter.GetPredicates()).
+		Build(r)
 
-	if platform == "OCP" {
-		c, err := ctrl.NewControllerManagedBy(mgr).
-			Named("specialresourcemodule").
-			For(&srov1beta1.SpecialResourceModule{}).
-			Owns(&buildv1.BuildConfig{}).
-			WithOptions(controller.Options{
-				MaxConcurrentReconciles: 1,
-				RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(minDelaySRM, maxDelaySRM),
-			}).
-			WithEventFilter(r.Filter.GetPredicates()).
-			Build(r)
-
-		r.Watcher = watcher.New(c)
-		return err
-	}
-	return errors.New("SpecialResourceModules only work in OCP")
+	r.Watcher = watcher.New(c)
+	return err
 }
 
 // Reconcile Reconiliation entry point

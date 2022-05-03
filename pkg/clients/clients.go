@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	buildv1 "github.com/openshift/api/build/v1"
 	configv1 "github.com/openshift/api/config/v1"
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -53,7 +52,6 @@ type ClientsInterface interface {
 	CreateOrUpdate(ctx context.Context, obj client.Object, fn controllerutil.MutateFn) (controllerutil.OperationResult, error)
 	HasResource(resource schema.GroupVersionResource) (bool, error)
 	GetNodesByLabels(ctx context.Context, matchingLabels map[string]string) (*v1.NodeList, error)
-	GetPlatform() (string, error)
 }
 
 type k8sClients struct {
@@ -181,18 +179,6 @@ func (k *k8sClients) HasResource(resource schema.GroupVersionResource) (bool, er
 		}
 	}
 	return false, nil
-}
-
-func (k *k8sClients) GetPlatform() (string, error) {
-	clusterIsOCP, err := k.HasResource(buildv1.SchemeGroupVersion.WithResource("buildconfigs"))
-	if err != nil {
-		return "", err
-	}
-	if clusterIsOCP {
-		return "OCP", nil
-	} else {
-		return "K8S", nil
-	}
 }
 
 func (k *k8sClients) GetNodesByLabels(ctx context.Context, matchingLabels map[string]string) (*v1.NodeList, error) {

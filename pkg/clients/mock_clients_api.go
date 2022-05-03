@@ -188,21 +188,6 @@ func (mr *MockClientsInterfaceMockRecorder) GetNodesByLabels(ctx, matchingLabels
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNodesByLabels", reflect.TypeOf((*MockClientsInterface)(nil).GetNodesByLabels), ctx, matchingLabels)
 }
 
-// GetPlatform mocks base method.
-func (m *MockClientsInterface) GetPlatform() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPlatform")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetPlatform indicates an expected call of GetPlatform.
-func (mr *MockClientsInterfaceMockRecorder) GetPlatform() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPlatform", reflect.TypeOf((*MockClientsInterface)(nil).GetPlatform))
-}
-
 // GetPodLogs mocks base method.
 func (m *MockClientsInterface) GetPodLogs(namespace, podName string, podLogOpts *v10.PodLogOptions) *rest.Request {
 	m.ctrl.T.Helper()

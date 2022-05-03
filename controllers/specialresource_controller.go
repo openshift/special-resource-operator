@@ -176,54 +176,27 @@ func (r *SpecialResourceReconciler) getSpecialResources(ctx context.Context, req
 
 // SetupWithManager main initalization for manager
 func (r *SpecialResourceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	platform, err := r.KubeClient.GetPlatform()
-	if err != nil {
-		return err
-	}
-
-	if platform == "OCP" {
-		return ctrl.NewControllerManagedBy(mgr).
-			Named("specialresource").
-			For(&srov1beta1.SpecialResource{}).
-			Owns(&v1.Pod{}).
-			Owns(&appsv1.DaemonSet{}).
-			Owns(&appsv1.Deployment{}).
-			Owns(&storagev1.CSIDriver{}).
-			Owns(&imagev1.ImageStream{}).
-			Owns(&buildv1.BuildConfig{}).
-			Owns(&v1.ConfigMap{}).
-			Owns(&v1.ServiceAccount{}).
-			Owns(&rbacv1.Role{}).
-			Owns(&rbacv1.RoleBinding{}).
-			Owns(&rbacv1.ClusterRole{}).
-			Owns(&rbacv1.ClusterRoleBinding{}).
-			Owns(&secv1.SecurityContextConstraints{}).
-			Owns(&v1.Secret{}).
-			WithOptions(controller.Options{
-				MaxConcurrentReconciles: 1,
-				RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(minDelaySR, maxDelaySR),
-			}).
-			WithEventFilter(r.Filter.GetPredicates()).
-			Complete(r)
-	} else {
-		return ctrl.NewControllerManagedBy(mgr).
-			Named("specialresource").
-			For(&srov1beta1.SpecialResource{}).
-			Owns(&v1.Pod{}).
-			Owns(&appsv1.DaemonSet{}).
-			Owns(&appsv1.Deployment{}).
-			Owns(&storagev1.CSIDriver{}).
-			Owns(&v1.ConfigMap{}).
-			Owns(&v1.ServiceAccount{}).
-			Owns(&rbacv1.Role{}).
-			Owns(&rbacv1.RoleBinding{}).
-			Owns(&rbacv1.ClusterRole{}).
-			Owns(&rbacv1.ClusterRoleBinding{}).
-			Owns(&v1.Secret{}).
-			WithOptions(controller.Options{
-				MaxConcurrentReconciles: 1,
-			}).
-			WithEventFilter(r.Filter.GetPredicates()).
-			Complete(r)
-	}
+	return ctrl.NewControllerManagedBy(mgr).
+		Named("specialresource").
+		For(&srov1beta1.SpecialResource{}).
+		Owns(&v1.Pod{}).
+		Owns(&appsv1.DaemonSet{}).
+		Owns(&appsv1.Deployment{}).
+		Owns(&storagev1.CSIDriver{}).
+		Owns(&imagev1.ImageStream{}).
+		Owns(&buildv1.BuildConfig{}).
+		Owns(&v1.ConfigMap{}).
+		Owns(&v1.ServiceAccount{}).
+		Owns(&rbacv1.Role{}).
+		Owns(&rbacv1.RoleBinding{}).
+		Owns(&rbacv1.ClusterRole{}).
+		Owns(&rbacv1.ClusterRoleBinding{}).
+		Owns(&secv1.SecurityContextConstraints{}).
+		Owns(&v1.Secret{}).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: 1,
+			RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(minDelaySR, maxDelaySR),
+		}).
+		WithEventFilter(r.Filter.GetPredicates()).
+		Complete(r)
 }
