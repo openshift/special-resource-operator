@@ -454,7 +454,6 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 		}
 	}
 
-	// hooke are pre-ordered by kind, so keep order stable
 	sort.Stable(hookByWeight(hooks))
 
 	for _, hk := range hooks {
@@ -504,14 +503,16 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 		}
 	}
 
-	if err := h.kubeClient.Create(ctx, &obj); err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			return nil
+	if len(hooks) > 0 {
+		if err := h.kubeClient.Create(ctx, &obj); err != nil {
+			if apierrors.IsAlreadyExists(err) {
+				return nil
+			}
+			if apierrors.IsForbidden(err) {
+				return fmt.Errorf("unable to create configmap for hook %s. Forbidden: %w", hook, err)
+			}
+			return fmt.Errorf("Unexpected error creating hook cm %s: %w", hook, err)
 		}
-		if apierrors.IsForbidden(err) {
-			return fmt.Errorf("unable to create configmap for hook %s. Forbidden: %w", hook, err)
-		}
-		return fmt.Errorf("Unexpected error creating hook cm %s: %w", hook, err)
 	}
 	return nil
 }
