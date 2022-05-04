@@ -264,7 +264,8 @@ var _ = Describe("ClusterInfo", func() {
 					dtkImages:      dtkImages,
 					dtk:            clusterDTK,
 				},
-				fmt.Errorf("OSVersion mismatch Node: %s.%s vs. DTK: %s.%s", systemMajor, badSystemMinor, systemMajor, systemMinor),
+				fmt.Errorf("failed to extract dtk versions: %w",
+					fmt.Errorf("os version mismatch Node: %s.%s vs. DTK: %s.%s", systemMajor, badSystemMinor, systemMajor, systemMinor)),
 			),
 			Entry(
 				"Mismatched OS with RT kernel",
@@ -274,7 +275,8 @@ var _ = Describe("ClusterInfo", func() {
 					dtkImages:      dtkImages,
 					dtk:            clusterDTK,
 				},
-				fmt.Errorf("OSVersion mismatch Node: %s.%s vs. DTK: %s.%s", systemMajor, badSystemMinor, systemMajor, systemMinor),
+				fmt.Errorf("failed to extract dtk versions: %w",
+					fmt.Errorf("os version mismatch Node: %s.%s vs. DTK: %s.%s", systemMajor, badSystemMinor, systemMajor, systemMinor)),
 			),
 			Entry(
 				"Mismatched kernel between nodes and DTK",
@@ -284,7 +286,8 @@ var _ = Describe("ClusterInfo", func() {
 					dtkImages:      dtkImages,
 					dtk:            clusterDTK,
 				},
-				fmt.Errorf("DTK kernel not found running in the cluster. kernelFullVersion: %s. rtKernelFullVersion: %s", kernel, kernelRT),
+				fmt.Errorf("failed to extract dtk versions: %w",
+					fmt.Errorf("DTK kernel not found running in the cluster. kernelFullVersion: %s. rtKernelFullVersion: %s", kernel, kernelRT)),
 			),
 		)
 	})

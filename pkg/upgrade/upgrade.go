@@ -48,7 +48,7 @@ func (ci *clusterInfo) GetClusterInfo(ctx context.Context, nodeList *corev1.Node
 
 	info, err := ci.nodeVersionInfo(nodeList)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get nodes version list: %w", err)
 	}
 
 	dtkImages, err := ci.cluster.GetDTKImages(ctx)
@@ -58,7 +58,7 @@ func (ci *clusterInfo) GetClusterInfo(ctx context.Context, nodeList *corev1.Node
 
 	versions, err := ci.driverToolkitVersion(ctx, dtkImages, info)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to extract dtk versions: %w", err)
 	}
 
 	return versions, nil
@@ -71,12 +71,12 @@ func (ci *clusterInfo) nodeVersionInfo(nodeList *corev1.NodeList) (map[string]No
 	for _, node := range nodeList.Items {
 		kernelFullVersion := node.Status.NodeInfo.KernelVersion
 		if len(kernelFullVersion) == 0 {
-			return nil, fmt.Errorf("kernel version not found in node %s", node.Name)
+			return nil, fmt.Errorf("kernel version label not found in node %s", node.Name)
 		}
 
 		clusterVersion, osVersion, osMajor, err := utils.ParseOSInfo(node.Status.NodeInfo.OSImage)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to parse node %s info os image: %w", node.Name, err)
 		}
 		info[kernelFullVersion] = NodeVersion{
 			OSVersion:      osVersion,
@@ -110,7 +110,7 @@ func (ci *clusterInfo) updateInfo(info map[string]NodeVersion, dtk registry.Driv
 	if nodeVersion, ok := info[dtk.KernelFullVersion]; ok {
 		osNode := nodeVersion.OSVersion
 		if osNode != osDTK {
-			return nil, fmt.Errorf("OSVersion mismatch Node: %s vs. DTK: %s", osNode, osDTK)
+			return nil, fmt.Errorf("os version mismatch Node: %s vs. DTK: %s", osNode, osDTK)
 		}
 		nodeVersion.DriverToolkit = dtk
 		info[dtk.KernelFullVersion] = nodeVersion
@@ -120,7 +120,7 @@ func (ci *clusterInfo) updateInfo(info map[string]NodeVersion, dtk registry.Driv
 	if nodeVersion, ok := info[dtk.RTKernelFullVersion]; ok {
 		osNode := nodeVersion.OSVersion
 		if osNode != osDTK {
-			return nil, fmt.Errorf("OSVersion mismatch Node: %s vs. DTK: %s", osNode, osDTK)
+			return nil, fmt.Errorf("os version mismatch Node: %s vs. DTK: %s", osNode, osDTK)
 		}
 		nodeVersion.DriverToolkit = dtk
 		info[dtk.RTKernelFullVersion] = nodeVersion
@@ -143,7 +143,7 @@ func (ci *clusterInfo) driverToolkitVersion(ctx context.Context, dtkImages []str
 	imageURL := dtkImages[0]
 	dtk, err := ci.GetDTKData(ctx, imageURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to extact dtk data from image url %s: %w", imageURL, err)
 	}
 	// info has the kernels that are currently "running" on the cluster
 	// we're going only to update the struct with DTK information on
