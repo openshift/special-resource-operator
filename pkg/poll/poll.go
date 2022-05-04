@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strings"
 
 	"github.com/openshift/special-resource-operator/pkg/clients"
 	"github.com/openshift/special-resource-operator/pkg/lifecycle"
 	"github.com/openshift/special-resource-operator/pkg/storage"
+	"github.com/openshift/special-resource-operator/pkg/utils"
 
-	"github.com/pkg/errors"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
@@ -68,9 +69,9 @@ func (p *pollActions) forResourceAvailability(ctx context.Context, obj *unstruct
 	err := p.kubeClient.Get(ctx, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}, found)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			return fmt.Errorf("waiting for creation of %s/%s", obj.GetNamespace(), obj.GetName())
+			return fmt.Errorf("%s/%s does not exists yet", obj.GetNamespace(), obj.GetName())
 		}
-		return err
+		return fmt.Errorf("failed to get %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 	return nil
 }
@@ -83,7 +84,7 @@ func (p *pollActions) ForResourceUnavailability(ctx context.Context, obj *unstru
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		return err
+		return fmt.Errorf("failed to get %s/%s, not due to unfound error: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 	return fmt.Errorf("resource %s/%s still exists", obj.GetNamespace(), obj.GetName())
 }
@@ -96,30 +97,39 @@ func makeStatusCallback(status interface{}, fields ...string) statusCallback {
 		switch expected := _status.(type) {
 		case int64:
 			current, found, err := unstructured.NestedInt64(obj.Object, _fields...)
-			if err != nil || !found {
-				return false, fmt.Errorf("error or not found: %w", err)
+			if err != nil {
+				return false, fmt.Errorf("error accessing unstructured object %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
+			}
+			if !found {
+				return false, fmt.Errorf("int64 field %s in unstructured object %s/%s not found", strings.Join(_fields, ","), obj.GetNamespace(), obj.GetName())
 			}
 
 			return current == expected, nil
 
 		case int:
 			current, found, err := unstructured.NestedInt64(obj.Object, _fields...)
-			if err != nil || !found {
-				return false, fmt.Errorf("error or not found: %w", err)
+			if err != nil {
+				return false, fmt.Errorf("error accessing unstructured object %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
+			}
+			if !found {
+				return false, fmt.Errorf("int field %s in unstructured object %s/%s not found", strings.Join(_fields, ","), obj.GetNamespace(), obj.GetName())
 			}
 
 			return int(current) == expected, nil
 
 		case string:
 			current, found, err := unstructured.NestedString(obj.Object, _fields...)
-			if err != nil || !found {
-				return false, fmt.Errorf("error or not found: %w", err)
+			if err != nil {
+				return false, fmt.Errorf("error accessing unstructured object %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
+			}
+			if !found {
+				return false, fmt.Errorf("string field %s in unstructured object %s/%s not found", strings.Join(_fields, ","), obj.GetNamespace(), obj.GetName())
 			}
 
 			return current == expected, nil
 
 		default:
-			return false, fmt.Errorf("%T: unhandled type", _status)
+			return false, fmt.Errorf("unhandled typre for status field: %T", _status)
 		}
 	}
 }
@@ -130,12 +140,11 @@ func (p *pollActions) ForResource(ctx context.Context, obj *unstructured.Unstruc
 	// Wait for general availability, Pods Complete, Running
 	// DaemonSet NumberUnavailable == 0, etc
 	if wait, ok := p.waitFor[obj.GetKind()]; ok {
-		ctrlruntime.LoggerFrom(ctx).Info("Waiting for resource", "resourceKind", obj.GetKind(), "resourceNamespace", obj.GetNamespace(), "resourceName", obj.GetName())
 		if err = wait(ctx, obj); err != nil {
-			return errors.Wrap(err, "Waiting too long for resource")
+			return fmt.Errorf("waiting too long for resource %s %s/%s: %w", obj.GetKind(), obj.GetNamespace(), obj.GetName(), err)
 		}
 	} else {
-		ctrlruntime.LoggerFrom(ctx).Info("Missing wait function for the kind", "kind", obj.GetKind())
+		ctrlruntime.LoggerFrom(ctx).Info(utils.WarnString("Missing wait function for the kind"), "kind", obj.GetKind())
 	}
 
 	return nil
@@ -150,11 +159,11 @@ func (p *pollActions) forCRD(ctx context.Context, obj *unstructured.Unstructured
 	p.kubeClient.Invalidate()
 	// Lets wait some time for the API server to register the new CRD
 	if err := p.forResourceAvailability(ctx, obj); err != nil {
-		return err
+		return fmt.Errorf("failed resource availablity for CRD %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 
 	if _, err := p.kubeClient.ServerGroups(); err != nil {
-		ctrlruntime.LoggerFrom(ctx).Error(err, "Failed to get ServerGroups")
+		ctrlruntime.LoggerFrom(ctx).Info(utils.WarnString("failed to get ServerGroups for CRD"))
 	}
 
 	return nil
@@ -162,7 +171,7 @@ func (p *pollActions) forCRD(ctx context.Context, obj *unstructured.Unstructured
 
 func (p *pollActions) forPod(ctx context.Context, obj *unstructured.Unstructured) error {
 	if err := p.forResourceAvailability(ctx, obj); err != nil {
-		return err
+		return fmt.Errorf("failed resource availablity for Pod %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 	callback := makeStatusCallback("Succeeded", "status", "phase")
 	return p.forResourceFullAvailability(ctx, obj, callback)
@@ -170,17 +179,16 @@ func (p *pollActions) forPod(ctx context.Context, obj *unstructured.Unstructured
 
 func (p *pollActions) forDeployment(ctx context.Context, obj *unstructured.Unstructured) error {
 	if err := p.forResourceAvailability(ctx, obj); err != nil {
-		return err
+		return fmt.Errorf("failed resource availablity for Deployment %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 	return p.forResourceFullAvailability(ctx, obj, func(ctx context.Context, obj *unstructured.Unstructured) (bool, error) {
 		labels, found, err := unstructured.NestedMap(obj.Object, "spec", "selector", "matchLabels")
 		if err != nil {
-			ctrlruntime.LoggerFrom(ctx).Error(err, "Failed to obtain match labels from unstructured Deployment",
-				"objName", obj.GetName(), "objNamespace", obj.GetNamespace())
+			return false, fmt.Errorf("failed to obtain match labels from unstructured Deployment %s/%s: %w", obj.GetName(), obj.GetNamespace(), err)
 		}
 
 		if !found {
-			return false, err
+			return false, nil
 		}
 
 		matchingLabels := make(map[string]string)
@@ -198,14 +206,13 @@ func (p *pollActions) forDeployment(ctx context.Context, obj *unstructured.Unstr
 
 		err = p.kubeClient.List(ctx, &rss, opts...)
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("failed to list ReplicaSets: %w", err)
 		}
 
 		for _, rs := range rss.Items {
 			status, found, err := unstructured.NestedMap(rs.Object, "status")
 			if err != nil {
-				ctrlruntime.LoggerFrom(ctx).Error(err, "Failed to obtain status from unstructured ReplicaSet",
-					"rsName", rs.GetName(), "rsNamespace", rs.GetNamespace())
+				return false, fmt.Errorf("failed to obtain status from unstructured ReplicaSet %s/%s: %w", rs.GetNamespace(), rs.GetName(), err)
 			}
 			if !found {
 				return false, nil
@@ -234,22 +241,20 @@ func (p *pollActions) forDeployment(ctx context.Context, obj *unstructured.Unstr
 
 func (p *pollActions) forStatefulSet(ctx context.Context, obj *unstructured.Unstructured) error {
 	if err := p.forResourceAvailability(ctx, obj); err != nil {
-		return err
+		return fmt.Errorf("failed resource availablity for statefulset %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 	return p.forResourceFullAvailability(ctx, obj, func(_ context.Context, obj *unstructured.Unstructured) (bool, error) {
 		repls, found, err := unstructured.NestedInt64(obj.Object, "spec", "replicas")
 		if err != nil {
-			ctrlruntime.LoggerFrom(ctx).Error(err, "Failed to obtain amount of replicas from unstructured StatefulSet",
-				"objName", obj.GetName(), "objNamespace", obj.GetNamespace())
+			return false, fmt.Errorf("failed to obtain amount of replicas from unstructured StatefulSet  %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 		}
 		if !found {
-			return false, errors.New("cannot read .spec.replicas from StatefulSet")
+			return false, fmt.Errorf("missing .spec.replicas from StatefulSet %s/%s", obj.GetNamespace(), obj.GetName())
 		}
 
 		status, found, err := unstructured.NestedMap(obj.Object, "status")
 		if err != nil {
-			ctrlruntime.LoggerFrom(ctx).Error(err, "Failed to obtain status from unstructured StatefulSet",
-				"objName", obj.GetName(), "objNamespace", obj.GetNamespace())
+			return false, fmt.Errorf("failed to obtain status from unstructured StatefulSet %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 		}
 		if !found {
 			return false, nil
@@ -267,14 +272,13 @@ func (p *pollActions) forStatefulSet(ctx context.Context, obj *unstructured.Unst
 
 func (p *pollActions) forJob(ctx context.Context, obj *unstructured.Unstructured) error {
 	if err := p.forResourceAvailability(ctx, obj); err != nil {
-		return err
+		return fmt.Errorf("failed resource availablity for job %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 
 	return p.forResourceFullAvailability(ctx, obj, func(_ context.Context, obj *unstructured.Unstructured) (bool, error) {
 		conditions, found, err := unstructured.NestedSlice(obj.Object, "status", "conditions")
 		if err != nil {
-			ctrlruntime.LoggerFrom(ctx).Error(err, "Failed to obtain conditions from unstructured Job",
-				"objName", obj.GetName(), "objNamespace", obj.GetNamespace())
+			return false, fmt.Errorf("failed to obtain conditions from unstructured Job %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 		}
 
 		if !found {
@@ -284,14 +288,20 @@ func (p *pollActions) forJob(ctx context.Context, obj *unstructured.Unstructured
 		for _, condition := range conditions {
 
 			status, found, err := unstructured.NestedString(condition.(map[string]interface{}), "status")
-			if err != nil || !found {
-				return false, fmt.Errorf("error or not found: %w", err)
+			if err != nil {
+				return false, fmt.Errorf("failed to obtain condition status from job %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
+			}
+			if !found {
+				return false, fmt.Errorf("status of the condition is not found in the job %s/%s", obj.GetNamespace(), obj.GetName())
 			}
 
 			if status == "True" {
 				stype, found, err := unstructured.NestedString(condition.(map[string]interface{}), "type")
-				if err != nil || !found {
-					return false, fmt.Errorf("error or not found: %w", err)
+				if err != nil {
+					return false, fmt.Errorf("failed to obtain type of the condition ofjob %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
+				}
+				if !found {
+					return false, fmt.Errorf("type field of teh condition of the job %s/%s is not found", obj.GetNamespace(), obj.GetName())
 				}
 
 				if stype == "Complete" {
@@ -312,8 +322,11 @@ func (p *pollActions) forDaemonSetCallback(ctx context.Context, obj *unstructure
 	callback = func(_ context.Context, _ *unstructured.Unstructured) (bool, error) { return false, nil }
 
 	desiredNumberScheduled, found, err := unstructured.NestedInt64(obj.Object, "status", "desiredNumberScheduled")
-	if err != nil || !found {
-		return found, err
+	if err != nil {
+		return false, fmt.Errorf("failed to get desiredNumberScheduled from status of DaemonSet %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
+	}
+	if !found {
+		return false, fmt.Errorf("failed to find desiredNumberScheduled from status of DaemonSet %s/%s", obj.GetNamespace(), obj.GetName())
 	}
 
 	_, found, _ = unstructured.NestedInt64(obj.Object, "status", "numberUnavailable")
@@ -337,7 +350,7 @@ func (p *pollActions) forLifecycleAvailability(ctx context.Context, obj *unstruc
 
 	strategy, found, err := unstructured.NestedString(obj.Object, "spec", "updateStrategy", "type")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to extract updatestrategy from DaemonSet %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 
 	if !found || strategy != "OnDelete" {
@@ -357,7 +370,7 @@ func (p *pollActions) forLifecycleAvailability(ctx context.Context, obj *unstruc
 		podLabels := pod.GetLabels()
 		podGenerator := podLabels[extensions.DaemonSetTemplateGenerationKey]
 		if podGenerator != tempGenerator {
-			return fmt.Errorf("pod %s/%s not available", obj.GetNamespace(), pod.GetName())
+			return fmt.Errorf("old pod %s/%s is still running", obj.GetNamespace(), pod.GetName())
 		}
 	}
 
@@ -366,11 +379,11 @@ func (p *pollActions) forLifecycleAvailability(ctx context.Context, obj *unstruc
 
 func (p *pollActions) ForDaemonSet(ctx context.Context, obj *unstructured.Unstructured) error {
 	if err := p.forResourceAvailability(ctx, obj); err != nil {
-		return err
+		return fmt.Errorf("DaemonSet %s/%s is not available, probably not fully created yet: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 
 	if err := p.forLifecycleAvailability(ctx, obj); err != nil {
-		return err
+		return fmt.Errorf("lifecycle availability of the DaemonSet %s/%s is not verified yet: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 
 	return p.forResourceFullAvailability(ctx, obj, p.forDaemonSetCallback)
@@ -379,7 +392,7 @@ func (p *pollActions) ForDaemonSet(ctx context.Context, obj *unstructured.Unstru
 func (p *pollActions) forBuild(ctx context.Context, obj *unstructured.Unstructured) error {
 
 	if err := p.forResourceAvailability(ctx, obj); err != nil {
-		return err
+		return fmt.Errorf("failed resource availablity for Build %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 
 	builds := &unstructured.UnstructuredList{}
@@ -390,14 +403,14 @@ func (p *pollActions) forBuild(ctx context.Context, obj *unstructured.Unstructur
 		client.InNamespace(clients.Namespace),
 	}
 	if err := p.kubeClient.List(ctx, builds, opts...); err != nil {
-		return errors.Wrap(err, "Could not get BuildList")
+		return fmt.Errorf("could not get BuildList: %w", err)
 	}
 
 	var build *unstructured.Unstructured
 	for _, b := range builds.Items {
 		slice, _, err := unstructured.NestedSlice(b.Object, "metadata", "ownerReferences")
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get ownerreferences for BuildConfig %s/%s: %w", b.GetNamespace(), b.GetName(), err)
 		}
 		for _, element := range slice {
 			if element.(map[string]interface{})["name"] == obj.GetName() {
@@ -410,7 +423,7 @@ func (p *pollActions) forBuild(ctx context.Context, obj *unstructured.Unstructur
 		}
 	}
 	if build == nil {
-		return errors.New("Build object not yet available")
+		return fmt.Errorf("Build %s/%s object not yet available", obj.GetNamespace(), obj.GetName())
 	}
 
 	callback := makeStatusCallback("Complete", "status", "phase")
@@ -446,7 +459,7 @@ func (p *pollActions) ForDaemonSetLogs(ctx context.Context, obj *unstructured.Un
 	var selector string
 
 	if selector, found = obj.GetLabels()["app"]; !found {
-		return errors.New("Cannot find Label app=, missing take a look at the manifests")
+		return fmt.Errorf("cannot find Label app= for DaemonSet %s/%s, missing take a look at the manifests", obj.GetNamespace(), obj.GetName())
 	}
 
 	label["app"] = selector
@@ -458,7 +471,7 @@ func (p *pollActions) ForDaemonSetLogs(ctx context.Context, obj *unstructured.Un
 
 	err := p.kubeClient.List(ctx, pods, opts...)
 	if err != nil {
-		return errors.Wrap(err, "Could not get PodList")
+		return fmt.Errorf("could not get PodList of Daemonset %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 
 	for _, pod := range pods.Items {
@@ -466,14 +479,14 @@ func (p *pollActions) ForDaemonSetLogs(ctx context.Context, obj *unstructured.Un
 		req := p.kubeClient.GetPodLogs(pod.GetNamespace(), pod.GetName(), &podLogOpts)
 		podLogs, err := req.Stream(ctx)
 		if err != nil {
-			return fmt.Errorf("error in opening stream: %w", err)
+			return fmt.Errorf("error in opening stream for pod %s/%s: %w", pod.GetNamespace(), pod.GetName(), err)
 		}
 		defer podLogs.Close()
 
 		buf := new(bytes.Buffer)
 
 		if _, err = io.Copy(buf, podLogs); err != nil {
-			return fmt.Errorf("error in copy information from podLogs to buf: %w", err)
+			return fmt.Errorf("error in copy information from podLogs to buf for pod %s/%s: %w", pod.GetNamespace(), pod.GetName(), err)
 		}
 
 		cutoff := 100
@@ -488,7 +501,7 @@ func (p *pollActions) ForDaemonSetLogs(ctx context.Context, obj *unstructured.Un
 
 		match, err = regexp.MatchString(pattern, lastBytes)
 		if err != nil {
-			return fmt.Errorf("error matching pattern %q: %v", pattern, err)
+			return fmt.Errorf("error matching pattern %q: %w", pattern, err)
 		}
 
 		if !match {
