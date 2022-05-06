@@ -158,7 +158,7 @@ var _ = Describe("helmer_GetHelmOutput", func() {
 
 		h, err := newHelmerWithVersions(mockResourceAPI, cli.New(), nil, nil, mockKubeClient)
 		Expect(err).NotTo(HaveOccurred())
-		_, err = h.GetHelmOutput(context.TODO(), ch, nil, namespace)
+		_, err = h.GetHelmOutput(context.TODO(), ch, nil, name, namespace)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })

@@ -77,7 +77,7 @@ func (p *preflight) PreflightUpgradeCheck(ctx context.Context,
 		return false, fmt.Sprintf("Failed to load helm chart for CR %s", sr.Name), err
 	}
 
-	yamlsList, err := p.processFullChartTemplates(ctx, chart, sr.Spec.Set, runInfo, sr.Namespace, runInfo.KernelFullVersion)
+	yamlsList, err := p.processFullChartTemplates(ctx, chart, sr.Spec.Set, runInfo, sr.Name, sr.Namespace, runInfo.KernelFullVersion)
 	if err != nil {
 		err = fmt.Errorf("failed to processFullChartTemplates in PreflightUpgradeCheck, CR name %s: %w", sr.Name, err)
 		return false, fmt.Sprintf("Failed to process full chart for CR %s", sr.Name), err
@@ -89,6 +89,7 @@ func (p *preflight) processFullChartTemplates(ctx context.Context,
 	chart *helmchart.Chart,
 	values unstructured.Unstructured,
 	runInfo *runtime.RuntimeInformation,
+	name string,
 	namespace string,
 	upgradeKernelVersion string) (string, error) {
 
@@ -120,7 +121,7 @@ func (p *preflight) processFullChartTemplates(ctx context.Context,
 		return "", fmt.Errorf("failed to coalesce runInfo into chart in processFullChartTemplates, chart name %s: %w", fullChart.Name(), err)
 	}
 
-	return p.helmerAPI.GetHelmOutput(ctx, fullChart, fullChart.Values, namespace)
+	return p.helmerAPI.GetHelmOutput(ctx, fullChart, fullChart.Values, name, namespace)
 }
 
 func (p *preflight) handleYAMLsCheck(ctx context.Context, yamlsList string, upgradeKernelVersion string) (bool, string, error) {
