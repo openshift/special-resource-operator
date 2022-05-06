@@ -52,7 +52,6 @@ import (
 	"github.com/openshift/special-resource-operator/pkg/runtime"
 	"github.com/openshift/special-resource-operator/pkg/storage"
 	"github.com/openshift/special-resource-operator/pkg/upgrade"
-	"github.com/openshift/special-resource-operator/pkg/utils"
 )
 
 const (
@@ -66,22 +65,21 @@ const (
 type SpecialResourceReconciler struct {
 	Scheme *k8sruntime.Scheme
 
-	Metrics                metrics.Metrics
-	Cluster                cluster.Cluster
-	ClusterInfo            upgrade.ClusterInfo
-	ClusterOperatorManager state.ClusterOperatorManager
-	ResourceAPI            resource.ResourceAPI
-	Filter                 filter.Filter
-	Finalizer              finalizers.SpecialResourceFinalizer
-	Helmer                 helmer.Helmer
-	Assets                 assets.Assets
-	PollActions            poll.PollActions
-	StatusUpdater          state.StatusUpdater
-	Storage                storage.Storage
-	KernelData             kernel.KernelData
-	ProxyAPI               proxy.ProxyAPI
-	RuntimeAPI             runtime.RuntimeAPI
-	KubeClient             clients.ClientsInterface
+	Metrics       metrics.Metrics
+	Cluster       cluster.Cluster
+	ClusterInfo   upgrade.ClusterInfo
+	ResourceAPI   resource.ResourceAPI
+	Filter        filter.Filter
+	Finalizer     finalizers.SpecialResourceFinalizer
+	Helmer        helmer.Helmer
+	Assets        assets.Assets
+	PollActions   poll.PollActions
+	StatusUpdater state.StatusUpdater
+	Storage       storage.Storage
+	KernelData    kernel.KernelData
+	ProxyAPI      proxy.ProxyAPI
+	RuntimeAPI    runtime.RuntimeAPI
+	KubeClient    clients.ClientsInterface
 }
 
 // Reconcile Reconiliation entry point
@@ -110,32 +108,9 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		AllSRs:          srs,
 	}
 
-	conds := utils.NotAvailableProgressingNotDegraded(
-		"Reconciling "+req.Name,
-		"Reconciling "+req.Name,
-		utils.DegradedDefaultMsg,
-	)
-
-	// A resource is being reconciled set status to not available and only
-	// if the reconcilation succeeds we're updating the conditions
-	if err = r.ClusterOperatorManager.Refresh(ctx, conds); err != nil {
-		res.Requeue = true
-		return res, errors.Wrap(err, "Failed to update ClusterOperator's status")
-	}
-
 	// Reconcile all specialresources
-	if res, err = r.SpecialResourcesReconcile(ctx, wi); err == nil && !res.Requeue {
-		conds = utils.AvailableNotProgressingNotDegraded()
-	} else {
+	if res, err = r.SpecialResourcesReconcile(ctx, wi); err != nil || res.Requeue {
 		return res, errors.Wrap(err, "Failed to reconcile SpecialResource")
-	}
-
-	// Only if we're successfull we're going to update the status to
-	// Available otherwise return the reconcile error
-	if err = r.ClusterOperatorManager.Refresh(ctx, conds); err != nil {
-		res.Requeue = true
-		log.Error(err, "Failed to update ClusterOperator's status")
-		return res, nil
 	}
 
 	log.Info("Reconciliation successful")
