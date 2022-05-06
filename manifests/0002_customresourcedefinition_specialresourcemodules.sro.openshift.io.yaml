@@ -21,10 +21,14 @@ spec:
       openAPIV3Schema:
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -40,29 +44,37 @@ spec:
                     description: Repository is the chart's repository information.
                     properties:
                       caFile:
-                        description: CertFile is the path to the CA certificate file that was used to sign the Helm repository's certificate.
+                        description: CertFile is the path to the CA certificate file
+                          that was used to sign the Helm repository's certificate.
                         type: string
                       certFile:
-                        description: CertFile is the path to the client certificate file to be used to authenticate against the Helm repository, if required.
+                        description: CertFile is the path to the client certificate
+                          file to be used to authenticate against the Helm repository,
+                          if required.
                         type: string
                       insecure_skip_tls_verify:
                         default: false
-                        description: If InsecureSkipTLSverify is true, the server's certificate will not be verified against the local CA certificates.
+                        description: If InsecureSkipTLSverify is true, the server's
+                          certificate will not be verified against the local CA certificates.
                         type: boolean
                       keyFile:
-                        description: KeyFile is the path to the private key file to be used to authenticate against the Helm repository, if required.
+                        description: KeyFile is the path to the private key file to
+                          be used to authenticate against the Helm repository, if
+                          required.
                         type: string
                       name:
                         description: Name is the name of the Helm repository.
                         type: string
                       password:
-                        description: Password is used to log in against the Helm repository, if required.
+                        description: Password is used to log in against the Helm repository,
+                          if required.
                         type: string
                       url:
                         description: URL is the canonical URL of the Helm repository.
                         type: string
                       username:
-                        description: Username is used to log in against the Helm repository, if required.
+                        description: Username is used to log in against the Helm repository,
+                          if required.
                         type: string
                     required:
                     - name
@@ -82,15 +94,18 @@ spec:
                 - version
                 type: object
               namespace:
-                description: Namespace describes in which namespace the chart will be installed.
+                description: Namespace describes in which namespace the chart will
+                  be installed.
                 type: string
               set:
-                description: Set is a user-defined hierarchical value tree from where the chart takes its parameters.
+                description: Set is a user-defined hierarchical value tree from where
+                  the chart takes its parameters.
                 type: object
                 x-kubernetes-embedded-resource: true
                 x-kubernetes-preserve-unknown-fields: true
               watch:
-                description: Watch describes from which resources the OCP version/base image will be sourced to determine which DTK to use.
+                description: Watch describes from which resources the OCP version/base
+                  image will be sourced to determine which DTK to use.
                 items:
                   properties:
                     apiVersion:

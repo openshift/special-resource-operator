@@ -108,48 +108,39 @@ func (srf *specialResourceFinalizer) finalizeSpecialResource(ctx context.Context
 
 	// If this special resources is deleted we're going to remove all
 	// specialresource labels from the nodes.
-	if sr.Name == "special-resource-preamble" {
-		err := srf.finalizeNodes(ctx, sr, "specialresource.openshift.io")
-		if err != nil {
-			ctrl.LoggerFrom(ctx).Error(err, "Failed to finalize special-resource-preamble")
-			return err
-		}
-	}
-
 	if err := srf.finalizeNodes(ctx, sr, "specialresource.openshift.io/state-"+sr.Name); err != nil {
 		return err
 	}
 
-	if sr.Name != "special-resource-preamble" {
-		ns := unstructured.Unstructured{}
+	ns := unstructured.Unstructured{}
 
-		ns.SetKind("Namespace")
-		ns.SetAPIVersion("v1")
-		ns.SetName(sr.Spec.Namespace)
-		key := client.ObjectKeyFromObject(&ns)
+	ns.SetKind("Namespace")
+	ns.SetAPIVersion("v1")
+	ns.SetName(sr.Spec.Namespace)
+	key := client.ObjectKeyFromObject(&ns)
 
-		if err := srf.kubeClient.Get(ctx, key, &ns); err != nil {
-			if apierrors.IsNotFound(err) {
-				return nil
-			} else {
-				ctrl.LoggerFrom(ctx).Error(err, "Failed to get namespace", "namespace", sr.Spec.Namespace, "SpecialResource", sr.Name)
+	if err := srf.kubeClient.Get(ctx, key, &ns); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		} else {
+			ctrl.LoggerFrom(ctx).Error(err, "Failed to get namespace", "namespace", sr.Spec.Namespace, "SpecialResource", sr.Name)
+			return err
+		}
+	}
+
+	for _, owner := range ns.GetOwnerReferences() {
+		if owner.Kind == "SpecialResource" {
+			if err := srf.kubeClient.Delete(ctx, &ns); err != nil {
+				ctrl.LoggerFrom(ctx).Error(err, "Failed to delete namespace", "namespace", sr.Spec.Namespace)
+				return err
+			}
+
+			if err := srf.pollActions.ForResourceUnavailability(ctx, &ns); err != nil {
+				ctrl.LoggerFrom(ctx).Error(err, "Failed to delete namespace", "namespace", sr.Spec.Namespace)
 				return err
 			}
 		}
-
-		for _, owner := range ns.GetOwnerReferences() {
-			if owner.Kind == "SpecialResource" {
-				if err := srf.kubeClient.Delete(ctx, &ns); err != nil {
-					ctrl.LoggerFrom(ctx).Error(err, "Failed to delete namespace", "namespace", sr.Spec.Namespace)
-					return err
-				}
-
-				if err := srf.pollActions.ForResourceUnavailability(ctx, &ns); err != nil {
-					ctrl.LoggerFrom(ctx).Error(err, "Failed to delete namespace", "namespace", sr.Spec.Namespace)
-					return err
-				}
-			}
-		}
 	}
+
 	return nil
 }

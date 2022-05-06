@@ -38,11 +38,6 @@ func (r *SpecialResourceReconciler) SpecialResourcesReconcile(ctx context.Contex
 		return reconcile.Result{}, r.Finalizer.Finalize(ctx, wi.SpecialResource)
 	}
 
-	if wi.SpecialResource.Name == "special-resource-preamble" {
-		log.Info("Preamble done, waiting for specialresource requests")
-		return reconcile.Result{}, nil
-	}
-
 	switch wi.SpecialResource.Spec.ManagementState {
 	case operatorv1.Force, operatorv1.Managed, "":
 		// The CR must be managed by the operator.

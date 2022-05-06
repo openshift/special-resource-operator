@@ -115,8 +115,6 @@ uninstall: manifests kustomize  ## Uninstall CRDs from the K8s cluster specified
 deploy: manifests kustomize configure ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 	$(CLUSTER_CLIENT) apply -k config/namespace
 	$(CLUSTER_CLIENT) apply -k config/default
-	$(shell sleep 5)
-	$(CLUSTER_CLIENT) apply -k config/cr
 
 deploy-cm-simple-kmod:
 	$(CLUSTER_CLIENT) create namespace simple-kmod
@@ -154,8 +152,6 @@ manifests-gen: manifests kustomize configure
 	$(KUSTOMIZE) build config/namespace > $(MANIFEST_BUNDLE)
 	echo '---' >> $(MANIFEST_BUNDLE)
 	$(KUSTOMIZE) build config/default >> $(MANIFEST_BUNDLE)
-	echo '---' >> $(MANIFEST_BUNDLE)
-	$(KUSTOMIZE) build config/cr >> $(MANIFEST_BUNDLE)
 
 	cd $(MANIFEST_DIR); $(CSPLIT) < $(MANIFEST_BUNDLE)
 	cd $(MANIFEST_DIR); bash ../scripts/rename.sh

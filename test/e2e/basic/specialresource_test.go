@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"context"
 	"testing"
 
 	"github.com/onsi/ginkgo/v2"
@@ -32,17 +31,5 @@ var _ = ginkgo.BeforeSuite(func() {
 
 	ginkgo.By("[pre] Checking SRO status...")
 	err = WaitSRORunning(clientSet, cs.Config.Namespace)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	ginkgo.By("[pre] Creating preamble...")
-	err = CreatePreamble(context.TODO(), cl)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	ginkgo.By("[pre] Checking ClusterOperator conditions...")
-	err = WaitClusterOperatorConditions(cs)
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-	ginkgo.By("[pre] Checking ClusterOperator related objects...")
-	err = WaitClusterOperatorNamespace(cs)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 })
