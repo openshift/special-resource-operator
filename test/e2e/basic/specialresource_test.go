@@ -22,9 +22,6 @@ var _ = ginkgo.BeforeSuite(func() {
 
 	cs := framework.NewClientSet(config)
 
-	cl, err := framework.NewControllerRuntimeClient()
-	gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
 	ginkgo.By("[pre] Creating kube client set...")
 	clientSet, err := GetKubeClientSet()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
