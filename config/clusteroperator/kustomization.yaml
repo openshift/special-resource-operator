@@ -1,5 +1,0 @@
-namespace: openshift-sro
-
-namePrefix: ""
-resources:
-  - clusteroperator.yaml

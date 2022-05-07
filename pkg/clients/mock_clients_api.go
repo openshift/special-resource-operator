@@ -41,51 +41,6 @@ func (m *MockClientsInterface) EXPECT() *MockClientsInterfaceMockRecorder {
 	return m.recorder
 }
 
-// ClusterOperatorCreate mocks base method.
-func (m *MockClientsInterface) ClusterOperatorCreate(ctx context.Context, clusterOperator *v1.ClusterOperator, opts v11.CreateOptions) (*v1.ClusterOperator, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClusterOperatorCreate", ctx, clusterOperator, opts)
-	ret0, _ := ret[0].(*v1.ClusterOperator)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ClusterOperatorCreate indicates an expected call of ClusterOperatorCreate.
-func (mr *MockClientsInterfaceMockRecorder) ClusterOperatorCreate(ctx, clusterOperator, opts interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClusterOperatorCreate", reflect.TypeOf((*MockClientsInterface)(nil).ClusterOperatorCreate), ctx, clusterOperator, opts)
-}
-
-// ClusterOperatorGet mocks base method.
-func (m *MockClientsInterface) ClusterOperatorGet(ctx context.Context, name string, opts v11.GetOptions) (*v1.ClusterOperator, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClusterOperatorGet", ctx, name, opts)
-	ret0, _ := ret[0].(*v1.ClusterOperator)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ClusterOperatorGet indicates an expected call of ClusterOperatorGet.
-func (mr *MockClientsInterfaceMockRecorder) ClusterOperatorGet(ctx, name, opts interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClusterOperatorGet", reflect.TypeOf((*MockClientsInterface)(nil).ClusterOperatorGet), ctx, name, opts)
-}
-
-// ClusterOperatorUpdateStatus mocks base method.
-func (m *MockClientsInterface) ClusterOperatorUpdateStatus(ctx context.Context, clusterOperator *v1.ClusterOperator, opts v11.UpdateOptions) (*v1.ClusterOperator, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClusterOperatorUpdateStatus", ctx, clusterOperator, opts)
-	ret0, _ := ret[0].(*v1.ClusterOperator)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ClusterOperatorUpdateStatus indicates an expected call of ClusterOperatorUpdateStatus.
-func (mr *MockClientsInterfaceMockRecorder) ClusterOperatorUpdateStatus(ctx, clusterOperator, opts interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClusterOperatorUpdateStatus", reflect.TypeOf((*MockClientsInterface)(nil).ClusterOperatorUpdateStatus), ctx, clusterOperator, opts)
-}
-
 // ClusterVersionGet mocks base method.
 func (m *MockClientsInterface) ClusterVersionGet(ctx context.Context, opts v11.GetOptions) (*v1.ClusterVersion, error) {
 	m.ctrl.T.Helper()

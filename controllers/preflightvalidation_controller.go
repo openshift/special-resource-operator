@@ -120,9 +120,6 @@ func (r *PreflightValidationReconciler) runPreflightValidation(ctx context.Conte
 	}
 
 	for _, sr := range specialresources.Items {
-		if sr.Name == "special-resource-preamble" {
-			continue
-		}
 		if sr.GetDeletionTimestamp() != nil {
 			log.Info("CR is marked for deletion, skipping preflight validation")
 			continue
@@ -174,9 +171,6 @@ func (r *PreflightValidationReconciler) updatePreflightStatus(ctx context.Contex
 
 func (r *PreflightValidationReconciler) presetStatusesForCRs(ctx context.Context, specialresources *srov1beta1.SpecialResourceList, pv *srov1beta1.PreflightValidation) error {
 	for _, sr := range specialresources.Items {
-		if sr.Name == "special-resource-preamble" {
-			continue
-		}
 		srStatus := r.getPreflightSRStatus(pv, sr.Name)
 		if srStatus.VerificationStatus == "" {
 			err := r.StatusUpdater.SetVerificationStatus(ctx, pv, srStatus, srov1beta1.VerificationUnknown, preflight.VerificationStatusReasonUnknown)

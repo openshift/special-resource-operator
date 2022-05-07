@@ -40,6 +40,5 @@ resources:
 - ../rbac
 - ../manager
 - ../prometheus
-- ../clusteroperator
 
 namespace: openshift-special-resource-operator

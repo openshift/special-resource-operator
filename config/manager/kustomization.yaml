@@ -7,4 +7,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: quay.io/openshift/origin-special-resource-rhel8-operator
-  newTag: "4.11"
+  newTag: latest
