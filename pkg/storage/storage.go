@@ -2,12 +2,12 @@ package storage
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/openshift/special-resource-operator/pkg/clients"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -30,7 +30,7 @@ func NewStorage(kubeClient clients.ClientsInterface) Storage {
 func (s *storage) CheckConfigMapEntry(ctx context.Context, key string, ins types.NamespacedName) (string, error) {
 	cm, err := s.getConfigMap(ctx, ins.Namespace, ins.Name)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to get config map %s: %w", ins, err)
 	}
 
 	return cm.Data[key], nil
@@ -39,8 +39,7 @@ func (s *storage) CheckConfigMapEntry(ctx context.Context, key string, ins types
 func (s *storage) UpdateConfigMapEntry(ctx context.Context, key string, value string, ins types.NamespacedName) error {
 	cm, err := s.getConfigMap(ctx, ins.Namespace, ins.Name)
 	if err != nil {
-		ctrl.LoggerFrom(ctx).Error(err, "Failed to get configmap to update an entry", "namespacedName", ins, "key", key, "value", value)
-		return err
+		return fmt.Errorf("failed to get configmap %s: %w", ins, err)
 	}
 
 	if cm.Data == nil {
@@ -51,8 +50,7 @@ func (s *storage) UpdateConfigMapEntry(ctx context.Context, key string, value st
 		cm.Data[key] = value
 
 		if err = s.updateObject(ctx, cm); err != nil {
-			ctrl.LoggerFrom(ctx).Error(err, "Failed to update configmap to update an entry", "namespacedName", ins, "key", key, "value", value)
-			return err
+			return fmt.Errorf("failed to update configmap %s, key %s: %w", ins, key, err)
 		}
 	}
 
@@ -62,16 +60,14 @@ func (s *storage) UpdateConfigMapEntry(ctx context.Context, key string, value st
 func (s *storage) DeleteConfigMapEntry(ctx context.Context, key string, ins types.NamespacedName) error {
 	cm, err := s.getConfigMap(ctx, ins.Namespace, ins.Name)
 	if err != nil {
-		ctrl.LoggerFrom(ctx).Error(err, "Failed to get configmap to remove an entry", "namespacedName", ins, "key", key)
-		return err
+		return fmt.Errorf("failed to get configmap %s: %w", ins, err)
 	}
 
 	if _, ok := cm.Data[key]; ok {
 		delete(cm.Data, key)
 
 		if err = s.updateObject(ctx, cm); err != nil {
-			ctrl.LoggerFrom(ctx).Error(err, "Failed to update configmap to remove an entry", "namespacedName", ins, "key", key)
-			return err
+			return fmt.Errorf("failed to update configmap %s with deleted entry %s: %w", ins, key, err)
 		}
 	}
 
@@ -85,11 +81,13 @@ func (s *storage) getConfigMap(ctx context.Context, namespace string, name strin
 	err := s.kubeClient.Get(ctx, dep, cm)
 
 	if apierrors.IsNotFound(err) {
-		ctrl.LoggerFrom(ctx).Error(err, "Failed to get configmap", "cmNamespace", namespace, "cmName", name)
-		return nil, err
+		return nil, fmt.Errorf("failed to find configmap %s: %w", dep, err)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get configmap %s: %w", dep, err)
 	}
 
-	return cm, err
+	return cm, nil
 }
 
 func (s *storage) updateObject(ctx context.Context, cm client.Object) error {
