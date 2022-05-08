@@ -46,6 +46,7 @@ import (
 	"github.com/openshift/special-resource-operator/pkg/registry"
 	"github.com/openshift/special-resource-operator/pkg/resource"
 	sroruntime "github.com/openshift/special-resource-operator/pkg/runtime"
+	"github.com/openshift/special-resource-operator/pkg/utils"
 	"github.com/openshift/special-resource-operator/pkg/watcher"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -64,8 +65,9 @@ const (
 	minDelaySRM = 100 * time.Millisecond
 	maxDelaySRM = 3 * time.Second
 
-	SRMgvk        = "SpecialResourceModule"
-	SRMOwnedLabel = "specialresourcemodule.openshift.io/owned"
+	SRMgvk          = "SpecialResourceModule"
+	SRMOwnedLabel   = "specialresourcemodule.openshift.io/owned"
+	upgradesInfoURL = "https://api.openshift.com/api/upgrades_info/v1/graph"
 )
 
 var (
@@ -146,46 +148,45 @@ func getImageFromVersion(entry string) (string, error) {
 	full, major, minor := res[0], res[1], res[2]
 	var imageURL string
 	{
-		tr, err := transport.HTTPWrappersForConfig(
-			&transport.Config{
-				UserAgent: rest.DefaultKubernetesUserAgent() + "(release-info)",
-			},
-			http.DefaultTransport,
-		)
-		if err != nil {
-			return "", err
+		config := transport.Config{
+			UserAgent: rest.DefaultKubernetesUserAgent() + "(release-info)",
 		}
-		cl := &http.Client{Transport: tr}
-		u, err := url.Parse("https://api.openshift.com/api/upgrades_info/v1/graph")
+		roundTripper := http.DefaultTransport
+		rt, err := transport.HTTPWrappersForConfig(&config, roundTripper)
 		if err != nil {
-			return "", err
+			return "", fmt.Errorf("failed to wrap config with default roundTripper: %w", err)
+		}
+		cl := &http.Client{Transport: rt}
+		u, err := url.Parse(upgradesInfoURL)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse URL %s: %w", upgradesInfoURL, err)
 		}
 		for _, stream := range []string{"fast", "stable", "candidate"} {
 			u.RawQuery = url.Values{"channel": []string{fmt.Sprintf("%s-%s.%s", stream, major, minor)}}.Encode()
 			if err := func() error {
 				req, err := http.NewRequest("GET", u.String(), nil)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to create HTTP request 'GET %s': %w", u.String(), err)
 				}
 				req.Header.Set("Accept", "application/json")
 				resp, err := cl.Do(req)
 				if err != nil {
-					return err
+					return fmt.Errorf("failed to send HTTP request: %w", err)
 				}
 				defer resp.Body.Close()
 				switch resp.StatusCode {
 				case http.StatusOK:
 				default:
 					_, _ = io.Copy(ioutil.Discard, resp.Body)
-					return fmt.Errorf("unable to retrieve image. status code %d", resp.StatusCode)
+					return fmt.Errorf("unable to retrieve image, status code %d", resp.StatusCode)
 				}
 				data, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
-					return err
+					return fmt.Errorf("unable to read reponse: %w", err)
 				}
 				var versions versionGraph
 				if err := json.Unmarshal(data, &versions); err != nil {
-					return err
+					return fmt.Errorf("unalbe to unmarshal json: %w", err)
 				}
 				for _, version := range versions.Nodes {
 					if version.Version == full && len(version.Payload) > 0 {
@@ -196,7 +197,7 @@ func getImageFromVersion(entry string) (string, error) {
 
 				return nil
 			}(); err != nil {
-				return "", err
+				return "", fmt.Errorf("failed to get image from version %s: %w", entry, err)
 			}
 		}
 		if len(imageURL) == 0 {
@@ -237,9 +238,8 @@ func (r *SpecialResourceModuleReconciler) getAllResources(kind, apiVersion, name
 		var l unstructured.UnstructuredList
 		l.SetKind(kind)
 		l.SetAPIVersion(apiVersion)
-		err := r.KubeClient.List(context.Background(), &l)
-		if err != nil {
-			return nil, err
+		if err := r.KubeClient.List(context.Background(), &l); err != nil {
+			return nil, fmt.Errorf("faile to get all %s: %w", kind, err)
 		}
 		return l.Items, nil
 	}
@@ -249,8 +249,10 @@ func (r *SpecialResourceModuleReconciler) getAllResources(kind, apiVersion, name
 	obj.SetNamespace(namespace)
 	obj.SetName(name)
 	key := client.ObjectKeyFromObject(&obj)
-	err := r.KubeClient.Get(context.Background(), key, &obj)
-	return []unstructured.Unstructured{obj}, err
+	if err := r.KubeClient.Get(context.Background(), key, &obj); err != nil {
+		return []unstructured.Unstructured{}, fmt.Errorf("failed to get %s/%s in namespace %s: %w", kind, name, namespace, err)
+	}
+	return []unstructured.Unstructured{obj}, nil
 }
 
 func (r *SpecialResourceModuleReconciler) filterResources(selectors []srov1beta1.SpecialResourceModuleSelector, objs []unstructured.Unstructured) ([]unstructured.Unstructured, error) {
@@ -262,7 +264,7 @@ func (r *SpecialResourceModuleReconciler) filterResources(selectors []srov1beta1
 		for _, obj := range objs {
 			candidates, err := watcher.GetJSONPath(selector.Path, obj)
 			if err != nil {
-				return filteredObjects, err
+				return []unstructured.Unstructured{}, fmt.Errorf("failed to get json path for %s: %w", selector.Path, err)
 			}
 			found := false
 			for _, candidate := range candidates {
@@ -285,19 +287,19 @@ func (r *SpecialResourceModuleReconciler) filterResources(selectors []srov1beta1
 func (r *SpecialResourceModuleReconciler) getVersionInfoFromImage(ctx context.Context, entry string) (ocpVersionInfo, error) {
 	manifestsLastLayer, err := r.Registry.LastLayer(ctx, entry)
 	if err != nil {
-		return ocpVersionInfo{}, err
+		return ocpVersionInfo{}, fmt.Errorf("failed to get manifest's last layer for image %s: %w", entry, err)
 	}
 	dtkURL, err := r.Registry.ReleaseManifests(manifestsLastLayer)
 	if err != nil {
-		return ocpVersionInfo{}, err
+		return ocpVersionInfo{}, fmt.Errorf("failed to get DTK URL from image %s: %w", entry, err)
 	}
 	dtkLastLayer, err := r.Registry.LastLayer(ctx, dtkURL)
 	if err != nil {
-		return ocpVersionInfo{}, err
+		return ocpVersionInfo{}, fmt.Errorf("failed to get DTK's last layer for image %s: %w", dtkURL, err)
 	}
 	dtkEntry, err := r.Registry.ExtractToolkitRelease(dtkLastLayer)
 	if err != nil {
-		return ocpVersionInfo{}, err
+		return ocpVersionInfo{}, fmt.Errorf("failed to extract toolkit release from layer %s: %w", dtkLastLayer, err)
 	}
 
 	return ocpVersionInfo{
@@ -318,16 +320,16 @@ func (r *SpecialResourceModuleReconciler) getOCPVersions(ctx context.Context, wa
 			if k8serrors.IsNotFound(err) {
 				continue
 			}
-			return nil, err
+			return nil, fmt.Errorf("failed to get %s/%s in namespace %s: %w", resource.Kind, resource.Name, resource.Namespace, err)
 		}
 		objs, err = r.filterResources(resource.Selector, objs)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to filter resources: %w", err)
 		}
 		for _, obj := range objs {
 			result, err := watcher.GetJSONPath(resource.Path, obj)
 			if err != nil {
-				log.Error(err, "Error when looking for path. Continue", "objectName", obj.GetName(), "path", resource.Path)
+				log.Info(utils.WarnString("could not get json path, continue"), "objectName", obj.GetName(), "path", resource.Path, "error", err)
 				continue
 			}
 			for _, element := range result {
@@ -335,7 +337,7 @@ func (r *SpecialResourceModuleReconciler) getOCPVersions(ctx context.Context, wa
 				if versionRegex.MatchString(element) {
 					tmp, err := getImageFromVersion(element)
 					if err != nil {
-						return nil, err
+						return nil, fmt.Errorf("could not get image from %s: %w", element, err)
 					}
 					log.Info("Version from regex", "objectName", obj.GetName(), "element", element)
 					image = tmp
@@ -343,11 +345,11 @@ func (r *SpecialResourceModuleReconciler) getOCPVersions(ctx context.Context, wa
 					log.Info("Version from image", "objectName", obj.GetName(), "element", element)
 					image = element
 				} else {
-					return nil, fmt.Errorf("format error. %s is not a valid image/version", element)
+					return nil, fmt.Errorf("format error, %s is not a valid image/version", element)
 				}
 				info, err := r.getVersionInfoFromImage(ctx, image)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("could not get version info from image %s: %w", image, err)
 				}
 				versionMap[info.DTKImage] = info
 			}
@@ -368,7 +370,7 @@ func (r *SpecialResourceModuleReconciler) reconcileChart(ctx context.Context, sr
 	result := make([]string, 0)
 	c, err := r.Helmer.Load(srm.Spec.Chart)
 	if err != nil {
-		return result, err
+		return []string{}, fmt.Errorf("could not load helm chart '%s': %w", srm.Spec.Chart.Name, err)
 	}
 
 	nostate := *c
@@ -396,16 +398,16 @@ func (r *SpecialResourceModuleReconciler) reconcileChart(ctx context.Context, sr
 
 		step.Values, err = chartutil.CoalesceValues(&step, srm.Spec.Set.Object)
 		if err != nil {
-			return result, err
+			return result, fmt.Errorf("failed to coalesce values for chart '%s': %w", step.Name(), err)
 		}
 
 		rinfo, err := k8sruntime.DefaultUnstructuredConverter.ToUnstructured(&meta)
 		if err != nil {
-			return result, err
+			return result, fmt.Errorf("failed to convert metadata to an unstructured object: %w", err)
 		}
 		step.Values, err = chartutil.CoalesceValues(&step, rinfo)
 		if err != nil {
-			return result, err
+			return result, fmt.Errorf("failed to coalesce values for chart '%s': %w", step.Name(), err)
 		}
 		err = r.Helmer.Run(ctx, step, step.Values,
 			srm,
@@ -417,7 +419,7 @@ func (r *SpecialResourceModuleReconciler) reconcileChart(ctx context.Context, sr
 			false,
 			SRMOwnedLabel)
 		if err != nil {
-			return result, err
+			return result, fmt.Errorf("failed to run helm chart '%s': %w", step.Name(), err)
 		}
 		result = append(result, stateYAML.Name)
 	}
@@ -436,9 +438,12 @@ func (r *SpecialResourceModuleReconciler) SetupWithManager(mgr ctrl.Manager) err
 		}).
 		WithEventFilter(r.Filter.GetPredicates()).
 		Build(r)
+	if err != nil {
+		return fmt.Errorf("failed to create new controller for specialresourcemodule resources: %w", err)
+	}
 
 	r.Watcher = watcher.New(c)
-	return err
+	return nil
 }
 
 // Reconcile Reconiliation entry point
@@ -449,9 +454,8 @@ func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctr
 	srm := &srov1beta1.SpecialResourceModuleList{}
 
 	opts := []client.ListOption{}
-	err := r.KubeClient.List(context.Background(), srm, opts...)
-	if err != nil {
-		return reconcile.Result{}, err
+	if err := r.KubeClient.List(context.Background(), srm, opts...); err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to list SpecialResourceModuleList: %w", err)
 	}
 
 	var request int
@@ -469,7 +473,7 @@ func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctr
 
 	if err := r.Watcher.ReconcileWatches(ctx, resource); err != nil {
 		log.Error(err, "failed to update watched resources")
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to update watched resource: %w", err)
 	}
 
 	_ = r.createNamespace(ctx, resource)
@@ -477,7 +481,7 @@ func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctr
 	//TODO cache images, wont change dynamically.
 	clusterVersions, err := r.getOCPVersions(ctx, resource.Spec.Watch)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("failed to get OCP versions: %w", err)
 	}
 
 	if resource.Status.Versions == nil {
@@ -509,11 +513,11 @@ func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctr
 			ReconciledTemplates: reconciledList,
 			Complete:            len(reconciledList) == 0,
 		}
-		if e := r.updateSpecialResourceModuleStatus(resource); e != nil {
-			return reconcile.Result{}, e
-		}
 		if err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, fmt.Errorf("failed to reconcile chart for SepcialResourceModule '%s': %w", resource.Name, err)
+		}
+		if err := r.updateSpecialResourceModuleStatus(resource); err != nil {
+			return reconcile.Result{}, fmt.Errorf("failed to updated SpecialResourceModule status: %w", err)
 		}
 
 	}
