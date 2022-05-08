@@ -21,9 +21,11 @@ import (
 )
 
 const (
-	pullSecretNamespace = "openshift-config"
-	pullSecretName      = "pull-secret"
-	pullSecretFileName  = ".dockerconfigjson"
+	pullSecretNamespace          = "openshift-config"
+	pullSecretName               = "pull-secret"
+	pullSecretFileName           = ".dockerconfigjson"
+	driverToolkitJSONFile        = "etc/driver-toolkit-release.json"
+	releaseManifestImagesRefFile = "release-manifests/image-references"
 )
 
 type DriverToolkitEntry struct {
@@ -67,8 +69,11 @@ func (r *registry) registryFromImageURL(image string) (string, error) {
 		u, err = url.Parse("//" + image)
 	}
 
-	if err != nil || u.Host == "" {
-		return "", fmt.Errorf("failed to parse image url: %s", image)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse image %s url: %w", image, err)
+	}
+	if u.Host == "" {
+		return "", fmt.Errorf("image %s url has incorrect format, host missing", image)
 	}
 
 	return u.Host, nil
@@ -77,7 +82,7 @@ func (r *registry) registryFromImageURL(image string) (string, error) {
 func (r *registry) getImageRegistryCredentials(ctx context.Context, registry string) (dockerAuth, error) {
 	s, err := r.kubeClient.GetSecret(ctx, pullSecretNamespace, pullSecretName, metav1.GetOptions{})
 	if err != nil {
-		return dockerAuth{}, fmt.Errorf("could not retrieve pull secrets, [%w]", err)
+		return dockerAuth{}, fmt.Errorf("could not retrieve pull secrets: %w", err)
 	}
 
 	pullSecretData, ok := s.Data[pullSecretFileName]
@@ -91,7 +96,7 @@ func (r *registry) getImageRegistryCredentials(ctx context.Context, registry str
 
 	err = json.Unmarshal(pullSecretData, &auths)
 	if err != nil {
-		return dockerAuth{}, errors.New("failed to unmarshal auths")
+		return dockerAuth{}, fmt.Errorf("failed to unmarshal auths from pullSecretData: %w", err)
 	}
 
 	if auth, ok := auths.Auths[registry]; !ok {
@@ -104,7 +109,7 @@ func (r *registry) getImageRegistryCredentials(ctx context.Context, registry str
 func (r *registry) LastLayer(ctx context.Context, image string) (v1.Layer, error) {
 	repo, digests, registryAuths, err := r.GetLayersDigests(ctx, image)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get layers digests of the image %s: %w", image, err)
 	}
 	return crane.PullLayer(repo+"@"+digests[len(digests)-1], registryAuths...)
 }
@@ -113,37 +118,37 @@ func (r *registry) ExtractToolkitRelease(layer v1.Layer) (*DriverToolkitEntry, e
 	var err error
 	var found bool
 	dtk := &DriverToolkitEntry{}
-	obj, err := r.getHeaderFromLayer(layer, "etc/driver-toolkit-release.json")
+	obj, err := r.getHeaderFromLayer(layer, driverToolkitJSONFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to find file %s in image layer: %w", driverToolkitJSONFile, err)
 	}
 
 	dtk.KernelFullVersion, found, err = unstructured.NestedString(obj.Object, "KERNEL_VERSION")
 	if !found || err != nil {
-		return nil, fmt.Errorf("failed to get KERNEL_VERSION from etc/driver-toolkit-release.json: err %w, found %t", err, found)
+		return nil, fmt.Errorf("failed to get KERNEL_VERSION from %s, found %t: %w", driverToolkitJSONFile, found, err)
 	}
 
 	dtk.RTKernelFullVersion, found, err = unstructured.NestedString(obj.Object, "RT_KERNEL_VERSION")
 	if !found || err != nil {
-		return nil, fmt.Errorf("failed to get RT_KERNEL_VERSION from etc/driver-toolkit-release.json: err %w, found %t", err, found)
+		return nil, fmt.Errorf("failed to get RT_KERNEL_VERSION from %s, found %t: %w", driverToolkitJSONFile, found, err)
 	}
 
 	dtk.OSVersion, found, err = unstructured.NestedString(obj.Object, "RHEL_VERSION")
 	if !found || err != nil {
-		return nil, fmt.Errorf("failed to get RHEL_VERSION from etc/driver-toolkit-release.json: err %w, found %t", err, found)
+		return nil, fmt.Errorf("failed to get RHEL_VERSION from %s, found %t: %w", driverToolkitJSONFile, found, err)
 	}
 	return dtk, nil
 }
 
 func (r *registry) ReleaseManifests(layer v1.Layer) (string, error) {
-	obj, err := r.getHeaderFromLayer(layer, "release-manifests/image-references")
+	obj, err := r.getHeaderFromLayer(layer, releaseManifestImagesRefFile)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to find file %s in image layer: %w", releaseManifestImagesRefFile, err)
 	}
 
 	tags, found, err := unstructured.NestedSlice(obj.Object, "spec", "tags")
 	if !found || err != nil {
-		return "", fmt.Errorf("failed to find spec/tag in the release-manifests/image-references: err %w, found %t", err, found)
+		return "", fmt.Errorf("failed to find spec/tag in the %s, found %t: %w", releaseManifestImagesRefFile, found, err)
 	}
 	for _, tag := range tags {
 		if tag.(map[string]interface{})["name"] == "driver-toolkit" {
@@ -158,18 +163,18 @@ func (r *registry) ReleaseManifests(layer v1.Layer) (string, error) {
 			return imageURL, nil
 		}
 	}
-	return "", errors.New("failed to find driver-toolkit in the release-manifests/image-references")
+	return "", fmt.Errorf("failed to find driver-toolkit entry in the %s file", releaseManifestImagesRefFile)
 }
 
 func (r *registry) ReleaseImageMachineOSConfig(layer v1.Layer) (string, error) {
-	obj, err := r.getHeaderFromLayer(layer, "release-manifests/image-references")
+	obj, err := r.getHeaderFromLayer(layer, releaseManifestImagesRefFile)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to find file %s in image layer: %w", releaseManifestImagesRefFile, err)
 	}
 
 	tags, found, err := unstructured.NestedSlice(obj.Object, "spec", "tags")
 	if !found || err != nil {
-		return "", fmt.Errorf("failed to find spec/tags in release-manifests/image-references: error %w, found %t", err, found)
+		return "", fmt.Errorf("failed to find spec/tags in %s, found %t: %w", releaseManifestImagesRefFile, found, err)
 	}
 
 	for _, tag := range tags {
@@ -185,18 +190,18 @@ func (r *registry) ReleaseImageMachineOSConfig(layer v1.Layer) (string, error) {
 			return osVersion, nil
 		}
 	}
-	return "", fmt.Errorf("failed to find machine-os-content in the release-manifests/image-references")
+	return "", fmt.Errorf("failed to find machine-os-content in the %s file", releaseManifestImagesRefFile)
 }
 
 func (r *registry) GetLayersDigests(ctx context.Context, image string) (string, []string, []crane.Option, error) {
 	registry, err := r.registryFromImageURL(image)
 	if err != nil {
-		return "", nil, nil, err
+		return "", nil, nil, fmt.Errorf("failure to extract registry from image %s url: %w", image, err)
 	}
 
 	auth, err := r.getImageRegistryCredentials(ctx, registry)
 	if err != nil {
-		return "", nil, nil, err
+		return "", nil, nil, fmt.Errorf("failed to get image registry credentials: %w", err)
 	}
 
 	var repo string
@@ -218,12 +223,12 @@ func (r *registry) GetLayersDigests(ctx context.Context, image string) (string, 
 
 	manifest, err := r.getManifestStreamFromImage(image, repo, registryAuths)
 	if err != nil {
-		return "", nil, nil, err
+		return "", nil, nil, fmt.Errorf("failed to get manifest stream from image %s: %w", image, err)
 	}
 
 	digests, err := r.getLayersDigestsFromManifestStream(manifest)
 	if err != nil {
-		return "", nil, nil, err
+		return "", nil, nil, fmt.Errorf("failed to get layers digests from manifest stream of image %s: %w", image, err)
 	}
 
 	return repo, digests, registryAuths, nil
@@ -236,17 +241,17 @@ func (r *registry) GetLayerByDigest(repo string, digest string, auth []crane.Opt
 func (r *registry) getManifestStreamFromImage(image, repo string, options []crane.Option) ([]byte, error) {
 	manifest, err := crane.Manifest(image, options...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get crane manifest from image %s: %w", image, err)
 	}
 
 	release := unstructured.Unstructured{}
 	if err = json.Unmarshal(manifest, &release.Object); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal crane manifest: %w", err)
 	}
 
 	imageMediaType, mediaTypeFound, err := unstructured.NestedString(release.Object, "mediaType")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unmarshalled manifests invalid format: %w", err)
 	}
 	if !mediaTypeFound {
 		return nil, fmt.Errorf("mediaType is missing from the image %s manifest", image)
@@ -255,12 +260,12 @@ func (r *registry) getManifestStreamFromImage(image, repo string, options []cran
 	if strings.Contains(imageMediaType, "manifest.list") {
 		archDigest, err := r.getImageDigestFromMultiImage(manifest)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get arch digets from multi arch image: %w", err)
 		}
 		// get the manifest stream for the image of the architecture
 		manifest, err = crane.Manifest(repo+"@"+archDigest, options...)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get crane manifest for the arch image: %w", err)
 		}
 	}
 	return manifest, nil
@@ -270,7 +275,7 @@ func (r *registry) getLayersDigestsFromManifestStream(manifestStream []byte) ([]
 	manifest := v1.Manifest{}
 
 	if err := json.Unmarshal(manifestStream, &manifest); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarshal manifest stream: %w", err)
 	}
 
 	digests := make([]string, len(manifest.Layers))
@@ -284,14 +289,14 @@ func (r *registry) getHeaderFromLayer(layer v1.Layer, headerName string) (*unstr
 
 	targz, err := layer.Compressed()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get targz from layer: %w", err)
 	}
 	// err ignored because we're only reading
 	defer targz.Close()
 
 	gr, err := gzip.NewReader(targz)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create reader from targz: %w", err)
 	}
 	// err ignored because we're only reading
 	defer gr.Close()
@@ -305,18 +310,18 @@ func (r *registry) getHeaderFromLayer(layer v1.Layer, headerName string) (*unstr
 				break
 			}
 
-			return nil, err
+			return nil, fmt.Errorf("failed to get next entry from targz: %w", err)
 		}
 		if header.Name == headerName {
 			buff, err := io.ReadAll(tr)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to read tar entry: %w", err)
 			}
 
 			obj := unstructured.Unstructured{}
 
 			if err = json.Unmarshal(buff, &obj.Object); err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to unmarshal tar entry: %w", err)
 			}
 			return &obj, nil
 		}
@@ -330,7 +335,7 @@ func (r *registry) getImageDigestFromMultiImage(manifestListStream []byte) (stri
 	manifestList := v1.IndexManifest{}
 
 	if err := json.Unmarshal(manifestListStream, &manifestList); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to unmarshal manifest stream: %w", err)
 	}
 	for _, manifest := range manifestList.Manifests {
 		if manifest.Platform != nil && manifest.Platform.Architecture == arch {
