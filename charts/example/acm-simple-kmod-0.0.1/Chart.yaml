@@ -1,0 +1,7 @@
+apiVersion: v2
+name: acm-simple-kmod
+description: Build ACM enabled simple-kmod driver with SpecialResourceOperator
+icon: https://avatars.githubusercontent.com/u/55542927
+type: application
+version: 0.0.1
+appVersion: 1.6.4

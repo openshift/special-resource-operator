@@ -1,0 +1,27 @@
+apiVersion: sro.openshift.io/v1beta1
+kind: SpecialResourceModule
+metadata:
+  name: acm-simple-kmod
+spec:
+  namespace: acm-simple-kmod
+  chart:
+    name: acm-simple-kmod
+    version: 0.0.1
+    repository:
+      name: chart
+      url: cm://acm-simple-kmod/acm-simple-kmod
+  set:
+    kind: Values
+    apiVersion: sro.openshift.io/v1beta1
+    buildArgs:
+      - name: "KMODVER"
+        value: "SRO"
+    registry: quay.io/pacevedo
+    git:
+      ref: master
+      uri: https://github.com/openshift-psap/kvc-simple-kmod.git
+  watch:
+    - path: "$.metadata.labels.openshiftVersion"
+      apiVersion: cluster.open-cluster-management.io/v1
+      kind: ManagedCluster
+      name: spoke1

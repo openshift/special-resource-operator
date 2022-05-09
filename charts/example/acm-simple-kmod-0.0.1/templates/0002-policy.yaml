@@ -1,0 +1,99 @@
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+ name: policy-{{.Values.specialResourceModule.metadata.name}}-ds
+ annotations:
+   policy.open-cluster-management.io/categories: CM Configuration Management
+   policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
+   policy.open-cluster-management.io/standards: NIST-CSF
+spec:
+ remediationAction: enforce
+ disabled: false
+ policy-templates:
+   - objectDefinition:
+       apiVersion: policy.open-cluster-management.io/v1
+       kind: ConfigurationPolicy
+       metadata:
+         name: config-{{.Values.specialResourceModule.metadata.name}}-ds
+       spec:
+         remediationAction: enforce
+         severity: low
+         namespaceselector:
+           exclude:
+             - kube-*
+           include:
+             - '*'
+         object-templates:
+           - complianceType: mustonlyhave
+             objectDefinition:
+               apiVersion: v1
+               kind: ServiceAccount
+               metadata:
+                 name: {{.Values.specialResourceModule.metadata.name}}
+                 namespace: {{.Values.specialResourceModule.spec.namespace}}
+           - complianceType: mustonlyhave
+             objectDefinition:
+               apiVersion: rbac.authorization.k8s.io/v1
+               kind: Role
+               metadata:
+                 name: {{.Values.specialResourceModule.metadata.name}}
+                 namespace: {{.Values.specialResourceModule.spec.namespace}}
+               rules:
+               - apiGroups:
+                 - security.openshift.io
+                 resources:
+                 - securitycontextconstraints
+                 verbs:
+                 - use
+                 resourceNames:
+                 - privileged
+           - complianceType: mustonlyhave
+             objectDefinition:
+               apiVersion: rbac.authorization.k8s.io/v1
+               kind: RoleBinding
+               metadata:
+                 name: {{.Values.specialResourceModule.metadata.name}}
+                 namespace: {{.Values.specialResourceModule.spec.namespace}}
+               roleRef:
+                 apiGroup: rbac.authorization.k8s.io
+                 kind: Role
+                 name: {{.Values.specialResourceModule.metadata.name}}
+               subjects:
+               - kind: ServiceAccount
+                 name: {{.Values.specialResourceModule.metadata.name}}
+                 namespace: {{.Values.specialResourceModule.spec.namespace}}
+           - complianceType: musthave
+             objectDefinition:
+               apiVersion: apps/v1
+               kind: DaemonSet
+               metadata:
+                 labels:
+                   app: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.kernelFullVersion | replace "." "-" | replace "_" "-" | trunc 63 }} 
+                 name: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.kernelFullVersion | replace "." "-" | replace "_" "-" | trunc 63 }}
+                 namespace: {{.Values.specialResourceModule.spec.namespace}}
+               spec:
+                 updateStrategy:
+                   type: OnDelete
+                 selector:
+                   matchLabels:
+                     app: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.kernelFullVersion | replace "." "-" | replace "_" "-" | trunc 63 }} 
+                 template:
+                   metadata:
+                     annotations:
+                       scheduler.alpha.kubernetes.io/critical-pod: ""
+                     labels:
+                       app: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.kernelFullVersion | replace "." "-" | replace "_" "-" | trunc 63 }} 
+                   spec:
+                     serviceAccount: {{.Values.specialResourceModule.metadata.name}}
+                     serviceAccountName: {{.Values.specialResourceModule.metadata.name}}
+                     containers:
+                     - image: {{.Values.registry}}/{{.Values.specialResourceModule.metadata.name}}-{{.Values.groupName.driverContainer}}:{{.Values.kernelFullVersion}}
+                       name: {{.Values.specialResourceModule.metadata.name}}
+                       imagePullPolicy: Always
+                       command: ["/sbin/init"]
+                       lifecycle:
+                         preStop:
+                           exec:
+                             command: ["/bin/sh", "-c", "systemctl stop kmods-via-containers@{{.Values.specialResourceModule.metadata.name}}"]
+                       securityContext:
+                         privileged: true
