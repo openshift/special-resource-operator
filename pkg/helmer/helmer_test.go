@@ -3,6 +3,7 @@ package helmer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -52,7 +53,7 @@ var _ = Describe("helmer_InstallCRDs", func() {
 		h, err := newHelmerWithVersions(mockResourceAPI, cli.New(), nil, nil, mockKubeClient)
 		Expect(err).NotTo(HaveOccurred())
 		err = h.InstallCRDs(context.TODO(), nil, owner, name, namespace, "")
-		Expect(err).To(Equal(randomError))
+		Expect(err).To(Equal(fmt.Errorf("failed to create from yaml %s/%s: %w", namespace, name, randomError)))
 	})
 
 	It("should install all CRDs", func() {

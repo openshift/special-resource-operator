@@ -136,7 +136,7 @@ func (h *helmer) AddorUpdateRepo(entry *repo.Entry) error {
 
 	chartRepo, err := repo.NewChartRepository(entry, h.getterProviders)
 	if err != nil {
-		return fmt.Errorf("new chart repository failed: %w", err)
+		return fmt.Errorf("new chart repository constructor failed for %s: %w", entry.URL, err)
 
 	}
 	chartRepo.CachePath = h.settings.RepositoryCache
@@ -172,7 +172,7 @@ func (h *helmer) Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 	}
 
 	if err := h.AddorUpdateRepo(entry); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to add or update repo for entry %s: %w", entry.Name, err)
 	}
 
 	act := action.ChartPathOptions{
@@ -195,7 +195,7 @@ func (h *helmer) Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 	var path string
 
 	if path, err = act.LocateChart(repoChartName, h.settings); err != nil {
-		return nil, fmt.Errorf("Could not locate chart %s: %w", repoChartName, err)
+		return nil, fmt.Errorf("failed to locate chart %s: %w", repoChartName, err)
 	}
 
 	loaded, err := loader.Load(path)
@@ -207,7 +207,7 @@ func (h *helmer) Load(spec helmerv1beta1.HelmChart) (*chart.Chart, error) {
 func (h *helmer) failRelease(rel *release.Release, err error) error {
 	rel.SetStatus(release.StatusFailed, fmt.Sprintf("Release %q failed: %s", rel.Name, err.Error()))
 	if e := h.actionConfig.Releases.Update(rel); e != nil {
-		return fmt.Errorf("unable to update release status: %w", e)
+		return fmt.Errorf("failed to update release status: %w", e)
 	}
 	return err
 }
@@ -228,7 +228,7 @@ func (h *helmer) deleteHookByPolicy(hook *release.Hook, policy release.HookDelet
 	}
 	resources, err := h.actionConfig.KubeClient.Build(bytes.NewBufferString(hook.Manifest), false)
 	if err != nil {
-		return fmt.Errorf("unable to build kubernetes object for deleting hook %s: %w", hook.Path, err)
+		return fmt.Errorf("failed to build kubernetes object for deleteHook %s: %w", hook.Path, err)
 	}
 	_, errs := h.actionConfig.KubeClient.Delete(resources)
 	if len(errs) > 0 {
@@ -236,7 +236,7 @@ func (h *helmer) deleteHookByPolicy(hook *release.Hook, policy release.HookDelet
 		for _, e := range errs {
 			es = append(es, e.Error())
 		}
-		return fmt.Errorf("unable to delete hook resource %s: %s", hook.Path, strings.Join(es, "; "))
+		return fmt.Errorf("failed to delete hook resource %s: %s", hook.Path, strings.Join(es, "; "))
 	}
 	return nil
 }
@@ -250,7 +250,7 @@ func (h *helmer) InstallCRDs(ctx context.Context, crds []chart.CRD, owner v1.Obj
 	}
 	if err := h.resourceAPI.CreateFromYAML(ctx, manifests.Bytes(),
 		false, owner, name, namespace, nil, "", "", ownerLabel); err != nil {
-		return err
+		return fmt.Errorf("failed to create from yaml %s/%s: %w", namespace, name, err)
 	}
 
 	return nil
@@ -269,7 +269,7 @@ func (h *helmer) dryRunHelmChart(ctx context.Context,
 		log.Info("Helm", "internal", msg)
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("Cannot initialize helm action config: %w", err)
+		return nil, nil, fmt.Errorf("Cannot initialize helm action config for chart %s: %w", ch.Name(), err)
 	}
 
 	install := action.NewInstall(h.actionConfig)
@@ -291,7 +291,7 @@ func (h *helmer) dryRunHelmChart(ctx context.Context,
 	}
 
 	if ch.Metadata.Type != "" && ch.Metadata.Type != "application" {
-		return nil, nil, fmt.Errorf("Chart has an unsupported type %s and can not be installed", ch.Metadata.Type)
+		return nil, nil, fmt.Errorf("chart %s has an unsupported type %s and can not be installed", ch.Name(), ch.Metadata.Type)
 	}
 
 	rel, err := install.Run(&ch, vals)
@@ -304,7 +304,7 @@ func (h *helmer) GetHelmOutput(ctx context.Context,
 	namespace string) (string, error) {
 	rel, _, err := h.dryRunHelmChart(ctx, ch, vals, namespace)
 	if err != nil {
-		return "", fmt.Errorf("failed to process chart, error is %w", err)
+		return "", fmt.Errorf("failed to process chart %s: %w", ch.Name(), err)
 	}
 	return rel.Manifest, nil
 }
@@ -326,13 +326,13 @@ func (h *helmer) Run(
 
 	rel, install, err := h.dryRunHelmChart(ctx, ch, vals, namespace)
 	if err != nil {
-		return fmt.Errorf("failed to process helm chart: %w", err)
+		return fmt.Errorf("failed to process helm chart %s: %w", ch.Name(), err)
 	}
 
 	if debug {
 		json, err := json.MarshalIndent(vals, "", " ")
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to marshal values map during debug for chart %s: %w", ch.Name(), err)
 		}
 		log.Info("Debug active. Showing manifests", "json", json, "manifest", rel.Manifest)
 		for _, hook := range rel.Hooks {
@@ -346,7 +346,7 @@ func (h *helmer) Run(
 		// We could try to recover gracefully here, but since nothing has been installed
 		// yet, this is probably safer than trying to continue when we know storage is
 		// not working.
-		log.Error(err, "Failed to create a Helm release")
+		log.Info(utils.WarnString("Failed to create a Helm release"), "error", err)
 	}
 
 	// Pre-install anything in the crd/ directory.
@@ -354,14 +354,14 @@ func (h *helmer) Run(
 
 		err := h.InstallCRDs(ctx, crds, owner, install.ReleaseName, install.Namespace, ownerLabel)
 		if err != nil {
-			return fmt.Errorf("cannot install CRDs: %w", err)
+			return fmt.Errorf("failed to install CRDs for chart %s: %w", ch.Name(), err)
 		}
 	}
 
 	// pre-install hooks
 	if !install.DisableHooks {
 		if err := h.ExecHook(ctx, rel, release.HookPreInstall, owner, name, namespace, ownerLabel); err != nil {
-			return h.failRelease(rel, fmt.Errorf("failed pre-install: %s", err))
+			return h.failRelease(rel, fmt.Errorf("failed pre-install hook for chart %s: %w", ch.Name(), err))
 		}
 
 	}
@@ -379,12 +379,12 @@ func (h *helmer) Run(
 		ownerLabel)
 
 	if err != nil {
-		return h.failRelease(rel, err)
+		return h.failRelease(rel, fmt.Errorf("failed to create resources from yaml for chart %s: %w", ch.Name(), err))
 	}
 
 	if !install.DisableHooks {
 		if err := h.ExecHook(ctx, rel, release.HookPostInstall, owner, name, namespace, ownerLabel); err != nil {
-			return h.failRelease(rel, fmt.Errorf("failed post-install: %s", err))
+			return h.failRelease(rel, fmt.Errorf("failed post-install hook for chart %s: %w", ch.Name(), err))
 		}
 	}
 
@@ -395,7 +395,7 @@ func (h *helmer) Run(
 	}
 
 	if err := h.actionConfig.Releases.Update(rel); err != nil {
-		return err
+		return fmt.Errorf("failed tpo update action config relase for chart %s: %w", ch.Name(), err)
 	}
 
 	return nil
@@ -463,7 +463,7 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 		}
 
 		if err := h.deleteHookByPolicy(hk, release.HookBeforeHookCreation); err != nil {
-			return err
+			return fmt.Errorf("failed to delete hook %s %s by policy before-hook-creation: %w", hk.Name, hk.Path, err)
 		}
 
 		hk.LastRun = release.HookExecution{
@@ -471,7 +471,7 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 			Phase:     release.HookPhaseRunning,
 		}
 		if err := h.actionConfig.Releases.Update(rl); err != nil {
-			return fmt.Errorf("unable to update release status: %w", err)
+			return fmt.Errorf("unable to update release status for hook %s %s: %w", hk.Name, hk.Path, err)
 		}
 
 		// As long as the implementation of WatchUntilReady does not panic, HookPhaseFailed or HookPhaseSucceeded
@@ -484,7 +484,7 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 			hk.LastRun.CompletedAt = helmtime.Now()
 			hk.LastRun.Phase = release.HookPhaseFailed
 			if err := h.deleteHookByPolicy(hk, release.HookFailed); err != nil {
-				return fmt.Errorf("failed to delete hook by policy %s %s: %w", hk.Name, hk.Path, err)
+				return fmt.Errorf("failed to delete hook by policy hook-failed %s %s: %w", hk.Name, hk.Path, err)
 			}
 			return fmt.Errorf("hook execution failed %s %s: %w", hk.Name, hk.Path, err)
 		}
@@ -499,7 +499,7 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 	// under succeeded condition. If so, then clear the corresponding resource object in each hook
 	for _, hk := range hooks {
 		if err := h.deleteHookByPolicy(hk, release.HookSucceeded); err != nil {
-			return err
+			return fmt.Errorf("failed to delete hokk %s %s by policy before-hook-creation: %w", hk.Name, hk.Path, err)
 		}
 	}
 
@@ -509,9 +509,9 @@ func (h *helmer) ExecHook(ctx context.Context, rl *release.Release, hook release
 				return nil
 			}
 			if apierrors.IsForbidden(err) {
-				return fmt.Errorf("unable to create configmap for hook %s. Forbidden: %w", hook, err)
+				return fmt.Errorf("failed to create configmap %s/%s for hook %s, forbidden: %w", obj.GetNamespace(), obj.GetName(), hook, err)
 			}
-			return fmt.Errorf("Unexpected error creating hook cm %s: %w", hook, err)
+			return fmt.Errorf("failed to create configmap %s/%s for hook %s: %w", obj.GetNamespace(), obj.GetName(), hook, err)
 		}
 	}
 	return nil
