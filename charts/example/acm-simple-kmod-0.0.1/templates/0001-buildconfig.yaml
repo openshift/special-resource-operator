@@ -1,0 +1,36 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  labels:
+    app: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.kernelFullVersion | replace "." "-" | replace "_" "-" | trunc 63 }}
+  name: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.kernelFullVersion | replace "." "-" | replace "_" "-" | trunc 63 }}
+  annotations:
+    specialresource.openshift.io/wait: "true"
+spec:
+  nodeSelector:
+    node-role.kubernetes.io/worker: ""
+  runPolicy: "Serial"
+  triggers:
+    - type: "ConfigChange"
+    - type: "ImageChange"
+  source:
+    git:
+      ref: {{.Values.git.ref}}
+      uri: {{.Values.git.uri}}
+    type: Git
+  strategy:
+    dockerStrategy:
+      dockerfilePath: Dockerfile.SRO
+      buildArgs:
+        - name: "IMAGE"
+          value: {{ .Values.driverToolkitImage  }}
+        {{- range $arg := .Values.buildArgs }}
+        - name: {{ $arg.name }}
+          value: {{ $arg.value }}
+        {{- end }}
+        - name: KVER
+          value: {{ .Values.kernelFullVersion }}
+  output:
+    to:
+      kind: DockerImage
+      name: {{.Values.registry}}/{{.Values.specialResourceModule.metadata.name}}-{{.Values.groupName.driverContainer}}:{{.Values.kernelFullVersion}}

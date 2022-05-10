@@ -1,0 +1,27 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: PlacementRule
+metadata:
+ name: {{.Values.specialResourceModule.metadata.name}}-placement
+spec:
+  clusterConditions:
+  - status: "True"
+    type: ManagedClusterConditionAvailable
+  clusterSelector:
+    matchExpressions:
+    - key: name
+      operator: NotIn
+      values:
+      - local-cluster
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata:
+ name: {{.Values.specialResourceModule.metadata.name}}-binding
+placementRef:
+ apiGroup: apps.open-cluster-management.io
+ kind: PlacementRule
+ name: {{.Values.specialResourceModule.metadata.name}}-placement
+subjects:
+- apiGroup: policy.open-cluster-management.io
+  kind: Policy
+  name: policy-{{.Values.specialResourceModule.metadata.name}}-ds
