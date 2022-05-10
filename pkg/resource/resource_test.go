@@ -240,10 +240,6 @@ spec:
 				Get(context.Background(), nsn, unstructuredMatcher).
 				Return(k8serrors.NewNotFound(v1.Resource("pod"), name)),
 			helper.EXPECT().IsOneTimer(gomock.Any()).Times(1),
-			helper.EXPECT().SetMetaData(gomock.Any(), specialResourceName, namespace).Times(1).
-				Do(func(obj *unstructured.Unstructured, nm string, ns string) {
-					resourcehelper.New().SetMetaData(obj, nm, ns)
-				}),
 			kubeClient.
 				EXPECT().
 				Create(context.Background(), &newPod),
@@ -434,9 +430,11 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 				Do(func(_ context.Context, pl *v1.PodList, _ client.InNamespace, _ client.MatchingLabels) {
 					pl.Items = []v1.Pod{
 						{
-							Status: v1.PodStatus{Phase: "test"},
+							ObjectMeta: metav1.ObjectMeta{Name: "pod1", Namespace: "namespace"},
+							Status:     v1.PodStatus{Phase: "test"},
 						},
 						{
+							ObjectMeta: metav1.ObjectMeta{Name: "pod2", Namespace: "namespace"},
 							Status: v1.PodStatus{
 								ContainerStatuses: []v1.ContainerStatus{
 									{
@@ -456,7 +454,7 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 		err := NewResourceAPI(kubeClient, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
 			checkForImagePullBackOff(context.Background(), ds, namespace)
 
-		Expect(err).To(MatchError("ImagePullBackOff need to rebuild " + vendor + " driver-container"))
+		Expect(err).To(MatchError("pod namespace/pod2 is in ImagePullBackOff, need to rebuild " + vendor + " driver-container"))
 		Expect(UpdateVendor).To(Equal(vendor))
 	})
 
@@ -544,7 +542,7 @@ var _ = Describe("resource_BeforeCRUD", func() {
 		proxyAPI.EXPECT().Setup(context.Background(), obj).Return(nil).Times(1)
 
 		err := NewResourceAPI(nil, nil, nil, nil, nil, nil, proxyAPI, nil).(*resource).
-			BeforeCRUD(context.Background(), obj, nil)
+			beforeCRUD(context.Background(), obj, nil)
 
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -572,7 +570,7 @@ var _ = Describe("resource_AfterCRUD", func() {
 			expectations()
 
 			err := NewResourceAPI(nil, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
-				AfterCRUD(context.Background(), obj, "ns")
+				afterCRUD(context.Background(), obj, "ns")
 
 			Expect(err).ToNot(HaveOccurred())
 
@@ -611,7 +609,7 @@ var _ = Describe("resource_AfterCRUD", func() {
 		pollActions.EXPECT().ForResource(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 
 		err := NewResourceAPI(nil, nil, pollActions, nil, nil, nil, nil, nil).(*resource).
-			AfterCRUD(context.Background(), obj, "ns")
+			afterCRUD(context.Background(), obj, "ns")
 
 		Expect(err).ToNot(HaveOccurred())
 	})
@@ -671,7 +669,7 @@ var _ = Describe("resource_CRUD", func() {
 			}
 			helper.EXPECT().SetMetaData(u, specialResourceName, namespace).Times(times)
 
-			Expect(r.CRUD(context.Background(), u, false, &owner, specialResourceName, namespace)).To(Succeed())
+			Expect(r.crud(context.Background(), u, false, &owner, specialResourceName, namespace)).To(Succeed())
 		},
 		Entry("neither SpecialResource nor Namespace", "Pod", "name", namespace, true, true),
 		Entry("Namespace", "Namespace", namespace, "", false, false),
@@ -697,7 +695,7 @@ var _ = Describe("resource_CRUD", func() {
 			}
 			kubeClient.EXPECT().Create(gomock.Any(), gomock.Any()).Times(times)
 
-			Expect(r.CRUD(context.Background(), obj, releaseInstalled, &owner, specialResourceName, namespace)).To(Succeed())
+			Expect(r.crud(context.Background(), obj, releaseInstalled, &owner, specialResourceName, namespace)).To(Succeed())
 		},
 		Entry("object is OneTimer & release is installed = no object recreation", true, true),
 		Entry("object is OneTimer & release is not installed = object recreation", true, false),
@@ -716,7 +714,7 @@ var _ = Describe("resource_CRUD", func() {
 				Return(&k8serrors.StatusError{ErrStatus: metav1.Status{Reason: errReason}})
 
 			releaseInstalled := false
-			err := r.CRUD(context.Background(), obj, releaseInstalled, &owner, specialResourceName, namespace)
+			err := r.crud(context.Background(), obj, releaseInstalled, &owner, specialResourceName, namespace)
 			Expect(err.Error()).To(ContainSubstring(expectedSubstring))
 		},
 		Entry("forbidden error", metav1.StatusReasonForbidden, "forbidden"),
@@ -736,7 +734,7 @@ var _ = Describe("resource_CRUD", func() {
 			assert()
 
 			releaseInstalled := false
-			Expect(r.CRUD(context.Background(), obj, releaseInstalled, &owner, specialResourceName, namespace)).To(Succeed())
+			Expect(r.crud(context.Background(), obj, releaseInstalled, &owner, specialResourceName, namespace)).To(Succeed())
 
 		},
 		Entry("won't happen if object is not updateable",
