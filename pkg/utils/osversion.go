@@ -3,8 +3,6 @@ package utils
 import (
 	"fmt"
 	"regexp"
-
-	"github.com/pkg/errors"
 )
 
 var (
@@ -17,7 +15,7 @@ func ParseOSInfo(osImagePretty string) (string, string, string, error) {
 	clusterVersion, osVersion, osMajor := "", "", ""
 	matches := versionRegex.FindStringSubmatch(osImagePretty)
 	if len(matches) != 3 {
-		return clusterVersion, osVersion, osMajor, errors.New("unable to find a match " + osImagePretty)
+		return "", "", "", fmt.Errorf("failed to find a match for %s", osImagePretty)
 	}
 	clusterVersion = fmt.Sprintf("%c.%s", matches[1][0], matches[1][1:])
 	osVersion = fmt.Sprintf("%c.%s", matches[2][0], matches[2][1:])
