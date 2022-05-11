@@ -13,7 +13,7 @@ import (
 func FNV64a(s string) (string, error) {
 	h := fnv.New64a()
 	if _, err := h.Write([]byte(s)); err != nil {
-		return "", fmt.Errorf("Could not write hash: %w", err)
+		return "", fmt.Errorf("failed to write hash: %w", err)
 	}
 	return fmt.Sprintf("%x", h.Sum64()), nil
 }
@@ -22,7 +22,7 @@ func Annotate(obj *unstructured.Unstructured) error {
 
 	hash, err := hashstructure.Hash(obj.Object, hashstructure.FormatV2, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to hash object %s %s/%s: %w", obj.GetKind(), obj.GetNamespace(), obj.GetName(), err)
 	}
 	anno := obj.GetAnnotations()
 	if anno == nil {
@@ -37,7 +37,7 @@ func AnnotationEqual(new *unstructured.Unstructured, old *unstructured.Unstructu
 
 	hash, err := hashstructure.Hash(old.Object, hashstructure.FormatV2, nil)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to hash old object %s %s/%s: %w", old.GetKind(), old.GetNamespace(), old.GetName(), err)
 	}
 	anno := new.GetAnnotations()
 
