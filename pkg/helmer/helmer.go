@@ -65,7 +65,7 @@ func OpenShiftInstallOrder() {
 type Helmer interface {
 	Load(helmerv1beta1.HelmChart) (*chart.Chart, error)
 	Run(context.Context, chart.Chart, map[string]interface{}, v1.Object, string, string, map[string]string, string, string, bool, string) error
-	GetHelmOutput(context.Context, chart.Chart, map[string]interface{}, string) (string, error)
+	GetHelmOutput(context.Context, chart.Chart, map[string]interface{}, string, string) (string, error)
 }
 
 type helmer struct {
@@ -259,6 +259,7 @@ func (h *helmer) InstallCRDs(ctx context.Context, crds []chart.CRD, owner v1.Obj
 func (h *helmer) dryRunHelmChart(ctx context.Context,
 	ch chart.Chart,
 	vals map[string]interface{},
+	name string,
 	namespace string) (*release.Release, *action.Install, error) {
 
 	log := ctrlruntime.LoggerFrom(ctx)
@@ -275,7 +276,7 @@ func (h *helmer) dryRunHelmChart(ctx context.Context,
 	install := action.NewInstall(h.actionConfig)
 
 	install.DryRun = true
-	install.ReleaseName = ch.Metadata.Name
+	install.ReleaseName = name
 	install.Replace = false
 	install.ClientOnly = true
 	install.KubeVersion = &h.kubeVersion
@@ -301,8 +302,9 @@ func (h *helmer) dryRunHelmChart(ctx context.Context,
 func (h *helmer) GetHelmOutput(ctx context.Context,
 	ch chart.Chart,
 	vals map[string]interface{},
+	name string,
 	namespace string) (string, error) {
-	rel, _, err := h.dryRunHelmChart(ctx, ch, vals, namespace)
+	rel, _, err := h.dryRunHelmChart(ctx, ch, vals, name, namespace)
 	if err != nil {
 		return "", fmt.Errorf("failed to process chart %s: %w", ch.Name(), err)
 	}
@@ -324,7 +326,7 @@ func (h *helmer) Run(
 
 	log := ctrlruntime.LoggerFrom(ctx)
 
-	rel, install, err := h.dryRunHelmChart(ctx, ch, vals, namespace)
+	rel, install, err := h.dryRunHelmChart(ctx, ch, vals, name, namespace)
 	if err != nil {
 		return fmt.Errorf("failed to process helm chart %s: %w", ch.Name(), err)
 	}

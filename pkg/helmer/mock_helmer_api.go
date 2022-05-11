@@ -38,18 +38,18 @@ func (m *MockHelmer) EXPECT() *MockHelmerMockRecorder {
 }
 
 // GetHelmOutput mocks base method.
-func (m *MockHelmer) GetHelmOutput(arg0 context.Context, arg1 chart.Chart, arg2 map[string]interface{}, arg3 string) (string, error) {
+func (m *MockHelmer) GetHelmOutput(arg0 context.Context, arg1 chart.Chart, arg2 map[string]interface{}, arg3, arg4 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetHelmOutput", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "GetHelmOutput", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetHelmOutput indicates an expected call of GetHelmOutput.
-func (mr *MockHelmerMockRecorder) GetHelmOutput(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockHelmerMockRecorder) GetHelmOutput(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHelmOutput", reflect.TypeOf((*MockHelmer)(nil).GetHelmOutput), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHelmOutput", reflect.TypeOf((*MockHelmer)(nil).GetHelmOutput), arg0, arg1, arg2, arg3, arg4)
 }
 
 // Load mocks base method.
