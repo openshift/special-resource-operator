@@ -17,6 +17,7 @@ package yamlutil
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -68,7 +69,8 @@ func (s *Scanner) Scan() bool {
 		if tok == nil {
 			s.empties++
 			if s.empties > maxExecutiveEmpties {
-				panic("yaml.Scan: too many empty tokens without progressing")
+				s.err = fmt.Errorf("too many empty tokens without progressing, empty %d, maxExecutiveEmpties %d", s.empties, maxExecutiveEmpties)
+				return false
 			}
 			continue
 		}
