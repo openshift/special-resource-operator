@@ -23,7 +23,7 @@ type Filter interface {
 
 func NewFilter(log logr.Logger, kind, ownedLabel string, lifecycle lifecycle.Lifecycle, storage storage.Storage, kernelData kernel.KernelData) Filter {
 	return &filter{
-		log:        log.WithName("filter"),
+		log:        log.WithName("filter").WithValues("kind", kind),
 		lifecycle:  lifecycle,
 		storage:    storage,
 		kernelData: kernelData,
@@ -123,6 +123,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 					f.log.Info("Creating managed special resource", "specialResourceName", obj.GetName())
 					return true
 				}
+				f.log.V(1).Info("Filtering out creation special managed resource", "object", obj.GetName())
 				return false
 			}
 
@@ -131,6 +132,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 				return true
 			}
 
+			f.log.V(1).Info("Filtering out creation", "objName", obj.GetName(), "kind", obj.GetObjectKind())
 			return false
 		},
 
@@ -153,13 +155,13 @@ func (f *filter) GetPredicates() predicate.Predicate {
 			// Required for the case when pods are deleted due to OS upgrade
 			if f.owned(obj) {
 				if f.kernelData.IsObjectAffine(obj) {
-					f.log.Info("Object is kernel affine", "object", obj.GetName())
-
 					if e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() &&
 						e.ObjectOld.GetResourceVersion() == e.ObjectNew.GetResourceVersion() {
+						f.log.V(1).Info("Skipping update, generation and resource version not changed", "object", obj.GetName(), "kind", obj.GetObjectKind())
 						return false
 					} else {
 						if f.isSpecialResource(obj) && f.isSpecialResourceUnmanaged(obj) {
+							f.log.V(1).Info("Skipping update of the owned unmanaged special resource", "objName", obj.GetName())
 							return false
 						}
 						f.log.Info("Updating owned object. generation or resourceVersion kernel affine changed",
@@ -171,12 +173,14 @@ func (f *filter) GetPredicates() predicate.Predicate {
 
 			// Ignore updates to CR status in which case metadata.Generation does not change
 			if e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() {
+				f.log.V(1).Info("Skipping update, generation had not changed", "objName", obj.GetName())
 				return false
 			}
 			// Some objects will increase generation on Update SRO sets the
 			// resourceversion New = Old so we can filter on those even if an
 			// update does not change anything see e.g. Deployment or SCC
 			if e.ObjectOld.GetResourceVersion() == e.ObjectNew.GetResourceVersion() {
+				f.log.V(1).Info("Skipping update, resource version had not changed", "objName", obj.GetName())
 				return false
 			}
 
@@ -185,6 +189,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 
 			if f.isSpecialResource(obj) {
 				if f.isSpecialResourceUnmanaged(obj) {
+					f.log.V(1).Info("Skipping update of unmanaged special resource", "objName", obj.GetName())
 					return false
 				}
 				f.log.Info("Updating special resource", "srName", obj.GetName())
@@ -197,6 +202,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 				return true
 			}
 
+			f.log.V(1).Info("Skipping update of the object", "objName", obj.GetName(), "kind", obj.GetObjectKind())
 			return false
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
@@ -215,6 +221,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 				f.log.Info("Deleting owned object", "objName", obj.GetName(), "objNamespace", obj.GetNamespace(), "objKind", obj.GetObjectKind())
 				return true
 			}
+			f.log.V(1).Info("Skipping deletion of object", "objName", obj.GetName(), "kind", obj.GetObjectKind())
 			return false
 		},
 		GenericFunc: func(e event.GenericEvent) bool {
@@ -229,6 +236,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 					f.log.Info("Generic special resource", "srName", obj.GetName())
 					return true
 				}
+				f.log.V(1).Info("Skipping generic unmanaged special resource object", "object", obj.GetName())
 				return false
 			}
 			// If we do not own the object, do not care
@@ -236,6 +244,7 @@ func (f *filter) GetPredicates() predicate.Predicate {
 				f.log.Info("Generic owned resource", "objName", obj.GetName(), "objNamespace", obj.GetNamespace(), "objKind", obj.GetObjectKind())
 				return true
 			}
+			f.log.V(1).Info("Skipping generic object", "objName", obj.GetName(), "objKind", obj.GetObjectKind())
 			return false
 
 		},
