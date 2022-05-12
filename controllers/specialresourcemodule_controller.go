@@ -186,7 +186,7 @@ func getImageFromVersion(entry string) (string, error) {
 				}
 				var versions versionGraph
 				if err := json.Unmarshal(data, &versions); err != nil {
-					return fmt.Errorf("unalbe to unmarshal json: %w", err)
+					return fmt.Errorf("unable to unmarshal json: %w", err)
 				}
 				for _, version := range versions.Nodes {
 					if version.Version == full && len(version.Payload) > 0 {
@@ -221,7 +221,11 @@ metadata:
 		resource.Spec.Namespace = resource.Name
 	}
 	ns = append(ns, []byte(resource.Spec.Namespace)...)
-	return r.ResourceAPI.CreateFromYAML(ctx, ns, false, &resource, resource.Name, "", nil, "", "", SRMOwnedLabel)
+
+	if err := r.ResourceAPI.CreateFromYAML(ctx, ns, false, &resource, resource.Name, "", nil, "", "", SRMOwnedLabel); err != nil {
+		return fmt.Errorf("unable to create namespace '%s': %w", resource.Name, err)
+	}
+	return nil
 }
 
 func (r *SpecialResourceModuleReconciler) deleteNamespace(ctx context.Context, name string) error {
@@ -230,7 +234,10 @@ func (r *SpecialResourceModuleReconciler) deleteNamespace(ctx context.Context, n
 			Name: name,
 		},
 	}
-	return r.KubeClient.Delete(ctx, ns)
+	if err := r.KubeClient.Delete(ctx, ns); err != nil {
+		return fmt.Errorf("unable to delete namespace '%s': %w", name, err)
+	}
+	return nil
 }
 
 func (r *SpecialResourceModuleReconciler) getAllResources(kind, apiVersion, namespace, name string) ([]unstructured.Unstructured, error) {
@@ -239,7 +246,7 @@ func (r *SpecialResourceModuleReconciler) getAllResources(kind, apiVersion, name
 		l.SetKind(kind)
 		l.SetAPIVersion(apiVersion)
 		if err := r.KubeClient.List(context.Background(), &l); err != nil {
-			return nil, fmt.Errorf("faile to get all %s: %w", kind, err)
+			return nil, fmt.Errorf("failed to list '%s': %w", kind, err)
 		}
 		return l.Items, nil
 	}
@@ -250,7 +257,7 @@ func (r *SpecialResourceModuleReconciler) getAllResources(kind, apiVersion, name
 	obj.SetName(name)
 	key := client.ObjectKeyFromObject(&obj)
 	if err := r.KubeClient.Get(context.Background(), key, &obj); err != nil {
-		return []unstructured.Unstructured{}, fmt.Errorf("failed to get %s/%s in namespace %s: %w", kind, name, namespace, err)
+		return []unstructured.Unstructured{}, fmt.Errorf("failed to get object kind  %s '%s/%s': %w", kind, name, namespace, err)
 	}
 	return []unstructured.Unstructured{obj}, nil
 }
@@ -264,7 +271,7 @@ func (r *SpecialResourceModuleReconciler) filterResources(selectors []srov1beta1
 		for _, obj := range objs {
 			candidates, err := watcher.GetJSONPath(selector.Path, obj)
 			if err != nil {
-				return []unstructured.Unstructured{}, fmt.Errorf("failed to get json path for %s: %w", selector.Path, err)
+				return []unstructured.Unstructured{}, fmt.Errorf("failed to get json path for '%s': %w", selector.Path, err)
 			}
 			found := false
 			for _, candidate := range candidates {
@@ -287,19 +294,19 @@ func (r *SpecialResourceModuleReconciler) filterResources(selectors []srov1beta1
 func (r *SpecialResourceModuleReconciler) getVersionInfoFromImage(ctx context.Context, entry string) (ocpVersionInfo, error) {
 	manifestsLastLayer, err := r.Registry.LastLayer(ctx, entry)
 	if err != nil {
-		return ocpVersionInfo{}, fmt.Errorf("failed to get manifest's last layer for image %s: %w", entry, err)
+		return ocpVersionInfo{}, fmt.Errorf("failed to get manifest's last layer for image '%s': %w", entry, err)
 	}
 	dtkURL, err := r.Registry.ReleaseManifests(manifestsLastLayer)
 	if err != nil {
-		return ocpVersionInfo{}, fmt.Errorf("failed to get DTK URL from image %s: %w", entry, err)
+		return ocpVersionInfo{}, fmt.Errorf("failed to get DTK URL from image '%s': %w", entry, err)
 	}
 	dtkLastLayer, err := r.Registry.LastLayer(ctx, dtkURL)
 	if err != nil {
-		return ocpVersionInfo{}, fmt.Errorf("failed to get DTK's last layer for image %s: %w", dtkURL, err)
+		return ocpVersionInfo{}, fmt.Errorf("failed to get DTK's last layer for image '%s': %w", dtkURL, err)
 	}
 	dtkEntry, err := r.Registry.ExtractToolkitRelease(dtkLastLayer)
 	if err != nil {
-		return ocpVersionInfo{}, fmt.Errorf("failed to extract toolkit release from layer %s: %w", dtkLastLayer, err)
+		return ocpVersionInfo{}, fmt.Errorf("failed to extract toolkit release from layer '%s': %w", dtkLastLayer, err)
 	}
 
 	return ocpVersionInfo{
@@ -320,7 +327,7 @@ func (r *SpecialResourceModuleReconciler) getOCPVersions(ctx context.Context, wa
 			if k8serrors.IsNotFound(err) {
 				continue
 			}
-			return nil, fmt.Errorf("failed to get %s/%s in namespace %s: %w", resource.Kind, resource.Name, resource.Namespace, err)
+			return nil, fmt.Errorf("failed to get '%s/%s' in namespace '%s': %w", resource.Kind, resource.Name, resource.Namespace, err)
 		}
 		objs, err = r.filterResources(resource.Selector, objs)
 		if err != nil {
@@ -337,7 +344,7 @@ func (r *SpecialResourceModuleReconciler) getOCPVersions(ctx context.Context, wa
 				if versionRegex.MatchString(element) {
 					tmp, err := getImageFromVersion(element)
 					if err != nil {
-						return nil, fmt.Errorf("could not get image from %s: %w", element, err)
+						return nil, fmt.Errorf("could not get image from '%s': %w", element, err)
 					}
 					log.Info("Version from regex", "objectName", obj.GetName(), "element", element)
 					image = tmp
@@ -345,11 +352,11 @@ func (r *SpecialResourceModuleReconciler) getOCPVersions(ctx context.Context, wa
 					log.Info("Version from image", "objectName", obj.GetName(), "element", element)
 					image = element
 				} else {
-					return nil, fmt.Errorf("format error, %s is not a valid image/version", element)
+					return nil, fmt.Errorf("format error, '%s' is not a valid image/version", element)
 				}
 				info, err := r.getVersionInfoFromImage(ctx, image)
 				if err != nil {
-					return nil, fmt.Errorf("could not get version info from image %s: %w", image, err)
+					return nil, fmt.Errorf("could not get version info from image '%s': %w", image, err)
 				}
 				versionMap[info.DTKImage] = info
 			}
@@ -359,7 +366,10 @@ func (r *SpecialResourceModuleReconciler) getOCPVersions(ctx context.Context, wa
 }
 
 func (r *SpecialResourceModuleReconciler) updateSpecialResourceModuleStatus(resource srov1beta1.SpecialResourceModule) error {
-	return r.KubeClient.StatusUpdate(context.Background(), &resource)
+	if err := r.KubeClient.StatusUpdate(context.Background(), &resource); err != nil {
+		return fmt.Errorf("unable to update SpecialResourceModule '%s' status: %w", resource.Name, err)
+	}
+	return nil
 }
 
 func (r *SpecialResourceModuleReconciler) reconcileChart(ctx context.Context, srm *srov1beta1.SpecialResourceModule, meta metadata, reconciledInput []string) ([]string, error) {
@@ -455,7 +465,7 @@ func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctr
 
 	opts := []client.ListOption{}
 	if err := r.KubeClient.List(context.Background(), srm, opts...); err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to list SpecialResourceModuleList: %w", err)
+		return reconcile.Result{}, fmt.Errorf("failed to list SpecialResourceModules: %w", err)
 	}
 
 	var request int
@@ -471,18 +481,19 @@ func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctr
 		return reconcile.Result{}, r.deleteNamespace(ctx, resource.Spec.Namespace)
 	}
 
+	log.Info("Reconciling watches")
 	if err := r.Watcher.ReconcileWatches(ctx, resource); err != nil {
-		log.Error(err, "failed to update watched resources")
 		return reconcile.Result{}, fmt.Errorf("failed to update watched resource: %w", err)
 	}
 
+	log.Info("Creating namespace")
 	_ = r.createNamespace(ctx, resource)
 
-	//TODO cache images, wont change dynamically.
 	clusterVersions, err := r.getOCPVersions(ctx, resource.Spec.Watch)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to get OCP versions: %w", err)
 	}
+	log.Info("Active versions retrieved", "numberOfVersions", len(clusterVersions))
 
 	if resource.Status.Versions == nil {
 		resource.Status.Versions = make(map[string]srov1beta1.SpecialResourceModuleVersionStatus)
@@ -494,12 +505,15 @@ func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctr
 	}
 	sort.Strings(updateList)
 
+	log.Info("Checking for obsolete versions in status")
 	for key := range resource.Status.Versions {
 		if _, ok := clusterVersions[key]; !ok {
 			log.Info("Removing version from status", "version", key)
 			delete(resource.Status.Versions, key)
 		}
 	}
+
+	log.Info("Reconciling active versions")
 	for _, key := range updateList {
 		element := clusterVersions[key]
 		log.Info("Reconciling version", "version", element.DTKImage)
