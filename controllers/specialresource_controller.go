@@ -18,13 +18,13 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
 	buildv1 "github.com/openshift/api/build/v1"
 	imagev1 "github.com/openshift/api/image/v1"
 	secv1 "github.com/openshift/api/security/v1"
-	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -94,8 +94,7 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	sr, srs, err := r.getSpecialResources(ctx, req)
 	if err != nil {
-		log.Error(err, "failed to get SpecialResources")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, fmt.Errorf("failed to get SpecialResources: %w", err)
 	} else if sr == nil {
 		log.Info("SpecialResource not found - probably deleted. Not reconciling.")
 		return ctrl.Result{}, nil
@@ -110,7 +109,7 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	// Reconcile all specialresources
 	if res, err = r.SpecialResourcesReconcile(ctx, wi); err != nil || res.Requeue {
-		return res, errors.Wrap(err, "Failed to reconcile SpecialResource")
+		return res, fmt.Errorf("failed to reconcile SpecialResource '%s/%s': %w", wi.SpecialResource.Namespace, wi.SpecialResource.Name, err)
 	}
 
 	log.Info("Reconciliation successful")
@@ -122,7 +121,7 @@ func (r *SpecialResourceReconciler) getSpecialResources(ctx context.Context, req
 
 	err := r.KubeClient.List(ctx, specialresources)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("couldn't list SpecialResources: %w", err)
 	}
 
 	var idx int
@@ -137,7 +136,7 @@ func (r *SpecialResourceReconciler) getSpecialResources(ctx context.Context, req
 		}
 		parent, err := r.Storage.CheckConfigMapEntry(ctx, req.Name, obj)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("couldn't check configmap entry: %w", err)
 		}
 
 		idx, found = FindSR(specialresources.Items, parent, "Name")
