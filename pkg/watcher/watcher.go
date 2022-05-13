@@ -13,6 +13,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/oliveagle/jsonpath"
 	srov1beta1 "github.com/openshift/special-resource-operator/api/v1beta1"
+	"github.com/openshift/special-resource-operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -165,7 +166,7 @@ func (w *watcher) ReconcileWatches(ctx context.Context, srm srov1beta1.SpecialRe
 	// Addition
 	for _, toWatch := range srm.Spec.Watch {
 		if err := w.tryAddResourceToWatch(ctx, toWatch, nn); err != nil {
-			return err
+			return fmt.Errorf("failed to add resource %s/%s to watch: %w", toWatch.Namespace, toWatch.Name, err)
 		}
 	}
 
@@ -173,11 +174,7 @@ func (w *watcher) ReconcileWatches(ctx context.Context, srm srov1beta1.SpecialRe
 }
 
 func (w *watcher) tryAddResourceToWatch(ctx context.Context, r srov1beta1.SpecialResourceModuleWatch, nnToTrigger types.NamespacedName) error {
-	if w == nil {
-		return errors.New("watcher is not initialized")
-	}
-
-	l := ctrl.LoggerFrom(ctx, "resource", r, "triggers", nnToTrigger)
+	log := ctrl.LoggerFrom(ctx, "resource", r, "triggers", nnToTrigger)
 
 	wr := WatchedResource{
 		ApiVersion: r.ApiVersion,
@@ -197,13 +194,11 @@ func (w *watcher) tryAddResourceToWatch(ctx context.Context, r srov1beta1.Specia
 	if err := w.ctrl.Watch(
 		&source.Kind{Type: watchedResourceToUnstructured(wr)},
 		handler.EnqueueRequestsFromMapFunc(w.mapper)); err != nil {
-
-		l.Error(err, "failed to start watching a resource")
-		return err
+		return fmt.Errorf("failed to start watch for kind %s: %w", wr.Kind, err)
 	}
 
 	w.addToWatched(wr, r.Path, nnToTrigger)
-	l.Info("added resource to be watched")
+	log.Info("added resource to be watched", "kind", wr.Kind)
 
 	return nil
 }
@@ -274,7 +269,7 @@ func (w *watcher) mapper(o client.Object) []reconcile.Request {
 	var unstr *unstructured.Unstructured
 	var ok bool
 	if unstr, ok = o.(*unstructured.Unstructured); !ok {
-		w.mapperLog.Info("failed to convert incoming object to Unstructed")
+		w.mapperLog.Info(utils.WarnString("failed to convert incoming object to Unstructured"), "kind", o.GetObjectKind())
 		return crsToTrigger
 	}
 
@@ -323,7 +318,7 @@ func GetJSONPath(path string, obj unstructured.Unstructured) ([]string, error) {
 		if strings.Contains(err.Error(), "key error") {
 			return nil, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to lookup object %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 	switch reflect.TypeOf(match).Kind() {
 	case reflect.Slice:
