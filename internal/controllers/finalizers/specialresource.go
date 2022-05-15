@@ -17,10 +17,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const FinalizerString = "sro.openshift.io/finalizer"
+const finalizerString = "sro.openshift.io/finalizer"
+const prevVersionFinalizerString = "finalizer.sro.openshift.io"
 
 type SpecialResourceFinalizer interface {
-	AddToSpecialResource(ctx context.Context, sr *v1beta1.SpecialResource) error
+	AddFinalizerToSpecialResource(ctx context.Context, sr *v1beta1.SpecialResource) error
 	Finalize(ctx context.Context, sr *v1beta1.SpecialResource) error
 }
 
@@ -39,9 +40,14 @@ func NewSpecialResourceFinalizer(
 	}
 }
 
-func (srf *specialResourceFinalizer) AddToSpecialResource(ctx context.Context, sr *v1beta1.SpecialResource) error {
+func (srf *specialResourceFinalizer) AddFinalizerToSpecialResource(ctx context.Context, sr *v1beta1.SpecialResource) error {
+	if utils.StringSliceContains(sr.GetFinalizers(), finalizerString) {
+		return nil
+	}
+
 	ctrl.LoggerFrom(ctx).Info("Adding finalizer")
-	controllerutil.AddFinalizer(sr, FinalizerString)
+
+	controllerutil.AddFinalizer(sr, finalizerString)
 
 	// Update CR
 	if err := srf.kubeClient.Update(ctx, sr); err != nil {
@@ -53,14 +59,17 @@ func (srf *specialResourceFinalizer) AddToSpecialResource(ctx context.Context, s
 }
 
 func (srf *specialResourceFinalizer) Finalize(ctx context.Context, sr *v1beta1.SpecialResource) error {
-	if utils.StringSliceContains(sr.GetFinalizers(), FinalizerString) {
+	if utils.StringSliceContains(sr.GetFinalizers(), finalizerString) {
 		// Run finalization logic for specialresource
 		if err := srf.finalizeSpecialResource(ctx, sr); err != nil {
 			ctrl.LoggerFrom(ctx).Error(err, "Finalization logic failed.")
 			return err
 		}
 
-		controllerutil.RemoveFinalizer(sr, FinalizerString)
+		controllerutil.RemoveFinalizer(sr, finalizerString)
+		// remove the 4.9 finalizer string, in case operator was update from 4.9
+		// to later versions
+		controllerutil.RemoveFinalizer(sr, prevVersionFinalizerString)
 
 		if err := srf.kubeClient.Update(ctx, sr); err != nil {
 			ctrl.LoggerFrom(ctx).Error(err, "Could not remove finalizer after running finalization logic")
