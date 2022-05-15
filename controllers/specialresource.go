@@ -10,7 +10,6 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	srov1beta1 "github.com/openshift/special-resource-operator/api/v1beta1"
-	"github.com/openshift/special-resource-operator/internal/controllers/finalizers"
 	"github.com/openshift/special-resource-operator/internal/controllers/state"
 	helmerv1beta1 "github.com/openshift/special-resource-operator/pkg/helmer/api/v1beta1"
 	"github.com/openshift/special-resource-operator/pkg/runtime"
@@ -247,10 +246,8 @@ func (r *SpecialResourceReconciler) ReconcileSpecialResourceChart(ctx context.Co
 	}
 
 	// Add a finalizer to CR if it does not already have one
-	if !utils.StringSliceContains(wi.SpecialResource.GetFinalizers(), finalizers.FinalizerString) {
-		if err := r.Finalizer.AddToSpecialResource(ctx, wi.SpecialResource); err != nil {
-			return fmt.Errorf("failed to add finalizer to SpecialResource %s/%s: %w", wi.SpecialResource.Namespace, wi.SpecialResource.Name, err)
-		}
+	if err := r.Finalizer.AddFinalizerToSpecialResource(ctx, wi.SpecialResource); err != nil {
+		return fmt.Errorf("failed to add finalizer to SpecialResource %s/%s: %w", wi.SpecialResource.Namespace, wi.SpecialResource.Name, err)
 	}
 
 	// Reconcile the special resource chart

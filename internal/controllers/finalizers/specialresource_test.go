@@ -1,4 +1,4 @@
-package finalizers_test
+package finalizers
 
 import (
 	"context"
@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/openshift/special-resource-operator/api/v1beta1"
-	"github.com/openshift/special-resource-operator/internal/controllers/finalizers"
 	"github.com/openshift/special-resource-operator/pkg/clients"
 	"github.com/openshift/special-resource-operator/pkg/poll"
 	v1 "k8s.io/api/core/v1"
@@ -43,9 +42,9 @@ var _ = Describe("specialResourceFinalizer_AddToSpecialResource", func() {
 
 		mockKubeClient.EXPECT().Update(context.Background(), sr)
 
-		err := finalizers.NewSpecialResourceFinalizer(mockKubeClient, nil).AddToSpecialResource(context.Background(), sr)
+		err := NewSpecialResourceFinalizer(mockKubeClient, nil).AddFinalizerToSpecialResource(context.Background(), sr)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(controllerutil.ContainsFinalizer(sr, finalizers.FinalizerString)).To(BeTrue())
+		Expect(controllerutil.ContainsFinalizer(sr, finalizerString)).To(BeTrue())
 	})
 
 	It("should return an error if the object could not be updated", func() {
@@ -55,7 +54,7 @@ var _ = Describe("specialResourceFinalizer_AddToSpecialResource", func() {
 
 		mockKubeClient.EXPECT().Update(context.Background(), sr).Return(randomError)
 
-		err := finalizers.NewSpecialResourceFinalizer(mockKubeClient, nil).AddToSpecialResource(context.Background(), sr)
+		err := NewSpecialResourceFinalizer(mockKubeClient, nil).AddFinalizerToSpecialResource(context.Background(), sr)
 		Expect(err).To(Equal(randomError))
 	})
 })
@@ -64,7 +63,7 @@ var _ = Describe("specialResourceFinalizer_Finalize", func() {
 	It("should do nothing if the CR does not have the finalizer", func() {
 		sr := &v1beta1.SpecialResource{}
 
-		err := finalizers.NewSpecialResourceFinalizer(mockKubeClient, nil).Finalize(context.Background(), sr)
+		err := NewSpecialResourceFinalizer(mockKubeClient, nil).Finalize(context.Background(), sr)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -80,7 +79,7 @@ var _ = Describe("specialResourceFinalizer_Finalize", func() {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       srName,
 				Namespace:  srNamespace,
-				Finalizers: []string{finalizers.FinalizerString},
+				Finalizers: []string{finalizerString, prevVersionFinalizerString},
 			},
 			Spec: v1beta1.SpecialResourceSpec{
 				Namespace:    srNamespace,
@@ -139,7 +138,7 @@ var _ = Describe("specialResourceFinalizer_Finalize", func() {
 			mockKubeClient.EXPECT().Update(context.Background(), srWithoutFinalizer),
 		)
 
-		f := finalizers.NewSpecialResourceFinalizer(mockKubeClient, mockPollActions)
+		f := NewSpecialResourceFinalizer(mockKubeClient, mockPollActions)
 
 		err := f.Finalize(context.Background(), sr)
 		Expect(err).NotTo(HaveOccurred())
