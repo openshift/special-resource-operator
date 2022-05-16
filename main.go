@@ -126,7 +126,8 @@ func main() {
 		proxyAPI,
 		resourcehelper.New())
 
-	registryAPI := registry.NewRegistry(kubeClient)
+	registryAPI := registry.NewRegistry(kubeClient, registry.NewCraneWrapper(kubeClient, registry.RegistryConfFilePath))
+
 	clusterInfoAPI := upgrade.NewClusterInfo(registryAPI, clusterAPI)
 	runtimeAPI := runtime.NewRuntimeAPI(kubeClient, clusterAPI, kernelAPI, clusterInfoAPI, proxyAPI)
 

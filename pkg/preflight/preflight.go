@@ -199,14 +199,14 @@ func (p *preflight) daemonSetPreflightCheck(ctx context.Context, ds *k8sv1.Daemo
 	}
 	image := ds.Spec.Template.Spec.Containers[0].Image
 
-	repo, digests, auth, err := p.registryAPI.GetLayersDigests(ctx, image)
+	repo, digests, err := p.registryAPI.GetLayersDigests(ctx, image)
 	if err != nil {
 		log.Info("image layers inaccessible, DS image probably does not exists", "daemonset", ds.Name, "image", image)
 		return false, fmt.Sprintf("DaemonSet %s, image %s inaccessible or does not exists", ds.Name, image), nil
 	}
 
 	for i := len(digests) - 1; i >= 0; i-- {
-		layer, err := p.registryAPI.GetLayerByDigest(repo, digests[i], auth)
+		layer, err := p.registryAPI.GetLayerByDigest(ctx, repo, digests[i])
 		if err != nil {
 			log.Info("layer from image inaccessible", "layer", digests[i], "repo", repo, "image", image)
 			return false, fmt.Sprintf("DaemonSet %s, image %s, layer %s is inaccessible", ds.Name, image, digests[i]), nil

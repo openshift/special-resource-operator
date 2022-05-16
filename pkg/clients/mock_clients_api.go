@@ -113,6 +113,36 @@ func (mr *MockClientsInterfaceMockRecorder) Get(ctx, key, obj interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockClientsInterface)(nil).Get), ctx, key, obj)
 }
 
+// GetConfigMap mocks base method.
+func (m *MockClientsInterface) GetConfigMap(ctx context.Context, namespace, name string, opts v11.GetOptions) (*v10.ConfigMap, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetConfigMap", ctx, namespace, name, opts)
+	ret0, _ := ret[0].(*v10.ConfigMap)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetConfigMap indicates an expected call of GetConfigMap.
+func (mr *MockClientsInterfaceMockRecorder) GetConfigMap(ctx, namespace, name, opts interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConfigMap", reflect.TypeOf((*MockClientsInterface)(nil).GetConfigMap), ctx, namespace, name, opts)
+}
+
+// GetImage mocks base method.
+func (m *MockClientsInterface) GetImage(ctx context.Context, name string, opts v11.GetOptions) (*v1.Image, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetImage", ctx, name, opts)
+	ret0, _ := ret[0].(*v1.Image)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetImage indicates an expected call of GetImage.
+func (mr *MockClientsInterfaceMockRecorder) GetImage(ctx, name, opts interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImage", reflect.TypeOf((*MockClientsInterface)(nil).GetImage), ctx, name, opts)
+}
+
 // GetNamespace mocks base method.
 func (m *MockClientsInterface) GetNamespace(ctx context.Context, name string, opts v11.GetOptions) (*v10.Namespace, error) {
 	m.ctrl.T.Helper()
