@@ -126,7 +126,12 @@ func main() {
 		proxyAPI,
 		resourcehelper.New())
 
-	registryAPI := registry.NewRegistry(kubeClient)
+	registryAPI := registry.NewRegistry(
+		kubeClient,
+		registry.NewCertPoolGetter("/mnt/host/tls-ca-bundle.pem"),
+		registry.NewMirrorResolver("/mnt/host/registries.conf"),
+	)
+
 	clusterInfoAPI := upgrade.NewClusterInfo(registryAPI, clusterAPI)
 	runtimeAPI := runtime.NewRuntimeAPI(kubeClient, clusterAPI, kernelAPI, clusterInfoAPI, proxyAPI)
 

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"runtime"
 	"strings"
@@ -46,14 +47,18 @@ type Registry interface {
 	GetLayerByDigest(string, string, []crane.Option) (v1.Layer, error)
 }
 
-func NewRegistry(kubeClient clients.ClientsInterface) Registry {
+func NewRegistry(kubeClient clients.ClientsInterface, cpg CertPoolGetter, mr MirrorResolver) Registry {
 	return &registry{
+		cpg:        cpg,
 		kubeClient: kubeClient,
+		mr:         mr,
 	}
 }
 
 type registry struct {
+	cpg        CertPoolGetter
 	kubeClient clients.ClientsInterface
+	mr         MirrorResolver
 }
 
 type dockerAuth struct {
@@ -107,11 +112,11 @@ func (r *registry) getImageRegistryCredentials(ctx context.Context, registry str
 }
 
 func (r *registry) LastLayer(ctx context.Context, image string) (v1.Layer, error) {
-	repo, digests, registryAuths, err := r.GetLayersDigests(ctx, image)
+	repo, digests, craneOpts, err := r.GetLayersDigests(ctx, image)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get layers digests of the image %s: %w", image, err)
 	}
-	return crane.PullLayer(repo+"@"+digests[len(digests)-1], registryAuths...)
+	return crane.PullLayer(repo+"@"+digests[len(digests)-1], craneOpts...)
 }
 
 func (r *registry) ExtractToolkitRelease(layer v1.Layer) (*DriverToolkitEntry, error) {
@@ -216,12 +221,21 @@ func (r *registry) GetLayersDigests(ctx context.Context, image string) (string, 
 		return "", nil, nil, fmt.Errorf("image url %s is not valid, does not contain hash or tag", image)
 	}
 
-	var registryAuths []crane.Option
-	if auth.Auth != "" {
-		registryAuths = append(registryAuths, crane.WithAuth(authn.FromConfig(authn.AuthConfig{Username: auth.Email, Auth: auth.Auth})))
+	certPool, err := r.cpg.SystemAndHostCertPool()
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("could not create a client certificate pool: %v", err)
 	}
 
-	manifest, err := r.getManifestStreamFromImage(image, repo, registryAuths)
+	rt := http.DefaultTransport.(*http.Transport).Clone()
+	rt.TLSClientConfig.ClientCAs = certPool
+
+	opts := []crane.Option{crane.WithTransport(rt)}
+
+	if auth.Auth != "" {
+		opts = append(opts, crane.WithAuth(authn.FromConfig(authn.AuthConfig{Username: auth.Email, Auth: auth.Auth})))
+	}
+
+	manifest, err := r.getManifestStreamFromImage(image, repo, opts)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("failed to get manifest stream from image %s: %w", image, err)
 	}
@@ -231,7 +245,7 @@ func (r *registry) GetLayersDigests(ctx context.Context, image string) (string, 
 		return "", nil, nil, fmt.Errorf("failed to get layers digests from manifest stream of image %s: %w", image, err)
 	}
 
-	return repo, digests, registryAuths, nil
+	return repo, digests, opts, nil
 }
 
 func (r *registry) GetLayerByDigest(repo string, digest string, auth []crane.Option) (v1.Layer, error) {

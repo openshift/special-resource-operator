@@ -57,8 +57,22 @@ spec:
           volumeMounts:
           - name: cache-volume
             mountPath: /home/nonroot/.cache
+          - name: host-registries-conf
+            mountPath: /mnt/host/registries.conf
+            readOnly: true
+          - name: host-ca-bundle
+            mountPath: /mnt/host/tls-ca-bundle.pem
+            readOnly: true
       volumes:
         - name: cache-volume
           emptyDir: {}
+        - name: host-registries-conf
+          hostPath:
+            path: /etc/containers/registries.conf
+            type: File
+        - name: host-ca-bundle
+          hostPath:
+            path: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+            type: File
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
