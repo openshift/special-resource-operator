@@ -9,7 +9,6 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/state"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -18,6 +17,7 @@ import (
 )
 
 const specialresourceFinalizer = "sro.openshift.io/finalizer"
+const prevVersionFinalizerString = "finalizer.sro.openshift.io"
 
 var (
 	ns unstructured.Unstructured
@@ -37,6 +37,9 @@ func reconcileFinalizers(r *SpecialResourceReconciler) error {
 		}
 
 		controllerutil.RemoveFinalizer(&r.specialresource, specialresourceFinalizer)
+		// remove the 4.9 finalizer string, in case operator was update from 4.9
+		// to later versions
+		controllerutil.RemoveFinalizer(&r.specialresource, prevVersionFinalizerString)
 		err := clients.Interface.Update(context.TODO(), &r.specialresource)
 		if err != nil {
 			log.Info("Could not remove finalizer after running finalization logic", "error", fmt.Sprintf("%v", err))
@@ -66,8 +69,8 @@ func finalizeNodes(r *SpecialResourceReconciler, remove string) error {
 		if apierrors.IsConflict(err) {
 			var err error
 
-			if err = cache.Nodes(r.specialresource.Spec.NodeSelector, true); err != nil {
-				return errors.Wrap(err, "Could not cache nodes for api conflict")
+			if cacheErr := cache.Nodes(r.specialresource.Spec.NodeSelector, true); cacheErr != nil {
+				return errors.Wrap(cacheErr, "Could not cache nodes for api conflict")
 			}
 
 			return fmt.Errorf("node Conflict Label %s err %s", state.CurrentName, err)
@@ -87,10 +90,15 @@ func finalizeSpecialResource(r *SpecialResourceReconciler) error {
 	// specialresource labels from the nodes.
 	if r.specialresource.Name == "special-resource-preamble" {
 		err := finalizeNodes(r, "specialresource.openshift.io")
-		warn.OnError(err)
+		if err != nil {
+			log.Error(err, "finalizeSpecialResource special-resource-preamble failed")
+			return err
+		}
 	}
 	err := finalizeNodes(r, "specialresource.openshift.io/state-"+r.specialresource.Name)
-	warn.OnError(err)
+	if err != nil {
+		return err
+	}
 
 	if r.specialresource.Name != "special-resource-preamble" {
 
@@ -98,20 +106,29 @@ func finalizeSpecialResource(r *SpecialResourceReconciler) error {
 		key := client.ObjectKeyFromObject(&ns)
 
 		err := clients.Interface.Get(context.TODO(), key, &ns)
-		if apierrors.IsNotFound(err) {
-			log.Info("Successfully finalized (IsNotFound)", "SpecialResource:", r.specialresource.Name)
-			return nil
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				log.Info("Successfully finalized (Namespace IsNotFound)", "SpecialResource:", r.specialresource.Name)
+				return nil
+			} else {
+				log.Error(err, "Failed to get namespace", "namespace", r.specialresource.Spec.Namespace, "SpecialResource", r.specialresource.Name)
+				return err
+			}
 		}
 
 		for _, owner := range ns.GetOwnerReferences() {
 			if owner.Kind == "SpecialResource" {
 				log.Info("Namespaces is owned by SpecialResource deleting")
 				err = clients.Interface.Delete(context.TODO(), &ns)
-				if !apierrors.IsNotFound(err) {
-					warn.OnError(err)
+				if err != nil {
+					log.Error(err, "Failed to delete namespace", "namespace", r.specialresource.Spec.Namespace)
+					return err
 				}
 				err = poll.ForResourceUnavailability(&ns)
-				warn.OnError(err)
+				if err != nil {
+					log.Error(err, "Failed waiting for resource being completely deleted", "namespace", r.specialresource.Spec.Namespace)
+					return err
+				}
 			}
 		}
 	}
