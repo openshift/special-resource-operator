@@ -327,7 +327,7 @@ func (r *SpecialResourceReconciler) createSpecialResourceFrom(ctx context.Contex
 }
 
 func (r *SpecialResourceReconciler) removeSpecialResource(ctx context.Context, sr *srov1beta1.SpecialResource) error {
-	if err := r.Finalizer.Finalize(ctx, sr); err != nil {
+	if err := r.Finalizer.RemoveResources(ctx, SROwnedLabel, sr); err != nil {
 		return fmt.Errorf("failed to finalize SpecialResource %s/%s: %w", sr.Namespace, sr.Name, err)
 	}
 	return nil

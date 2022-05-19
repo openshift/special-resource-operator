@@ -233,6 +233,22 @@ func (mr *MockClientsInterfaceMockRecorder) ServerGroups() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerGroups", reflect.TypeOf((*MockClientsInterface)(nil).ServerGroups))
 }
 
+// ServerGroupsAndResources mocks base method.
+func (m *MockClientsInterface) ServerGroupsAndResources() ([]*v11.APIGroup, []*v11.APIResourceList, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ServerGroupsAndResources")
+	ret0, _ := ret[0].([]*v11.APIGroup)
+	ret1, _ := ret[1].([]*v11.APIResourceList)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ServerGroupsAndResources indicates an expected call of ServerGroupsAndResources.
+func (mr *MockClientsInterfaceMockRecorder) ServerGroupsAndResources() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerGroupsAndResources", reflect.TypeOf((*MockClientsInterface)(nil).ServerGroupsAndResources))
+}
+
 // StatusPatch mocks base method.
 func (m *MockClientsInterface) StatusPatch(ctx context.Context, original, modified client.Object) error {
 	m.ctrl.T.Helper()
