@@ -90,8 +90,6 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	log := ctrl.LoggerFrom(ctx)
 	log.Info("Reconciling", "mode", r.Filter.GetMode())
 
-	log.Info("TODO: preflight checks")
-
 	sr, srs, err := r.getSpecialResources(ctx, req)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get SpecialResources: %w", err)
