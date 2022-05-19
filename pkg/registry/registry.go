@@ -8,16 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
-	"net/url"
 	"runtime"
 	"strings"
 
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/openshift/special-resource-operator/pkg/clients"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -43,80 +38,28 @@ type Registry interface {
 	ExtractToolkitRelease(v1.Layer) (*DriverToolkitEntry, error)
 	ReleaseManifests(v1.Layer) (string, error)
 	ReleaseImageMachineOSConfig(layer v1.Layer) (string, error)
-	GetLayersDigests(context.Context, string) (string, []string, []crane.Option, error)
-	GetLayerByDigest(string, string, []crane.Option) (v1.Layer, error)
+	GetLayersDigests(context.Context, string) (string, []string, error)
+	GetLayerByDigest(context.Context, string, string) (v1.Layer, error)
 }
 
-func NewRegistry(kubeClient clients.ClientsInterface, cpg CertPoolGetter, mr MirrorResolver) Registry {
+func NewRegistry(kubeClient clients.ClientsInterface, cw CraneWrapper) Registry {
 	return &registry{
-		cpg:        cpg,
+		cw:         cw,
 		kubeClient: kubeClient,
-		mr:         mr,
 	}
 }
 
 type registry struct {
-	cpg        CertPoolGetter
+	cw         CraneWrapper
 	kubeClient clients.ClientsInterface
-	mr         MirrorResolver
-}
-
-type dockerAuth struct {
-	Auth  string
-	Email string
-}
-
-func (r *registry) registryFromImageURL(image string) (string, error) {
-	u, err := url.Parse(image)
-	if err != nil || u.Host == "" {
-		// "reg.io/org/repo:tag" are invalid from URL scheme POV
-		// prepending double slash in case of error or empty Host and trying to parse again
-		u, err = url.Parse("//" + image)
-	}
-
-	if err != nil {
-		return "", fmt.Errorf("failed to parse image %s url: %w", image, err)
-	}
-	if u.Host == "" {
-		return "", fmt.Errorf("image %s url has incorrect format, host missing", image)
-	}
-
-	return u.Host, nil
-}
-
-func (r *registry) getImageRegistryCredentials(ctx context.Context, registry string) (dockerAuth, error) {
-	s, err := r.kubeClient.GetSecret(ctx, pullSecretNamespace, pullSecretName, metav1.GetOptions{})
-	if err != nil {
-		return dockerAuth{}, fmt.Errorf("could not retrieve pull secrets: %w", err)
-	}
-
-	pullSecretData, ok := s.Data[pullSecretFileName]
-	if !ok {
-		return dockerAuth{}, errors.New("could not find data content in the secret")
-	}
-
-	auths := struct {
-		Auths map[string]dockerAuth
-	}{}
-
-	err = json.Unmarshal(pullSecretData, &auths)
-	if err != nil {
-		return dockerAuth{}, fmt.Errorf("failed to unmarshal auths from pullSecretData: %w", err)
-	}
-
-	if auth, ok := auths.Auths[registry]; !ok {
-		return dockerAuth{}, fmt.Errorf("cluster PullSecret does not contain auth for registry %s", registry)
-	} else {
-		return auth, nil
-	}
 }
 
 func (r *registry) LastLayer(ctx context.Context, image string) (v1.Layer, error) {
-	repo, digests, craneOpts, err := r.GetLayersDigests(ctx, image)
+	repo, digests, err := r.GetLayersDigests(ctx, image)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get layers digests of the image %s: %w", image, err)
 	}
-	return crane.PullLayer(repo+"@"+digests[len(digests)-1], craneOpts...)
+	return r.cw.PullLayer(ctx, repo+"@"+digests[len(digests)-1])
 }
 
 func (r *registry) ExtractToolkitRelease(layer v1.Layer) (*DriverToolkitEntry, error) {
@@ -198,17 +141,7 @@ func (r *registry) ReleaseImageMachineOSConfig(layer v1.Layer) (string, error) {
 	return "", fmt.Errorf("failed to find machine-os-content in the %s file", releaseManifestImagesRefFile)
 }
 
-func (r *registry) GetLayersDigests(ctx context.Context, image string) (string, []string, []crane.Option, error) {
-	registry, err := r.registryFromImageURL(image)
-	if err != nil {
-		return "", nil, nil, fmt.Errorf("failure to extract registry from image %s url: %w", image, err)
-	}
-
-	auth, err := r.getImageRegistryCredentials(ctx, registry)
-	if err != nil {
-		return "", nil, nil, fmt.Errorf("failed to get image registry credentials: %w", err)
-	}
-
+func (r *registry) GetLayersDigests(ctx context.Context, image string) (string, []string, error) {
 	var repo string
 
 	if hash := strings.Split(image, "@"); len(hash) > 1 {
@@ -218,42 +151,28 @@ func (r *registry) GetLayersDigests(ctx context.Context, image string) (string, 
 	}
 
 	if repo == "" {
-		return "", nil, nil, fmt.Errorf("image url %s is not valid, does not contain hash or tag", image)
+		return "", nil, fmt.Errorf("image url %s is not valid, does not contain hash or tag", image)
 	}
 
-	certPool, err := r.cpg.SystemAndHostCertPool()
+	manifest, err := r.getManifestStreamFromImage(ctx, image, repo)
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("could not create a client certificate pool: %v", err)
-	}
-
-	rt := http.DefaultTransport.(*http.Transport).Clone()
-	rt.TLSClientConfig.ClientCAs = certPool
-
-	opts := []crane.Option{crane.WithTransport(rt)}
-
-	if auth.Auth != "" {
-		opts = append(opts, crane.WithAuth(authn.FromConfig(authn.AuthConfig{Username: auth.Email, Auth: auth.Auth})))
-	}
-
-	manifest, err := r.getManifestStreamFromImage(image, repo, opts)
-	if err != nil {
-		return "", nil, nil, fmt.Errorf("failed to get manifest stream from image %s: %w", image, err)
+		return "", nil, fmt.Errorf("failed to get manifest stream from image %s: %w", image, err)
 	}
 
 	digests, err := r.getLayersDigestsFromManifestStream(manifest)
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("failed to get layers digests from manifest stream of image %s: %w", image, err)
+		return "", nil, fmt.Errorf("failed to get layers digests from manifest stream of image %s: %w", image, err)
 	}
 
-	return repo, digests, opts, nil
+	return repo, digests, nil
 }
 
-func (r *registry) GetLayerByDigest(repo string, digest string, auth []crane.Option) (v1.Layer, error) {
-	return crane.PullLayer(repo+"@"+digest, auth...)
+func (r *registry) GetLayerByDigest(ctx context.Context, repo string, digest string) (v1.Layer, error) {
+	return r.cw.PullLayer(ctx, repo+"@"+digest)
 }
 
-func (r *registry) getManifestStreamFromImage(image, repo string, options []crane.Option) ([]byte, error) {
-	manifest, err := crane.Manifest(image, options...)
+func (r *registry) getManifestStreamFromImage(ctx context.Context, image, repo string) ([]byte, error) {
+	manifest, err := r.cw.Manifest(ctx, image)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get crane manifest from image %s: %w", image, err)
 	}
@@ -277,7 +196,7 @@ func (r *registry) getManifestStreamFromImage(image, repo string, options []cran
 			return nil, fmt.Errorf("failed to get arch digets from multi arch image: %w", err)
 		}
 		// get the manifest stream for the image of the architecture
-		manifest, err = crane.Manifest(repo+"@"+archDigest, options...)
+		manifest, err = r.cw.Manifest(ctx, repo+"@"+archDigest)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get crane manifest for the arch image: %w", err)
 		}

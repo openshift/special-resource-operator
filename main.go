@@ -128,8 +128,11 @@ func main() {
 
 	registryAPI := registry.NewRegistry(
 		kubeClient,
-		registry.NewCertPoolGetter("/mnt/host/tls-ca-bundle.pem"),
-		registry.NewMirrorResolver("/mnt/host/registries.conf"),
+		registry.NewCraneWrapper(
+			registry.NewCertPoolGetter("/mnt/host/tls-ca-bundle.pem"),
+			kubeClient,
+			registry.NewMirrorResolver("/mnt/host/registries.conf"),
+		),
 	)
 
 	clusterInfoAPI := upgrade.NewClusterInfo(registryAPI, clusterAPI)
