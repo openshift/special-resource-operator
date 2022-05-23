@@ -120,8 +120,8 @@ var _ = Describe("handleYAMLsCheck", func() {
 		objList := prepareObjListForTest(3, 2, 4)
 
 		mockResourceAPI.EXPECT().GetObjectsFromYAML([]byte("some yaml")).Return(objList, nil)
-		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, digestsList, nil, nil).Times(2)
-		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil).Times(2)
+		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, digestsList, nil).Times(2)
+		mockRegistryAPI.EXPECT().GetLayerByDigest(context.Background(), layersRepo, firstDigestLayer).Return(&digestLayer, nil).Times(2)
 		mockRegistryAPI.EXPECT().ExtractToolkitRelease(&digestLayer).Return(dtk, nil).Times(2)
 
 		verified, message, err := p.handleYAMLsCheck(context.Background(), "some yaml", upgradeKernelVersion)
@@ -139,8 +139,8 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 		dtk := &registry.DriverToolkitEntry{KernelFullVersion: upgradeKernelVersion}
 		daemonObj := prepareDaemonSet("driver-module")
 
-		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, digestsList, nil, nil)
-		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil)
+		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, digestsList, nil)
+		mockRegistryAPI.EXPECT().GetLayerByDigest(context.Background(), layersRepo, firstDigestLayer).Return(&digestLayer, nil)
 		mockRegistryAPI.EXPECT().ExtractToolkitRelease(&digestLayer).Return(dtk, nil)
 
 		verified, message, err := p.daemonSetPreflightCheck(context.Background(), daemonObj, upgradeKernelVersion)
@@ -153,7 +153,7 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 	It("image is not available", func() {
 		daemonObj := prepareDaemonSet("driver-module")
 
-		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, []string{}, nil, fmt.Errorf("some error"))
+		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, []string{}, fmt.Errorf("some error"))
 
 		verified, message, err := p.daemonSetPreflightCheck(context.Background(), daemonObj, upgradeKernelVersion)
 
@@ -168,8 +168,8 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 		dtk := &registry.DriverToolkitEntry{KernelFullVersion: incorrectUpgradeKernelVersion}
 		daemonObj := prepareDaemonSet("driver-module")
 
-		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, digestsList, nil, nil)
-		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil)
+		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, digestsList, nil)
+		mockRegistryAPI.EXPECT().GetLayerByDigest(context.Background(), layersRepo, firstDigestLayer).Return(&digestLayer, nil)
 		mockRegistryAPI.EXPECT().ExtractToolkitRelease(&digestLayer).Return(dtk, nil)
 
 		verified, message, err := p.daemonSetPreflightCheck(context.Background(), daemonObj, upgradeKernelVersion)
@@ -184,8 +184,8 @@ var _ = Describe("daemonSetPreflightCheck", func() {
 		digestLayer := v1stream.Layer{}
 		daemonObj := prepareDaemonSet("driver-module")
 
-		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, digestsList, nil, nil)
-		mockRegistryAPI.EXPECT().GetLayerByDigest(layersRepo, firstDigestLayer, nil).Return(&digestLayer, nil)
+		mockRegistryAPI.EXPECT().GetLayersDigests(gomock.Any(), dsImage).Return(layersRepo, digestsList, nil)
+		mockRegistryAPI.EXPECT().GetLayerByDigest(context.Background(), layersRepo, firstDigestLayer).Return(&digestLayer, nil)
 		mockRegistryAPI.EXPECT().ExtractToolkitRelease(&digestLayer).Return(nil, fmt.Errorf("some error"))
 
 		verified, message, err := p.daemonSetPreflightCheck(context.Background(), daemonObj, upgradeKernelVersion)

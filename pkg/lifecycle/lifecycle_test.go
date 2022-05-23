@@ -79,7 +79,7 @@ var _ = Describe("GetPodFromDaemonSet", func() {
 				}),
 			mockClient.EXPECT().
 				List(context.Background(), &v1.PodList{}, optNs, optLabels).
-				Do(func(_ context.Context, pl *v1.PodList, _, _ client.ListOption) {
+				Do(func(_ context.Context, pl *v1.PodList, _ ...client.ListOption) {
 					pl.Items = make([]v1.Pod, nPod)
 				}),
 		)
@@ -122,7 +122,7 @@ var _ = Describe("GetPodFromDeployment", func() {
 				}),
 			mockClient.EXPECT().
 				List(context.Background(), &v1.PodList{}, optNs, optLabels).
-				Do(func(_ context.Context, pl *v1.PodList, _, _ client.ListOption) {
+				Do(func(_ context.Context, pl *v1.PodList, _ ...client.ListOption) {
 					pl.Items = make([]v1.Pod, nPod)
 				}),
 		)
