@@ -18,6 +18,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/chart"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -93,6 +94,25 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 	if r.parent.Name == "special-resource-preamble" {
 		log.Info("Preamble done, waiting for specialresource requests")
 		return reconcile.Result{}, nil
+	}
+
+	switch r.parent.Spec.ManagementState {
+	case operatorv1.Force, operatorv1.Managed, "":
+		// The CR must be managed by the operator.
+		// "" is there for completion, as the ManagementState is optional.
+		break
+	case operatorv1.Removed:
+		// The CR associated resources must be removed, even though the CR still exists.
+		log.Info("ManagementState=Removed; finalizing the SpecialResource")
+		err = reconcileFinalizers(r)
+		return reconcile.Result{}, err
+	case operatorv1.Unmanaged:
+		// The CR must be abandoned by the operator, leaving it in the last known status.
+		// This is already filtered out, leaving for double safety.
+		log.Info("ManagementState=Unmanaged; skipping")
+		return reconcile.Result{}, nil
+	default:
+		return reconcile.Result{}, fmt.Errorf("ManagementState=%q; unhandled state", r.parent.Spec.ManagementState)
 	}
 
 	log.Info("Resolving Dependencies")

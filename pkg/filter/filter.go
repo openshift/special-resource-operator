@@ -14,7 +14,9 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
+	"github.com/openshift-psap/special-resource-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	operatorv1 "github.com/openshift/api/operator/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -98,6 +100,14 @@ func SetSubResourceLabel(obj *unstructured.Unstructured) error {
 	return nil
 }
 
+func isSpecialResourceUnmanaged(obj client.Object) bool {
+	sr, ok := obj.(*v1beta1.SpecialResource)
+	if !ok {
+		return false
+	}
+	return sr.Spec.ManagementState == operatorv1.Unmanaged
+}
+
 func IsSpecialResource(obj client.Object) bool {
 
 	kind := obj.GetObjectKind().GroupVersionKind().Kind
@@ -170,7 +180,7 @@ func Predicate() predicate.Predicate {
 			obj := e.Object
 
 			if IsSpecialResource(obj) {
-				return true
+				return isSpecialResourceUnmanaged(obj)
 			}
 
 			if Owned(obj) {
@@ -209,6 +219,9 @@ func Predicate() predicate.Predicate {
 						err := lifecycle.UpdateDaemonSetPods(obj)
 						warn.OnError(err)
 					}
+					if IsSpecialResource(obj) && isSpecialResourceUnmanaged(obj) {
+						return false
+					}
 					return true
 				}
 			}
@@ -229,6 +242,9 @@ func Predicate() predicate.Predicate {
 			// want to reconcile it, handle the update event
 
 			if IsSpecialResource(obj) {
+				if isSpecialResourceUnmanaged(obj) {
+					return false
+				}
 				log.Info(Mode+" IsSpecialResource GenerationChanged",
 					"Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
 				return true
@@ -287,7 +303,7 @@ func Predicate() predicate.Predicate {
 			// want to reconcile it, handle the update event
 			obj := e.Object
 			if IsSpecialResource(obj) {
-				return true
+				return isSpecialResourceUnmanaged(obj)
 			}
 			// If we do not own the object, do not care
 			if Owned(obj) {
