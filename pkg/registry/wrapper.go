@@ -52,6 +52,12 @@ func (mr *mirrorResolver) GetPullSourcesForImageReference(imageName string) ([]s
 		return nil, fmt.Errorf("could not parse image name %q: %v", imageName, err)
 	}
 
+	// r is nil if none of the registries in registries.conf matched imageName.
+	// In that case, return that reference as pull source.
+	if r == nil {
+		return []sysregistriesv2.PullSource{{Reference: n}}, nil
+	}
+
 	return r.PullSourcesFromReference(n)
 }
 

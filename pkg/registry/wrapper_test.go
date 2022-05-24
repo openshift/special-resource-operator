@@ -12,6 +12,62 @@ import (
 	v1 "k8s.io/api/core/v1"
 )
 
+var _ = Describe("mirrorResolver", func() {
+	Describe("GetPullSourcesForImageReference", func() {
+		It("should return the unchanged pull source when the registry is not mirrored", func() {
+			mr := NewMirrorResolver("testdata/registries.conf")
+
+			const imgName = "not-mirrored-registry.com/org/img"
+
+			ps, err := mr.GetPullSourcesForImageReference(imgName)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ps).To(HaveLen(1))
+			Expect(
+				ps[0].Reference.String(),
+			).To(
+				Equal(imgName),
+			)
+		})
+
+		It("should return the original image when the registry is mirrored but the reference is not a digest", func() {
+			mr := NewMirrorResolver("testdata/registries.conf")
+
+			const imgName = "registry0.com/org/img"
+
+			ps, err := mr.GetPullSourcesForImageReference(imgName)
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ps).To(HaveLen(1))
+			Expect(
+				ps[0].Reference.String(),
+			).To(
+				Equal(imgName),
+			)
+		})
+
+		It("should not the mirrored pull source when the registry is mirrored but the reference is not a digest", func() {
+			mr := NewMirrorResolver("testdata/registries.conf")
+
+			ps, err := mr.GetPullSourcesForImageReference("registry1.com/org/img")
+
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ps).To(HaveLen(2))
+			Expect(
+				ps[0].Reference.String(),
+			).To(
+				Equal("mirror-registry.com/mirror-org/mirror-img"),
+			)
+			Expect(
+				ps[1].Reference.String(),
+			).To(
+				Equal("registry1.com/org/img"),
+			)
+		})
+
+	})
+})
+
 var _ = Describe("craneWrapper", func() {
 	Describe("getAuthForRegistry", func() {
 		const (
