@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -307,6 +308,18 @@ func (r *SpecialResourceModuleReconciler) getVersionInfoFromImage(ctx context.Co
 	dtkEntry, err := r.Registry.ExtractToolkitRelease(dtkLastLayer)
 	if err != nil {
 		return ocpVersionInfo{}, fmt.Errorf("failed to extract toolkit release from layer '%s': %w", dtkLastLayer, err)
+	}
+
+	runningArch := runtime.GOARCH
+	switch runningArch {
+	case "amd64":
+		runningArch = "x86_64"
+	case "arm64":
+		runningArch = "aarch64"
+	}
+	if !strings.Contains(dtkEntry.KernelFullVersion, runningArch) {
+		dtkEntry.KernelFullVersion = dtkEntry.KernelFullVersion + "." + runningArch
+		dtkEntry.RTKernelFullVersion = dtkEntry.RTKernelFullVersion + "." + runningArch
 	}
 
 	return ocpVersionInfo{
