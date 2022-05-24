@@ -14,6 +14,13 @@ import (
 
 var _ = Describe("mirrorResolver", func() {
 	Describe("GetPullSourcesForImageReference", func() {
+		It("should fail if registries.conf does not exist", func() {
+			mr := NewMirrorResolver("/non/existent/registries.conf")
+
+			_, err := mr.GetPullSourcesForImageReference("registry1.com/org/img")
+			Expect(err).To(HaveOccurred())
+		})
+
 		It("should return the unchanged pull source when the registry is not mirrored", func() {
 			mr := NewMirrorResolver("testdata/registries.conf")
 
@@ -46,7 +53,7 @@ var _ = Describe("mirrorResolver", func() {
 			)
 		})
 
-		It("should not the mirrored pull source when the registry is mirrored but the reference is not a digest", func() {
+		It("should return both sources when the registry is mirrored and mirrors non-digest images", func() {
 			mr := NewMirrorResolver("testdata/registries.conf")
 
 			ps, err := mr.GetPullSourcesForImageReference("registry1.com/org/img")
@@ -64,7 +71,24 @@ var _ = Describe("mirrorResolver", func() {
 				Equal("registry1.com/org/img"),
 			)
 		})
+	})
+})
 
+var _ = Describe("certPoolGetter", func() {
+	Describe("SystemAndHostCertPool", func() {
+		DescribeTable(
+			"should return an error if the path is not a certificate",
+			func(path string, errExpected bool) {
+				_, err := NewCertPoolGetter(path).SystemAndHostCertPool()
+				if errExpected {
+					Expect(err).To(HaveOccurred())
+				} else {
+					Expect(err).NotTo(HaveOccurred())
+				}
+			},
+			Entry(nil, "/non/existent/path", true),
+			Entry(nil, "testdata/custom-ca-cert.pem", false),
+		)
 	})
 })
 
