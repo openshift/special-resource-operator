@@ -762,6 +762,7 @@ var _ = Describe("resource_CRUD", func() {
 					})
 
 				helper.EXPECT().IsNotUpdateable(obj.GetKind()).Return(false)
+				helper.EXPECT().SetTemplateGeneration(gomock.Any(), gomock.Any())
 			},
 			func() {
 				kubeClient.EXPECT().Update(gomock.Any(), gomock.Any()).Times(0)
@@ -779,6 +780,7 @@ var _ = Describe("resource_CRUD", func() {
 
 				helper.EXPECT().IsNotUpdateable(obj.GetKind()).Return(false)
 				helper.EXPECT().UpdateResourceVersion(gomock.Any(), gomock.Any()).Return(nil)
+				helper.EXPECT().SetTemplateGeneration(gomock.Any(), gomock.Any())
 			},
 			func() {
 				kubeClient.EXPECT().Update(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, o client.Object) error {

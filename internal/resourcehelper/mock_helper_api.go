@@ -131,6 +131,18 @@ func (mr *MockHelperMockRecorder) SetNodeSelectorTerms(obj, terms interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetNodeSelectorTerms", reflect.TypeOf((*MockHelper)(nil).SetNodeSelectorTerms), obj, terms)
 }
 
+// SetTemplateGeneration mocks base method.
+func (m *MockHelper) SetTemplateGeneration(req, found *unstructured.Unstructured) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetTemplateGeneration", req, found)
+}
+
+// SetTemplateGeneration indicates an expected call of SetTemplateGeneration.
+func (mr *MockHelperMockRecorder) SetTemplateGeneration(req, found interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTemplateGeneration", reflect.TypeOf((*MockHelper)(nil).SetTemplateGeneration), req, found)
+}
+
 // UpdateResourceVersion mocks base method.
 func (m *MockHelper) UpdateResourceVersion(req, found *unstructured.Unstructured) error {
 	m.ctrl.T.Helper()
