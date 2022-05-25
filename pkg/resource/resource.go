@@ -257,6 +257,9 @@ func (r *resource) crud(ctx context.Context, obj *unstructured.Unstructured, rel
 		return fmt.Errorf("failed to check annotation equality for object %s/%s: %w", obj.GetNamespace(), obj.GetName(), err)
 	}
 	if equal {
+		// we need to update the template generation for daemonset, since it will be used in the poll
+		// we do it here, since we don't want to interfere with the hash calculation of the object
+		r.helper.SetTemplateGeneration(obj, found)
 		return nil
 	}
 
@@ -277,6 +280,10 @@ func (r *resource) crud(ctx context.Context, obj *unstructured.Unstructured, rel
 	if err = r.kubeClient.Update(ctx, required); err != nil {
 		return fmt.Errorf("failed to update objec %s/%s: %w", required.GetNamespace(), required.GetName(), err)
 	}
+
+	// we need to update the template generation for daemonset, since it will be used in the poll
+	// we do it here, since we don't want to interfere with the hash calculation of the object
+	r.helper.SetTemplateGeneration(obj, found)
 
 	log.Info("Object has been updated")
 

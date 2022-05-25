@@ -421,3 +421,47 @@ var _ = Describe("SetLabel", func() {
 		Expect(uo.GetLabels()).To(HaveKeyWithValue(ownedLabel, "true"))
 	})
 })
+
+var _ = Describe("SetTemplateGeneration", func() {
+	rh := resourcehelper.New()
+
+	foundDS := appsv1.DaemonSet{
+		TypeMeta: metav1.TypeMeta{Kind: "DaemonSet"},
+	}
+
+	objDs := appsv1.DaemonSet{
+		TypeMeta: metav1.TypeMeta{Kind: "DaemonSet"},
+	}
+
+	It("annotation set in case it is present in the found", func() {
+		foundAnnotations := map[string]string{appsv1.DeprecatedTemplateGeneration: "some value"}
+		foundDS.SetAnnotations(foundAnnotations)
+		foundMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&foundDS)
+		Expect(err).NotTo(HaveOccurred())
+		objMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&objDs)
+		Expect(err).NotTo(HaveOccurred())
+
+		obj := unstructured.Unstructured{Object: objMap}
+		found := unstructured.Unstructured{Object: foundMap}
+		rh.SetTemplateGeneration(&obj, &found)
+
+		Expect(obj.GetAnnotations()).To(HaveKeyWithValue(appsv1.DeprecatedTemplateGeneration, "some value"))
+
+	})
+
+	It("annotation set in case it is not present in the found", func() {
+		foundAnnotations := map[string]string{"some annotation": "some value"}
+		foundDS.SetAnnotations(foundAnnotations)
+		foundMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&foundDS)
+		Expect(err).NotTo(HaveOccurred())
+		objMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&objDs)
+		Expect(err).NotTo(HaveOccurred())
+
+		obj := unstructured.Unstructured{Object: objMap}
+		found := unstructured.Unstructured{Object: foundMap}
+		rh.SetTemplateGeneration(&obj, &found)
+
+		Expect(obj.GetAnnotations()).ToNot(HaveKey(appsv1.DeprecatedTemplateGeneration))
+
+	})
+})

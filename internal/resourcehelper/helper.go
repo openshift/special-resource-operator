@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	apps "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -56,6 +57,7 @@ type Helper interface {
 	IsOneTimer(obj *unstructured.Unstructured) (bool, error)
 	SetLabel(obj *unstructured.Unstructured, label string) error
 	SetMetaData(obj *unstructured.Unstructured, nm string, ns string)
+	SetTemplateGeneration(req *unstructured.Unstructured, found *unstructured.Unstructured)
 }
 
 func New() Helper {
@@ -244,4 +246,25 @@ func (rh *resourceHelper) SetMetaData(obj *unstructured.Unstructured, nm string,
 	labels["app.kubernetes.io/managed-by"] = "Helm"
 
 	obj.SetLabels(labels)
+}
+
+func (rh *resourceHelper) SetTemplateGeneration(obj *unstructured.Unstructured, found *unstructured.Unstructured) {
+	if obj.GetKind() != "DaemonSet" {
+		return
+	}
+	foundAnnotations := found.GetAnnotations()
+	if foundAnnotations == nil {
+		return
+	}
+	tempGeneration, ok := foundAnnotations[apps.DeprecatedTemplateGeneration]
+	if !ok {
+		return
+	}
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	annotations[apps.DeprecatedTemplateGeneration] = tempGeneration
+	obj.SetAnnotations(annotations)
 }
