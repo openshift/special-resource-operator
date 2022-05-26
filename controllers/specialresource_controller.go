@@ -34,7 +34,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	srov1beta1 "github.com/openshift/special-resource-operator/api/v1beta1"
 	"github.com/openshift/special-resource-operator/internal/controllers/finalizers"
@@ -85,8 +84,6 @@ type SpecialResourceReconciler struct {
 // Reconcile Reconiliation entry point
 func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
-	var res reconcile.Result
-
 	log := ctrl.LoggerFrom(ctx)
 	log.Info("Reconciling", "mode", r.Filter.GetMode())
 
@@ -106,12 +103,7 @@ func (r *SpecialResourceReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	// Reconcile all specialresources
-	if res, err = r.SpecialResourcesReconcile(ctx, wi); err != nil || res.Requeue {
-		return res, fmt.Errorf("failed to reconcile SpecialResource '%s/%s': %w", wi.SpecialResource.Namespace, wi.SpecialResource.Name, err)
-	}
-
-	log.Info("Reconciliation successful")
-	return reconcile.Result{}, nil
+	return r.SpecialResourcesReconcile(ctx, wi)
 }
 
 func (r *SpecialResourceReconciler) getSpecialResources(ctx context.Context, req ctrl.Request) (*srov1beta1.SpecialResource, *srov1beta1.SpecialResourceList, error) {

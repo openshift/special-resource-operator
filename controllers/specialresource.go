@@ -109,10 +109,10 @@ func (r *SpecialResourceReconciler) SpecialResourcesReconcile(ctx context.Contex
 
 		var child srov1beta1.SpecialResource
 		if child, err = getDependencyFrom(wi.AllSRs, dependency.Name); err != nil {
-			clog.Info(utils.WarnString("Failed to find dependency in list of all SpecialResources"))
-			if err = r.createSpecialResourceFrom(cctx, cchart, dependency.HelmChart); err != nil {
-				return reconcile.Result{}, fmt.Errorf("failed to create SpecialResource for dependency: %w", err)
+			if createErr := r.createSpecialResourceFrom(cctx, cchart, dependency.HelmChart); createErr != nil {
+				return reconcile.Result{}, fmt.Errorf("failed to create SpecialResource for dependency: %w", createErr)
 			}
+			clog.Info(utils.WarnString("RECONCILE REQUEUE: Failed to find dependency in list of all SpecialResources, created new SR"), "error", err)
 			// We need to fetch the newly created SpecialResources, reconciling
 			return reconcile.Result{Requeue: true}, nil
 		}
@@ -123,7 +123,7 @@ func (r *SpecialResourceReconciler) SpecialResourcesReconcile(ctx context.Contex
 			if suErr := r.StatusUpdater.SetAsErrored(cctx, &child, state.FailedToDeployDependencyChart, fmt.Sprintf("Failed to deploy dependency: %v", err)); suErr != nil {
 				log.Info(utils.WarnString("Failed to update CR's status to Errored"), "error", suErr)
 			}
-			clog.Info(utils.WarnString("Failed to reconcile chart"), "error", err)
+			clog.Info(utils.WarnString("RECONCILE REQUEUE: Failed to reconcile chart"), "error", err)
 			return reconcile.Result{Requeue: true}, nil
 		}
 
