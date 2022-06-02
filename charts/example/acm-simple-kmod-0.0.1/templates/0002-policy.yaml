@@ -24,6 +24,12 @@ spec:
            include:
              - '*'
          object-templates:
+           - complianceType: musthave
+             objectDefinition:
+               apiVersion: v1
+               kind: Namespace
+               metadata:
+                 name: {{.Values.specialResourceModule.spec.namespace}}
            - complianceType: mustonlyhave
              objectDefinition:
                apiVersion: v1
