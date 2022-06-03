@@ -180,7 +180,12 @@ func Predicate() predicate.Predicate {
 			obj := e.Object
 
 			if IsSpecialResource(obj) {
-				return isSpecialResourceUnmanaged(obj)
+				if !isSpecialResourceUnmanaged(obj) {
+					log.Info(Mode+" managed special resource", "name", obj.GetName())
+					return true
+				}
+				log.Info(Mode+" unmanaged special resource, filtering", "name", obj.GetName())
+				return false
 			}
 
 			if Owned(obj) {
@@ -243,6 +248,7 @@ func Predicate() predicate.Predicate {
 
 			if IsSpecialResource(obj) {
 				if isSpecialResourceUnmanaged(obj) {
+					log.Info(Mode+" unmanaged special resource, skipping", "name", obj.GetName())
 					return false
 				}
 				log.Info(Mode+" IsSpecialResource GenerationChanged",
@@ -303,7 +309,7 @@ func Predicate() predicate.Predicate {
 			// want to reconcile it, handle the update event
 			obj := e.Object
 			if IsSpecialResource(obj) {
-				return isSpecialResourceUnmanaged(obj)
+				return !isSpecialResourceUnmanaged(obj)
 			}
 			// If we do not own the object, do not care
 			if Owned(obj) {
