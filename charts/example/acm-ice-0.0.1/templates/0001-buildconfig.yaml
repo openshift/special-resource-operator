@@ -33,8 +33,8 @@ apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
   labels:
-    app: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.kernelFullVersion | replace "." "-" | replace "_" "-" | trunc 63 }}
-  name: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.kernelFullVersion | replace "." "-" | replace "_" "-" | trunc 63 }}
+    app: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.openShiftVersion | replace "." "-" | replace "_" "-" | trunc 63 }}
+  name: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.openShiftVersion | replace "." "-" | replace "_" "-" | trunc 63 }}
   annotations:
     specialresource.openshift.io/wait: "true"
 spec:
