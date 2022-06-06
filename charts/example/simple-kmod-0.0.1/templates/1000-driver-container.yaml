@@ -63,11 +63,14 @@ spec:
       - image: image-registry.openshift-image-registry.svc:5000/{{.Values.specialresource.spec.namespace}}/{{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}:v{{.Values.kernelFullVersion}}
         name: {{.Values.specialresource.metadata.name}}-{{.Values.groupName.driverContainer}}
         imagePullPolicy: Always
-        command: ["/sbin/init"]
+        command: [sleep, infinity]
         lifecycle:
+          postStart:
+            exec:
+              command: ["modprobe", "-v", "-a" , "simple-kmod", "simple-procfs-kmod"]
           preStop:
             exec:
-              command: ["/bin/sh", "-c", "systemctl stop kmods-via-containers@{{.Values.specialresource.metadata.name}}"]
+              command: ["modprobe", "-r", "-a" , "simple-kmod", "simple-procfs-kmod"]
         securityContext:
           privileged: true
       nodeSelector:
