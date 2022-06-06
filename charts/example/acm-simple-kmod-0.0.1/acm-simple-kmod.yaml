@@ -19,7 +19,7 @@ spec:
     registry: quay.io/pacevedo
     git:
       ref: master
-      uri: https://github.com/openshift-psap/kvc-simple-kmod.git
+      uri: https://github.com/openshift-psap/simple-kmod.git
   watch:
     - path: "$.metadata.labels.openshiftVersion"
       apiVersion: cluster.open-cluster-management.io/v1
