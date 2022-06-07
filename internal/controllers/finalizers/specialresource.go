@@ -11,7 +11,9 @@ import (
 	"github.com/openshift/special-resource-operator/pkg/utils"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -23,6 +25,7 @@ const prevVersionFinalizerString = "finalizer.sro.openshift.io"
 type SpecialResourceFinalizer interface {
 	AddFinalizerToSpecialResource(ctx context.Context, sr *v1beta1.SpecialResource) error
 	Finalize(ctx context.Context, sr *v1beta1.SpecialResource) error
+	RemoveResources(ctx context.Context, ownedLabel string, sr *v1beta1.SpecialResource) error
 }
 
 type specialResourceFinalizer struct {
@@ -150,6 +153,48 @@ func (srf *specialResourceFinalizer) finalizeSpecialResource(ctx context.Context
 			}
 		}
 	}
+	return nil
+}
 
+func (srf *specialResourceFinalizer) RemoveResources(ctx context.Context, ownedLabel string, sr *v1beta1.SpecialResource) error {
+	_, apiResources, err := srf.kubeClient.ServerGroupsAndResources()
+	if err != nil {
+		return fmt.Errorf("unable to retrieve server groups and resources: %w", err)
+	}
+	for _, apiResource := range apiResources {
+		for _, resource := range apiResource.APIResources {
+			if err := srf.deleteResource(ctx, ownedLabel, sr.Spec.Namespace, apiResource.GroupVersion, resource.Kind, sr.UID); err != nil {
+				return fmt.Errorf("unable to delete owned resources %s/%s: %w", apiResource.GroupVersion, resource.Kind, err)
+			}
+		}
+	}
+	return nil
+}
+
+func (srf *specialResourceFinalizer) deleteResource(ctx context.Context, ownedLabel, namespace, apiVersion, kind string, UID types.UID) error {
+	obj := unstructured.UnstructuredList{}
+	obj.SetKind(kind)
+	obj.SetAPIVersion(apiVersion)
+	sl := metav1.LabelSelector{
+		MatchLabels: map[string]string{ownedLabel: "true"},
+	}
+	selector, _ := metav1.LabelSelectorAsSelector(&sl)
+	if err := srf.kubeClient.List(ctx, &obj, &client.ListOptions{
+		LabelSelector: selector,
+		Namespace:     namespace,
+	}); err != nil {
+		return nil
+	}
+	for _, object := range obj.Items {
+		for _, or := range object.GetOwnerReferences() {
+			if or.UID != UID {
+				continue
+			}
+			if err := srf.kubeClient.Delete(ctx, &object); err != nil {
+				return err
+			}
+			ctrl.LoggerFrom(ctx).Info("Owned object deleted", "name", object.GetName(), "Kind", object.GetKind())
+		}
+	}
 	return nil
 }

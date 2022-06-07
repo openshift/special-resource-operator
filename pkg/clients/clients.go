@@ -44,6 +44,7 @@ type ClientsInterface interface {
 	ClusterVersionGet(ctx context.Context, opts metav1.GetOptions) (result *configv1.ClusterVersion, err error)
 	Invalidate()
 	ServerGroups() (*metav1.APIGroupList, error)
+	ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.APIResourceList, error)
 	StatusUpdate(ctx context.Context, obj client.Object) error
 	StatusPatch(ctx context.Context, original, modified client.Object) error
 	CreateOrUpdate(ctx context.Context, obj client.Object, fn controllerutil.MutateFn) (controllerutil.OperationResult, error)
@@ -125,6 +126,10 @@ func (k *k8sClients) Invalidate() {
 
 func (k *k8sClients) ServerGroups() (*metav1.APIGroupList, error) {
 	return k.cachedDiscovery.ServerGroups()
+}
+
+func (k *k8sClients) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
+	return k.cachedDiscovery.ServerGroupsAndResources()
 }
 
 func (k *k8sClients) StatusUpdate(ctx context.Context, obj client.Object) error {
