@@ -23,7 +23,7 @@ spec:
     version: 0.0.1
     repository:
       name: example
-      url: file:///charts/example
+      url: cm://namespace/example-chart
   set:
     kind: Values
     apiVersion: sro.openshift.io/v1beta1
@@ -35,7 +35,7 @@ spec:
     source:
       git:
         ref: "master"
-        uri: "https://github.com/openshift-psap/kvc-simple-kmod.git"
+        uri: "https://github.com/openshift-psap/simple-kmod.git"
 ```
 
 SRO keeps an internal Helm repository of all packaged helm charts, and they are
@@ -106,16 +106,16 @@ buildArgs:
 - name: KMODVER
   value: SRO
 clusterUpgradeInfo:
-  4.18.0-305.3.1.el8_4.x86_64:
-    clusterVersion: "4.8"
+  4.18.0-305.45.1.el8_4.x86_64:
+    clusterVersion: "4.10"
     driverToolkit:
       imageURL: quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:d07d95029663561dc58560751936dc9569bd77a397206e80fb5ab8778a56d920
-      kernelFullVersion: 4.18.0-305.3.1.el8_4.x86_64
+      kernelFullVersion: 4.18.0-305.45.1.el8_4.x86_64
       oSVersion: "8.4"
-      rTKernelFullVersion: 4.18.0-305.3.1.rt7.75.el8_4.x86_64
+      rTKernelFullVersion: 4.18.0-305.45.1.rt7.75.el8_4.x86_64
     oSVersion: "8.4"
-clusterVersion: 4.8.0-fc.8
-clusterVersionMajorMinor: "4.8"
+clusterVersion: 4.10.0-fc.8
+clusterVersionMajorMinor: "4.10"
 driverToolkitImage: quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:d07d95029663561dc58560751936dc9569bd77a397206e80fb5ab8778a56d920
 groupName:
   csiDriver: csi-driver
@@ -126,7 +126,7 @@ groupName:
   driverBuild: driver-build
   driverContainer: driver-container
   runtimeEnablement: runtime-enablement
-kernelFullVersion: 4.18.0-305.3.1.el8_4.x86_64
+kernelFullVersion: 4.18.0-305.45.1.el8_4.x86_64
 kernelPatchVersion: 4.18.0-305
 
 kmodNames:
@@ -163,7 +163,7 @@ specialresource:
         keyFile: ""
         name: example
         password: ""
-        url: file:///charts/example
+        url: cm:///simple-kmod/simple-kmod-chart
         username: ""
       tags: []
       version: 0.0.1
@@ -173,7 +173,7 @@ specialresource:
       source:
         git:
           ref: master
-          uri: https://github.com/openshift-psap/kvc-simple-kmod.git
+          uri: https://github.com/openshift-psap/simple-kmod.git
     forceUpgrade: false
     namespace: simple-kmod
     set:

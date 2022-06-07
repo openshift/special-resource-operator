@@ -75,7 +75,7 @@ spec:
     source:
       git:
         ref: "master"
-        uri: "https://github.com/openshift-psap/kvc-simple-kmod.git"
+        uri: "https://github.com/openshift-psap/simple-kmod.git"
 ```
 
 SRO will print each complete state the corresponding values.
