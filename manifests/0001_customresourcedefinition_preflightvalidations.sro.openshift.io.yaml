@@ -19,64 +19,47 @@ spec:
   - name: v1beta1
     schema:
       openAPIV3Schema:
-        description: PreflightValidation initiates a preflight validations for all
-          SpecialResources on the current Kuberentes cluster.
+        description: PreflightValidation initiates a preflight validations for all SpecialResources on the current Kuberentes cluster.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
           spec:
-            description: 'PreflightValidationSpec describes the desired state of the
-              resource, such as the OCP image that SR CRs need to be verified against
-              and the debug configuration of the logs More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+            description: 'PreflightValidationSpec describes the desired state of the resource, such as the OCP image that SR CRs need to be verified against and the debug configuration of the logs More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
             properties:
               debug:
                 description: Debug enables additional logging.
                 type: boolean
               updateImage:
-                description: UpdateImage describe the OCP image that all SR CRs need
-                  to be checked against.
+                description: UpdateImage describe the OCP image that all SR CRs need to be checked against.
                 type: string
             required:
             - updateImage
             type: object
           status:
-            description: 'PreflightValidationStatus is the most recently observed
-              status of the PreflightValidation. It is populated by the system and
-              is read-only. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
+            description: 'PreflightValidationStatus is the most recently observed status of the PreflightValidation. It is populated by the system and is read-only. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status'
             properties:
               srStatuses:
-                description: CRStatuses contain observations about each SpecialResource's
-                  preflight upgradability validation
+                description: CRStatuses contain observations about each SpecialResource's preflight upgradability validation
                 items:
                   properties:
                     lastTransitionTime:
-                      description: LastTransitionTime is the last time the CR status
-                        transitioned from one status to another. This should be when
-                        the underlying status changed.  If that is not known, then
-                        using the time when the API field changed is acceptable.
+                      description: LastTransitionTime is the last time the CR status transitioned from one status to another. This should be when the underlying status changed.  If that is not known, then using the time when the API field changed is acceptable.
                       format: date-time
                       type: string
                     name:
                       description: Name of SR CR being checked
                       type: string
                     statusReason:
-                      description: StatusReason contains a string describing the status
-                        source.
+                      description: StatusReason contains a string describing the status source.
                       type: string
                     verificationStatus:
-                      description: 'Status of SR CR verification: true (verified),
-                        false (verification failed), error (error during verification
-                        process), unknown (verification has not started yet)'
+                      description: 'Status of SR CR verification: true (verified), false (verification failed), error (error during verification process), unknown (verification has not started yet)'
                       enum:
                       - "True"
                       - "False"
