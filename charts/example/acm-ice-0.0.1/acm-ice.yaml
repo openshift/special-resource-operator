@@ -16,7 +16,7 @@ spec:
     buildArgs:
       - name: DRIVER_VER
         value: "1.6.4"
-    registry: quay.io/pacevedo
+    registry: quay.io/openshift
   watch:
     - path: "$.metadata.labels.openshiftVersion"
       apiVersion: cluster.open-cluster-management.io/v1

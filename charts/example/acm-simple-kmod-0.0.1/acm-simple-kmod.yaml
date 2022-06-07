@@ -16,7 +16,7 @@ spec:
     buildArgs:
       - name: "KMODVER"
         value: "SRO"
-    registry: quay.io/pacevedo
+    registry: quay.io/openshift
     git:
       ref: master
       uri: https://github.com/openshift-psap/kvc-simple-kmod.git
