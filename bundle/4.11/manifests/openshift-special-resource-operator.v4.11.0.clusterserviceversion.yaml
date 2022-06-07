@@ -65,6 +65,12 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - kind: PreflightValidation
+      name: preflightvalidations.sro.openshift.io
+      version: v1beta1
+    - kind: SpecialResourceModule
+      name: specialresourcemodules.sro.openshift.io
+      version: v1beta1
     - description: SpecialResource describes a software stack for hardware accelerators
         on an existing Kubernetes cluster.
       displayName: Special Resource
@@ -352,6 +358,17 @@ spec:
           - update
           - watch
         - apiGroups:
+          - apps.open-cluster-management.io
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+        - apiGroups:
           - auditregistration.k8s.io
           resources:
           - auditsinks
@@ -535,28 +552,12 @@ spec:
           verbs:
           - sign
         - apiGroups:
-          - config.openshift.io
+          - cluster.open-cluster-management.io
           resources:
-          - clusteroperators
+          - '*'
           verbs:
-          - create
-          - delete
           - get
           - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - config.openshift.io
-          resources:
-          - clusteroperators/status
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
           - watch
         - apiGroups:
           - config.openshift.io
@@ -564,6 +565,7 @@ spec:
           - clusterversions
           verbs:
           - get
+          - list
         - apiGroups:
           - config.openshift.io
           resources:
@@ -960,6 +962,28 @@ spec:
           - update
           - watch
         - apiGroups:
+          - policy.open-cluster-management.io
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+        - apiGroups:
+          - ran.openshift.io
+          resources:
+          - '*'
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+        - apiGroups:
           - rbac.authorization.k8s.io
           resources:
           - clusterrolebindings
@@ -1139,6 +1163,54 @@ spec:
         - apiGroups:
           - sro.openshift.io
           resources:
+          - preflightvalidations
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - sro.openshift.io
+          resources:
+          - preflightvalidations/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - sro.openshift.io
+          resources:
+          - specialresourcemodules
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - sro.openshift.io
+          resources:
+          - specialresourcemodules/finalizers
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - sro.openshift.io
+          resources:
+          - specialresourcemodules/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - sro.openshift.io
+          resources:
           - specialresources
           verbs:
           - create
@@ -1309,7 +1381,7 @@ spec:
                   allowPrivilegeEscalation: false
                   readOnlyRootFilesystem: true
                 volumeMounts:
-                - mountPath: /cache
+                - mountPath: /home/nonroot/.cache
                   name: cache-volume
               securityContext:
                 runAsGroup: 499

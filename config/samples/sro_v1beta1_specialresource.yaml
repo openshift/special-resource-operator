@@ -9,7 +9,7 @@ spec:
     version: 0.0.1
     repository:
       name: example
-      url: file:///charts/example
+      url: cm://namespace/configmap-name
   set:
     kind: Values
     apiVersion: sro.openshift.io/v1beta1
