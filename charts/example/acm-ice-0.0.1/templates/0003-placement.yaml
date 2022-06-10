@@ -1,7 +1,7 @@
 apiVersion: apps.open-cluster-management.io/v1
 kind: PlacementRule
 metadata:
- name: {{.Values.specialResourceModule.metadata.name}}-placement
+ name: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.openShiftVersion | replace "." "-" | replace "_" "-" | trunc 63 }}
 spec:
   clusterConditions:
   - status: "True"
@@ -12,16 +12,20 @@ spec:
       operator: NotIn
       values:
       - local-cluster
+    - key: openshiftVersion
+      operator: In
+      values:
+      - {{ .Values.openShiftVersion }}
 ---
 apiVersion: policy.open-cluster-management.io/v1
 kind: PlacementBinding
 metadata:
- name: {{.Values.specialResourceModule.metadata.name}}-binding
+ name: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.openShiftVersion | replace "." "-" | replace "_" "-" | trunc 63 }}
 placementRef:
  apiGroup: apps.open-cluster-management.io
  kind: PlacementRule
- name: {{.Values.specialResourceModule.metadata.name}}-placement
+ name: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.openShiftVersion | replace "." "-" | replace "_" "-" | trunc 63 }}
 subjects:
 - apiGroup: policy.open-cluster-management.io
   kind: Policy
-  name: policy-{{.Values.specialResourceModule.metadata.name}}-mc
+  name: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.openShiftVersion | replace "." "-" | replace "_" "-" | trunc 63 }}

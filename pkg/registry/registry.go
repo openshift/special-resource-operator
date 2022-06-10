@@ -26,6 +26,7 @@ const (
 	pullSecretFileName           = ".dockerconfigjson"
 	driverToolkitJSONFile        = "etc/driver-toolkit-release.json"
 	releaseManifestImagesRefFile = "release-manifests/image-references"
+	releaseManifestMetadataFile  = "release-manifests/release-metadata"
 )
 
 type DriverToolkitEntry struct {
@@ -41,6 +42,7 @@ type Registry interface {
 	LastLayer(context.Context, string) (v1.Layer, error)
 	ExtractToolkitRelease(v1.Layer) (*DriverToolkitEntry, error)
 	ReleaseManifests(v1.Layer) (string, error)
+	ReleaseMetadataOCPVersion(v1.Layer) (string, error)
 	ReleaseImageMachineOSConfig(layer v1.Layer) (string, error)
 	GetLayersDigests(context.Context, string) (string, []string, []crane.Option, error)
 	GetLayerByDigest(string, string, []crane.Option) (v1.Layer, error)
@@ -164,6 +166,19 @@ func (r *registry) ReleaseManifests(layer v1.Layer) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("failed to find driver-toolkit entry in the %s file", releaseManifestImagesRefFile)
+}
+
+func (r *registry) ReleaseMetadataOCPVersion(layer v1.Layer) (string, error) {
+	obj, err := r.getHeaderFromLayer(layer, releaseManifestMetadataFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to find file %s in image layer: %w", releaseManifestMetadataFile, err)
+	}
+
+	version, found, err := unstructured.NestedString(obj.Object, "version")
+	if !found || err != nil {
+		return "", fmt.Errorf("failed to find version in the %s, found %t: %w", releaseManifestMetadataFile, found, err)
+	}
+	return version, nil
 }
 
 func (r *registry) ReleaseImageMachineOSConfig(layer v1.Layer) (string, error) {

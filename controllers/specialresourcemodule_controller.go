@@ -80,6 +80,7 @@ type metadata struct {
 	KernelFullVersion     string                           `json:"kernelFullVersion"`
 	RTKernelFullVersion   string                           `json:"rtKernelFullVersion"`
 	DriverToolkitImage    string                           `json:"driverToolkitImage"`
+	OpenShiftVersion      string                           `json:"openShiftVersion"`
 	OSImageURL            string                           `json:"osImageURL"`
 	GroupName             sroruntime.ResourceGroupName     `json:"groupName"`
 	SpecialResourceModule srov1beta1.SpecialResourceModule `json:"specialResourceModule"`
@@ -91,6 +92,7 @@ type ocpVersionInfo struct {
 	DTKImage        string
 	OSVersion       string
 	OSImage         string
+	OCPVersion      string
 }
 
 // SpecialResourceModuleReconciler reconciles a SpecialResourceModule object
@@ -122,6 +124,7 @@ func getMetadata(srm srov1beta1.SpecialResourceModule, info ocpVersionInfo) meta
 		KernelFullVersion:   info.KernelVersion,
 		RTKernelFullVersion: info.RTKernelVersion,
 		DriverToolkitImage:  info.DTKImage,
+		OpenShiftVersion:    info.OCPVersion,
 		OSImageURL:          info.OSImage,
 		GroupName: sroruntime.ResourceGroupName{
 			DriverBuild:            "driver-build",
@@ -297,6 +300,10 @@ func (r *SpecialResourceModuleReconciler) getVersionInfoFromImage(ctx context.Co
 	if err != nil {
 		return ocpVersionInfo{}, fmt.Errorf("failed to get manifest's last layer for image '%s': %w", entry, err)
 	}
+	ocpVersion, err := r.Registry.ReleaseMetadataOCPVersion(manifestsLastLayer)
+	if err != nil {
+		return ocpVersionInfo{}, fmt.Errorf("failed to get OCP version from image '%s': %w", entry, err)
+	}
 	dtkURL, err := r.Registry.ReleaseManifests(manifestsLastLayer)
 	if err != nil {
 		return ocpVersionInfo{}, fmt.Errorf("failed to get DTK URL from image '%s': %w", entry, err)
@@ -328,6 +335,7 @@ func (r *SpecialResourceModuleReconciler) getVersionInfoFromImage(ctx context.Co
 		DTKImage:        dtkURL,
 		OSVersion:       dtkEntry.OSVersion,
 		OSImage:         entry,
+		OCPVersion:      ocpVersion,
 	}, nil
 }
 

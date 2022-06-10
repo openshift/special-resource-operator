@@ -127,3 +127,18 @@ func (mr *MockRegistryMockRecorder) ReleaseManifests(arg0 interface{}) *gomock.C
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseManifests", reflect.TypeOf((*MockRegistry)(nil).ReleaseManifests), arg0)
 }
+
+// ReleaseMetadataOCPVersion mocks base method.
+func (m *MockRegistry) ReleaseMetadataOCPVersion(arg0 v1.Layer) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReleaseMetadataOCPVersion", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReleaseMetadataOCPVersion indicates an expected call of ReleaseMetadataOCPVersion.
+func (mr *MockRegistryMockRecorder) ReleaseMetadataOCPVersion(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseMetadataOCPVersion", reflect.TypeOf((*MockRegistry)(nil).ReleaseMetadataOCPVersion), arg0)
+}
