@@ -116,7 +116,7 @@ install: manifests kustomize  ## Install CRDs into the K8s cluster specified in 
 uninstall: manifests kustomize  ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
-deploy: namespace ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+deploy: configure namespace ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 	$(KUSTOMIZE) build config/default$(SUFFIX) | kubectl apply -f -
 	$(shell sleep 5)
 	$(KUSTOMIZE) build config/cr | kubectl apply -f -
@@ -155,7 +155,7 @@ manifests-gen: manifests kustomize configure
 	rm $(MANIFEST_BUNDLE)
 
 # SRO specific configuration to set namespace of all manifests
-configure:
+configure: kustomize
 	# TODO kustomize cannot set name of namespace according to settings, hack TODO
 	cd config/namespace && sed -i 's/name: .*/name: $(NAMESPACE)/g' namespace.yaml
 	cd config/namespace && $(KUSTOMIZE) edit set namespace $(NAMESPACE)

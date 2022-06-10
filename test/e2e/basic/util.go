@@ -231,7 +231,7 @@ func WaitForCmdOutputInDebugPod(interval, duration time.Duration, nodename strin
 	)
 	err = wait.PollImmediate(interval, duration, func() (bool, error) {
 		// Run oc debug  node/nodename -- cmd...
-		ocArgs := []string{"debug", "-n", "openshift-special-resource-operator", "node/" + nodename, "--"}
+		ocArgs := []string{"debug", "node/" + nodename, "--"}
 		ocArgs = append(ocArgs, cmd...)
 
 		stdout, stderr, err := execCommand(false, "oc", ocArgs...)

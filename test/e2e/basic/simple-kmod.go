@@ -170,13 +170,10 @@ func simpleKmodDelete(cs *framework.ClientSet, cl client.Client) {
 		return true, nil
 
 	})
-	if err != nil {
-		explain = err.Error()
-	}
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	nodes, err := GetNodesByRole(cs, "worker")
-	gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
+	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	for _, node := range nodes {
 		//run command in pod
@@ -212,14 +209,6 @@ var _ = ginkgo.Describe("[basic][simple-kmod] create and deploy simple-kmod", fu
 		simpleKmodModulesReady(cs)
 		ginkgo.By("Deleting simple-kmod #1")
 		simpleKmodDelete(cs, cl)
-
-		ginkgo.By("Creating simple-kmod #2")
-		simpleKmodCreate(cs, cl)
-		ginkgo.By("Checking modules ready on Nodes #2")
-		simpleKmodModulesReady(cs)
-		ginkgo.By("Deleting simple-kmod #2")
-		simpleKmodDelete(cs, cl)
-
 	})
 
 })
