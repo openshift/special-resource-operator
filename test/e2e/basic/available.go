@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/onsi/ginkgo"
@@ -49,23 +50,21 @@ var _ = ginkgo.Describe("[basic][available] Special Resource Operator availabili
 	cl, err := framework.NewControllerRuntimeClient()
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-	var explain error
-
 	// Check that operator deployment has 1 available pod
 	ginkgo.It("Operator pod is running", func() {
 		ginkgo.By("Wait for deployment/special-resource-controller-manager to have 1 ready replica")
 		err := wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
-			deployments, err := cs.Deployments("openshift-special-resource-operator").List(context.TODO(), metav1.ListOptions{})
+			deployments, err := cs.Deployments(os.Getenv("NAMESPACE")).List(context.TODO(), metav1.ListOptions{})
 			if err != nil {
 				return false, fmt.Errorf("error getting list of deployments, %v", err)
 			}
 
 			if len(deployments.Items) < 1 {
-				_, _ = Logf("Waiting for 1 deployment in openshift-special-resource-operator namespace, currently: %d", len(deployments.Items))
+				_, _ = Logf("Waiting for 1 deployment in %s namespace, currently: %d", os.Getenv("NAMESPACE"), len(deployments.Items))
 				return false, nil
 			}
 
-			operatorDeployment, err := cs.Deployments("openshift-special-resource-operator").Get(context.TODO(), "special-resource-controller-manager", metav1.GetOptions{})
+			operatorDeployment, err := cs.Deployments(os.Getenv("NAMESPACE")).Get(context.TODO(), "special-resource-controller-manager", metav1.GetOptions{})
 			if err != nil {
 				return false, fmt.Errorf("couldn't get operator deployment %v", err)
 			}
@@ -75,7 +74,7 @@ var _ = ginkgo.Describe("[basic][available] Special Resource Operator availabili
 			}
 			return false, nil
 		})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 
 	// Create the preamble. If the operator is deployed using OLM ClusterOperator doesnt exist. If the resource
@@ -84,24 +83,23 @@ var _ = ginkgo.Describe("[basic][available] Special Resource Operator availabili
 	ginkgo.It("Create preamble to enforce clusteroperator presence", func() {
 		ginkgo.By("Creating preamble")
 		err := createPreamble(cs, cl)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 	})
 
 	// Check that operator is reporting status to ClusterOperator
 	ginkgo.It("clusteroperator/special-resource-operator available and not degraded", func() {
 		ginkgo.By("wait for clusteroperator/special-resource-operator available")
 		err := WaitForClusterOperatorCondition(cs, pollInterval, waitDuration, configv1.OperatorAvailable, configv1.ConditionTrue)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		ginkgo.By("wait for clusteroperator/special-resource-operator not degraded")
 		err = WaitForClusterOperatorCondition(cs, pollInterval, waitDuration, configv1.OperatorDegraded, configv1.ConditionFalse)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		ginkgo.By("verify clusteroperator has the operator namespace in relatedObjects")
 		err = wait.PollImmediate(pollInterval, waitDuration, func() (bool, error) {
 			co, err := cs.ClusterOperators().Get(context.TODO(), "special-resource-operator", metav1.GetOptions{})
 			if err != nil {
-				explain = err
 				return false, nil
 			}
 
@@ -114,7 +112,7 @@ var _ = ginkgo.Describe("[basic][available] Special Resource Operator availabili
 
 			return false, nil
 		})
-		gomega.Expect(err).NotTo(gomega.HaveOccurred(), explain)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 	})
 
