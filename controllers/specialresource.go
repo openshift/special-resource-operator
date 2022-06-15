@@ -18,6 +18,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	"github.com/openshift-psap/special-resource-operator/pkg/slice"
 	"github.com/openshift-psap/special-resource-operator/pkg/storage"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	operatorv1 "github.com/openshift/api/operator/v1"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/chart"
@@ -104,7 +105,7 @@ func SpecialResourcesReconcile(r *SpecialResourceReconciler, req ctrl.Request) (
 	case operatorv1.Removed:
 		// The CR associated resources must be removed, even though the CR still exists.
 		log.Info("ManagementState=Removed; finalizing the SpecialResource")
-		err = reconcileFinalizers(r)
+		err = removeResources(&r.parent)
 		return reconcile.Result{}, err
 	case operatorv1.Unmanaged:
 		// The CR must be abandoned by the operator, leaving it in the last known status.
@@ -361,4 +362,46 @@ func createSpecialResourceFrom(r *SpecialResourceReconciler, ch *chart.Chart, dp
 	}
 
 	return errors.New("Created new SpecialResource we need to Reconcile")
+}
+
+func removeResources(sr *srov1beta1.SpecialResource) error {
+	_, apiResources, err := clients.Interface.ServerGroupsAndResources()
+	if err != nil {
+		return fmt.Errorf("unable to retrieve server groups and resources: %w", err)
+	}
+	for _, apiResource := range apiResources {
+		for _, resource := range apiResource.APIResources {
+			if err := deleteResource(filter.OwnedLabel, sr.Spec.Namespace, apiResource.GroupVersion, resource.Kind, sr.UID); err != nil {
+				return fmt.Errorf("unable to delete owned resources %s/%s: %w", apiResource.GroupVersion, resource.Kind, err)
+			}
+		}
+	}
+	return nil
+}
+
+func deleteResource(ownedLabel, namespace, apiVersion, kind string, UID types.UID) error {
+	obj := unstructured.UnstructuredList{}
+	obj.SetKind(kind)
+	obj.SetAPIVersion(apiVersion)
+	sl := metav1.LabelSelector{
+		MatchLabels: map[string]string{ownedLabel: "true"},
+	}
+	selector, _ := metav1.LabelSelectorAsSelector(&sl)
+	if err := clients.Interface.List(context.TODO(), &obj, &client.ListOptions{
+		LabelSelector: selector,
+		Namespace:     namespace,
+	}); err != nil {
+		return nil
+	}
+	for _, object := range obj.Items {
+		for _, or := range object.GetOwnerReferences() {
+			if or.UID != UID {
+				continue
+			}
+			if err := clients.Interface.Delete(context.TODO(), &object); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

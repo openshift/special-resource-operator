@@ -27,13 +27,13 @@ import (
 var (
 	Mode   string
 	sroGVK string
-	owned  string
+	OwnedLabel  string
 	log    logr.Logger
 )
 
 func init() {
 	sroGVK = "SpecialResource"
-	owned = "specialresource.openshift.io/owned"
+	OwnedLabel = "specialresource.openshift.io/owned"
 }
 
 func init() {
@@ -48,7 +48,7 @@ func SetLabel(obj *unstructured.Unstructured) error {
 		labels = make(map[string]string)
 	}
 
-	labels[owned] = "true"
+	labels[OwnedLabel] = "true"
 	obj.SetLabels(labels)
 
 	return SetSubResourceLabel(obj)
@@ -67,7 +67,7 @@ func SetSubResourceLabel(obj *unstructured.Unstructured) error {
 			return errors.New("Labels not found")
 		}
 
-		labels[owned] = "true"
+		labels[OwnedLabel] = "true"
 		if err := unstructured.SetNestedMap(obj.Object, labels, "spec", "template", "metadata", "labels"); err != nil {
 			return err
 		}
@@ -85,7 +85,7 @@ func SetSubResourceLabel(obj *unstructured.Unstructured) error {
 			}
 
 			label := make(map[string]interface{})
-			label["name"] = owned
+			label["name"] = OwnedLabel
 			label["value"] = "true"
 			imageLabels := append(make([]interface{}, 0), label)
 
@@ -161,7 +161,7 @@ func Owned(obj client.Object) bool {
 	var labels map[string]string
 
 	if labels = obj.GetLabels(); labels != nil {
-		if _, found := labels[owned]; found {
+		if _, found := labels[OwnedLabel]; found {
 			log.Info(Mode+" Owned (label)", "Name", obj.GetName(),
 				"Type", reflect.TypeOf(obj).String())
 			return true
