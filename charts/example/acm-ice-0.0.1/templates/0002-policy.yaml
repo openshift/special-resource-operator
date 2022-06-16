@@ -1,7 +1,7 @@
 apiVersion: policy.open-cluster-management.io/v1
 kind: Policy
 metadata:
- name: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.openShiftVersion | replace "." "-" | replace "_" "-" | trunc 63 }}
+ name: {{ .Values.specialResourceModule.metadata.name }}
  annotations:
    policy.open-cluster-management.io/categories: CM Configuration Management
    policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
@@ -14,7 +14,7 @@ spec:
        apiVersion: policy.open-cluster-management.io/v1
        kind: ConfigurationPolicy
        metadata:
-         name: {{ printf "%s-%s" .Values.specialResourceModule.metadata.name .Values.openShiftVersion | replace "." "-" | replace "_" "-" | trunc 63 }}
+         name: {{ .Values.specialResourceModule.metadata.name }}
        spec:
          remediationAction: enforce
          severity: low
@@ -39,7 +39,7 @@ spec:
                    storage:
                      files:
                        - contents:
-                           source: 'data:text/plain;charset=us-ascii;base64,IyEvYmluL2Jhc2gKc2V0IC1ldQoKQUNUSU9OPSQxOyBzaGlmdApJTUFHRT0kMTsgc2hpZnQKS0VSTkVMPSQxOyBzaGlmdAoKcG9kbWFuIHB1bGwgLS1hdXRoZmlsZSAvdmFyL2xpYi9rdWJlbGV0L2NvbmZpZy5qc29uICR7SU1BR0V9OiR7S0VSTkVMfSAyPiYxCgpsb2FkX2ttb2RzKCkgewogICAgcG9kbWFuIHJ1biAtaSAtLXByaXZpbGVnZWQgLXYgL2xpYi9tb2R1bGVzLyR7S0VSTkVMfS9rZXJuZWwvZHJpdmVycy86L2xpYi9tb2R1bGVzLyR7S0VSTkVMfS9rZXJuZWwvZHJpdmVycy8gJHtJTUFHRX06JHtLRVJORUx9IGxvYWQuc2gKfQp1bmxvYWRfa21vZHMoKSB7CiAgICBwb2RtYW4gcnVuIC1pIC0tcHJpdmlsZWdlZCAtdiAvbGliL21vZHVsZXMvJHtLRVJORUx9L2tlcm5lbC9kcml2ZXJzLzovbGliL21vZHVsZXMvJHtLRVJORUx9L2tlcm5lbC9kcml2ZXJzLyAke0lNQUdFfToke0tFUk5FTH0gdW5sb2FkLnNoCn0KCmNhc2UgIiR7QUNUSU9OfSIgaW4KICAgIGxvYWQpCiAgICAgICAgbG9hZF9rbW9kcwogICAgOzsKICAgIHVubG9hZCkKICAgICAgICB1bmxvYWRfa21vZHMKICAgIDs7CiAgICAqKQogICAgICAgIGVjaG8gIlVua25vd24gY29tbWFuZC4gRXhpdGluZy4iCiAgICAgICAgZWNobyAiVXNhZ2U6IgogICAgICAgIGVjaG8gIiIKICAgICAgICBlY2hvICJsb2FkICAgICAgICBMb2FkIGtlcm5lbCBtb2R1bGUocykiCiAgICAgICAgZWNobyAidW5sb2FkICAgICAgVW5sb2FkIGtlcm5lbCBtb2R1bGUocykiCiAgICAgICAgZXhpdCAxCmVzYWM='
+                           source: 'data:text/plain;charset=us-ascii;base64,IyEvYmluL2Jhc2gKc2V0IC1ldQoKQUNUSU9OPSQxOyBzaGlmdApJTUFHRT0kMTsgc2hpZnQKS0VSTkVMPWB1bmFtZSAtcmAKCnBvZG1hbiBwdWxsIC0tYXV0aGZpbGUgL3Zhci9saWIva3ViZWxldC9jb25maWcuanNvbiAke0lNQUdFfToke0tFUk5FTH0gMj4mMQoKbG9hZF9rbW9kcygpIHsKICAgIHBvZG1hbiBydW4gLWkgLS1wcml2aWxlZ2VkIC12IC9saWIvbW9kdWxlcy8ke0tFUk5FTH0va2VybmVsL2RyaXZlcnMvOi9saWIvbW9kdWxlcy8ke0tFUk5FTH0va2VybmVsL2RyaXZlcnMvICR7SU1BR0V9OiR7S0VSTkVMfSBsb2FkLnNoCn0KdW5sb2FkX2ttb2RzKCkgewogICAgcG9kbWFuIHJ1biAtaSAtLXByaXZpbGVnZWQgLXYgL2xpYi9tb2R1bGVzLyR7S0VSTkVMfS9rZXJuZWwvZHJpdmVycy86L2xpYi9tb2R1bGVzLyR7S0VSTkVMfS9rZXJuZWwvZHJpdmVycy8gJHtJTUFHRX06JHtLRVJORUx9IHVubG9hZC5zaAp9CgpjYXNlICIke0FDVElPTn0iIGluCiAgICBsb2FkKQogICAgICAgIGxvYWRfa21vZHMKICAgIDs7CiAgICB1bmxvYWQpCiAgICAgICAgdW5sb2FkX2ttb2RzCiAgICA7OwogICAgKikKICAgICAgICBlY2hvICJVbmtub3duIGNvbW1hbmQuIEV4aXRpbmcuIgogICAgICAgIGVjaG8gIlVzYWdlOiIKICAgICAgICBlY2hvICIiCiAgICAgICAgZWNobyAibG9hZCAgICAgICAgTG9hZCBrZXJuZWwgbW9kdWxlKHMpIgogICAgICAgIGVjaG8gInVubG9hZCAgICAgIFVubG9hZCBrZXJuZWwgbW9kdWxlKHMpIgogICAgICAgIGV4aXQgMQplc2FjCg=='
                          filesystem: root
                          mode: 493
                          path: /usr/local/bin/{{.Values.specialResourceModule.metadata.name}}
@@ -60,8 +60,8 @@ spec:
                          Type=oneshot
                          RemainAfterExit=true
                          # Use bash to workaround https://github.com/coreos/rpm-ostree/issues/1936
-                         ExecStart=/usr/bin/bash -c "while ! /usr/local/bin/{{.Values.specialResourceModule.metadata.name}} load {{.Values.registry}}/{{.Values.specialResourceModule.metadata.name}}-{{.Values.groupName.driverContainer}} {{.Values.kernelFullVersion}}; do sleep 10; done"
-                         ExecStop=/usr/bin/bash -c "/usr/local/bin/{{.Values.specialResourceModule.metadata.name}} unload {{.Values.registry}}/{{.Values.specialResourceModule.metadata.name}}-{{.Values.groupName.driverContainer}} {{.Values.kernelFullVersion}}"
+                         ExecStart=/usr/bin/bash -c "while ! /usr/local/bin/{{.Values.specialResourceModule.metadata.name}} load {{.Values.registry}}/{{.Values.specialResourceModule.metadata.name}}-{{.Values.groupName.driverContainer}}; do sleep 10; done"
+                         ExecStop=/usr/bin/bash -c "/usr/local/bin/{{.Values.specialResourceModule.metadata.name}} unload {{.Values.registry}}/{{.Values.specialResourceModule.metadata.name}}-{{.Values.groupName.driverContainer}}"
                          StandardOutput=journal+console
  
                          [Install]
