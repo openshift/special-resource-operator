@@ -18,12 +18,6 @@ spec:
         value: "1.6.4"
     registry: quay.io/openshift
   watch:
-    - path: "$.metadata.labels.openshiftVersion"
+    - path: $.status.clusterClaims[?(@.name == 'osimage.openshift.io')].value
       apiVersion: cluster.open-cluster-management.io/v1
       kind: ManagedCluster
-      name: spoke1
-    #- path: $.status.clusterClaims[?(@.name == 'osimage.openshift.io')].value # disconnected version
-    - path: "$.metadata.labels.openshiftVersion" # connected version
-      apiVersion: cluster.open-cluster-management.io/v1
-      kind: ManagedCluster
-      name: spoke2

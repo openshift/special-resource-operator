@@ -153,17 +153,83 @@ charts/example/acm-ice-0.0.1
 1 directory, 6 files
 ```
 
-The `SpecialResourceModule` defines what to watch for OCP versions, assuming we are in a connected environment:
+ICE driver is a bit special, as it needs to be loaded before kubelet starts. When doing upgrades the spokes are not updated atomically, they progress until they reach completion. Halfway through this process a new kernel is booted and then we need to load ICE driver for that version. The labels we would typically use to know the version of the spoke are not enough, since they are updated at the end of the upgrade, when its complete.</br>
+If we wait for so long then the new driver wont be built until the end, but this is already too late because nodes with a new kernel will try to load it before it exists. This breaks the upgrade process and the spokes.
+
+To overcome this issue we will make use of `ClusterClaims`, which are key:value pairs that get pushed from spokes to hub automatically (more on this in later sections). We can set up a `ClusterClaim` taking a dynamic value from the desired image in `clusterversion`:
+```yaml
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+    annotations:
+        policy.open-cluster-management.io/categories: CM Configuration Management
+        policy.open-cluster-management.io/controls: CM-2 Baseline Configuration
+        policy.open-cluster-management.io/standards: NIST SP 800-53
+    name: version-claim-policy
+    namespace: default
+spec:
+    remediationAction: enforce
+    disabled: false
+    policy-templates:
+        - objectDefinition:
+            apiVersion: policy.open-cluster-management.io/v1
+            kind: ConfigurationPolicy
+            metadata:
+                name: version-claim-policy-config
+            spec:
+                remediationAction: enforce
+                severity: low
+                namespaceselector:
+                    exclude:
+                        - kube-*
+                    include:
+                        - '*'
+                object-templates:
+                    - complianceType: musthave
+                      objectDefinition:
+                        apiVersion: cluster.open-cluster-management.io/v1alpha1
+                        kind: ClusterClaim
+                        metadata:
+                          name: osimage.openshift.io
+                        spec:
+                          value: '{{ (lookup "config.openshift.io/v1" "ClusterVersion" "" "version").status.desired.image }}'
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: PlacementRule
+metadata:
+    name: version-claim-placementrules
+    namespace: default
+spec:
+    clusterSelector:
+        matchExpressions:
+            - key: name
+              operator: NotIn
+              values:
+                - local-cluster
+---
+apiVersion: policy.open-cluster-management.io/v1
+kind: PlacementBinding
+metadata:
+    name: version-claim-placementbinding
+    namespace: default
+placementRef:
+    name: version-claim-placementrules
+    kind: PlacementRule
+    apiGroup: apps.open-cluster-management.io
+subjects:
+    - name: version-claim-policy
+      kind: Policy
+      apiGroup: policy.open-cluster-management.io
+```
+
+Now, as soon as the upgrade begins, this value will be updated and the build for the new kernel will start, allowing enough time for the upgrade to succeed.
+
+Let's set up the `SpecialResourceModule` defining what to watch for OCP versions:
 ```yaml
   watch:
-    - path: "$.metadata.labels.openshiftVersion"
+    - path: "$.status.clusterClaims[?(@.name == 'osimage.openshift.io')].value"
       apiVersion: cluster.open-cluster-management.io/v1
       kind: ManagedCluster
-      name: spoke1
-    - path: "$.metadata.labels.openshiftVersion"
-      apiVersion: cluster.open-cluster-management.io/v1
-      kind: ManagedCluster
-      name: spoke2
 ```
 
 The `BuildConfig` is using the OCP version in its name:
@@ -172,8 +238,8 @@ apiVersion: build.openshift.io/v1
 kind: BuildConfig
 metadata:
   labels:
-    app: {{.Values.specialResourceModule.metadata.name}}-{{.Values.clusterVersion}}
-  name: {{.Values.specialResourceModule.metadata.name}}-{{.Values.clusterVersion}}
+    app: {{.Values.specialResourceModule.metadata.name}}-{{.Values.openShiftVersion}}
+  name: {{.Values.specialResourceModule.metadata.name}}-{{.Values.openShiftVersion}}
   annotations:
     specialresource.openshift.io/wait: "true"
 ```
