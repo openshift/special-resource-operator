@@ -549,10 +549,10 @@ func (r *SpecialResourceModuleReconciler) Reconcile(ctx context.Context, req ctr
 			Complete:            len(reconciledList) == 0,
 		}
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to reconcile chart for SepcialResourceModule '%s': %w", resource.Name, err)
+			return reconcile.Result{}, fmt.Errorf("failed to reconcile chart for SpecialResourceModule '%s': %w", resource.Name, err)
 		}
 		if err := r.updateSpecialResourceModuleStatus(resource); err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to updated SpecialResourceModule status: %w", err)
+			return reconcile.Result{}, fmt.Errorf("failed to update SpecialResourceModule status: %w", err)
 		}
 
 	}
