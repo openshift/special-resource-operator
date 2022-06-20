@@ -43,6 +43,9 @@ var (
 		"ValidatingWebhookConfiguration": true,
 		"Deployment":                     true,
 		"ImagePolicy":                    true,
+		"PlacementBinding":               true,
+		"PlacementRule":                  true,
+		"Policy":                         true,
 	}
 )
 
