@@ -41,6 +41,8 @@ type ClientsInterface interface {
 	GetPodLogs(namespace, podName string, podLogOpts *v1.PodLogOptions) *restclient.Request
 	GetNamespace(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Namespace, error)
 	GetSecret(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*v1.Secret, error)
+	GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*v1.ConfigMap, error)
+	GetImage(ctx context.Context, name string, opts metav1.GetOptions) (*configv1.Image, error)
 	ClusterVersionGet(ctx context.Context, opts metav1.GetOptions) (result *configv1.ClusterVersion, err error)
 	Invalidate()
 	ServerGroups() (*metav1.APIGroupList, error)
@@ -114,6 +116,14 @@ func (k *k8sClients) GetNamespace(ctx context.Context, name string, opts metav1.
 
 func (k *k8sClients) GetSecret(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*v1.Secret, error) {
 	return k.clientset.CoreV1().Secrets(namespace).Get(ctx, name, opts)
+}
+
+func (k *k8sClients) GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*v1.ConfigMap, error) {
+	return k.clientset.CoreV1().ConfigMaps(namespace).Get(ctx, name, opts)
+}
+
+func (k *k8sClients) GetImage(ctx context.Context, name string, opts metav1.GetOptions) (*configv1.Image, error) {
+	return k.configV1Client.Images().Get(ctx, name, opts)
 }
 
 func (k *k8sClients) ClusterVersionGet(ctx context.Context, opts metav1.GetOptions) (result *configv1.ClusterVersion, err error) {

@@ -427,7 +427,7 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 			kubeClient.
 				EXPECT().
 				List(context.Background(), &v1.PodList{}, opts...).
-				Do(func(_ context.Context, pl *v1.PodList, _ client.InNamespace, _ client.MatchingLabels) {
+				Do(func(_ context.Context, pl *v1.PodList, _ ...client.ListOption) {
 					pl.Items = []v1.Pod{
 						{
 							ObjectMeta: metav1.ObjectMeta{Name: "pod1", Namespace: "namespace"},
@@ -466,7 +466,7 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 			kubeClient.
 				EXPECT().
 				List(context.Background(), &v1.PodList{}, opts...).
-				Do(func(_ context.Context, pl *v1.PodList, _ client.InNamespace, _ client.MatchingLabels) {
+				Do(func(_ context.Context, pl *v1.PodList, _ ...client.ListOption) {
 					pl.Items = []v1.Pod{
 						{
 							Status: v1.PodStatus{Phase: "test"},
@@ -503,7 +503,7 @@ var _ = Describe("resource_CheckForImagePullBackOff", func() {
 			kubeClient.
 				EXPECT().
 				List(context.Background(), &v1.PodList{}, opts...).
-				Do(func(_ context.Context, pl *v1.PodList, _ client.InNamespace, _ client.MatchingLabels) {
+				Do(func(_ context.Context, pl *v1.PodList, _ ...client.ListOption) {
 					pl.Items = []v1.Pod{
 						{
 							Status: v1.PodStatus{
