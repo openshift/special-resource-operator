@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"regexp"
 	"time"
 
@@ -13,13 +12,13 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/cache"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/hash"
 	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
-	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
+	apps "k8s.io/api/apps/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -347,14 +346,12 @@ func ForLifecycleAvailability(obj *unstructured.Unstructured) error {
 		return nil
 	}
 
+	annotations := obj.GetAnnotations()
+        tempGenerator := annotations[apps.DeprecatedTemplateGeneration]
+
 	objKey := types.NamespacedName{
 		Namespace: obj.GetNamespace(),
 		Name:      obj.GetName(),
-	}
-
-	ins := types.NamespacedName{
-		Namespace: os.Getenv("OPERATOR_NAMESPACE"),
-		Name:      "special-resource-lifecycle",
 	}
 
 	return wait.Poll(RetryInterval, Timeout, func() (done bool, err error) {
@@ -365,15 +362,20 @@ func ForLifecycleAvailability(obj *unstructured.Unstructured) error {
 
 		for _, pod := range pl.Items {
 			log.Info("Checking lifecycle of", "Pod", pod.GetName())
-			hs, err := hash.FNV64a(pod.GetNamespace() + pod.GetName())
-			if err != nil {
-				return false, err
-			}
-			value, err := storage.CheckConfigMapEntry(hs, ins)
-			if err != nil {
-				return false, err
-			}
-			if value != "" {
+			//hs, err := hash.FNV64a(pod.GetNamespace() + pod.GetName())
+			//if err != nil {
+			//	return false, err
+			//}
+			//value, err := storage.CheckConfigMapEntry(hs, ins)
+			//if err != nil {
+			//	return false, err
+			//}
+			//if value != "" {
+			//	return false, nil
+			//}
+			podLabels := pod.GetLabels()
+			podGenerator := podLabels[extensions.DaemonSetTemplateGenerationKey]
+			if podGenerator != tempGenerator {
 				return false, nil
 			}
 		}

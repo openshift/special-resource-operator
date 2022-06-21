@@ -2,13 +2,10 @@ package lifecycle
 
 import (
 	"context"
-	"os"
 
 	"github.com/go-logr/logr"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/hash"
-	"github.com/openshift-psap/special-resource-operator/pkg/storage"
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -63,37 +60,4 @@ func getPodListForUpperObject(matchLabels map[string]string, ns string) *v1.PodL
         }
 
         return pl
-}
-
-func UpdateDaemonSetPods(obj client.Object) error {
-
-	log.Info("UpdateDaemonSetPods")
-
-	key := types.NamespacedName{
-		Namespace: obj.GetNamespace(),
-		Name:      obj.GetName(),
-	}
-	ins := types.NamespacedName{
-		Namespace: os.Getenv("OPERATOR_NAMESPACE"),
-		Name:      "special-resource-lifecycle",
-	}
-
-	pl := GetPodFromDaemonSet(key)
-
-	for _, pod := range pl.Items {
-
-		hs, err := hash.FNV64a(pod.GetNamespace() + pod.GetName())
-		if err != nil {
-			return err
-		}
-		value := "*v1.Pod"
-		log.Info(pod.GetName(), "hs", hs, "value", value)
-		err = storage.UpdateConfigMapEntry(hs, value, ins)
-		if err != nil {
-			warn.OnError(err)
-			return err
-		}
-	}
-
-	return nil
 }

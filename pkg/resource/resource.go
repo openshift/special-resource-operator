@@ -20,6 +20,7 @@ import (
 	"helm.sh/helm/v3/pkg/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apps "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -365,6 +366,9 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 	}
 	if equal {
 		logg.Info("Found, not updating, hash the same: " + found.GetKind() + "/" + found.GetName())
+		// we need to update the template generation for daemonset, since it will be used in the poll
+		// we do it here, since we don't want to interfere with the hash calculation of the object
+		SetTemplateGeneration(obj, found)
 		return nil
 	}
 
@@ -383,6 +387,10 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 	if err = clients.Interface.Update(context.TODO(), required); err != nil {
 		return fmt.Errorf("couldn't Update Resource: %w", err)
 	}
+
+	// we need to update the template generation for daemonset, since it will be used in the poll
+	// we do it here, since we don't want to interfere with the hash calculation of the object
+	SetTemplateGeneration(obj, found)
 
 	return nil
 }
@@ -431,6 +439,27 @@ func SetMetaData(obj *unstructured.Unstructured, nm string, ns string) {
 	labels["app.kubernetes.io/managed-by"] = "Helm"
 
 	obj.SetLabels(labels)
+}
+
+func SetTemplateGeneration(obj *unstructured.Unstructured, found *unstructured.Unstructured) {
+        if obj.GetKind() != "DaemonSet" {
+                return
+        }
+        foundAnnotations := found.GetAnnotations()
+        if foundAnnotations == nil {
+                return
+        }
+        tempGeneration, ok := foundAnnotations[apps.DeprecatedTemplateGeneration]
+        if !ok {
+                return
+        }
+        annotations := obj.GetAnnotations()
+        if annotations == nil {
+                annotations = make(map[string]string)
+        }
+
+        annotations[apps.DeprecatedTemplateGeneration] = tempGeneration
+        obj.SetAnnotations(annotations)
 }
 
 type resourceCallbacks map[string]func(obj *unstructured.Unstructured, sr interface{}) error
