@@ -96,10 +96,13 @@ spec:
                      - image: {{.Values.registry}}/{{.Values.specialResourceModule.metadata.name}}-{{.Values.groupName.driverContainer}}:{{.Values.kernelFullVersion}}
                        name: {{.Values.specialResourceModule.metadata.name}}
                        imagePullPolicy: Always
-                       command: ["/sbin/init"]
+                       command: [sleep, infinity]
                        lifecycle:
+                         postStart:
+                           exec:
+                             command: ["modprobe", "-v", "-a" , "simple-kmod", "simple-procfs-kmod"]
                          preStop:
                            exec:
-                             command: ["/bin/sh", "-c", "systemctl stop kmods-via-containers@{{.Values.specialResourceModule.metadata.name}}"]
+                             command: ["modprobe", "-r", "-a" , "simple-kmod", "simple-procfs-kmod"]
                        securityContext:
                          privileged: true

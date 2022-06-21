@@ -14,13 +14,21 @@ spec:
     - type: "ConfigChange"
     - type: "ImageChange"
   source:
-    git:
-      ref: {{.Values.git.ref}}
-      uri: {{.Values.git.uri}}
-    type: Git
+    dockerfile: |
+      FROM {{ .Values.driverToolkitImage  }} as builder
+      WORKDIR /build/
+      RUN git clone -b {{.Values.specialResourceModule.spec.set.git.ref}} {{.Values.specialResourceModule.spec.set.git.uri}}
+      WORKDIR /build/simple-kmod
+      RUN make all install KVER={{ .Values.kernelFullVersion }}
+
+      FROM registry.redhat.io/ubi8/ubi-minimal
+
+      RUN microdnf -y install kmod
+
+      COPY --from=builder /etc/driver-toolkit-release.json /etc/
+      COPY --from=builder /lib/modules/{{ .Values.kernelFullVersion }}/* /lib/modules/{{ .Values.kernelFullVersion }}/
   strategy:
     dockerStrategy:
-      dockerfilePath: Dockerfile.SRO
       buildArgs:
         - name: "IMAGE"
           value: {{ .Values.driverToolkitImage  }}
