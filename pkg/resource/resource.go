@@ -11,11 +11,11 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/hash"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
+	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
+	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
-	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
-        "github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -586,30 +586,30 @@ func checkForImagePullBackOff(obj *unstructured.Unstructured, namespace string) 
 }
 
 func sendNodesMetrics(obj *unstructured.Unstructured, crName string) {
-        kind := obj.GetKind()
-        if kind != "DaemonSet" && kind != "Deployment" {
-                return
-        }
+	kind := obj.GetKind()
+	if kind != "DaemonSet" && kind != "Deployment" {
+		return
+	}
 
-        objKey := types.NamespacedName{
-                Namespace: obj.GetNamespace(),
-                Name:      obj.GetName(),
-        }
-        getPodsFunc := lifecycle.GetPodFromDaemonSet
-        if kind == "Deployment" {
-                getPodsFunc = lifecycle.GetPodFromDeployment
-        }
+	objKey := types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+	getPodsFunc := lifecycle.GetPodFromDaemonSet
+	if kind == "Deployment" {
+		getPodsFunc = lifecycle.GetPodFromDeployment
+	}
 
-        pl := getPodsFunc(objKey)
-        nodesNames := []string{}
-        for _, pod := range pl.Items {
-                nodesNames = append(nodesNames, pod.Spec.NodeName)
-        }
+	pl := getPodsFunc(objKey)
+	nodesNames := []string{}
+	for _, pod := range pl.Items {
+		nodesNames = append(nodesNames, pod.Spec.NodeName)
+	}
 
-        if len(nodesNames) != 0 {
-                nodesStr := strings.Join(nodesNames, ",")
-                metrics.SetUsedNodes(crName, obj.GetName(), obj.GetNamespace(), kind, nodesStr)
-        } else {
-                log.Info("No assigned nodes for found for UsedNodes metric", "kind", kind, "name", obj.GetName(), "crName", crName)
-        }
+	if len(nodesNames) != 0 {
+		nodesStr := strings.Join(nodesNames, ",")
+		metrics.SetUsedNodes(crName, obj.GetName(), obj.GetNamespace(), kind, nodesStr)
+	} else {
+		log.Info("No assigned nodes for found for UsedNodes metric", "kind", kind, "name", obj.GetName(), "crName", crName)
+	}
 }

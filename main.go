@@ -81,7 +81,38 @@ func main() {
 		setupLog.Error(err, "unable to create client set")
 		os.Exit(1)
 	}
+	//FIXME:ybettan: remove?
+	//<<<<<<< HEAD
 	configClient, err := clients.GetConfigClient()
+	//FIXME:ybettan: remove?
+	//=======
+	//	clusterAPI := cluster.NewCluster(kubeClient)
+	//
+	//	metricsAPI := metrics.New()
+	//
+	//	st := storage.NewStorage(kubeClient)
+	//	lc := lifecycle.New(kubeClient, st)
+	//	pollActions := poll.New(kubeClient, lc, st)
+	//	kernelAPI := kernel.NewKernelData()
+	//	proxyAPI := proxy.NewProxyAPI(kubeClient)
+	//
+	//	resourceAPI := resource.NewResourceAPI(
+	//		kubeClient,
+	//		metricsAPI,
+	//		pollActions,
+	//		kernelAPI,
+	//		scheme,
+	//		lc,
+	//		proxyAPI,
+	//		resourcehelper.New())
+	//
+	//	registryAPI := registry.NewRegistry(kubeClient, registry.NewCraneWrapper(kubeClient, registry.RegistryConfFilePath))
+	//
+	//	clusterInfoAPI := upgrade.NewClusterInfo(registryAPI, clusterAPI)
+	//	runtimeAPI := runtime.NewRuntimeAPI(kubeClient, clusterAPI, kernelAPI, clusterInfoAPI, proxyAPI)
+	//
+	//	helmerAPI, err := helmer.NewHelmer(resourceAPI, kubeClient)
+	//>>>>>>> 08266589 (Adding support for disconnected clusters. (#226))
 	if err != nil {
 		setupLog.Error(err, "unable to create config client")
 		os.Exit(1)

@@ -2,6 +2,7 @@ package clients
 
 import (
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
@@ -55,6 +56,72 @@ func GetConfigClient() (*clientconfigv1.ConfigV1Client, error) {
 func GetCachedDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
 	return config.ToDiscoveryClient()
 }
+
+////FIXME:ybettan: remove?
+//func (k *k8sClients) Create(ctx context.Context, obj client.Object) error {
+//	return k.runtimeClient.Create(ctx, obj)
+//}
+//
+////FIXME:ybettan: remove?
+//func (k *k8sClients) GetPodLogs(namespace, podName string, podLogOpts *v1.PodLogOptions) *restclient.Request {
+//	return k.clientset.CoreV1().Pods(namespace).GetLogs(podName, podLogOpts)
+//}
+//
+////FIXME:ybettan: remove?
+//func (k *k8sClients) GetNamespace(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Namespace, error) {
+//	return k.clientset.CoreV1().Namespaces().Get(ctx, name, opts)
+//}
+//
+////FIXME:ybettan: remove?
+//func (k *k8sClients) GetSecret(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*v1.Secret, error) {
+//	return k.clientset.CoreV1().Secrets(namespace).Get(ctx, name, opts)
+//}
+//
+////FIXME:ybettan: remove?
+//func (k *k8sClients) GetConfigMap(ctx context.Context, namespace, name string, opts metav1.GetOptions) (*v1.ConfigMap, error) {
+//	return k.clientset.CoreV1().ConfigMaps(namespace).Get(ctx, name, opts)
+//}
+//
+////FIXME:ybettan: remove?
+//func (k *k8sClients) GetImage(ctx context.Context, name string, opts metav1.GetOptions) (*configv1.Image, error) {
+//	return k.configV1Client.Images().Get(ctx, name, opts)
+//}
+//
+////FIXME:ybettan: remove?
+//func (k *k8sClients) ClusterVersionGet(ctx context.Context, opts metav1.GetOptions) (result *configv1.ClusterVersion, err error) {
+//	return k.configV1Client.ClusterVersions().Get(ctx, clusterVersionName, opts)
+//}
+//
+////FIXME:ybettan: remove?
+//func (k *k8sClients) Invalidate() {
+//	k.cachedDiscovery.Invalidate()
+//}
+//
+////FIXME:ybettan: remove?
+//func (k *k8sClients) ServerGroups() (*metav1.APIGroupList, error) {
+//	return k.cachedDiscovery.ServerGroups()
+//}
+//
+////FIXME:ybettan: remove?
+//func (k *k8sClients) ServerGroupsAndResources() ([]*metav1.APIGroup, []*metav1.APIResourceList, error) {
+//	return k.cachedDiscovery.ServerGroupsAndResources()
+//}
+//
+////FIXME:ybettan: remove?
+//func (k *k8sClients) StatusUpdate(ctx context.Context, obj client.Object) error {
+//	return k.runtimeClient.Status().Update(ctx, obj)
+//}
+//
+////FIXME:ybettan: remove?
+//func (k *k8sClients) StatusPatch(ctx context.Context, original, modified client.Object) error {
+//	patch := client.MergeFrom(original)
+//	return k.runtimeClient.Status().Patch(ctx, modified, patch)
+//}
+//
+////FIXME:ybettan: remove?
+//func (k *k8sClients) CreateOrUpdate(ctx context.Context, obj client.Object, fn controllerutil.MutateFn) (controllerutil.OperationResult, error) {
+//	return controllerruntime.CreateOrUpdate(ctx, k.runtimeClient, obj, fn)
+//}
 
 func HasResource(resource schema.GroupVersionResource) (bool, error) {
 	dclient, err := discovery.NewDiscoveryClientForConfig(RestConfig)

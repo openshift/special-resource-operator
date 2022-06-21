@@ -7,6 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+
+	//FIXME:ybettan: remove?
+	//<<<<<<< HEAD
 	"os"
 	"strings"
 
@@ -18,20 +21,43 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/warn"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	//FIXME:ybettan: remove?
+	//=======
+	//	"runtime"
+	//	"strings"
+	//
+	//	v1 "github.com/google/go-containerregistry/pkg/v1"
+	//	"github.com/openshift/special-resource-operator/pkg/clients"
+	//>>>>>>> 08266589 (Adding support for disconnected clusters. (#226))
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const (
+	//FIXME:ybettan: remove?
+	//<<<<<<< HEAD
 	pullSecretNamespace  = "openshift-config"
 	pullSecretName       = "pull-secret"
 	pullSecretFileName   = ".dockerconfigjson"
 	dockerConfigFilePath = "/home/nonroot/.docker/config.json"
+	imageClusterName     = "cluster"
+	configNamespace      = "openshift-config"
 )
 
 var (
 	log logr.Logger
+	//FIXME:ybettan: remove?
+//=======
+//	configNamespace              = "openshift-config"
+//	pullSecretName               = "pull-secret"
+//	pullSecretFileName           = ".dockerconfigjson"
+//	imageClusterName             = "cluster"
+//	driverToolkitJSONFile        = "etc/driver-toolkit-release.json"
+//	releaseManifestImagesRefFile = "release-manifests/image-references"
+//	releaseManifestMetadataFile  = "release-manifests/release-metadata"
+//>>>>>>> 08266589 (Adding support for disconnected clusters. (#226))
 )
 
 func init() {
@@ -45,6 +71,8 @@ type DriverToolkitEntry struct {
 	OSVersion           string `json:"OSVersion"`
 }
 
+//FIXME:ybettan: remove?
+//<<<<<<< HEAD
 func writeImageRegistryCredentials() error {
 	_, err := clients.Interface.CoreV1().Namespaces().Get(context.TODO(), pullSecretNamespace, metav1.GetOptions{})
 	if err != nil {
@@ -73,6 +101,40 @@ func LastLayer(entry string) (v1.Layer, error) {
 	if err := writeImageRegistryCredentials(); err != nil {
 		return nil, err
 	}
+	//FIXME:ybettan: remove?
+	//=======
+	////go:generate mockgen -source=registry.go -package=registry -destination=mock_registry_api.go
+	//
+	//type Registry interface {
+	//	LastLayer(context.Context, string) (v1.Layer, error)
+	//	ExtractToolkitRelease(v1.Layer) (*DriverToolkitEntry, error)
+	//	ReleaseManifests(v1.Layer) (string, error)
+	//	ReleaseMetadataOCPVersion(v1.Layer) (string, error)
+	//	ReleaseImageMachineOSConfig(layer v1.Layer) (string, error)
+	//	GetLayersDigests(context.Context, string) (string, []string, error)
+	//	GetLayerByDigest(context.Context, string, string) (v1.Layer, error)
+	//}
+	//
+	//func NewRegistry(kubeClient clients.ClientsInterface, craneWrapper CraneWrapper) Registry {
+	//	return &registry{
+	//		kubeClient:   kubeClient,
+	//		craneWrapper: craneWrapper,
+	//	}
+	//}
+	//
+	//type registry struct {
+	//	kubeClient   clients.ClientsInterface
+	//	craneWrapper CraneWrapper
+	//}
+	//
+	//func (r *registry) LastLayer(ctx context.Context, image string) (v1.Layer, error) {
+	//	repo, digests, err := r.GetLayersDigests(ctx, image)
+	//	if err != nil {
+	//		return nil, fmt.Errorf("failed to get layers digests of the image %s: %w", image, err)
+	//	}
+	//	return r.craneWrapper.PullLayer(ctx, repo+"@"+digests[len(digests)-1])
+	//}
+	//>>>>>>> 08266589 (Adding support for disconnected clusters. (#226))
 
 	var repo string
 
@@ -107,15 +169,29 @@ func LastLayer(entry string) (v1.Layer, error) {
 	return crane.PullLayer(repo+"@"+digest, options)
 }
 
+//FIXME:ybettan: remove?
+//<<<<<<< HEAD
 func ExtractToolkitRelease(layer v1.Layer) (DriverToolkitEntry, error) {
 	var dtk DriverToolkitEntry
 
 	targz, err := layer.Compressed()
 	if err != nil {
 		return dtk, err
+		//FIXME:ybettan: remove?
+		//=======
+		//func (r *registry) GetLayersDigests(ctx context.Context, image string) (string, []string, error) {
+		//	var repo string
+		//
+		//	if hash := strings.Split(image, "@"); len(hash) > 1 {
+		//		repo = hash[0]
+		//	} else if tag := strings.Split(image, ":"); len(tag) > 1 {
+		//		repo = tag[0]
+		//>>>>>>> 08266589 (Adding support for disconnected clusters. (#226))
 	}
 	defer dclose(targz)
 
+	//FIXME:ybettan: remove?
+	//<<<<<<< HEAD
 	gr, err := gzip.NewReader(targz)
 	if err != nil {
 		return dtk, err
@@ -148,6 +224,35 @@ func ExtractToolkitRelease(layer v1.Layer) (DriverToolkitEntry, error) {
 			}
 			log.Info("DTK", "kernel-version", entry)
 			dtk.KernelFullVersion = entry
+			//FIXME:ybettan: remove?
+			//=======
+			//	if repo == "" {
+			//		return "", nil, fmt.Errorf("image url %s is not valid, does not contain hash or tag", image)
+			//	}
+			//
+			//	manifest, err := r.getManifestStreamFromImage(ctx, image, repo)
+			//	if err != nil {
+			//		return "", nil, fmt.Errorf("failed to get manifest stream from image %s: %w", image, err)
+			//	}
+			//
+			//	digests, err := r.getLayersDigestsFromManifestStream(manifest)
+			//	if err != nil {
+			//		return "", nil, fmt.Errorf("failed to get layers digests from manifest stream of image %s: %w", image, err)
+			//	}
+			//
+			//	return repo, digests, nil
+			//}
+			//
+			//func (r *registry) GetLayerByDigest(ctx context.Context, repo string, digest string) (v1.Layer, error) {
+			//	return r.craneWrapper.PullLayer(ctx, repo+"@"+digest)
+			//}
+			//
+			//func (r *registry) getManifestStreamFromImage(ctx context.Context, image, repo string) ([]byte, error) {
+			//	manifest, err := r.craneWrapper.Manifest(ctx, image)
+			//	if err != nil {
+			//		return nil, fmt.Errorf("failed to get crane manifest from image %s: %w", image, err)
+			//	}
+			//>>>>>>> 08266589 (Adding support for disconnected clusters. (#226))
 
 			entry, _, err = unstructured.NestedString(obj.Object, "RT_KERNEL_VERSION")
 			if err != nil {
@@ -163,7 +268,21 @@ func ExtractToolkitRelease(layer v1.Layer) (DriverToolkitEntry, error) {
 			log.Info("DTK", "rhel-version", entry)
 			dtk.OSVersion = entry
 
+			//FIXME:ybettan: remove?
+			//<<<<<<< HEAD
 			return dtk, err
+			//FIXME:ybettan: remove?
+			//=======
+			//	if strings.Contains(imageMediaType, "manifest.list") {
+			//		archDigest, err := r.getImageDigestFromMultiImage(manifest)
+			//		if err != nil {
+			//			return nil, fmt.Errorf("failed to get arch digets from multi arch image: %w", err)
+			//		}
+			//		// get the manifest stream for the image of the architecture
+			//		manifest, err = r.craneWrapper.Manifest(ctx, repo+"@"+archDigest)
+			//		if err != nil {
+			//			return nil, fmt.Errorf("failed to get crane manifest for the arch image: %w", err)
+			//>>>>>>> 08266589 (Adding support for disconnected clusters. (#226))
 		}
 
 	}

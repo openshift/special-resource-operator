@@ -748,6 +748,12 @@ rules:
   - update
   - watch
 - apiGroups:
+  - config.openshift.io
+  resources:
+  - images
+  verbs:
+  - get
+- apiGroups:
   - image.openshift.io
   resources:
   - imagestreams/finalizers
