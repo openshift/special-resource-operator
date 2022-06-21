@@ -3,21 +3,15 @@ package filter
 import (
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/openshift-psap/special-resource-operator/pkg/color"
-	"github.com/openshift-psap/special-resource-operator/pkg/hash"
-	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
-	"github.com/openshift-psap/special-resource-operator/pkg/storage"
-	"github.com/openshift-psap/special-resource-operator/pkg/warn"
-	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	"github.com/openshift-psap/special-resource-operator/api/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"github.com/openshift-psap/special-resource-operator/pkg/color"
+	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
 	operatorv1 "github.com/openshift/api/operator/v1"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -25,10 +19,10 @@ import (
 )
 
 var (
-	Mode   string
-	sroGVK string
-	OwnedLabel  string
-	log    logr.Logger
+	Mode       string
+	sroGVK     string
+	OwnedLabel string
+	log        logr.Logger
 )
 
 func init() {
@@ -220,17 +214,12 @@ func Predicate() predicate.Predicate {
 				} else {
 					log.Info(Mode+" Owned Generation or resourceVersion Changed for kernel affine object",
 						"Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
-					if reflect.TypeOf(obj).String() == "*v1.DaemonSet" && e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
-						err := lifecycle.UpdateDaemonSetPods(obj)
-						warn.OnError(err)
-					}
 					if IsSpecialResource(obj) && isSpecialResourceUnmanaged(obj) {
 						return false
 					}
 					return true
 				}
 			}
-
 
 			// Ignore updates to CR status in which case metadata.Generation does not change
 			if e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() {
@@ -262,11 +251,6 @@ func Predicate() predicate.Predicate {
 				log.Info(Mode+" Owned GenerationChanged",
 					"Name", obj.GetName(), "Type", reflect.TypeOf(obj).String())
 
-				if reflect.TypeOf(obj).String() == "*v1.DaemonSet" {
-					err := lifecycle.UpdateDaemonSetPods(obj)
-					warn.OnError(err)
-				}
-
 				return true
 			}
 
@@ -284,19 +268,6 @@ func Predicate() predicate.Predicate {
 
 			// If we do not own the object, do not care
 			if Owned(obj) {
-
-				ins := types.NamespacedName{
-					Namespace: os.Getenv("OPERATOR_NAMESPACE"),
-					Name:      "special-resource-lifecycle",
-				}
-				key, err := hash.FNV64a(obj.GetNamespace() + obj.GetName())
-				if err != nil {
-					warn.OnError(err)
-					return false
-				}
-				err = storage.DeleteConfigMapEntry(key, ins)
-				warn.OnError(err)
-
 				return true
 			}
 			return false
