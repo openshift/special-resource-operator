@@ -50,14 +50,14 @@ golangci-lint:
 	$(call go-get-tool,$(GOLANGCILINT),github.com/golangci/golangci-lint/cmd/golangci-lint@v1.33.0)
 
 # Additional bundle options for ART
-DEFAULT_CHANNEL="4.9"
-CHANNELS="4.9"
+DEFAULT_CHANNEL="4.10"
+CHANNELS="4.10"
 
 update-bundle:
 	mv $$(find bundle -name image-references) bundle/image-references
 	rm -rf bundle/4.*/manifests bundle/4.*/metadata
 	$(MAKE) bundle DEFAULT_CHANNEL=$(DEFAULT_CHANNEL) VERSION=$(VERSION) IMAGE=$(IMG)
-	mv bundle/manifests/special-resource-operator.clusterserviceversion.yaml bundle/manifests/special-resource-operator.v$(VERSION).clusterserviceversion.yaml
+	mv bundle/manifests/openshift-special-resource-operator.clusterserviceversion.yaml bundle/manifests/openshift-special-resource-operator.v$(VERSION).clusterserviceversion.yaml
 	mv bundle/manifests bundle/$(DEFAULT_CHANNEL)/manifests
 	mv bundle/metadata bundle/$(DEFAULT_CHANNEL)/metadata
 	sed 's#bundle/##g' bundle.Dockerfile | head -n -1 > bundle/$(DEFAULT_CHANNEL)/bundle.Dockerfile
