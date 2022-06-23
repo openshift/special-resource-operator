@@ -84,6 +84,8 @@ spec:
     (...)
 ```
 
+**IMPORTANT**: When having more than one `SpecialResource`, use unique `spec.chart.repository.name` values.
+
 
 # Node Feature Discovery dependency
 
