@@ -18,6 +18,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/openshift/special-resource-operator/pkg/clients"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -35,12 +36,14 @@ type CraneWrapper interface {
 
 type craneWrapper struct {
 	kubeClient clients.ClientsInterface
+	ocg        OpenShiftCAGetter
 	sysCtx     *types.SystemContext
 }
 
-func NewCraneWrapper(kubeClient clients.ClientsInterface, registriesConfFilePath string) *craneWrapper {
+func NewCraneWrapper(kubeClient clients.ClientsInterface, ocg OpenShiftCAGetter, registriesConfFilePath string) *craneWrapper {
 	return &craneWrapper{
 		kubeClient: kubeClient,
+		ocg:        ocg,
 		sysCtx: &types.SystemContext{
 			SystemRegistriesConfPath: registriesConfFilePath,
 		},
@@ -68,27 +71,40 @@ func (cw *craneWrapper) getPullSourcesForImageReference(imageName string) ([]sys
 }
 
 func (cw *craneWrapper) getClusterCustomCertPool(ctx context.Context) (*x509.CertPool, error) {
+	logger := ctrl.LoggerFrom(ctx)
+
+	logger.Info("Loading system CA certificates")
 
 	pool, err := x509.SystemCertPool()
 	if err != nil {
 		return nil, fmt.Errorf("could not access the system certificate pool: %w", err)
 	}
 
-	img, err := cw.kubeClient.GetImage(ctx, imageClusterName, metav1.GetOptions{})
+	logger.Info("Getting the bundle")
+
+	caBundlePEM, err := cw.ocg.CABundle(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("could not retrieve image.config.openshift.io/%s: %w", imageClusterName, err)
+		return nil, fmt.Errorf("error getting the CA bundle: %v", err)
 	}
 
-	cmName := img.Spec.AdditionalTrustedCA.Name
-	if cmName != "" {
-		cm, err := cw.kubeClient.GetConfigMap(ctx, configNamespace, cmName, metav1.GetOptions{})
-		if err != nil {
-			return nil, fmt.Errorf("could not retrieve configmap %s/%s: %w", configNamespace, cmName, err)
+	if len(caBundlePEM) > 0 {
+		if ok := pool.AppendCertsFromPEM(caBundlePEM); !ok {
+			return nil, fmt.Errorf("could not append CA bundle to the pool: %v", err)
 		}
-		for registry, cert := range cm.Data {
-			if ok := pool.AppendCertsFromPEM([]byte(cert)); !ok {
-				return nil, fmt.Errorf("could not append custom certificate for registry %s to the pool: %w", registry, err)
-			}
+	}
+
+	logger.Info("Getting additional CAs")
+
+	additionalCAs, err := cw.ocg.AdditionalTrustedCAs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get additional trusted CAs: %v", err)
+	}
+
+	for name, data := range additionalCAs {
+		logger.V(1).Info("Adding certificate", "name", name)
+
+		if ok := pool.AppendCertsFromPEM(data); !ok {
+			return nil, fmt.Errorf("could not certificate %q to the pool: %v", name, err)
 		}
 	}
 

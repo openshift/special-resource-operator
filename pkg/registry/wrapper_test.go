@@ -11,35 +11,35 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	. "github.com/onsi/gomega"
-	configv1 "github.com/openshift/api/config/v1"
 	"github.com/openshift/special-resource-operator/pkg/clients"
 )
 
 var _ = Describe("Manifest", func() {
 
 	const (
-		registriesConfFile     = "testdata/registries.conf"
-		expectedNamespace      = "openshift-config"
-		expectedName           = "pull-secret"
-		pullData               = `{"auths":{"registry0.com":{"auth":"dXNlcm5hbWU6cGFzc3dvcmQK","email":"user@gmail.com"}}}`
-		img0                   = "registry0.com/org/img"
-		img1                   = "registry1.com/org/img"
-		registry0              = "registry0.com"
-		mirrorRegistry0        = "mirror-registry0.com"
-		additionalTrustedCAsCM = "disconnected-edge"
-		certFileName           = "testdata/custom-ca-cert.pem"
+		registriesConfFile = "testdata/registries.conf"
+		expectedNamespace  = "openshift-config"
+		expectedName       = "pull-secret"
+		pullData           = `{"auths":{"registry0.com":{"auth":"dXNlcm5hbWU6cGFzc3dvcmQK","email":"user@gmail.com"}}}`
+		img0               = "registry0.com/org/img"
+		img1               = "registry1.com/org/img"
+		registry0          = "registry0.com"
+		mirrorRegistry0    = "mirror-registry0.com"
+		certFileName       = "testdata/custom-ca-cert.pem"
 	)
 
 	var (
 		ctrl       *gomock.Controller
 		kubeClient *clients.MockClientsInterface
+		ocg        *MockOpenShiftCAGetter
 		cw         CraneWrapper
 	)
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		kubeClient = clients.NewMockClientsInterface(ctrl)
-		cw = NewCraneWrapper(kubeClient, registriesConfFile)
+		ocg = NewMockOpenShiftCAGetter(ctrl)
+		cw = NewCraneWrapper(kubeClient, ocg, registriesConfFile)
 	})
 
 	AfterEach(func() {
@@ -83,7 +83,7 @@ var _ = Describe("Manifest", func() {
 		})
 
 		It("should fail if registries.conf doesn't exist on the host", func() {
-			cw = NewCraneWrapper(kubeClient, "/non/existance/registries.conf")
+			cw = NewCraneWrapper(kubeClient, nil, "/non/existance/registries.conf")
 			_, err := cw.(*craneWrapper).getPullSourcesForImageReference("registry0.com/org/img")
 
 			Expect(err).To(HaveOccurred())
@@ -141,55 +141,76 @@ var _ = Describe("Manifest", func() {
 
 	Context("getClusterCustomCertPool - dependency method", func() {
 
-		It("should fail if we can't access the image.config.openshift.io", func() {
+		It("should fail if CABundle returned an error", func() {
+			ocg.EXPECT().CABundle(context.Background()).Return(nil, errors.New("random error"))
 
-			kubeClient.EXPECT().GetImage(context.TODO(), imageClusterName, gomock.Any()).Return(nil, errors.New("some error"))
+			_, err := cw.(*craneWrapper).getClusterCustomCertPool(context.TODO())
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should fail if AdditionalTrustedCAs returned an error", func() {
+			gomock.InOrder(
+				ocg.EXPECT().CABundle(context.Background()),
+				ocg.EXPECT().AdditionalTrustedCAs(context.Background()).Return(nil, errors.New("random error")),
+			)
 
 			_, err := cw.(*craneWrapper).getClusterCustomCertPool(context.TODO())
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("should add a certificate to the pool if the user had configured custom certificates in the cluster", func() {
-
-			img := &configv1.Image{}
-			kubeClient.EXPECT().GetImage(context.TODO(), imageClusterName, gomock.Any()).Return(img, nil)
+			gomock.InOrder(
+				ocg.EXPECT().CABundle(context.Background()),
+				ocg.EXPECT().AdditionalTrustedCAs(context.Background()),
+			)
 
 			certPool, err := cw.(*craneWrapper).getClusterCustomCertPool(context.TODO())
 			Expect(err).NotTo(HaveOccurred())
+
 			systemCertInPool := len(certPool.Subjects())
 
-			img = &configv1.Image{
-				Spec: configv1.ImageSpec{
-					AdditionalTrustedCA: configv1.ConfigMapNameReference{
-						Name: additionalTrustedCAsCM,
-					},
-				},
-			}
 			data, err := os.ReadFile(certFileName)
 			Expect(err).NotTo(HaveOccurred())
-			cm := &v1.ConfigMap{
-				Data: map[string]string{"some-registry": string(data)},
-			}
-			kubeClient.EXPECT().GetImage(context.TODO(), imageClusterName, gomock.Any()).Return(img, nil)
-			kubeClient.EXPECT().GetConfigMap(context.TODO(), configNamespace, additionalTrustedCAsCM, gomock.Any()).Return(cm, nil)
+
+			By("Having CABundle return a certificate")
+
+			gomock.InOrder(
+				ocg.EXPECT().CABundle(context.Background()).Return(data, nil),
+				ocg.EXPECT().AdditionalTrustedCAs(context.Background()),
+			)
 
 			certPool, err = cw.(*craneWrapper).getClusterCustomCertPool(context.TODO())
 			Expect(err).NotTo(HaveOccurred())
-			totalCertInPool := len(certPool.Subjects())
+			Expect(certPool.Subjects()).To(HaveLen(systemCertInPool + 1))
 
-			Expect(totalCertInPool).To(Equal(systemCertInPool + 1))
+			By("Having AdditionalTrustedCAs return a certificate")
+
+			gomock.InOrder(
+				ocg.EXPECT().CABundle(context.Background()),
+				ocg.EXPECT().AdditionalTrustedCAs(context.Background()).Return(map[string][]byte{"some-registry": data}, nil),
+			)
+
+			certPool, err = cw.(*craneWrapper).getClusterCustomCertPool(context.TODO())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(certPool.Subjects()).To(HaveLen(systemCertInPool + 1))
 		})
 	})
 
 	It("is redirected to the mirrored image", func() {
-		img := &configv1.Image{}
 		pullSecret := &v1.Secret{
 			Data: map[string][]byte{
 				".dockerconfigjson": []byte(pullData),
 			},
 		}
-		kubeClient.EXPECT().GetImage(context.TODO(), imageClusterName, gomock.Any()).Return(img, nil)
-		kubeClient.EXPECT().GetSecret(context.TODO(), configNamespace, pullSecretName, gomock.Any()).Return(pullSecret, nil)
+
+		gomock.InOrder(
+			ocg.EXPECT().CABundle(context.Background()),
+			ocg.EXPECT().AdditionalTrustedCAs(context.Background()),
+			kubeClient.
+				EXPECT().
+				GetSecret(context.TODO(), configNamespace, pullSecretName, gomock.Any()).
+				Return(pullSecret, nil),
+		)
 
 		_, err := cw.Manifest(context.TODO(), img0)
 		// That registry doesn't exist so we will fail. We just want to make
@@ -198,14 +219,20 @@ var _ = Describe("Manifest", func() {
 	})
 
 	It("is accessing the correct image if no mirror was set", func() {
-		img := &configv1.Image{}
 		pullSecret := &v1.Secret{
 			Data: map[string][]byte{
 				".dockerconfigjson": []byte(pullData),
 			},
 		}
-		kubeClient.EXPECT().GetImage(context.TODO(), imageClusterName, gomock.Any()).Return(img, nil)
-		kubeClient.EXPECT().GetSecret(context.TODO(), configNamespace, pullSecretName, gomock.Any()).Return(pullSecret, nil)
+
+		gomock.InOrder(
+			ocg.EXPECT().CABundle(context.Background()),
+			ocg.EXPECT().AdditionalTrustedCAs(context.Background()),
+			kubeClient.
+				EXPECT().
+				GetSecret(context.TODO(), configNamespace, pullSecretName, gomock.Any()).
+				Return(pullSecret, nil),
+		)
 
 		_, err := cw.Manifest(context.TODO(), img1)
 		// That registry doesn't exist so we will fail. We just want to make
