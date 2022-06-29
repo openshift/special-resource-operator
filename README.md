@@ -65,7 +65,7 @@ Convenience script can be used to create a ConfigMap containing Helm Chart:
 $ ./scripts/make-cm-recipe ./charts/example/simple-kmod-0.0.1
 
 # name and namespace can be specified
-$ ./scripts/make-cm-recipe ./charts/example/simple-kmod-0.0.1 namespace configmap-name
+$ ./scripts/make-cm-recipe ./charts/example/simple-kmod-0.0.1 configmap-name namespace
 ```
 
 To use ConfigMap in Special Resource recipe use following URI scheme: `cm://namespace/configmap-name`, for example:
