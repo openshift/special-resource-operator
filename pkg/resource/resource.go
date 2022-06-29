@@ -11,13 +11,14 @@ import (
 	"github.com/openshift-psap/special-resource-operator/pkg/filter"
 	"github.com/openshift-psap/special-resource-operator/pkg/hash"
 	"github.com/openshift-psap/special-resource-operator/pkg/kernel"
+	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
+	"github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/openshift-psap/special-resource-operator/pkg/poll"
 	"github.com/openshift-psap/special-resource-operator/pkg/proxy"
 	"github.com/openshift-psap/special-resource-operator/pkg/yamlutil"
-	"github.com/openshift-psap/special-resource-operator/pkg/lifecycle"
-        "github.com/openshift-psap/special-resource-operator/pkg/metrics"
 	"github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/kube"
+	apps "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -202,7 +203,10 @@ func CreateFromYAML(yamlFile []byte,
 		// We used this for predicate filtering, we're watching a lot of
 		// API Objects we want to ignore all objects that do not have this
 		// label.
-		filter.SetLabel(obj)
+		err = filter.SetLabel(obj)
+		if err != nil {
+			return err
+		}
 
 		// kernel affinity related attributes only set if there is an
 		// annotation specialresource.openshift.io/kernel-affine: true
@@ -324,7 +328,10 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 		logg.Info("Release", "Installed", releaseInstalled)
 		logg.Info("Is", "OneTimer", oneTimer)
 
-		hash.Annotate(obj)
+		err = hash.Annotate(obj)
+		if err != nil {
+			return err
+		}
 
 		// If we create the resource set the owner reference
 		if err = controllerutil.SetControllerReference(owner, obj, RuntimeScheme); err != nil {
@@ -365,13 +372,19 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 	}
 	if equal {
 		logg.Info("Found, not updating, hash the same: " + found.GetKind() + "/" + found.GetName())
+		// we need to update the template generation for daemonset, since it will be used in the poll
+		// we do it here, since we don't want to interfere with the hash calculation of the object
+		SetTemplateGeneration(obj, found)
 		return nil
 	}
 
 	logg.Info("Found, updating")
 	required := obj.DeepCopy()
 
-	hash.Annotate(required)
+	err = hash.Annotate(required)
+	if err != nil {
+		return err
+	}
 
 	// required.ResourceVersion = found.ResourceVersion this is only needed
 	// before we update a resource, we do not care when creating, hence
@@ -383,6 +396,10 @@ func CRUD(obj *unstructured.Unstructured, releaseInstalled bool, owner v1.Object
 	if err = clients.Interface.Update(context.TODO(), required); err != nil {
 		return fmt.Errorf("couldn't Update Resource: %w", err)
 	}
+
+	// we need to update the template generation for daemonset, since it will be used in the poll
+	// we do it here, since we don't want to interfere with the hash calculation of the object
+	SetTemplateGeneration(obj, found)
 
 	return nil
 }
@@ -431,6 +448,27 @@ func SetMetaData(obj *unstructured.Unstructured, nm string, ns string) {
 	labels["app.kubernetes.io/managed-by"] = "Helm"
 
 	obj.SetLabels(labels)
+}
+
+func SetTemplateGeneration(obj *unstructured.Unstructured, found *unstructured.Unstructured) {
+	if obj.GetKind() != "DaemonSet" {
+		return
+	}
+	foundAnnotations := found.GetAnnotations()
+	if foundAnnotations == nil {
+		return
+	}
+	tempGeneration, ok := foundAnnotations[apps.DeprecatedTemplateGeneration]
+	if !ok {
+		return
+	}
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	annotations[apps.DeprecatedTemplateGeneration] = tempGeneration
+	obj.SetAnnotations(annotations)
 }
 
 type resourceCallbacks map[string]func(obj *unstructured.Unstructured, sr interface{}) error
@@ -586,30 +624,30 @@ func checkForImagePullBackOff(obj *unstructured.Unstructured, namespace string) 
 }
 
 func sendNodesMetrics(obj *unstructured.Unstructured, crName string) {
-        kind := obj.GetKind()
-        if kind != "DaemonSet" && kind != "Deployment" {
-                return
-        }
+	kind := obj.GetKind()
+	if kind != "DaemonSet" && kind != "Deployment" {
+		return
+	}
 
-        objKey := types.NamespacedName{
-                Namespace: obj.GetNamespace(),
-                Name:      obj.GetName(),
-        }
-        getPodsFunc := lifecycle.GetPodFromDaemonSet
-        if kind == "Deployment" {
-                getPodsFunc = lifecycle.GetPodFromDeployment
-        }
+	objKey := types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+	getPodsFunc := lifecycle.GetPodFromDaemonSet
+	if kind == "Deployment" {
+		getPodsFunc = lifecycle.GetPodFromDeployment
+	}
 
-        pl := getPodsFunc(objKey)
-        nodesNames := []string{}
-        for _, pod := range pl.Items {
-                nodesNames = append(nodesNames, pod.Spec.NodeName)
-        }
+	pl := getPodsFunc(objKey)
+	nodesNames := []string{}
+	for _, pod := range pl.Items {
+		nodesNames = append(nodesNames, pod.Spec.NodeName)
+	}
 
-        if len(nodesNames) != 0 {
-                nodesStr := strings.Join(nodesNames, ",")
-                metrics.SetUsedNodes(crName, obj.GetName(), obj.GetNamespace(), kind, nodesStr)
-        } else {
-                log.Info("No assigned nodes for found for UsedNodes metric", "kind", kind, "name", obj.GetName(), "crName", crName)
-        }
+	if len(nodesNames) != 0 {
+		nodesStr := strings.Join(nodesNames, ",")
+		metrics.SetUsedNodes(crName, obj.GetName(), obj.GetNamespace(), kind, nodesStr)
+	} else {
+		log.Info("No assigned nodes for found for UsedNodes metric", "kind", kind, "name", obj.GetName(), "crName", crName)
+	}
 }
