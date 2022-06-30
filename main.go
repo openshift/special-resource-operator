@@ -24,6 +24,7 @@ import (
 	"github.com/openshift-psap/special-resource-operator/cmd/leaderelection"
 	"github.com/openshift-psap/special-resource-operator/controllers"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
+	"github.com/openshift-psap/special-resource-operator/pkg/registry"
 	"github.com/openshift-psap/special-resource-operator/pkg/resource"
 	sroscheme "github.com/openshift-psap/special-resource-operator/pkg/scheme"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -101,6 +102,11 @@ func main() {
 	}
 
 	resource.RuntimeScheme = mgr.GetScheme()
+
+	registry.CW = registry.NewCraneWrapper(
+		clients.Interface,
+		registry.NewOpenShiftCAGetter(clients.Interface),
+		"/mnt/host/registries.conf")
 
 	if err = (&controllers.SpecialResourceReconciler{
 		Log:    ctrl.Log,

@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/openshift-psap/special-resource-operator/pkg/clients"
 	"github.com/openshift-psap/special-resource-operator/pkg/color"
@@ -32,6 +31,7 @@ const (
 
 var (
 	log logr.Logger
+	CW  CraneWrapper
 )
 
 func init() {
@@ -82,9 +82,9 @@ func LastLayer(entry string) (v1.Layer, error) {
 		repo = tag[0]
 	}
 
-	options := crane.NilOption
+	ctx := context.TODO()
 
-	manifest, err := crane.Manifest(entry, options)
+	manifest, err := CW.Manifest(ctx, entry)
 	if err != nil {
 		warn.OnError(fmt.Errorf("cannot extract manifest: %v", err))
 		return nil, nil
@@ -104,7 +104,7 @@ func LastLayer(entry string) (v1.Layer, error) {
 
 	digest := last.(map[string]interface{})["digest"].(string)
 
-	return crane.PullLayer(repo+"@"+digest, options)
+	return CW.PullLayer(ctx, repo+"@"+digest)
 }
 
 func ExtractToolkitRelease(layer v1.Layer) (DriverToolkitEntry, error) {
