@@ -827,6 +827,12 @@ spec:
           - update
           - watch
         - apiGroups:
+          - config.openshift.io
+          resources:
+          - images
+          verbs:
+          - get
+        - apiGroups:
           - image.openshift.io
           resources:
           - imagestreams/finalizers
@@ -1383,6 +1389,9 @@ spec:
                 volumeMounts:
                 - mountPath: /home/nonroot/.cache
                   name: cache-volume
+                - mountPath: /mnt/host/registries.conf
+                  name: host-registries-conf
+                  readOnly: true
               securityContext:
                 runAsGroup: 499
                 runAsNonRoot: true
@@ -1395,6 +1404,10 @@ spec:
                   secretName: special-resource-operator-tls
               - emptyDir: {}
                 name: cache-volume
+              - hostPath:
+                  path: /etc/containers/registries.conf
+                  type: File
+                name: host-registries-conf
       permissions:
       - rules:
         - apiGroups:
