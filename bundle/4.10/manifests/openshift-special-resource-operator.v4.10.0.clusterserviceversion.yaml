@@ -52,7 +52,7 @@ metadata:
       hardware accelerators or software defined storage, where extra management or
       kernel modules are needed.
     olm.skipRange: '>=4.6.0 <4.9.0'
-    operators.operatorframework.io/builder: operator-sdk-v1.15.0+git
+    operators.operatorframework.io/builder: operator-sdk-v1.22.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v2
   labels:
     operatorframework.io/arch.amd64: supported
@@ -834,6 +834,12 @@ spec:
           - update
           - watch
         - apiGroups:
+          - config.openshift.io
+          resources:
+          - images
+          verbs:
+          - get
+        - apiGroups:
           - image.openshift.io
           resources:
           - imagestreams/finalizers
@@ -1251,7 +1257,9 @@ spec:
           - create
         serviceAccountName: special-resource-controller-manager
       deployments:
-      - name: special-resource-controller-manager
+      - label:
+          control-plane: controller-manager
+        name: special-resource-controller-manager
         spec:
           replicas: 1
           selector:
@@ -1322,6 +1330,9 @@ spec:
                   name: cache-volume
                 - mountPath: /home/nonroot/.docker
                   name: cred-volume
+                - mountPath: /mnt/host/registries.conf
+                  name: host-registries-conf
+                  readOnly: true
               securityContext:
                 runAsGroup: 499
                 runAsNonRoot: true
@@ -1336,6 +1347,10 @@ spec:
                 name: cache-volume
               - emptyDir: {}
                 name: cred-volume
+              - hostPath:
+                  path: /etc/containers/registries.conf
+                  type: File
+                name: host-registries-conf
       permissions:
       - rules:
         - apiGroups:
