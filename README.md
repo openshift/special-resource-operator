@@ -58,6 +58,7 @@ See `charts/example` for some examples. In particular:
 * The simple-kmod example shows how to build and deploy two simple kernel modules in a driver container on OpenShift.
 * The centos-simple-kmod example uses the same kernel module as simple-kmod, but is written for running on a vanilla kubernetes cluster with CentOS worker nodes.
 
+Also  [lab](lab) includes instructions and examples on how to build and use driver containers with SRO.
 ## Creating ConfigMap with Helm Chart
 Convenience script can be used to create a ConfigMap containing Helm Chart:
 ``` sh
