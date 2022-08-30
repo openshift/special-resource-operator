@@ -66,6 +66,7 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
+//some comment
 func main() {
 	cl, err := cli.ParseCommandLine(os.Args[0], os.Args[1:])
 	if err != nil {
